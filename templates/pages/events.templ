@@ -1,0 +1,225 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/layouts"
+)
+
+type EventListProps struct {
+	User   models.User
+	Events []models.Event
+}
+
+type EventFormProps struct {
+	User   models.User
+	Event  *models.Event
+	IsEdit bool
+}
+
+templ EventList(props EventListProps) {
+	@layouts.Base("Events", props.User) {
+		<div class="space-y-6">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold text-gray-900">Events</h1>
+				<a href="/events/new" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700">New Event</a>
+			</div>
+
+			<div class="bg-white shadow rounded-lg overflow-hidden">
+				if len(props.Events) == 0 {
+					<div class="p-8 text-center text-gray-500">
+						<p>No events found</p>
+					</div>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="min-w-full divide-y divide-gray-200">
+							<thead class="bg-gray-50">
+								<tr>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+									if props.User.Role == models.RoleAdmin {
+										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+									}
+								</tr>
+							</thead>
+							<tbody class="bg-white divide-y divide-gray-200">
+								for _, event := range props.Events {
+									<tr>
+										<td class="px-6 py-4 whitespace-nowrap">
+											<div class="text-sm font-medium text-gray-900">{ event.Title }</div>
+											if event.Description != "" {
+												<div class="text-sm text-gray-500 truncate max-w-xs">{ event.Description }</div>
+											}
+										</td>
+										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+											if event.AllDay {
+												{ event.StartTime.Format("Jan 2, 2006") }
+												<span class="text-xs text-gray-400 ml-1">(All day)</span>
+											} else {
+												{ event.StartTime.Format("Jan 2, 2006 3:04 PM") }
+												if event.EndTime != nil {
+													<br/>
+													<span class="text-xs text-gray-400">to { event.EndTime.Format("3:04 PM") }</span>
+												}
+											}
+										</td>
+										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+											if event.Location != "" {
+												{ event.Location }
+											} else {
+												<span class="text-gray-400">-</span>
+											}
+										</td>
+										if props.User.Role == models.RoleAdmin {
+											<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+												<a href={ templ.SafeURL(fmt.Sprintf("/events/%s/edit", event.ID)) } class="text-indigo-600 hover:text-indigo-900">Edit</a>
+												<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/events/%s/delete", event.ID)) } class="inline">
+													<button type="submit" onclick="return confirm('Delete this event?')" class="text-red-600 hover:text-red-900">Delete</button>
+												</form>
+											</td>
+										}
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ EventForm(props EventFormProps) {
+	@layouts.Base(eventFormTitle(props.IsEdit), props.User) {
+		<div class="max-w-2xl mx-auto">
+			<h1 class="text-2xl font-bold text-gray-900 mb-6">{ eventFormTitle(props.IsEdit) }</h1>
+
+			<form
+				if props.IsEdit && props.Event != nil {
+					action={ templ.SafeURL(fmt.Sprintf("/events/%s", props.Event.ID)) }
+				} else {
+					action="/events"
+				}
+				method="POST"
+				class="space-y-6 bg-white shadow rounded-lg p-6"
+			>
+				<div>
+					<label for="title" class="block text-sm font-medium text-gray-700">Title</label>
+					<input
+						type="text"
+						id="title"
+						name="title"
+						required
+						if props.Event != nil {
+							value={ props.Event.Title }
+						}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
+				</div>
+
+				<div>
+					<label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+					<textarea
+						id="description"
+						name="description"
+						rows="3"
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					>
+						if props.Event != nil {
+							{ props.Event.Description }
+						}
+					</textarea>
+				</div>
+
+				<div>
+					<label for="location" class="block text-sm font-medium text-gray-700">Location</label>
+					<input
+						type="text"
+						id="location"
+						name="location"
+						if props.Event != nil {
+							value={ props.Event.Location }
+						}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
+				</div>
+
+				<div class="flex items-center">
+					<input
+						type="checkbox"
+						id="all_day"
+						name="all_day"
+						if props.Event != nil && props.Event.AllDay {
+							checked
+						}
+						class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+					/>
+					<label for="all_day" class="ml-2 block text-sm text-gray-700">All Day Event</label>
+				</div>
+
+				<div id="date-fields">
+					<div>
+						<label for="start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
+						<input
+							type="date"
+							id="start_date"
+							name="start_date"
+							if props.Event != nil {
+								value={ props.Event.StartTime.Format("2006-01-02") }
+							}
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+					</div>
+				</div>
+
+				<div id="time-fields">
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div>
+							<label for="start_time" class="block text-sm font-medium text-gray-700">Start Time</label>
+							<input
+								type="datetime-local"
+								id="start_time"
+								name="start_time"
+								if props.Event != nil && !props.Event.AllDay {
+									value={ props.Event.StartTime.Format("2006-01-02T15:04") }
+								}
+								class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							/>
+						</div>
+						<div>
+							<label for="end_time" class="block text-sm font-medium text-gray-700">End Time</label>
+							<input
+								type="datetime-local"
+								id="end_time"
+								name="end_time"
+								if props.Event != nil && props.Event.EndTime != nil {
+									value={ props.Event.EndTime.Format("2006-01-02T15:04") }
+								}
+								class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex justify-end space-x-3">
+					<a href="/events" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</a>
+					<button type="submit" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700">
+						if props.IsEdit {
+							Update
+						} else {
+							Create
+						}
+					</button>
+				</div>
+			</form>
+		</div>
+	}
+}
+
+func eventFormTitle(isEdit bool) string {
+	if isEdit {
+		return "Edit Event"
+	}
+	return "New Event"
+}

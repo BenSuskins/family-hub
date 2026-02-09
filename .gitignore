@@ -30,3 +30,13 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Application
+data/
+bin/
+tmp/
+static/css/styles.css
+node_modules/
+
+# Generated templ files
+*_templ.go

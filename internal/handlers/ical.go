@@ -1,0 +1,220 @@
+package handlers
+
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/bensuskins/family-hub/internal/repository"
+)
+
+type ICalHandler struct {
+	choreRepo repository.ChoreRepository
+	eventRepo repository.EventRepository
+	userRepo  repository.UserRepository
+	haToken   string
+}
+
+func NewICalHandler(
+	choreRepo repository.ChoreRepository,
+	eventRepo repository.EventRepository,
+	userRepo repository.UserRepository,
+	haToken string,
+) *ICalHandler {
+	return &ICalHandler{
+		choreRepo: choreRepo,
+		eventRepo: eventRepo,
+		userRepo:  userRepo,
+		haToken:   haToken,
+	}
+}
+
+func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" || token != handler.haToken {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+
+	events, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{})
+	if err != nil {
+		slog.Error("finding events for ical", "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
+	if err != nil {
+		slog.Error("finding chores for ical", "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	users, err := handler.userRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding users for ical", "error", err)
+	}
+
+	userMap := make(map[string]string)
+	for _, user := range users {
+		userMap[user.ID] = user.Name
+	}
+
+	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=family-hub.ics")
+
+	var builder strings.Builder
+	builder.WriteString("BEGIN:VCALENDAR\r\n")
+	builder.WriteString("VERSION:2.0\r\n")
+	builder.WriteString("PRODID:-//Family Hub//Family Hub//EN\r\n")
+	builder.WriteString("CALSCALE:GREGORIAN\r\n")
+	builder.WriteString("METHOD:PUBLISH\r\n")
+	builder.WriteString("X-WR-CALNAME:Family Hub\r\n")
+
+	for _, event := range events {
+		builder.WriteString("BEGIN:VEVENT\r\n")
+		builder.WriteString(fmt.Sprintf("UID:%s@family-hub\r\n", event.ID))
+		builder.WriteString(fmt.Sprintf("SUMMARY:%s\r\n", escapeICalText(event.Title)))
+		if event.Description != "" {
+			builder.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICalText(event.Description)))
+		}
+		if event.Location != "" {
+			builder.WriteString(fmt.Sprintf("LOCATION:%s\r\n", escapeICalText(event.Location)))
+		}
+		if event.AllDay {
+			builder.WriteString(fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", event.StartTime.Format("20060102")))
+			builder.WriteString(fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", event.StartTime.AddDate(0, 0, 1).Format("20060102")))
+		} else {
+			builder.WriteString(fmt.Sprintf("DTSTART:%s\r\n", event.StartTime.UTC().Format("20060102T150405Z")))
+			if event.EndTime != nil {
+				builder.WriteString(fmt.Sprintf("DTEND:%s\r\n", event.EndTime.UTC().Format("20060102T150405Z")))
+			}
+		}
+		builder.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", event.CreatedAt.UTC().Format("20060102T150405Z")))
+		builder.WriteString("END:VEVENT\r\n")
+	}
+
+	for _, chore := range chores {
+		builder.WriteString("BEGIN:VTODO\r\n")
+		builder.WriteString(fmt.Sprintf("UID:%s@family-hub\r\n", chore.ID))
+		builder.WriteString(fmt.Sprintf("SUMMARY:%s\r\n", escapeICalText(chore.Name)))
+
+		description := chore.Description
+		if chore.AssignedToUserID != nil {
+			if userName, ok := userMap[*chore.AssignedToUserID]; ok {
+				description += fmt.Sprintf("\nAssigned to: %s", userName)
+			}
+		}
+		if description != "" {
+			builder.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICalText(description)))
+		}
+
+		if chore.DueDate != nil {
+			builder.WriteString(fmt.Sprintf("DUE:%s\r\n", chore.DueDate.UTC().Format("20060102T150405Z")))
+		}
+
+		switch chore.Status {
+		case "completed":
+			builder.WriteString("STATUS:COMPLETED\r\n")
+			if chore.CompletedAt != nil {
+				builder.WriteString(fmt.Sprintf("COMPLETED:%s\r\n", chore.CompletedAt.UTC().Format("20060102T150405Z")))
+			}
+		case "pending":
+			builder.WriteString("STATUS:NEEDS-ACTION\r\n")
+		case "overdue":
+			builder.WriteString("STATUS:NEEDS-ACTION\r\n")
+			builder.WriteString("PRIORITY:1\r\n")
+		}
+
+		builder.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", chore.CreatedAt.UTC().Format("20060102T150405Z")))
+		builder.WriteString("END:VTODO\r\n")
+	}
+
+	builder.WriteString("END:VCALENDAR\r\n")
+
+	w.Write([]byte(builder.String()))
+}
+
+func escapeICalText(text string) string {
+	text = strings.ReplaceAll(text, "\\", "\\\\")
+	text = strings.ReplaceAll(text, ";", "\\;")
+	text = strings.ReplaceAll(text, ",", "\\,")
+	text = strings.ReplaceAll(text, "\n", "\\n")
+	return text
+}
+
+// Home Assistant sensor endpoint
+type HASensorHandler struct {
+	choreRepo repository.ChoreRepository
+	userRepo  repository.UserRepository
+	haToken   string
+}
+
+func NewHASensorHandler(
+	choreRepo repository.ChoreRepository,
+	userRepo repository.UserRepository,
+	haToken string,
+) *HASensorHandler {
+	return &HASensorHandler{
+		choreRepo: choreRepo,
+		userRepo:  userRepo,
+		haToken:   haToken,
+	}
+}
+
+func (handler *HASensorHandler) Sensors(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+	token = strings.TrimPrefix(token, "Bearer ")
+
+	if token != handler.haToken {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	ctx := r.Context()
+
+	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
+	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
+	users, _ := handler.userRepo.FindAll(ctx)
+
+	now := time.Now()
+	weekAgo := now.AddDate(0, 0, -7)
+
+	sensors := map[string]interface{}{
+		"chores_due_today": len(choresDueToday),
+		"chores_overdue":   len(overdueChores),
+	}
+
+	userSensors := make(map[string]interface{})
+	for _, user := range users {
+		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, "pending", user.ID)
+		overdueCount, _ := handler.choreRepo.CountByStatusAndUser(ctx, "overdue", user.ID)
+
+		var completedCount int
+		allChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
+		for _, chore := range allChores {
+			if chore.CompletedByUserID != nil && *chore.CompletedByUserID == user.ID &&
+				chore.CompletedAt != nil && chore.CompletedAt.After(weekAgo) {
+				completedCount++
+			}
+		}
+
+		safeName := strings.ReplaceAll(strings.ToLower(user.Name), " ", "_")
+		userSensors[safeName] = map[string]int{
+			"assigned_chores":      assignedPending,
+			"overdue_chores":       overdueCount,
+			"completed_this_week":  completedCount,
+		}
+	}
+
+	sensors["users"] = userSensors
+
+	writeJSON(w, http.StatusOK, sensors)
+}

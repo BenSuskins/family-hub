@@ -1,0 +1,12 @@
+{
+  "name": "family-hub",
+  "private": true,
+  "scripts": {
+    "css:build": "npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify",
+    "css:watch": "npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/forms": "^0.5.7"
+  }
+}

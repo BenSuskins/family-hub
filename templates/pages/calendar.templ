@@ -1,0 +1,160 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/layouts"
+)
+
+type CalendarProps struct {
+	User   models.User
+	Year   int
+	Month  int
+	Events []models.Event
+	Chores []models.Chore
+}
+
+templ Calendar(props CalendarProps) {
+	@layouts.Base("Calendar", props.User) {
+		<div class="space-y-6">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold text-gray-900">Calendar</h1>
+				<div class="flex items-center space-x-4">
+					<a
+						href={ templ.SafeURL(prevMonthURL(props.Year, props.Month)) }
+						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+					>&larr; Prev</a>
+					<span class="text-lg font-medium text-gray-900">
+						{ time.Month(props.Month).String() } { fmt.Sprintf("%d", props.Year) }
+					</span>
+					<a
+						href={ templ.SafeURL(nextMonthURL(props.Year, props.Month)) }
+						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+					>Next &rarr;</a>
+				</div>
+			</div>
+
+			<div class="bg-white shadow rounded-lg overflow-hidden">
+				<!-- Day headers -->
+				<div class="grid grid-cols-7 bg-gray-50">
+					for _, day := range []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"} {
+						<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">{ day }</div>
+					}
+				</div>
+
+				<!-- Calendar grid -->
+				<div class="grid grid-cols-7 divide-x divide-y divide-gray-200">
+					for _, day := range calendarDays(props.Year, props.Month) {
+						<div class={ "min-h-24 p-1 " + dayClass(day, props.Year, props.Month) }>
+							if day.Day() > 0 {
+								<div class={ "text-sm font-medium mb-1 " + todayClass(day) }>
+									{ fmt.Sprintf("%d", day.Day()) }
+								</div>
+								for _, event := range eventsOnDay(props.Events, day) {
+									<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+										{ event.Title }
+									</div>
+								}
+								for _, chore := range choresOnDay(props.Chores, day) {
+									<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate " + choreColor(chore.Status) } title={ chore.Name }>
+										{ chore.Name }
+									</div>
+								}
+							}
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+func prevMonthURL(year, month int) string {
+	if month == 1 {
+		return fmt.Sprintf("/calendar?year=%d&month=%d", year-1, 12)
+	}
+	return fmt.Sprintf("/calendar?year=%d&month=%d", year, month-1)
+}
+
+func nextMonthURL(year, month int) string {
+	if month == 12 {
+		return fmt.Sprintf("/calendar?year=%d&month=%d", year+1, 1)
+	}
+	return fmt.Sprintf("/calendar?year=%d&month=%d", year, month+1)
+}
+
+func calendarDays(year, month int) []time.Time {
+	firstOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+	startDay := int(firstOfMonth.Weekday())
+	daysInMonth := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.Local).Day()
+
+	var days []time.Time
+
+	for i := 0; i < startDay; i++ {
+		days = append(days, time.Time{})
+	}
+
+	for day := 1; day <= daysInMonth; day++ {
+		days = append(days, time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local))
+	}
+
+	for len(days)%7 != 0 {
+		days = append(days, time.Time{})
+	}
+
+	return days
+}
+
+func dayClass(day time.Time, year, month int) string {
+	if day.IsZero() {
+		return "bg-gray-50"
+	}
+	return "bg-white"
+}
+
+func todayClass(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "text-indigo-600 font-bold"
+	}
+	return "text-gray-700"
+}
+
+func eventsOnDay(events []models.Event, day time.Time) []models.Event {
+	var result []models.Event
+	for _, event := range events {
+		if event.StartTime.Year() == day.Year() &&
+			event.StartTime.Month() == day.Month() &&
+			event.StartTime.Day() == day.Day() {
+			result = append(result, event)
+		}
+	}
+	return result
+}
+
+func choresOnDay(chores []models.Chore, day time.Time) []models.Chore {
+	var result []models.Chore
+	for _, chore := range chores {
+		if chore.DueDate != nil &&
+			chore.DueDate.Year() == day.Year() &&
+			chore.DueDate.Month() == day.Month() &&
+			chore.DueDate.Day() == day.Day() {
+			result = append(result, chore)
+		}
+	}
+	return result
+}
+
+func choreColor(status models.ChoreStatus) string {
+	switch status {
+	case models.ChoreStatusPending:
+		return "bg-yellow-100 text-yellow-800"
+	case models.ChoreStatusCompleted:
+		return "bg-green-100 text-green-800"
+	case models.ChoreStatusOverdue:
+		return "bg-red-100 text-red-800"
+	default:
+		return "bg-gray-100 text-gray-800"
+	}
+}

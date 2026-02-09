@@ -1,0 +1,289 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/templates/layouts"
+)
+
+type ChoreListProps struct {
+	User       models.User
+	Chores     []models.Chore
+	Categories []models.Category
+	Users      []models.User
+	Filter     repository.ChoreFilter
+}
+
+type ChoreFormProps struct {
+	User       models.User
+	Categories []models.Category
+	Chore      *models.Chore
+	IsEdit     bool
+}
+
+templ ChoreList(props ChoreListProps) {
+	@layouts.Base("Chores", props.User) {
+		<div class="space-y-6">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold text-gray-900">Chores</h1>
+				if props.User.Role == models.RoleAdmin {
+					<a href="/chores/new" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">New Chore</a>
+				}
+			</div>
+
+			<!-- Filters -->
+			<form method="GET" action="/chores" class="flex flex-wrap gap-3 bg-white p-4 rounded-lg shadow">
+				<select name="status" class="rounded-md border-gray-300 text-sm">
+					<option value="">All Statuses</option>
+					<option value="pending">Pending</option>
+					<option value="completed">Completed</option>
+					<option value="overdue">Overdue</option>
+				</select>
+				<select name="assigned_to" class="rounded-md border-gray-300 text-sm">
+					<option value="">All Users</option>
+					for _, u := range props.Users {
+						<option value={ u.ID }>{ u.Name }</option>
+					}
+				</select>
+				<select name="category" class="rounded-md border-gray-300 text-sm">
+					<option value="">All Categories</option>
+					for _, c := range props.Categories {
+						<option value={ c.ID }>{ c.Name }</option>
+					}
+				</select>
+				<button type="submit" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200">Filter</button>
+			</form>
+
+			<!-- Chore List -->
+			<div class="bg-white shadow rounded-lg overflow-hidden">
+				if len(props.Chores) == 0 {
+					<div class="p-8 text-center text-gray-500">
+						<p>No chores found</p>
+					</div>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="min-w-full divide-y divide-gray-200">
+							<thead class="bg-gray-50">
+								<tr>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chore</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+								</tr>
+							</thead>
+							<tbody class="bg-white divide-y divide-gray-200" id="chore-list">
+								for _, chore := range props.Chores {
+									@ChoreRow(chore, props.User)
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ ChoreRow(chore models.Chore, user models.User) {
+	<tr id={ "chore-" + chore.ID }>
+		<td class="px-6 py-4 whitespace-nowrap">
+			<div class="text-sm font-medium text-gray-900">{ chore.Name }</div>
+			if chore.Description != "" {
+				<div class="text-sm text-gray-500 truncate max-w-xs">{ chore.Description }</div>
+			}
+			if chore.RecurrenceType != models.RecurrenceNone {
+				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">Recurring</span>
+			}
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+			if chore.AssignedToUserID != nil {
+				{ *chore.AssignedToUserID }
+			} else {
+				<span class="text-gray-400">Unassigned</span>
+			}
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+			if chore.DueDate != nil {
+				{ chore.DueDate.Format("Jan 2, 2006") }
+				if chore.DueTime != nil {
+					{ " " + *chore.DueTime }
+				}
+			} else {
+				<span class="text-gray-400">No due date</span>
+			}
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap">
+			@choreStatusBadge(chore.Status)
+		</td>
+		<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+			if chore.Status != models.ChoreStatusCompleted && chore.AssignedToUserID != nil && *chore.AssignedToUserID == user.ID {
+				<button
+					hx-post={ fmt.Sprintf("/chores/%s/complete", chore.ID) }
+					hx-target={ "#chore-" + chore.ID }
+					hx-swap="outerHTML"
+					class="text-green-600 hover:text-green-900 font-medium"
+				>
+					Complete
+				</button>
+			}
+			if user.Role == models.RoleAdmin {
+				<a href={ templ.SafeURL(fmt.Sprintf("/chores/%s/edit", chore.ID)) } class="text-indigo-600 hover:text-indigo-900">Edit</a>
+				<button
+					hx-post={ fmt.Sprintf("/chores/%s/delete", chore.ID) }
+					hx-target={ "#chore-" + chore.ID }
+					hx-swap="outerHTML"
+					hx-confirm="Delete this chore?"
+					class="text-red-600 hover:text-red-900"
+				>
+					Delete
+				</button>
+			}
+		</td>
+	</tr>
+}
+
+templ ChoreForm(props ChoreFormProps) {
+	@layouts.Base(choreFormTitle(props.IsEdit), props.User) {
+		<div class="max-w-2xl mx-auto">
+			<h1 class="text-2xl font-bold text-gray-900 mb-6">{ choreFormTitle(props.IsEdit) }</h1>
+
+			<form
+				if props.IsEdit && props.Chore != nil {
+					action={ templ.SafeURL(fmt.Sprintf("/chores/%s", props.Chore.ID)) }
+				} else {
+					action="/chores"
+				}
+				method="POST"
+				class="space-y-6 bg-white shadow rounded-lg p-6"
+			>
+				<div>
+					<label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						required
+						if props.Chore != nil {
+							value={ props.Chore.Name }
+						}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
+				</div>
+
+				<div>
+					<label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+					<textarea
+						id="description"
+						name="description"
+						rows="3"
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					>
+						if props.Chore != nil {
+							{ props.Chore.Description }
+						}
+					</textarea>
+				</div>
+
+				<div>
+					<label for="category_id" class="block text-sm font-medium text-gray-700">Category</label>
+					<select id="category_id" name="category_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+						<option value="">No Category</option>
+						for _, cat := range props.Categories {
+							<option
+								value={ cat.ID }
+								if props.Chore != nil && props.Chore.CategoryID != nil && *props.Chore.CategoryID == cat.ID {
+									selected
+								}
+							>{ cat.Name }</option>
+						}
+					</select>
+				</div>
+
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label for="due_date" class="block text-sm font-medium text-gray-700">Due Date</label>
+						<input
+							type="date"
+							id="due_date"
+							name="due_date"
+							if props.Chore != nil && props.Chore.DueDate != nil {
+								value={ props.Chore.DueDate.Format("2006-01-02") }
+							}
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+					</div>
+					<div>
+						<label for="due_time" class="block text-sm font-medium text-gray-700">Due Time</label>
+						<input
+							type="time"
+							id="due_time"
+							name="due_time"
+							if props.Chore != nil && props.Chore.DueTime != nil {
+								value={ *props.Chore.DueTime }
+							}
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<label for="recurrence_type" class="block text-sm font-medium text-gray-700">Recurrence</label>
+					<select id="recurrence_type" name="recurrence_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+						<option value="none" if props.Chore != nil && props.Chore.RecurrenceType == "none" { selected }>None</option>
+						<option value="daily" if props.Chore != nil && props.Chore.RecurrenceType == "daily" { selected }>Daily</option>
+						<option value="weekly" if props.Chore != nil && props.Chore.RecurrenceType == "weekly" { selected }>Weekly</option>
+						<option value="monthly" if props.Chore != nil && props.Chore.RecurrenceType == "monthly" { selected }>Monthly</option>
+						<option value="custom" if props.Chore != nil && props.Chore.RecurrenceType == "custom" { selected }>Custom</option>
+					</select>
+				</div>
+
+				<div>
+					<label for="recurrence_value" class="block text-sm font-medium text-gray-700">Recurrence Config (JSON)</label>
+					<input
+						type="text"
+						id="recurrence_value"
+						name="recurrence_value"
+						placeholder='{"interval": 1}'
+						if props.Chore != nil {
+							value={ props.Chore.RecurrenceValue }
+						}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
+				</div>
+
+				<div class="flex items-center">
+					<input
+						type="checkbox"
+						id="recur_on_complete"
+						name="recur_on_complete"
+						if props.Chore != nil && props.Chore.RecurOnComplete {
+							checked
+						}
+						class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+					/>
+					<label for="recur_on_complete" class="ml-2 block text-sm text-gray-700">Recur after completion (vs fixed schedule)</label>
+				</div>
+
+				<div class="flex justify-end space-x-3">
+					<a href="/chores" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</a>
+					<button type="submit" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700">
+						if props.IsEdit {
+							Update
+						} else {
+							Create
+						}
+					</button>
+				</div>
+			</form>
+		</div>
+	}
+}
+
+func choreFormTitle(isEdit bool) string {
+	if isEdit {
+		return "Edit Chore"
+	}
+	return "New Chore"
+}

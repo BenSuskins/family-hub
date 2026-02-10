@@ -21,6 +21,7 @@ jobs:
       run: |
         go mod download
         npm install
+        go get -tool github.com/a-h/templ/cmd/templ@latest
         make build
 
     - name: test

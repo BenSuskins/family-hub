@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -115,16 +116,24 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		UpcomingEvents: upcomingEvents,
 		AllChores:      allChores,
 		Users:          users,
-		UserStats:      convertUserStats(userStats),
+		UserStats:      convertUserStats(userStats, "week"),
 		UserAvatarMap:  userAvatarMap,
 	})
 	component.Render(ctx, w)
 }
 
-func convertUserStats(stats []UserStat) []pages.UserStatProps {
+func convertUserStats(stats []UserStat, period string) []pages.UserStatProps {
+	sort.Slice(stats, func(i, j int) bool {
+		if period == "month" {
+			return stats[i].CompletedMonth > stats[j].CompletedMonth
+		}
+		return stats[i].CompletedWeek > stats[j].CompletedWeek
+	})
+
 	var result []pages.UserStatProps
-	for _, stat := range stats {
+	for index, stat := range stats {
 		result = append(result, pages.UserStatProps{
+			Rank:            index + 1,
 			UserName:        stat.UserName,
 			UserAvatarURL:   stat.UserAvatarURL,
 			CompletedWeek:   stat.CompletedWeek,
@@ -133,4 +142,45 @@ func convertUserStats(stats []UserStat) []pages.UserStatProps {
 		})
 	}
 	return result
+}
+
+func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "week"
+	}
+
+	users, err := handler.userRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding users", "error", err)
+		http.Error(w, "Error loading leaderboard", http.StatusInternalServerError)
+		return
+	}
+
+	now := time.Now()
+	weekAgo := now.AddDate(0, 0, -7)
+	monthAgo := now.AddDate(0, -1, 0)
+
+	var userStats []UserStat
+	for _, u := range users {
+		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
+		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
+		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, "pending", u.ID)
+
+		userStats = append(userStats, UserStat{
+			UserName:        u.Name,
+			UserAvatarURL:   u.AvatarURL,
+			CompletedWeek:   completedWeek,
+			CompletedMonth:  completedMonth,
+			AssignedPending: assignedPending,
+		})
+	}
+
+	component := pages.LeaderboardTable(pages.LeaderboardProps{
+		UserStats: convertUserStats(userStats, period),
+		Period:    period,
+	})
+	component.Render(ctx, w)
 }

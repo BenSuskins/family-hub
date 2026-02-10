@@ -144,6 +144,93 @@ func TestChoreRepository_Delete(t *testing.T) {
 	}
 }
 
+func TestChoreRepository_FindAll_WithStatuses(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	choreRepo.Create(ctx, models.Chore{
+		Name: "Pending chore", CreatedByUserID: user.ID,
+		Status: models.ChoreStatusPending,
+	})
+	overdue := models.Chore{
+		Name: "Overdue chore", CreatedByUserID: user.ID,
+	}
+	created, _ := choreRepo.Create(ctx, overdue)
+	created.Status = models.ChoreStatusOverdue
+	choreRepo.Update(ctx, created)
+
+	completed := models.Chore{
+		Name: "Completed chore", CreatedByUserID: user.ID,
+	}
+	createdCompleted, _ := choreRepo.Create(ctx, completed)
+	now := time.Now()
+	createdCompleted.Status = models.ChoreStatusCompleted
+	createdCompleted.CompletedAt = &now
+	choreRepo.Update(ctx, createdCompleted)
+
+	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+	})
+	if err != nil {
+		t.Fatalf("finding chores: %v", err)
+	}
+	if len(chores) != 2 {
+		t.Fatalf("expected 2 chores (pending+overdue), got %d", len(chores))
+	}
+	for _, chore := range chores {
+		if chore.Status != models.ChoreStatusPending && chore.Status != models.ChoreStatusOverdue {
+			t.Errorf("unexpected status: %s", chore.Status)
+		}
+	}
+}
+
+func TestChoreRepository_FindAll_WithOrderBy(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	earlier := time.Now().Add(-2 * time.Hour)
+	later := time.Now().Add(-1 * time.Hour)
+
+	first, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "First completed", CreatedByUserID: user.ID,
+	})
+	first.Status = models.ChoreStatusCompleted
+	first.CompletedAt = &earlier
+	choreRepo.Update(ctx, first)
+
+	second, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "Second completed", CreatedByUserID: user.ID,
+	})
+	second.Status = models.ChoreStatusCompleted
+	second.CompletedAt = &later
+	choreRepo.Update(ctx, second)
+
+	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusCompleted},
+		OrderBy:  repository.OrderByCompletedAtDesc,
+	})
+	if err != nil {
+		t.Fatalf("finding chores: %v", err)
+	}
+	if len(chores) != 2 {
+		t.Fatalf("expected 2 chores, got %d", len(chores))
+	}
+	if chores[0].Name != "Second completed" {
+		t.Errorf("expected 'Second completed' first, got '%s'", chores[0].Name)
+	}
+	if chores[1].Name != "First completed" {
+		t.Errorf("expected 'First completed' second, got '%s'", chores[1].Name)
+	}
+}
+
 func TestChoreRepository_CountByStatusAndUser(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

@@ -22,8 +22,8 @@ jobs:
         export PATH="$PATH:$(go env GOPATH)/bin"
         go mod download
         npm install
-        go get -tool github.com/a-h/templ/cmd/templ@latest
-        make build
+        go install github.com/a-h/templ/cmd/templ@latest
+        npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
     - name: test
       run: |

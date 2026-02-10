@@ -1,6 +1,10 @@
 package database
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -20,8 +24,13 @@ func TestMigrate_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("querying migrations: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("expected 1 migration, got %d", count)
+	want, err := migrationFileCount()
+	if err != nil {
+		t.Fatalf("counting migration files: %v", err)
+	}
+
+	if count != want {
+		t.Errorf("expected %d migrations, got %d", want, count)
 	}
 }
 
@@ -42,9 +51,30 @@ func TestMigrate_Idempotent(t *testing.T) {
 
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count)
-	if count != 1 {
-		t.Errorf("expected 1 migration after double run, got %d", count)
+	// ensure the migration count matches the number of migration files
+	want, err := migrationFileCount()
+	if err != nil {
+		t.Fatalf("counting migration files: %v", err)
 	}
+	if count != want {
+		t.Errorf("expected %d migrations after double run, got %d", want, count)
+	}
+}
+
+func migrationFileCount() (int, error) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	migrationsDir := filepath.Join(filepath.Dir(thisFile), "migrations")
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return 0, err
+	}
+	want := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".up.sql") {
+			want++
+		}
+	}
+	return want, nil
 }
 
 func TestMigrate_CreatesAllTables(t *testing.T) {

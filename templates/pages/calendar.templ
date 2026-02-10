@@ -21,6 +21,15 @@ templ Calendar(props CalendarProps) {
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold text-gray-900">Calendar</h1>
 				<div class="flex items-center space-x-4">
+					<button
+						hx-post="/calendar/share"
+						hx-target="#share-modal-content"
+						hx-swap="innerHTML"
+						class="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-green-700"
+						onclick="document.getElementById('share-modal').classList.remove('hidden')"
+					>
+						Share Calendar
+					</button>
 					<a
 						href={ templ.SafeURL(prevMonthURL(props.Year, props.Month)) }
 						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
@@ -32,6 +41,19 @@ templ Calendar(props CalendarProps) {
 						href={ templ.SafeURL(nextMonthURL(props.Year, props.Month)) }
 						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
 					>Next &rarr;</a>
+				</div>
+			</div>
+
+			<!-- Share Modal -->
+			<div id="share-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+				<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+					<div class="flex justify-between items-center p-4 border-b">
+						<h3 class="text-lg font-medium text-gray-900">Share Calendar</h3>
+						<button onclick="document.getElementById('share-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+					</div>
+					<div id="share-modal-content" class="p-4">
+						<p class="text-sm text-gray-500">Loading...</p>
+					</div>
 				</div>
 			</div>
 
@@ -68,6 +90,33 @@ templ Calendar(props CalendarProps) {
 			</div>
 		</div>
 	}
+}
+
+templ CalendarShareModal(icalURL string) {
+	<div class="space-y-4">
+		<div>
+			<label class="block text-sm font-medium text-gray-700 mb-1">iCal Feed URL</label>
+			<div class="flex gap-2">
+				<input
+					type="text"
+					id="ical-url"
+					value={ icalURL }
+					readonly
+					class="flex-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm sm:text-sm"
+				/>
+				<button
+					onclick="navigator.clipboard.writeText(document.getElementById('ical-url').value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
+					class="bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700"
+				>
+					Copy
+				</button>
+			</div>
+		</div>
+		<div class="text-sm text-gray-600 space-y-2">
+			<p><strong>Google Calendar:</strong> Settings &rarr; Add calendar &rarr; From URL &rarr; paste the link above</p>
+			<p><strong>Apple Calendar:</strong> File &rarr; New Calendar Subscription &rarr; paste the link above</p>
+		</div>
+	</div>
 }
 
 func prevMonthURL(year, month int) string {

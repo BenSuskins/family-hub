@@ -7,19 +7,30 @@ import (
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
+	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/templates/pages"
+	"github.com/google/uuid"
 )
 
 type CalendarHandler struct {
 	choreRepo repository.ChoreRepository
 	eventRepo repository.EventRepository
+	tokenRepo repository.APITokenRepository
+	baseURL   string
 }
 
-func NewCalendarHandler(choreRepo repository.ChoreRepository, eventRepo repository.EventRepository) *CalendarHandler {
+func NewCalendarHandler(
+	choreRepo repository.ChoreRepository,
+	eventRepo repository.EventRepository,
+	tokenRepo repository.APITokenRepository,
+	baseURL string,
+) *CalendarHandler {
 	return &CalendarHandler{
 		choreRepo: choreRepo,
 		eventRepo: eventRepo,
+		tokenRepo: tokenRepo,
+		baseURL:   baseURL,
 	}
 }
 
@@ -69,4 +80,49 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		Chores: chores,
 	})
 	component.Render(ctx, w)
+}
+
+func (handler *CalendarHandler) ShareInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	tokens, err := handler.tokenRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding tokens", "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	var icalToken *models.APIToken
+	for _, token := range tokens {
+		if token.Name == "iCal Feed" && token.CreatedByUserID == user.ID {
+			icalToken = &token
+			break
+		}
+	}
+
+	if icalToken == nil {
+		rawToken := uuid.New().String()
+		tokenHash := repository.HashToken(rawToken)
+		newToken := models.APIToken{
+			Name:            "iCal Feed",
+			TokenHash:       tokenHash,
+			CreatedByUserID: user.ID,
+		}
+		created, err := handler.tokenRepo.Create(ctx, newToken)
+		if err != nil {
+			slog.Error("creating ical token", "error", err)
+			http.Error(w, "Error creating share link", http.StatusInternalServerError)
+			return
+		}
+		_ = created
+
+		icalURL := handler.baseURL + "/ical?token=" + rawToken
+		component := pages.CalendarShareModal(icalURL)
+		component.Render(ctx, w)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(`<div class="p-4 text-sm text-gray-600">A share link was already created. Check your Admin panel for existing API tokens, or use the iCal URL you saved previously.</div>`))
 }

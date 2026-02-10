@@ -189,6 +189,81 @@ func TestChoreService_CompleteChore_CreatesRecurrence(t *testing.T) {
 	}
 }
 
+func TestChoreService_AssignNextUser_ScopedPool(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 3)
+
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Scoped Chore",
+		CreatedByUserID:   users[0].ID,
+		LastAssignedIndex: -1,
+	})
+
+	choreRepo.SetEligibleAssignees(ctx, chore.ID, []string{users[0].ID, users[2].ID})
+
+	assigned, err := service.AssignNextUser(ctx, chore)
+	if err != nil {
+		t.Fatalf("scoped assignment: %v", err)
+	}
+	if assigned.AssignedToUserID == nil {
+		t.Fatal("expected assignment")
+	}
+
+	assignedID := *assigned.AssignedToUserID
+	if assignedID != users[0].ID && assignedID != users[2].ID {
+		t.Errorf("assigned to user %s who is not in the eligible pool", assignedID)
+	}
+	if assignedID == users[1].ID {
+		t.Error("should not assign to user not in eligible pool")
+	}
+}
+
+func TestChoreService_AssignNextUser_PoolChange(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 3)
+
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Pool Change Chore",
+		CreatedByUserID:   users[0].ID,
+		LastAssignedIndex: -1,
+	})
+
+	choreRepo.SetEligibleAssignees(ctx, chore.ID, []string{users[0].ID})
+
+	assigned, err := service.AssignNextUser(ctx, chore)
+	if err != nil {
+		t.Fatalf("first assignment: %v", err)
+	}
+	if *assigned.AssignedToUserID != users[0].ID {
+		t.Errorf("expected assignment to users[0], got %s", *assigned.AssignedToUserID)
+	}
+
+	choreRepo.SetEligibleAssignees(ctx, chore.ID, []string{users[1].ID, users[2].ID})
+
+	chore2, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Pool Change Chore 2",
+		CreatedByUserID:   users[0].ID,
+		LastAssignedIndex: assigned.LastAssignedIndex,
+	})
+	choreRepo.SetEligibleAssignees(ctx, chore2.ID, []string{users[1].ID, users[2].ID})
+
+	assigned2, err := service.AssignNextUser(ctx, chore2)
+	if err != nil {
+		t.Fatalf("second assignment after pool change: %v", err)
+	}
+	if assigned2.AssignedToUserID == nil {
+		t.Fatal("expected assignment")
+	}
+	assignedID := *assigned2.AssignedToUserID
+	if assignedID != users[1].ID && assignedID != users[2].ID {
+		t.Errorf("assigned to user %s who is not in the new eligible pool", assignedID)
+	}
+}
+
 func TestChoreService_UpdateOverdueChores(t *testing.T) {
 	service, choreRepo, _, userRepo := setupChoreService(t)
 	ctx := context.Background()

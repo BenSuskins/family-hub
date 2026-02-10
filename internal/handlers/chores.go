@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -68,12 +70,18 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding users", "error", err)
 	}
 
+	userNameMap := make(map[string]string, len(users))
+	for _, u := range users {
+		userNameMap[u.ID] = u.Name
+	}
+
 	component := pages.ChoreList(pages.ChoreListProps{
-		User:       user,
-		Chores:     chores,
-		Categories: categories,
-		Users:      users,
-		Filter:     filter,
+		User:        user,
+		Chores:      chores,
+		Categories:  categories,
+		Users:       users,
+		UserNameMap: userNameMap,
+		Filter:      filter,
 	})
 	component.Render(ctx, w)
 }
@@ -87,9 +95,15 @@ func (handler *ChoreHandler) CreateForm(w http.ResponseWriter, r *http.Request) 
 		slog.Error("finding categories", "error", err)
 	}
 
+	users, err := handler.userRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding users", "error", err)
+	}
+
 	component := pages.ChoreForm(pages.ChoreFormProps{
 		User:       user,
 		Categories: categories,
+		AllUsers:   users,
 		IsEdit:     false,
 	})
 	component.Render(ctx, w)
@@ -104,12 +118,15 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	recurrenceType := models.RecurrenceType(r.FormValue("recurrence_type"))
+	recurrenceValue := buildRecurrenceValue(recurrenceType, r)
+
 	chore := models.Chore{
 		Name:            r.FormValue("name"),
 		Description:     r.FormValue("description"),
 		CreatedByUserID: user.ID,
-		RecurrenceType:  models.RecurrenceType(r.FormValue("recurrence_type")),
-		RecurrenceValue: r.FormValue("recurrence_value"),
+		RecurrenceType:  recurrenceType,
+		RecurrenceValue: recurrenceValue,
 		RecurOnComplete: r.FormValue("recur_on_complete") == "on",
 	}
 
@@ -135,6 +152,12 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if assignees := r.Form["assignees"]; len(assignees) > 0 {
+		if err := handler.choreRepo.SetEligibleAssignees(ctx, created.ID, assignees); err != nil {
+			slog.Error("setting eligible assignees", "error", err)
+		}
+	}
+
 	if _, err := handler.choreService.AssignNextUser(ctx, created); err != nil {
 		slog.Error("assigning chore", "error", err)
 	}
@@ -158,9 +181,21 @@ func (handler *ChoreHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding categories", "error", err)
 	}
 
+	users, err := handler.userRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding users", "error", err)
+	}
+
+	eligibleAssignees, err := handler.choreRepo.GetEligibleAssignees(ctx, choreID)
+	if err != nil {
+		slog.Error("getting eligible assignees", "error", err)
+	}
+	chore.EligibleAssignees = eligibleAssignees
+
 	component := pages.ChoreForm(pages.ChoreFormProps{
 		User:       user,
 		Categories: categories,
+		AllUsers:   users,
 		Chore:      &chore,
 		IsEdit:     true,
 	})
@@ -182,10 +217,13 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	recurrenceType := models.RecurrenceType(r.FormValue("recurrence_type"))
+	recurrenceValue := buildRecurrenceValue(recurrenceType, r)
+
 	chore.Name = r.FormValue("name")
 	chore.Description = r.FormValue("description")
-	chore.RecurrenceType = models.RecurrenceType(r.FormValue("recurrence_type"))
-	chore.RecurrenceValue = r.FormValue("recurrence_value")
+	chore.RecurrenceType = recurrenceType
+	chore.RecurrenceValue = recurrenceValue
 	chore.RecurOnComplete = r.FormValue("recur_on_complete") == "on"
 
 	if categoryID := r.FormValue("category_id"); categoryID != "" {
@@ -213,6 +251,16 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		slog.Error("updating chore", "error", err)
 		http.Error(w, "Error updating chore", http.StatusInternalServerError)
 		return
+	}
+
+	if assignees := r.Form["assignees"]; len(assignees) > 0 {
+		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
+			slog.Error("setting eligible assignees", "error", err)
+		}
+	} else {
+		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, nil); err != nil {
+			slog.Error("clearing eligible assignees", "error", err)
+		}
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)
@@ -244,10 +292,61 @@ func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 	if r.Header.Get("HX-Request") == "true" {
 		chore, _ := handler.choreRepo.FindByID(ctx, choreID)
-		component := pages.ChoreRow(chore, user)
+		users, _ := handler.userRepo.FindAll(ctx)
+		userNameMap := make(map[string]string, len(users))
+		for _, u := range users {
+			userNameMap[u.ID] = u.Name
+		}
+		component := pages.ChoreRow(chore, user, userNameMap)
 		component.Render(ctx, w)
 		return
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)
+}
+
+type recurrenceConfigJSON struct {
+	Interval   int      `json:"interval,omitempty"`
+	Unit       string   `json:"unit,omitempty"`
+	Days       []string `json:"days,omitempty"`
+	DayOfMonth int      `json:"day_of_month,omitempty"`
+}
+
+func buildRecurrenceValue(recurrenceType models.RecurrenceType, r *http.Request) string {
+	if recurrenceType == models.RecurrenceNone || recurrenceType == models.RecurrenceDaily {
+		return ""
+	}
+
+	config := recurrenceConfigJSON{}
+
+	if intervalStr := r.FormValue("recurrence_interval"); intervalStr != "" {
+		if interval, err := strconv.Atoi(intervalStr); err == nil && interval > 0 {
+			config.Interval = interval
+		}
+	}
+	if config.Interval == 0 {
+		config.Interval = 1
+	}
+
+	switch recurrenceType {
+	case models.RecurrenceWeekly:
+		config.Days = r.Form["recurrence_days"]
+	case models.RecurrenceMonthly:
+		if dayStr := r.FormValue("recurrence_day_of_month"); dayStr != "" {
+			if day, err := strconv.Atoi(dayStr); err == nil && day >= 1 && day <= 31 {
+				config.DayOfMonth = day
+			}
+		}
+	case models.RecurrenceCustom:
+		config.Unit = r.FormValue("recurrence_unit")
+		if config.Unit == "" {
+			config.Unit = "days"
+		}
+	}
+
+	jsonBytes, err := json.Marshal(config)
+	if err != nil {
+		return ""
+	}
+	return string(jsonBytes)
 }

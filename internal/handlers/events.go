@@ -78,18 +78,17 @@ func (handler *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CreatedByUserID: user.ID,
 	}
 
+	startDate := r.FormValue("start_date")
 	if event.AllDay {
-		if startDate, err := time.Parse("2006-01-02", r.FormValue("start_date")); err == nil {
-			event.StartTime = startDate
+		if parsed, err := time.Parse("2006-01-02", startDate); err == nil {
+			event.StartTime = parsed
 		}
 	} else {
-		if startTime, err := time.Parse("2006-01-02T15:04", r.FormValue("start_time")); err == nil {
-			event.StartTime = startTime
-		}
+		startTime := r.FormValue("start_time")
+		event.StartTime = parseDateTime(startDate, startTime)
 		if endTimeStr := r.FormValue("end_time"); endTimeStr != "" {
-			if endTime, err := time.Parse("2006-01-02T15:04", endTimeStr); err == nil {
-				event.EndTime = &endTime
-			}
+			endTime := parseDateTime(startDate, endTimeStr)
+			event.EndTime = &endTime
 		}
 	}
 
@@ -141,19 +140,18 @@ func (handler *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	event.Location = r.FormValue("location")
 	event.AllDay = r.FormValue("all_day") == "on"
 
+	startDate := r.FormValue("start_date")
 	if event.AllDay {
-		if startDate, err := time.Parse("2006-01-02", r.FormValue("start_date")); err == nil {
-			event.StartTime = startDate
+		if parsed, err := time.Parse("2006-01-02", startDate); err == nil {
+			event.StartTime = parsed
 		}
 		event.EndTime = nil
 	} else {
-		if startTime, err := time.Parse("2006-01-02T15:04", r.FormValue("start_time")); err == nil {
-			event.StartTime = startTime
-		}
+		startTime := r.FormValue("start_time")
+		event.StartTime = parseDateTime(startDate, startTime)
 		if endTimeStr := r.FormValue("end_time"); endTimeStr != "" {
-			if endTime, err := time.Parse("2006-01-02T15:04", endTimeStr); err == nil {
-				event.EndTime = &endTime
-			}
+			endTime := parseDateTime(startDate, endTimeStr)
+			event.EndTime = &endTime
 		} else {
 			event.EndTime = nil
 		}
@@ -179,4 +177,20 @@ func (handler *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/events", http.StatusFound)
+}
+
+func parseDateTime(dateStr string, timeStr string) time.Time {
+	if dateStr == "" {
+		return time.Time{}
+	}
+	if timeStr != "" {
+		combined := dateStr + "T" + timeStr
+		if parsed, err := time.Parse("2006-01-02T15:04", combined); err == nil {
+			return parsed
+		}
+	}
+	if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
+		return parsed
+	}
+	return time.Time{}
 }

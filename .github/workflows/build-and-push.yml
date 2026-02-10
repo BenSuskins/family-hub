@@ -21,6 +21,7 @@ jobs:
       run: |
         go mod download
         npm install
+        make build
 
     - name: test
       run: |

@@ -22,7 +22,11 @@ docker-prod:
 	docker compose -f docker-compose.prod.yml up --build
 
 test:
-	go test ./... -v
+	@GOTESTSUM=$(shell go env GOPATH)/bin/gotestsum; \
+	if [ ! -x "$$GOTESTSUM" ]; then \
+		go install gotest.tools/gotestsum@latest; \
+	fi; \
+	"$$GOTESTSUM" -- -v ./...
 
 test-coverage:
 	go test ./... -coverprofile=coverage.out

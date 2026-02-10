@@ -7,7 +7,7 @@ COPY templates/ ./templates/
 COPY static/css/input.css ./static/css/input.css
 RUN npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.25-alpine AS go-builder
 WORKDIR /app
 RUN go install github.com/a-h/templ/cmd/templ@latest
 COPY go.mod go.sum ./

@@ -6,15 +6,16 @@ import (
 )
 
 type Config struct {
-	DatabasePath    string
-	OIDCIssuer      string
-	OIDCClientID    string
+	DatabasePath     string
+	OIDCIssuer       string
+	OIDCClientID     string
 	OIDCClientSecret string
-	OIDCRedirectURL string
-	SessionSecret   string
-	HAAPIToken      string
-	LogLevel        string
-	Port            string
+	OIDCRedirectURL  string
+	SessionSecret    string
+	HAAPIToken       string
+	BaseURL          string
+	LogLevel         string
+	Port             string
 }
 
 func Load() (Config, error) {
@@ -26,6 +27,7 @@ func Load() (Config, error) {
 		OIDCRedirectURL: os.Getenv("OIDC_REDIRECT_URL"),
 		SessionSecret:   os.Getenv("SESSION_SECRET"),
 		HAAPIToken:      os.Getenv("HA_API_TOKEN"),
+		BaseURL:         envOrDefault("BASE_URL", "http://localhost:8080"),
 		LogLevel:        envOrDefault("LOG_LEVEL", "info"),
 		Port:            envOrDefault("PORT", "8080"),
 	}

@@ -27,6 +27,8 @@ type ChoreRepository interface {
 	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
 	FindDueToday(ctx context.Context) ([]models.Chore, error)
 	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
+	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
+	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
 }
 
 type SQLiteChoreRepository struct {
@@ -225,6 +227,50 @@ func (repository *SQLiteChoreRepository) CountByStatusAndUser(ctx context.Contex
 		return 0, fmt.Errorf("counting chores: %w", err)
 	}
 	return count, nil
+}
+
+func (repository *SQLiteChoreRepository) SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error {
+	transaction, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer transaction.Rollback()
+
+	if _, err := transaction.ExecContext(ctx, "DELETE FROM chore_eligible_assignees WHERE chore_id = ?", choreID); err != nil {
+		return fmt.Errorf("clearing eligible assignees: %w", err)
+	}
+
+	for _, userID := range userIDs {
+		if _, err := transaction.ExecContext(ctx,
+			"INSERT INTO chore_eligible_assignees (chore_id, user_id) VALUES (?, ?)",
+			choreID, userID,
+		); err != nil {
+			return fmt.Errorf("inserting eligible assignee: %w", err)
+		}
+	}
+
+	return transaction.Commit()
+}
+
+func (repository *SQLiteChoreRepository) GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error) {
+	rows, err := repository.database.QueryContext(ctx,
+		"SELECT user_id FROM chore_eligible_assignees WHERE chore_id = ? ORDER BY user_id",
+		choreID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("finding eligible assignees: %w", err)
+	}
+	defer rows.Close()
+
+	var userIDs []string
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("scanning eligible assignee: %w", err)
+		}
+		userIDs = append(userIDs, userID)
+	}
+	return userIDs, rows.Err()
 }
 
 func scanChores(rows *sql.Rows) ([]models.Chore, error) {

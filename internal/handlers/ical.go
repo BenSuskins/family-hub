@@ -11,29 +11,47 @@ import (
 )
 
 type ICalHandler struct {
-	choreRepo repository.ChoreRepository
-	eventRepo repository.EventRepository
-	userRepo  repository.UserRepository
-	haToken   string
+	choreRepo    repository.ChoreRepository
+	eventRepo    repository.EventRepository
+	userRepo     repository.UserRepository
+	tokenRepo    repository.APITokenRepository
+	settingsRepo repository.SettingsRepository
+	haToken      string
 }
 
 func NewICalHandler(
 	choreRepo repository.ChoreRepository,
 	eventRepo repository.EventRepository,
 	userRepo repository.UserRepository,
+	tokenRepo repository.APITokenRepository,
+	settingsRepo repository.SettingsRepository,
 	haToken string,
 ) *ICalHandler {
 	return &ICalHandler{
-		choreRepo: choreRepo,
-		eventRepo: eventRepo,
-		userRepo:  userRepo,
-		haToken:   haToken,
+		choreRepo:    choreRepo,
+		eventRepo:    eventRepo,
+		userRepo:     userRepo,
+		tokenRepo:    tokenRepo,
+		settingsRepo: settingsRepo,
+		haToken:      haToken,
 	}
 }
 
 func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
-	if token == "" || token != handler.haToken {
+	if token == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	authorized := handler.haToken != "" && token == handler.haToken
+	if !authorized {
+		tokenHash := repository.HashToken(token)
+		if _, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash); err == nil {
+			authorized = true
+		}
+	}
+	if !authorized {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -64,16 +82,21 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 		userMap[user.ID] = user.Name
 	}
 
+	hubName := "Family Hub"
+	if familyName, err := handler.settingsRepo.Get(ctx, "family_name"); err == nil && familyName != "" {
+		hubName = familyName + " Hub"
+	}
+
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename=family-hub.ics")
 
 	var builder strings.Builder
 	builder.WriteString("BEGIN:VCALENDAR\r\n")
 	builder.WriteString("VERSION:2.0\r\n")
-	builder.WriteString("PRODID:-//Family Hub//Family Hub//EN\r\n")
+	builder.WriteString(fmt.Sprintf("PRODID:-//%s//%s//EN\r\n", hubName, hubName))
 	builder.WriteString("CALSCALE:GREGORIAN\r\n")
 	builder.WriteString("METHOD:PUBLISH\r\n")
-	builder.WriteString("X-WR-CALNAME:Family Hub\r\n")
+	builder.WriteString(fmt.Sprintf("X-WR-CALNAME:%s\r\n", hubName))
 
 	for _, event := range events {
 		builder.WriteString("BEGIN:VEVENT\r\n")

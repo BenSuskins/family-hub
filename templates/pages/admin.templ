@@ -7,15 +7,38 @@ import (
 )
 
 type AdminUsersProps struct {
-	User      models.User
-	AllUsers  []models.User
-	APITokens []models.APIToken
+	User       models.User
+	AllUsers   []models.User
+	APITokens  []models.APIToken
+	FamilyName string
 }
 
 templ AdminUsers(props AdminUsersProps) {
 	@layouts.Base("Admin", props.User) {
 		<div class="space-y-8">
 			<h1 class="text-2xl font-bold text-gray-900">Admin</h1>
+
+			<!-- Hub Settings -->
+			<div>
+				<h2 class="text-lg font-medium text-gray-900 mb-4">Hub Settings</h2>
+				<div class="bg-white shadow rounded-lg p-6">
+					<form method="POST" action="/admin/settings" class="flex gap-3 items-end">
+						<div class="flex-1">
+							<label for="family_name" class="block text-sm font-medium text-gray-700">Family Name</label>
+							<p class="text-xs text-gray-500 mb-1">Displayed as "[Name] Hub" in the header and title</p>
+							<input
+								type="text"
+								id="family_name"
+								name="family_name"
+								value={ props.FamilyName }
+								required
+								class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							/>
+						</div>
+						<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Save</button>
+					</form>
+				</div>
+			</div>
 
 			<!-- Users -->
 			<div>

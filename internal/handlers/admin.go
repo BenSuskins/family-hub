@@ -12,14 +12,20 @@ import (
 )
 
 type AdminHandler struct {
-	userRepo  repository.UserRepository
-	tokenRepo repository.APITokenRepository
+	userRepo     repository.UserRepository
+	tokenRepo    repository.APITokenRepository
+	settingsRepo repository.SettingsRepository
 }
 
-func NewAdminHandler(userRepo repository.UserRepository, tokenRepo repository.APITokenRepository) *AdminHandler {
+func NewAdminHandler(
+	userRepo repository.UserRepository,
+	tokenRepo repository.APITokenRepository,
+	settingsRepo repository.SettingsRepository,
+) *AdminHandler {
 	return &AdminHandler{
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
+		userRepo:     userRepo,
+		tokenRepo:    tokenRepo,
+		settingsRepo: settingsRepo,
 	}
 }
 
@@ -39,10 +45,17 @@ func (handler *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding tokens", "error", err)
 	}
 
+	familyName, err := handler.settingsRepo.Get(ctx, "family_name")
+	if err != nil {
+		slog.Error("getting family name", "error", err)
+		familyName = "Family"
+	}
+
 	component := pages.AdminUsers(pages.AdminUsersProps{
-		User:      user,
-		AllUsers:  users,
-		APITokens: tokens,
+		User:       user,
+		AllUsers:   users,
+		APITokens:  tokens,
+		FamilyName: familyName,
 	})
 	component.Render(ctx, w)
 }
@@ -68,6 +81,26 @@ func (handler *AdminHandler) DemoteUser(w http.ResponseWriter, r *http.Request) 
 		slog.Error("demoting user", "error", err)
 		http.Error(w, "Error demoting user", http.StatusInternalServerError)
 		return
+	}
+
+	http.Redirect(w, r, "/admin/users", http.StatusFound)
+}
+
+func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+
+	familyName := r.FormValue("family_name")
+	if familyName != "" {
+		if err := handler.settingsRepo.Set(ctx, "family_name", familyName); err != nil {
+			slog.Error("updating family name", "error", err)
+			http.Error(w, "Error updating settings", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	http.Redirect(w, r, "/admin/users", http.StatusFound)

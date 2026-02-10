@@ -60,8 +60,9 @@ type Chore struct {
 	CreatedByUserID string
 	CategoryID      *string
 
-	AssignedToUserID  *string
-	LastAssignedIndex int
+	AssignedToUserID   *string
+	LastAssignedIndex  int
+	EligibleAssignees  []string
 
 	DueDate *time.Time
 	DueTime *string

@@ -26,6 +26,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	eventRepo := repository.NewEventRepository(database)
 	assignmentRepo := repository.NewChoreAssignmentRepository(database)
 	tokenRepo := repository.NewAPITokenRepository(database)
+	settingsRepo := repository.NewSettingsRepository(database)
 
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
 
@@ -34,10 +35,10 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	choreHandler := handlers.NewChoreHandler(choreRepo, categoryRepo, userRepo, choreService)
 	eventHandler := handlers.NewEventHandler(eventRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
-	calendarHandler := handlers.NewCalendarHandler(choreRepo, eventRepo)
-	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo)
+	calendarHandler := handlers.NewCalendarHandler(choreRepo, eventRepo, tokenRepo, cfg.BaseURL)
+	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo)
 	apiHandler := handlers.NewAPIHandler(choreRepo, eventRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo)
-	icalHandler := handlers.NewICalHandler(choreRepo, eventRepo, userRepo, cfg.HAAPIToken)
+	icalHandler := handlers.NewICalHandler(choreRepo, eventRepo, userRepo, tokenRepo, settingsRepo, cfg.HAAPIToken)
 	haHandler := handlers.NewHASensorHandler(choreRepo, userRepo, cfg.HAAPIToken)
 
 	router := chi.NewRouter()
@@ -45,6 +46,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	router.Use(chimiddleware.Logger)
 	router.Use(chimiddleware.Recoverer)
 	router.Use(chimiddleware.Compress(5))
+	router.Use(middleware.InjectFamilyName(settingsRepo))
 
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -86,6 +88,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		})
 
 		r.Get("/calendar", calendarHandler.Calendar)
+		r.Post("/calendar/share", calendarHandler.ShareInfo)
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAdmin)
@@ -98,6 +101,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Get("/admin/users", adminHandler.Users)
 			r.Post("/admin/users/{id}/promote", adminHandler.PromoteUser)
 			r.Post("/admin/users/{id}/demote", adminHandler.DemoteUser)
+			r.Post("/admin/settings", adminHandler.UpdateSettings)
 		})
 	})
 

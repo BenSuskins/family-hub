@@ -153,24 +153,23 @@ templ EventForm(props EventFormProps) {
 						if props.Event != nil && props.Event.AllDay {
 							checked
 						}
+						onchange="toggleTimeFields()"
 						class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
 					/>
 					<label for="all_day" class="ml-2 block text-sm text-gray-700">All Day Event</label>
 				</div>
 
-				<div id="date-fields">
-					<div>
-						<label for="start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-						<input
-							type="date"
-							id="start_date"
-							name="start_date"
-							if props.Event != nil {
-								value={ props.Event.StartTime.Format("2006-01-02") }
-							}
-							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-						/>
-					</div>
+				<div>
+					<label for="start_date" class="block text-sm font-medium text-gray-700">Date</label>
+					<input
+						type="date"
+						id="start_date"
+						name="start_date"
+						if props.Event != nil {
+							value={ props.Event.StartTime.Format("2006-01-02") }
+						}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
 				</div>
 
 				<div id="time-fields">
@@ -178,11 +177,11 @@ templ EventForm(props EventFormProps) {
 						<div>
 							<label for="start_time" class="block text-sm font-medium text-gray-700">Start Time</label>
 							<input
-								type="datetime-local"
+								type="time"
 								id="start_time"
 								name="start_time"
 								if props.Event != nil && !props.Event.AllDay {
-									value={ props.Event.StartTime.Format("2006-01-02T15:04") }
+									value={ props.Event.StartTime.Format("15:04") }
 								}
 								class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 							/>
@@ -190,11 +189,11 @@ templ EventForm(props EventFormProps) {
 						<div>
 							<label for="end_time" class="block text-sm font-medium text-gray-700">End Time</label>
 							<input
-								type="datetime-local"
+								type="time"
 								id="end_time"
 								name="end_time"
 								if props.Event != nil && props.Event.EndTime != nil {
-									value={ props.Event.EndTime.Format("2006-01-02T15:04") }
+									value={ props.Event.EndTime.Format("15:04") }
 								}
 								class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 							/>
@@ -214,6 +213,19 @@ templ EventForm(props EventFormProps) {
 				</div>
 			</form>
 		</div>
+
+		<script>
+			function toggleTimeFields() {
+				var allDay = document.getElementById('all_day').checked;
+				var timeFields = document.getElementById('time-fields');
+				if (allDay) {
+					timeFields.classList.add('hidden');
+				} else {
+					timeFields.classList.remove('hidden');
+				}
+			}
+			toggleTimeFields();
+		</script>
 	}
 }
 

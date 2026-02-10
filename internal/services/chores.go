@@ -35,22 +35,44 @@ func NewChoreService(
 }
 
 func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Chore) (models.Chore, error) {
-	users, err := service.userRepo.FindAll(ctx)
+	eligibleIDs, err := service.choreRepo.GetEligibleAssignees(ctx, chore.ID)
 	if err != nil {
-		return chore, fmt.Errorf("finding users: %w", err)
+		return chore, fmt.Errorf("getting eligible assignees: %w", err)
 	}
 
-	if len(users) == 0 {
+	var candidates []models.User
+	if len(eligibleIDs) > 0 {
+		eligibleSet := make(map[string]bool, len(eligibleIDs))
+		for _, id := range eligibleIDs {
+			eligibleSet[id] = true
+		}
+		allUsers, err := service.userRepo.FindAll(ctx)
+		if err != nil {
+			return chore, fmt.Errorf("finding users: %w", err)
+		}
+		for _, user := range allUsers {
+			if eligibleSet[user.ID] {
+				candidates = append(candidates, user)
+			}
+		}
+	} else {
+		candidates, err = service.userRepo.FindAll(ctx)
+		if err != nil {
+			return chore, fmt.Errorf("finding users: %w", err)
+		}
+	}
+
+	if len(candidates) == 0 {
 		return chore, errors.New("no users available for assignment")
 	}
 
-	nextIndex := (chore.LastAssignedIndex + 1) % len(users)
+	nextIndex := (chore.LastAssignedIndex + 1) % len(candidates)
 
 	var assignedUser models.User
 	found := false
-	for attempts := 0; attempts < len(users); attempts++ {
-		candidateIndex := (nextIndex + attempts) % len(users)
-		candidate := users[candidateIndex]
+	for attempts := 0; attempts < len(candidates); attempts++ {
+		candidateIndex := (nextIndex + attempts) % len(candidates)
+		candidate := candidates[candidateIndex]
 
 		overdueCount, err := service.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusOverdue, candidate.ID)
 		if err != nil {
@@ -66,7 +88,7 @@ func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Ch
 	}
 
 	if !found {
-		assignedUser = users[nextIndex%len(users)]
+		assignedUser = candidates[nextIndex%len(candidates)]
 	}
 
 	if chore.AssignedToUserID != nil {
@@ -157,6 +179,16 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 	createdChore, err := service.choreRepo.Create(ctx, newChore)
 	if err != nil {
 		return fmt.Errorf("creating next chore instance: %w", err)
+	}
+
+	eligibleIDs, err := service.choreRepo.GetEligibleAssignees(ctx, chore.ID)
+	if err != nil {
+		return fmt.Errorf("getting eligible assignees for recurrence: %w", err)
+	}
+	if len(eligibleIDs) > 0 {
+		if err := service.choreRepo.SetEligibleAssignees(ctx, createdChore.ID, eligibleIDs); err != nil {
+			return fmt.Errorf("copying eligible assignees: %w", err)
+		}
 	}
 
 	_, err = service.AssignNextUser(ctx, createdChore)

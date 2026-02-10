@@ -1,23 +1,28 @@
 package pages
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/templates/layouts"
+	"strconv"
+	"strings"
 )
 
 type ChoreListProps struct {
-	User       models.User
-	Chores     []models.Chore
-	Categories []models.Category
-	Users      []models.User
-	Filter     repository.ChoreFilter
+	User        models.User
+	Chores      []models.Chore
+	Categories  []models.Category
+	Users       []models.User
+	UserNameMap map[string]string
+	Filter      repository.ChoreFilter
 }
 
 type ChoreFormProps struct {
 	User       models.User
 	Categories []models.Category
+	AllUsers   []models.User
 	Chore      *models.Chore
 	IsEdit     bool
 }
@@ -75,7 +80,7 @@ templ ChoreList(props ChoreListProps) {
 							</thead>
 							<tbody class="bg-white divide-y divide-gray-200" id="chore-list">
 								for _, chore := range props.Chores {
-									@ChoreRow(chore, props.User)
+									@ChoreRow(chore, props.User, props.UserNameMap)
 								}
 							</tbody>
 						</table>
@@ -86,7 +91,7 @@ templ ChoreList(props ChoreListProps) {
 	}
 }
 
-templ ChoreRow(chore models.Chore, user models.User) {
+templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]string) {
 	<tr id={ "chore-" + chore.ID }>
 		<td class="px-6 py-4 whitespace-nowrap">
 			<div class="text-sm font-medium text-gray-900">{ chore.Name }</div>
@@ -99,7 +104,7 @@ templ ChoreRow(chore models.Chore, user models.User) {
 		</td>
 		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 			if chore.AssignedToUserID != nil {
-				{ *chore.AssignedToUserID }
+				{ lookupUserName(userNameMap, *chore.AssignedToUserID) }
 			} else {
 				<span class="text-gray-400">Unassigned</span>
 			}
@@ -201,6 +206,27 @@ templ ChoreForm(props ChoreFormProps) {
 					</select>
 				</div>
 
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">Eligible Assignees</label>
+					<p class="text-xs text-gray-500 mb-2">Select which family members can be assigned this chore. If none selected, all members are eligible.</p>
+					<div class="space-y-2">
+						for _, u := range props.AllUsers {
+							<label class="flex items-center">
+								<input
+									type="checkbox"
+									name="assignees"
+									value={ u.ID }
+									if props.Chore != nil && isEligibleAssignee(props.Chore.EligibleAssignees, u.ID) {
+										checked
+									}
+									class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+								/>
+								<span class="ml-2 text-sm text-gray-700">{ u.Name }</span>
+							</label>
+						}
+					</div>
+				</div>
+
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div>
 						<label for="due_date" class="block text-sm font-medium text-gray-700">Due Date</label>
@@ -230,7 +256,12 @@ templ ChoreForm(props ChoreFormProps) {
 
 				<div>
 					<label for="recurrence_type" class="block text-sm font-medium text-gray-700">Recurrence</label>
-					<select id="recurrence_type" name="recurrence_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+					<select
+						id="recurrence_type"
+						name="recurrence_type"
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						onchange="updateRecurrenceFields()"
+					>
 						<option value="none" if props.Chore != nil && props.Chore.RecurrenceType == "none" { selected }>None</option>
 						<option value="daily" if props.Chore != nil && props.Chore.RecurrenceType == "daily" { selected }>Daily</option>
 						<option value="weekly" if props.Chore != nil && props.Chore.RecurrenceType == "weekly" { selected }>Weekly</option>
@@ -239,18 +270,70 @@ templ ChoreForm(props ChoreFormProps) {
 					</select>
 				</div>
 
-				<div>
-					<label for="recurrence_value" class="block text-sm font-medium text-gray-700">Recurrence Config (JSON)</label>
-					<input
-						type="text"
-						id="recurrence_value"
-						name="recurrence_value"
-						placeholder='{"interval": 1}'
-						if props.Chore != nil {
-							value={ props.Chore.RecurrenceValue }
-						}
-						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-					/>
+				<!-- Recurrence config fields (shown/hidden by JS) -->
+				<div id="recurrence-fields" class="space-y-4">
+					<div id="recurrence-interval-field" class="hidden">
+						<label for="recurrence_interval" class="block text-sm font-medium text-gray-700">
+							Repeat every
+						</label>
+						<div class="mt-1 flex items-center gap-2">
+							<input
+								type="number"
+								id="recurrence_interval"
+								name="recurrence_interval"
+								min="1"
+								value={ recurrenceInterval(props.Chore) }
+								class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							/>
+							<span id="recurrence-interval-unit" class="text-sm text-gray-500">weeks</span>
+						</div>
+					</div>
+
+					<div id="recurrence-days-field" class="hidden">
+						<label class="block text-sm font-medium text-gray-700 mb-2">On days</label>
+						<div class="flex flex-wrap gap-3">
+							for _, day := range []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"} {
+								<label class="flex items-center">
+									<input
+										type="checkbox"
+										name="recurrence_days"
+										value={ day }
+										if props.Chore != nil && hasRecurrenceDay(props.Chore.RecurrenceValue, day) {
+											checked
+										}
+										class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+									/>
+									<span class="ml-1 text-sm text-gray-700">{ capitalizeDay(day) }</span>
+								</label>
+							}
+						</div>
+					</div>
+
+					<div id="recurrence-day-of-month-field" class="hidden">
+						<label for="recurrence_day_of_month" class="block text-sm font-medium text-gray-700">Day of month</label>
+						<input
+							type="number"
+							id="recurrence_day_of_month"
+							name="recurrence_day_of_month"
+							min="1"
+							max="31"
+							value={ recurrenceDayOfMonth(props.Chore) }
+							class="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+					</div>
+
+					<div id="recurrence-unit-field" class="hidden">
+						<label for="recurrence_unit" class="block text-sm font-medium text-gray-700">Unit</label>
+						<select
+							id="recurrence_unit"
+							name="recurrence_unit"
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						>
+							<option value="days" if props.Chore != nil && recurrenceUnit(props.Chore) == "days" { selected }>Days</option>
+							<option value="weeks" if props.Chore != nil && recurrenceUnit(props.Chore) == "weeks" { selected }>Weeks</option>
+							<option value="months" if props.Chore != nil && recurrenceUnit(props.Chore) == "months" { selected }>Months</option>
+						</select>
+					</div>
 				</div>
 
 				<div class="flex items-center">
@@ -278,7 +361,54 @@ templ ChoreForm(props ChoreFormProps) {
 				</div>
 			</form>
 		</div>
+
+		<script>
+			function updateRecurrenceFields() {
+				var type = document.getElementById('recurrence_type').value;
+				var intervalField = document.getElementById('recurrence-interval-field');
+				var daysField = document.getElementById('recurrence-days-field');
+				var dayOfMonthField = document.getElementById('recurrence-day-of-month-field');
+				var unitField = document.getElementById('recurrence-unit-field');
+				var unitLabel = document.getElementById('recurrence-interval-unit');
+
+				intervalField.classList.add('hidden');
+				daysField.classList.add('hidden');
+				dayOfMonthField.classList.add('hidden');
+				unitField.classList.add('hidden');
+
+				if (type === 'weekly') {
+					intervalField.classList.remove('hidden');
+					daysField.classList.remove('hidden');
+					unitLabel.textContent = 'weeks';
+				} else if (type === 'monthly') {
+					intervalField.classList.remove('hidden');
+					dayOfMonthField.classList.remove('hidden');
+					unitLabel.textContent = 'months';
+				} else if (type === 'custom') {
+					intervalField.classList.remove('hidden');
+					unitField.classList.remove('hidden');
+					unitLabel.textContent = '';
+				}
+			}
+			updateRecurrenceFields();
+		</script>
 	}
+}
+
+func lookupUserName(userNameMap map[string]string, userID string) string {
+	if name, ok := userNameMap[userID]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
+func isEligibleAssignee(eligible []string, userID string) bool {
+	for _, id := range eligible {
+		if id == userID {
+			return true
+		}
+	}
+	return false
 }
 
 func choreFormTitle(isEdit bool) string {
@@ -286,4 +416,65 @@ func choreFormTitle(isEdit bool) string {
 		return "Edit Chore"
 	}
 	return "New Chore"
+}
+
+type recurrenceConfig struct {
+	Interval   int      `json:"interval,omitempty"`
+	Unit       string   `json:"unit,omitempty"`
+	Days       []string `json:"days,omitempty"`
+	DayOfMonth int      `json:"day_of_month,omitempty"`
+}
+
+func parseRecurrenceConfig(chore *models.Chore) recurrenceConfig {
+	if chore == nil || chore.RecurrenceValue == "" {
+		return recurrenceConfig{}
+	}
+	var config recurrenceConfig
+	json.Unmarshal([]byte(chore.RecurrenceValue), &config)
+	return config
+}
+
+func recurrenceInterval(chore *models.Chore) string {
+	config := parseRecurrenceConfig(chore)
+	if config.Interval > 0 {
+		return strconv.Itoa(config.Interval)
+	}
+	return "1"
+}
+
+func recurrenceDayOfMonth(chore *models.Chore) string {
+	config := parseRecurrenceConfig(chore)
+	if config.DayOfMonth > 0 {
+		return strconv.Itoa(config.DayOfMonth)
+	}
+	return ""
+}
+
+func recurrenceUnit(chore *models.Chore) string {
+	config := parseRecurrenceConfig(chore)
+	if config.Unit != "" {
+		return config.Unit
+	}
+	return "days"
+}
+
+func hasRecurrenceDay(recurrenceValue string, day string) bool {
+	if recurrenceValue == "" {
+		return false
+	}
+	var config recurrenceConfig
+	json.Unmarshal([]byte(recurrenceValue), &config)
+	for _, d := range config.Days {
+		if strings.EqualFold(d, day) {
+			return true
+		}
+	}
+	return false
+}
+
+func capitalizeDay(day string) string {
+	if len(day) == 0 {
+		return day
+	}
+	return strings.ToUpper(day[:1]) + day[1:3]
 }

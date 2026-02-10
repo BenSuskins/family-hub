@@ -1,6 +1,24 @@
 package layouts
 
-import "github.com/bensuskins/family-hub/internal/models"
+import (
+	"context"
+	"github.com/bensuskins/family-hub/internal/models"
+)
+
+type contextKey string
+
+const familyNameKey contextKey = "familyName"
+
+func WithFamilyName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, familyNameKey, name)
+}
+
+func GetFamilyName(ctx context.Context) string {
+	if name, ok := ctx.Value(familyNameKey).(string); ok && name != "" {
+		return name + " Hub"
+	}
+	return "Family Hub"
+}
 
 templ Base(title string, user models.User) {
 	<!DOCTYPE html>
@@ -8,7 +26,7 @@ templ Base(title string, user models.User) {
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>{ title } - Family Hub</title>
+			<title>{ title } - { GetFamilyName(ctx) }</title>
 			<script src="/static/js/htmx.min.js"></script>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
@@ -30,10 +48,10 @@ templ Navigation(user models.User) {
 		<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 			<div class="flex h-16 items-center justify-between">
 				<div class="flex items-center">
-					<a href="/" class="text-white text-xl font-bold">Family Hub</a>
+					<a href="/" class="text-white text-xl font-bold">{ GetFamilyName(ctx) }</a>
 					<div class="hidden md:block ml-10">
 						<div class="flex items-baseline space-x-4">
-							<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+							<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Home</a>
 							<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Chores</a>
 							<a href="/events" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Events</a>
 							<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
@@ -52,7 +70,7 @@ templ Navigation(user models.User) {
 			<!-- Mobile menu -->
 			<div class="md:hidden pb-3">
 				<div class="flex flex-wrap gap-2">
-					<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+					<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Home</a>
 					<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Chores</a>
 					<a href="/events" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Events</a>
 					<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
@@ -72,12 +90,12 @@ templ LoginPage() {
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>Login - Family Hub</title>
+			<title>Login - { GetFamilyName(ctx) }</title>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
 		<body class="h-full flex items-center justify-center">
 			<div class="text-center">
-				<h1 class="text-4xl font-bold text-gray-900 mb-8">Family Hub</h1>
+				<h1 class="text-4xl font-bold text-gray-900 mb-8">{ GetFamilyName(ctx) }</h1>
 				<a href="/login" class="bg-indigo-600 text-white px-6 py-3 rounded-lg text-lg font-medium hover:bg-indigo-700">
 					Sign in with SSO
 				</a>

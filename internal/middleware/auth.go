@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
+	"github.com/bensuskins/family-hub/templates/layouts"
 )
 
 type contextKey string
@@ -79,4 +81,17 @@ func APITokenAuth(tokenRepo repository.APITokenRepository, userRepo repository.U
 func GetUser(ctx context.Context) models.User {
 	user, _ := ctx.Value(UserContextKey).(models.User)
 	return user
+}
+
+func InjectFamilyName(settingsRepo repository.SettingsRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			familyName, err := settingsRepo.Get(r.Context(), "family_name")
+			if err != nil {
+				slog.Debug("loading family name setting", "error", err)
+			}
+			ctx := layouts.WithFamilyName(r.Context(), familyName)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

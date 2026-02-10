@@ -4,18 +4,26 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
 
+const (
+	OrderByDueDateAsc      = "due_date ASC NULLS LAST, name ASC"
+	OrderByCompletedAtDesc = "completed_at DESC NULLS LAST, name ASC"
+)
+
 type ChoreFilter struct {
 	Status         *models.ChoreStatus
+	Statuses       []models.ChoreStatus
 	AssignedToUser *string
 	CategoryID     *string
 	DueBefore      *time.Time
 	DueAfter       *time.Time
+	OrderBy        string
 }
 
 type ChoreRepository interface {
@@ -78,6 +86,14 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 		query += " AND status = ?"
 		args = append(args, *filter.Status)
 	}
+	if len(filter.Statuses) > 0 {
+		placeholders := make([]string, len(filter.Statuses))
+		for i, s := range filter.Statuses {
+			placeholders[i] = "?"
+			args = append(args, string(s))
+		}
+		query += " AND status IN (" + strings.Join(placeholders, ",") + ")"
+	}
 	if filter.AssignedToUser != nil {
 		query += " AND assigned_to_user_id = ?"
 		args = append(args, *filter.AssignedToUser)
@@ -95,7 +111,11 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 		args = append(args, *filter.DueAfter)
 	}
 
-	query += " ORDER BY due_date ASC NULLS LAST, name ASC"
+	orderBy := filter.OrderBy
+	if orderBy == "" {
+		orderBy = OrderByDueDateAsc
+	}
+	query += " ORDER BY " + orderBy
 
 	rows, err := repository.database.QueryContext(ctx, query, args...)
 	if err != nil {

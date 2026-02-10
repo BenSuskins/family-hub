@@ -40,12 +40,30 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
+	tab := r.URL.Query().Get("tab")
+	if tab == "" {
+		tab = "active"
+	}
+
 	filter := repository.ChoreFilter{}
 
 	if status := r.URL.Query().Get("status"); status != "" {
 		s := models.ChoreStatus(status)
 		filter.Status = &s
+	} else {
+		switch tab {
+		case "history":
+			filter.Statuses = []models.ChoreStatus{models.ChoreStatusCompleted}
+			filter.OrderBy = repository.OrderByCompletedAtDesc
+		default:
+			filter.Statuses = []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}
+		}
 	}
+
+	if tab == "history" && filter.Status == nil {
+		filter.OrderBy = repository.OrderByCompletedAtDesc
+	}
+
 	if assignedTo := r.URL.Query().Get("assigned_to"); assignedTo != "" {
 		filter.AssignedToUser = &assignedTo
 	}
@@ -60,11 +78,6 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categories, err := handler.categoryRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding categories", "error", err)
-	}
-
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users", "error", err)
@@ -77,6 +90,22 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		userAvatarMap[u.ID] = u.AvatarURL
 	}
 
+	if r.Header.Get("HX-Request") == "true" {
+		component := pages.ChoreTableContent(pages.ChoreTableProps{
+			Chores:        chores,
+			User:          user,
+			UserNameMap:   userNameMap,
+			UserAvatarMap: userAvatarMap,
+		})
+		component.Render(ctx, w)
+		return
+	}
+
+	categories, err := handler.categoryRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding categories", "error", err)
+	}
+
 	component := pages.ChoreList(pages.ChoreListProps{
 		User:          user,
 		Chores:        chores,
@@ -85,6 +114,7 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		UserNameMap:   userNameMap,
 		UserAvatarMap: userAvatarMap,
 		Filter:        filter,
+		ActiveTab:     tab,
 	})
 	component.Render(ctx, w)
 }

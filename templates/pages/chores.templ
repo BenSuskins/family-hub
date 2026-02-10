@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/templates/components"
 	"github.com/bensuskins/family-hub/templates/layouts"
 	"strconv"
 	"strings"
 )
 
 type ChoreListProps struct {
-	User        models.User
-	Chores      []models.Chore
-	Categories  []models.Category
-	Users       []models.User
-	UserNameMap map[string]string
-	Filter      repository.ChoreFilter
+	User          models.User
+	Chores        []models.Chore
+	Categories    []models.Category
+	Users         []models.User
+	UserNameMap   map[string]string
+	UserAvatarMap map[string]string
+	Filter        repository.ChoreFilter
 }
 
 type ChoreFormProps struct {
@@ -80,7 +82,7 @@ templ ChoreList(props ChoreListProps) {
 							</thead>
 							<tbody class="bg-white divide-y divide-gray-200" id="chore-list">
 								for _, chore := range props.Chores {
-									@ChoreRow(chore, props.User, props.UserNameMap)
+									@ChoreRow(chore, props.User, props.UserNameMap, props.UserAvatarMap)
 								}
 							</tbody>
 						</table>
@@ -91,7 +93,7 @@ templ ChoreList(props ChoreListProps) {
 	}
 }
 
-templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]string) {
+templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]string, userAvatarMap map[string]string) {
 	<tr id={ "chore-" + chore.ID }>
 		<td class="px-6 py-4 whitespace-nowrap">
 			<div class="text-sm font-medium text-gray-900">{ chore.Name }</div>
@@ -104,7 +106,10 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 		</td>
 		<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 			if chore.AssignedToUserID != nil {
-				{ lookupUserName(userNameMap, *chore.AssignedToUserID) }
+				<div class="flex items-center gap-2">
+					@components.UserAvatar(lookupUserName(userNameMap, *chore.AssignedToUserID), lookupAvatarURL(userAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
+					{ lookupUserName(userNameMap, *chore.AssignedToUserID) }
+				</div>
 			} else {
 				<span class="text-gray-400">Unassigned</span>
 			}

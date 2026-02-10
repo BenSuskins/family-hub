@@ -3,11 +3,13 @@ package pages
 import (
 	"fmt"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/components"
 	"github.com/bensuskins/family-hub/templates/layouts"
 )
 
 type UserStatProps struct {
 	UserName        string
+	UserAvatarURL   string
 	CompletedWeek   int
 	CompletedMonth  int
 	AssignedPending int
@@ -21,6 +23,7 @@ type DashboardProps struct {
 	AllChores      []models.Chore
 	Users          []models.User
 	UserStats      []UserStatProps
+	UserAvatarMap  map[string]string
 }
 
 templ Dashboard(props DashboardProps) {
@@ -46,11 +49,16 @@ templ Dashboard(props DashboardProps) {
 						<ul class="divide-y divide-gray-200">
 							for _, chore := range props.ChoresDueToday {
 								<li class="py-3 flex justify-between items-center">
-									<div>
-										<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
+									<div class="flex items-center gap-2">
 										if chore.AssignedToUserID != nil {
-											<p class="text-xs text-gray-500">Assigned to: { getUserName(props.Users, *chore.AssignedToUserID) }</p>
+											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
 										}
+										<div>
+											<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
+											if chore.AssignedToUserID != nil {
+												<p class="text-xs text-gray-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
+											}
+										</div>
 									</div>
 									@choreStatusBadge(chore.Status)
 								</li>
@@ -66,11 +74,16 @@ templ Dashboard(props DashboardProps) {
 						<ul class="divide-y divide-gray-200">
 							for _, chore := range props.OverdueChores {
 								<li class="py-3 flex justify-between items-center">
-									<div>
-										<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
+									<div class="flex items-center gap-2">
 										if chore.AssignedToUserID != nil {
-											<p class="text-xs text-gray-500">Assigned to: { getUserName(props.Users, *chore.AssignedToUserID) }</p>
+											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
 										}
+										<div>
+											<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
+											if chore.AssignedToUserID != nil {
+												<p class="text-xs text-gray-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
+											}
+										</div>
 									</div>
 									if chore.DueDate != nil {
 										<span class="text-xs text-red-600">Due: { chore.DueDate.Format("Jan 2") }</span>
@@ -123,7 +136,12 @@ templ Dashboard(props DashboardProps) {
 								<tbody class="divide-y divide-gray-200">
 									for _, stat := range props.UserStats {
 										<tr>
-											<td class="px-3 py-2 text-sm text-gray-900">{ stat.UserName }</td>
+											<td class="px-3 py-2 text-sm text-gray-900">
+												<div class="flex items-center gap-2">
+													@components.UserAvatar(stat.UserName, stat.UserAvatarURL, "h-6 w-6 text-xs")
+													{ stat.UserName }
+												</div>
+											</td>
 											<td class="px-3 py-2 text-sm text-gray-600">{ fmt.Sprintf("%d", stat.CompletedWeek) }</td>
 											<td class="px-3 py-2 text-sm text-gray-600">{ fmt.Sprintf("%d", stat.CompletedMonth) }</td>
 											<td class="px-3 py-2 text-sm text-gray-600">{ fmt.Sprintf("%d", stat.AssignedPending) }</td>
@@ -135,14 +153,6 @@ templ Dashboard(props DashboardProps) {
 					}
 				</div>
 			</div>
-
-			<!-- Quick Actions -->
-			if props.User.Role == models.RoleAdmin {
-				<div class="flex gap-3">
-					<a href="/chores/new" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">New Chore</a>
-					<a href="/events/new" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700">New Event</a>
-				</div>
-			}
 		</div>
 	}
 }
@@ -172,4 +182,11 @@ func getUserName(users []models.User, userID string) string {
 		}
 	}
 	return "Unknown"
+}
+
+func lookupAvatarURL(avatarMap map[string]string, userID string) string {
+	if avatarMap == nil {
+		return ""
+	}
+	return avatarMap[userID]
 }

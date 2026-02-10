@@ -19,24 +19,6 @@ func NewCategoryHandler(categoryRepo repository.CategoryRepository) *CategoryHan
 	return &CategoryHandler{categoryRepo: categoryRepo}
 }
 
-func (handler *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	user := middleware.GetUser(ctx)
-
-	categories, err := handler.categoryRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding categories", "error", err)
-		http.Error(w, "Error loading categories", http.StatusInternalServerError)
-		return
-	}
-
-	component := pages.CategoryList(pages.CategoryListProps{
-		User:       user,
-		Categories: categories,
-	})
-	component.Render(ctx, w)
-}
-
 func (handler *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
@@ -64,7 +46,7 @@ func (handler *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/categories", http.StatusFound)
+	http.Redirect(w, r, "/admin/users", http.StatusFound)
 }
 
 func (handler *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +64,7 @@ func (handler *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/categories", http.StatusFound)
+	http.Redirect(w, r, "/admin/users", http.StatusFound)
 }
 
 func (handler *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -100,5 +82,5 @@ func (handler *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/categories", http.StatusFound)
+	http.Redirect(w, r, "/admin/users", http.StatusFound)
 }

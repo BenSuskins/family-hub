@@ -10,6 +10,7 @@ type AdminUsersProps struct {
 	User       models.User
 	AllUsers   []models.User
 	APITokens  []models.APIToken
+	Categories []models.Category
 	FamilyName string
 }
 
@@ -37,6 +38,37 @@ templ AdminUsers(props AdminUsersProps) {
 						</div>
 						<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Save</button>
 					</form>
+				</div>
+			</div>
+
+			<!-- Categories -->
+			<div>
+				<h2 class="text-lg font-medium text-gray-900 mb-4">Categories</h2>
+				<div class="bg-white shadow rounded-lg p-6">
+					<form
+						hx-post="/categories"
+						hx-target="#category-list"
+						hx-swap="beforeend"
+						hx-on::after-request="this.reset()"
+						class="flex gap-3 mb-4"
+					>
+						<input
+							type="text"
+							name="name"
+							placeholder="New category name"
+							required
+							class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+						/>
+						<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Add</button>
+					</form>
+					<ul class="divide-y divide-gray-200" id="category-list">
+						for _, category := range props.Categories {
+							@CategoryRow(category)
+						}
+					</ul>
+					if len(props.Categories) == 0 {
+						<p class="text-sm text-gray-500 text-center py-4">No categories yet</p>
+					}
 				</div>
 			</div>
 

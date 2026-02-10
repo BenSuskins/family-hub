@@ -18,6 +18,7 @@ func TestUserRepository_CreateAndFindByID(t *testing.T) {
 		OIDCSubject: "sub-123",
 		Email:       "test@example.com",
 		Name:        "Test User",
+		AvatarURL:   "https://example.com/avatar.png",
 		Role:        models.RoleAdmin,
 	}
 
@@ -38,6 +39,9 @@ func TestUserRepository_CreateAndFindByID(t *testing.T) {
 	}
 	if found.Role != models.RoleAdmin {
 		t.Errorf("expected role admin, got '%s'", found.Role)
+	}
+	if found.AvatarURL != "https://example.com/avatar.png" {
+		t.Errorf("expected avatar URL 'https://example.com/avatar.png', got '%s'", found.AvatarURL)
 	}
 }
 
@@ -96,6 +100,31 @@ func TestUserRepository_UpdateRole(t *testing.T) {
 	found, _ := repo.FindByID(ctx, created.ID)
 	if found.Role != models.RoleAdmin {
 		t.Errorf("expected admin role, got '%s'", found.Role)
+	}
+}
+
+func TestUserRepository_UpdateProfile(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	created, _ := repo.Create(ctx, models.User{
+		OIDCSubject: "s1", Email: "a@test.com", Name: "Alice", Role: models.RoleMember,
+	})
+
+	if err := repo.UpdateProfile(ctx, created.ID, "Alice Updated", "new@test.com", "https://example.com/new.png"); err != nil {
+		t.Fatalf("updating profile: %v", err)
+	}
+
+	found, _ := repo.FindByID(ctx, created.ID)
+	if found.Name != "Alice Updated" {
+		t.Errorf("expected name 'Alice Updated', got '%s'", found.Name)
+	}
+	if found.Email != "new@test.com" {
+		t.Errorf("expected email 'new@test.com', got '%s'", found.Email)
+	}
+	if found.AvatarURL != "https://example.com/new.png" {
+		t.Errorf("expected avatar URL 'https://example.com/new.png', got '%s'", found.AvatarURL)
 	}
 }
 

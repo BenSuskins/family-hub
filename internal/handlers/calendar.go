@@ -16,6 +16,7 @@ import (
 type CalendarHandler struct {
 	choreRepo repository.ChoreRepository
 	eventRepo repository.EventRepository
+	userRepo  repository.UserRepository
 	tokenRepo repository.APITokenRepository
 	baseURL   string
 }
@@ -23,12 +24,14 @@ type CalendarHandler struct {
 func NewCalendarHandler(
 	choreRepo repository.ChoreRepository,
 	eventRepo repository.EventRepository,
+	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
 	baseURL string,
 ) *CalendarHandler {
 	return &CalendarHandler{
 		choreRepo: choreRepo,
 		eventRepo: eventRepo,
+		userRepo:  userRepo,
 		tokenRepo: tokenRepo,
 		baseURL:   baseURL,
 	}
@@ -72,12 +75,26 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		slog.Error("finding chores for calendar", "error", err)
 	}
 
+	users, err := handler.userRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding users for calendar", "error", err)
+	}
+
+	userNameMap := make(map[string]string, len(users))
+	userAvatarMap := make(map[string]string, len(users))
+	for _, u := range users {
+		userNameMap[u.ID] = u.Name
+		userAvatarMap[u.ID] = u.AvatarURL
+	}
+
 	component := pages.Calendar(pages.CalendarProps{
-		User:   user,
-		Year:   year,
-		Month:  month,
-		Events: events,
-		Chores: chores,
+		User:          user,
+		Year:          year,
+		Month:         month,
+		Events:        events,
+		Chores:        chores,
+		UserNameMap:   userNameMap,
+		UserAvatarMap: userAvatarMap,
 	})
 	component.Render(ctx, w)
 }

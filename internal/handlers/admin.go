@@ -15,17 +15,20 @@ type AdminHandler struct {
 	userRepo     repository.UserRepository
 	tokenRepo    repository.APITokenRepository
 	settingsRepo repository.SettingsRepository
+	categoryRepo repository.CategoryRepository
 }
 
 func NewAdminHandler(
 	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
+	categoryRepo repository.CategoryRepository,
 ) *AdminHandler {
 	return &AdminHandler{
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
 		settingsRepo: settingsRepo,
+		categoryRepo: categoryRepo,
 	}
 }
 
@@ -45,6 +48,11 @@ func (handler *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding tokens", "error", err)
 	}
 
+	categories, err := handler.categoryRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding categories", "error", err)
+	}
+
 	familyName, err := handler.settingsRepo.Get(ctx, "family_name")
 	if err != nil {
 		slog.Error("getting family name", "error", err)
@@ -55,6 +63,7 @@ func (handler *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 		User:       user,
 		AllUsers:   users,
 		APITokens:  tokens,
+		Categories: categories,
 		FamilyName: familyName,
 	})
 	component.Render(ctx, w)

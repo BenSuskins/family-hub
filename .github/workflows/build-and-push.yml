@@ -40,7 +40,7 @@ jobs:
     - name: Build and push Docker image
       run: |
         COMMIT_SHA=${GITHUB_SHA::7}
-        IMAGE_NAME=ghcr.io/bensuskins/pubgolf-backend
+        IMAGE_NAME=ghcr.io/bensuskins/family-hub
 
         docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$COMMIT_SHA .
         docker push $IMAGE_NAME:latest

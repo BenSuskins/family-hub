@@ -102,10 +102,11 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 	}
 
 	var claims struct {
-		Subject           string `json:"sub"`
-		Email             string `json:"email"`
-		Name              string `json:"name"`
-		PreferredUsername  string `json:"preferred_username"`
+		Subject          string `json:"sub"`
+		Email            string `json:"email"`
+		Name             string `json:"name"`
+		PreferredUsername string `json:"preferred_username"`
+		Picture          string `json:"picture"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return models.User{}, fmt.Errorf("parsing claims: %w", err)
@@ -119,12 +120,18 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 		displayName = claims.Email
 	}
 
-	return service.provisionUser(ctx, claims.Subject, claims.Email, displayName)
+	return service.provisionUser(ctx, claims.Subject, claims.Email, displayName, claims.Picture)
 }
 
-func (service *AuthService) provisionUser(ctx context.Context, subject, email, name string) (models.User, error) {
+func (service *AuthService) provisionUser(ctx context.Context, subject, email, name, avatarURL string) (models.User, error) {
 	existingUser, err := service.userRepo.FindByOIDCSubject(ctx, subject)
 	if err == nil {
+		if err := service.userRepo.UpdateProfile(ctx, existingUser.ID, name, email, avatarURL); err != nil {
+			slog.Warn("failed to update user profile on login", "error", err)
+		}
+		existingUser.Name = name
+		existingUser.Email = email
+		existingUser.AvatarURL = avatarURL
 		return existingUser, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) && !isNotFound(err) {
@@ -145,6 +152,7 @@ func (service *AuthService) provisionUser(ctx context.Context, subject, email, n
 		OIDCSubject: subject,
 		Email:       email,
 		Name:        name,
+		AvatarURL:   avatarURL,
 		Role:        role,
 	}
 

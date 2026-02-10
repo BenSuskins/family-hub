@@ -71,17 +71,20 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userNameMap := make(map[string]string, len(users))
+	userAvatarMap := make(map[string]string, len(users))
 	for _, u := range users {
 		userNameMap[u.ID] = u.Name
+		userAvatarMap[u.ID] = u.AvatarURL
 	}
 
 	component := pages.ChoreList(pages.ChoreListProps{
-		User:        user,
-		Chores:      chores,
-		Categories:  categories,
-		Users:       users,
-		UserNameMap: userNameMap,
-		Filter:      filter,
+		User:          user,
+		Chores:        chores,
+		Categories:    categories,
+		Users:         users,
+		UserNameMap:   userNameMap,
+		UserAvatarMap: userAvatarMap,
+		Filter:        filter,
 	})
 	component.Render(ctx, w)
 }
@@ -294,10 +297,12 @@ func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		chore, _ := handler.choreRepo.FindByID(ctx, choreID)
 		users, _ := handler.userRepo.FindAll(ctx)
 		userNameMap := make(map[string]string, len(users))
+		userAvatarMap := make(map[string]string, len(users))
 		for _, u := range users {
 			userNameMap[u.ID] = u.Name
+			userAvatarMap[u.ID] = u.AvatarURL
 		}
-		component := pages.ChoreRow(chore, user, userNameMap)
+		component := pages.ChoreRow(chore, user, userNameMap, userAvatarMap)
 		component.Render(ctx, w)
 		return
 	}

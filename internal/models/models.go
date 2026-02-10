@@ -41,6 +41,7 @@ type User struct {
 	OIDCSubject string
 	Email       string
 	Name        string
+	AvatarURL   string
 	Role        Role
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"time"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/components"
 	"github.com/bensuskins/family-hub/templates/layouts"
 )
 
 type CalendarProps struct {
-	User   models.User
-	Year   int
-	Month  int
-	Events []models.Event
-	Chores []models.Chore
+	User          models.User
+	Year          int
+	Month         int
+	Events        []models.Event
+	Chores        []models.Chore
+	UserNameMap   map[string]string
+	UserAvatarMap map[string]string
 }
 
 templ Calendar(props CalendarProps) {
@@ -79,7 +82,10 @@ templ Calendar(props CalendarProps) {
 									</div>
 								}
 								for _, chore := range choresOnDay(props.Chores, day) {
-									<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate " + choreColor(chore.Status) } title={ chore.Name }>
+									<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 " + choreColor(chore.Status) } title={ chore.Name }>
+										if chore.AssignedToUserID != nil {
+											@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-4 w-4 text-[0.5rem]")
+										}
 										{ chore.Name }
 									</div>
 								}

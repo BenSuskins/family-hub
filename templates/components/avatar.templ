@@ -1,0 +1,21 @@
+package components
+
+import "strings"
+
+templ UserAvatar(name string, avatarURL string, sizeClass string) {
+	if avatarURL != "" {
+		<img src={ avatarURL } alt={ name } class={ "rounded-full object-cover " + sizeClass }/>
+	} else {
+		<div class={ "rounded-full flex items-center justify-center bg-indigo-500 text-white font-medium " + sizeClass }>
+			{ userInitial(name) }
+		</div>
+	}
+}
+
+func userInitial(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "?"
+	}
+	return strings.ToUpper(name[:1])
+}

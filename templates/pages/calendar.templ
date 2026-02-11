@@ -70,12 +70,10 @@ templ Calendar(props CalendarProps) {
 					href={ templ.SafeURL(nextURL(props)) }
 					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
 				>Next &rarr;</a>
-				if props.View != "month" && props.View != "year" {
-					<a
-						href={ templ.SafeURL(todayURL(props.View)) }
-						class="text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded border border-indigo-300 text-sm font-medium"
-					>Today</a>
-				}
+				<a
+					href={ templ.SafeURL(todayURL(props.View)) }
+					class="text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded border border-indigo-300 text-sm font-medium"
+				>Today</a>
 			</div>
 
 			<!-- Share Modal -->
@@ -346,7 +344,14 @@ func viewTitle(props CalendarProps) string {
 
 func todayURL(view string) string {
 	today := time.Now()
-	return fmt.Sprintf("/calendar?view=%s&date=%s", view, today.Format("2006-01-02"))
+	switch view {
+	case "year":
+		return fmt.Sprintf("/calendar?view=year&year=%d", today.Year())
+	case "month":
+		return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", today.Year(), int(today.Month()))
+	default:
+		return fmt.Sprintf("/calendar?view=%s&date=%s", view, today.Format("2006-01-02"))
+	}
 }
 
 // Navigation helpers

@@ -52,6 +52,18 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 	var date time.Time
 
 	switch view {
+	case "year":
+		year = now.Year()
+		if yearStr := r.URL.Query().Get("year"); yearStr != "" {
+			if y, err := strconv.Atoi(yearStr); err == nil {
+				year = y
+			}
+		}
+		month = int(now.Month())
+		start = time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
+		end = time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local)
+		date = start
+
 	case "week":
 		date = now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {

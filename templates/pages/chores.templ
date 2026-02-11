@@ -9,17 +9,26 @@ import (
 	"github.com/bensuskins/family-hub/templates/layouts"
 	"strconv"
 	"strings"
+	"time"
 )
 
+type ChoreHistoryEntry struct {
+	Name            string
+	CompletionCount int
+	LastCompletedAt *time.Time
+	LastCompletedBy string
+}
+
 type ChoreListProps struct {
-	User          models.User
-	Chores        []models.Chore
-	Categories    []models.Category
-	Users         []models.User
-	UserNameMap   map[string]string
-	UserAvatarMap map[string]string
-	Filter        repository.ChoreFilter
-	ActiveTab     string
+	User           models.User
+	Chores         []models.Chore
+	HistoryEntries []ChoreHistoryEntry
+	Categories     []models.Category
+	Users          []models.User
+	UserNameMap    map[string]string
+	UserAvatarMap  map[string]string
+	Filter         repository.ChoreFilter
+	ActiveTab      string
 }
 
 type ChoreTableProps struct {
@@ -56,9 +65,9 @@ templ ChoreList(props ChoreListProps) {
 					hx-get="/chores?tab=active"
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-include="[name='status'],[name='assigned_to'],[name='category']"
+					hx-include="[name='assigned_to'],[name='category']"
 				>
-					Active
+					Chores
 				</button>
 				<button
 					type="button"
@@ -67,7 +76,7 @@ templ ChoreList(props ChoreListProps) {
 					hx-get="/chores?tab=history"
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-include="[name='status'],[name='assigned_to'],[name='category']"
+					hx-include="[name='assigned_to'],[name='category']"
 				>
 					History
 				</button>
@@ -76,20 +85,21 @@ templ ChoreList(props ChoreListProps) {
 
 			<!-- Filters -->
 			<div class="flex flex-wrap gap-3 bg-white p-4 rounded-lg shadow">
-				<select
-					name="status"
-					class="rounded-md border-gray-300 text-sm"
-					hx-get="/chores"
-					hx-target="#chore-table-content"
-					hx-swap="outerHTML"
-					hx-trigger="change"
-					hx-include="[name='status'],[name='assigned_to'],[name='category'],[name='tab']"
-				>
-					<option value="">All Statuses</option>
-					<option value="pending" if props.Filter.Status != nil && string(*props.Filter.Status) == "pending" { selected }>Pending</option>
-					<option value="completed" if props.Filter.Status != nil && string(*props.Filter.Status) == "completed" { selected }>Completed</option>
-					<option value="overdue" if props.Filter.Status != nil && string(*props.Filter.Status) == "overdue" { selected }>Overdue</option>
-				</select>
+				if props.ActiveTab != "history" {
+					<select
+						name="status"
+						class="rounded-md border-gray-300 text-sm"
+						hx-get="/chores"
+						hx-target="#chore-table-content"
+						hx-swap="outerHTML"
+						hx-trigger="change"
+						hx-include="[name='status'],[name='assigned_to'],[name='category'],[name='tab']"
+					>
+						<option value="">All Statuses</option>
+						<option value="pending" if props.Filter.Status != nil && string(*props.Filter.Status) == "pending" { selected }>Pending</option>
+						<option value="overdue" if props.Filter.Status != nil && string(*props.Filter.Status) == "overdue" { selected }>Overdue</option>
+					</select>
+				}
 				<select
 					name="assigned_to"
 					class="rounded-md border-gray-300 text-sm"
@@ -120,19 +130,25 @@ templ ChoreList(props ChoreListProps) {
 				</select>
 			</div>
 
-			@ChoreTableContent(ChoreTableProps{
-				Chores:        props.Chores,
-				User:          props.User,
-				UserNameMap:   props.UserNameMap,
-				UserAvatarMap: props.UserAvatarMap,
-			})
+			if props.ActiveTab == "history" {
+				@ChoreHistoryContent(props.HistoryEntries)
+			} else {
+				@ChoreTableContent(ChoreTableProps{
+					Chores:        props.Chores,
+					User:          props.User,
+					UserNameMap:   props.UserNameMap,
+					UserAvatarMap: props.UserAvatarMap,
+				})
+			}
 		</div>
 
 		<script>
 			function switchTab(tab) {
 				document.getElementById('tab-input').value = tab;
+				var tabLabels = {'active': 'chores', 'history': 'history'};
 				document.querySelectorAll('#chore-tabs button').forEach(function(btn) {
-					btn.className = tab === btn.textContent.trim().toLowerCase().replace(' ', '') ?
+					var btnText = btn.textContent.trim().toLowerCase();
+					btn.className = btnText === tabLabels[tab] ?
 						'px-4 py-2 text-sm font-medium rounded-md bg-white text-gray-900 shadow' :
 						'px-4 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-900';
 				});
@@ -162,6 +178,43 @@ templ ChoreTableContent(props ChoreTableProps) {
 					<tbody class="bg-white divide-y divide-gray-200" id="chore-list">
 						for _, chore := range props.Chores {
 							@ChoreRow(chore, props.User, props.UserNameMap, props.UserAvatarMap)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ ChoreHistoryContent(entries []ChoreHistoryEntry) {
+	<div id="chore-table-content" class="bg-white shadow rounded-lg overflow-hidden">
+		if len(entries) == 0 {
+			<div class="p-8 text-center text-gray-500">
+				<p>No completion history</p>
+			</div>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chore Name</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Times Completed</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Completed</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Completed By</th>
+						</tr>
+					</thead>
+					<tbody class="bg-white divide-y divide-gray-200">
+						for _, entry := range entries {
+							<tr>
+								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{ entry.Name }</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ strconv.Itoa(entry.CompletionCount) }</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+									if entry.LastCompletedAt != nil {
+										{ entry.LastCompletedAt.Format("Jan 2, 2006") }
+									}
+								</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ entry.LastCompletedBy }</td>
+							</tr>
 						}
 					</tbody>
 				</table>

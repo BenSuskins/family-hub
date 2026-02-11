@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -47,35 +48,11 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	filter := repository.ChoreFilter{}
 
-	if status := r.URL.Query().Get("status"); status != "" {
-		s := models.ChoreStatus(status)
-		filter.Status = &s
-	} else {
-		switch tab {
-		case "history":
-			filter.Statuses = []models.ChoreStatus{models.ChoreStatusCompleted}
-			filter.OrderBy = repository.OrderByCompletedAtDesc
-		default:
-			filter.Statuses = []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}
-		}
-	}
-
-	if tab == "history" && filter.Status == nil {
-		filter.OrderBy = repository.OrderByCompletedAtDesc
-	}
-
 	if assignedTo := r.URL.Query().Get("assigned_to"); assignedTo != "" {
 		filter.AssignedToUser = &assignedTo
 	}
 	if categoryID := r.URL.Query().Get("category"); categoryID != "" {
 		filter.CategoryID = &categoryID
-	}
-
-	chores, err := handler.choreRepo.FindAll(ctx, filter)
-	if err != nil {
-		slog.Error("finding chores", "error", err)
-		http.Error(w, "Error loading chores", http.StatusInternalServerError)
-		return
 	}
 
 	users, err := handler.userRepo.FindAll(ctx)
@@ -88,6 +65,58 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 	for _, u := range users {
 		userNameMap[u.ID] = u.Name
 		userAvatarMap[u.ID] = u.AvatarURL
+	}
+
+	if tab == "history" {
+		filter.Statuses = []models.ChoreStatus{models.ChoreStatusCompleted}
+		filter.OrderBy = repository.OrderByCompletedAtDesc
+
+		chores, err := handler.choreRepo.FindAll(ctx, filter)
+		if err != nil {
+			slog.Error("finding chores", "error", err)
+			http.Error(w, "Error loading chores", http.StatusInternalServerError)
+			return
+		}
+
+		historyEntries := buildHistoryEntries(chores, userNameMap)
+
+		if r.Header.Get("HX-Request") == "true" {
+			component := pages.ChoreHistoryContent(historyEntries)
+			component.Render(ctx, w)
+			return
+		}
+
+		categories, err := handler.categoryRepo.FindAll(ctx)
+		if err != nil {
+			slog.Error("finding categories", "error", err)
+		}
+
+		component := pages.ChoreList(pages.ChoreListProps{
+			User:           user,
+			HistoryEntries: historyEntries,
+			Categories:     categories,
+			Users:          users,
+			UserNameMap:    userNameMap,
+			UserAvatarMap:  userAvatarMap,
+			Filter:         filter,
+			ActiveTab:      tab,
+		})
+		component.Render(ctx, w)
+		return
+	}
+
+	if status := r.URL.Query().Get("status"); status != "" {
+		s := models.ChoreStatus(status)
+		filter.Status = &s
+	} else {
+		filter.Statuses = []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}
+	}
+
+	chores, err := handler.choreRepo.FindAll(ctx, filter)
+	if err != nil {
+		slog.Error("finding chores", "error", err)
+		http.Error(w, "Error loading chores", http.StatusInternalServerError)
+		return
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -117,6 +146,52 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		ActiveTab:     tab,
 	})
 	component.Render(ctx, w)
+}
+
+func buildHistoryEntries(chores []models.Chore, userNameMap map[string]string) []pages.ChoreHistoryEntry {
+	type accumulator struct {
+		count           int
+		lastCompletedAt *time.Time
+		lastCompletedBy string
+	}
+
+	grouped := make(map[string]*accumulator)
+	for _, chore := range chores {
+		entry, exists := grouped[chore.Name]
+		if !exists {
+			entry = &accumulator{}
+			grouped[chore.Name] = entry
+		}
+		entry.count++
+		if chore.CompletedAt != nil && (entry.lastCompletedAt == nil || chore.CompletedAt.After(*entry.lastCompletedAt)) {
+			entry.lastCompletedAt = chore.CompletedAt
+			if chore.CompletedByUserID != nil {
+				entry.lastCompletedBy = userNameMap[*chore.CompletedByUserID]
+			}
+		}
+	}
+
+	entries := make([]pages.ChoreHistoryEntry, 0, len(grouped))
+	for name, acc := range grouped {
+		entries = append(entries, pages.ChoreHistoryEntry{
+			Name:            name,
+			CompletionCount: acc.count,
+			LastCompletedAt: acc.lastCompletedAt,
+			LastCompletedBy: acc.lastCompletedBy,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].LastCompletedAt == nil {
+			return false
+		}
+		if entries[j].LastCompletedAt == nil {
+			return true
+		}
+		return entries[i].LastCompletedAt.After(*entries[j].LastCompletedAt)
+	})
+
+	return entries
 }
 
 func (handler *ChoreHandler) CreateForm(w http.ResponseWriter, r *http.Request) {

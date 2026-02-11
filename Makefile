@@ -2,6 +2,7 @@
 
 build: templ css
 	export PATH="$PATH:$(go env GOPATH)/bin"
+	go mod download
 	go build -o bin/family-hub .
 
 run: build

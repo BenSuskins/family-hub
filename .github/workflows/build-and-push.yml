@@ -19,7 +19,12 @@ jobs:
 
     - name: setup
       run: |
-        make build
+        export PATH="$PATH:$(go env GOPATH)/bin"
+        go mod download
+        npm install
+        go install github.com/a-h/templ/cmd/templ@latest
+        templ generate
+        npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
     - name: test
       run: |

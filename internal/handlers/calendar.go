@@ -42,34 +42,84 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 	user := middleware.GetUser(ctx)
 
 	now := time.Now()
-	year := now.Year()
-	month := int(now.Month())
-
-	if yearStr := r.URL.Query().Get("year"); yearStr != "" {
-		if y, err := strconv.Atoi(yearStr); err == nil {
-			year = y
-		}
-	}
-	if monthStr := r.URL.Query().Get("month"); monthStr != "" {
-		if m, err := strconv.Atoi(monthStr); err == nil {
-			month = m
-		}
+	view := r.URL.Query().Get("view")
+	if view == "" {
+		view = "month"
 	}
 
-	startOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
-	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+	var start, end time.Time
+	var year, month int
+	var date time.Time
+
+	switch view {
+	case "year":
+		year = now.Year()
+		if yearStr := r.URL.Query().Get("year"); yearStr != "" {
+			if y, err := strconv.Atoi(yearStr); err == nil {
+				year = y
+			}
+		}
+		month = int(now.Month())
+		start = time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
+		end = time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local)
+		date = start
+
+	case "week":
+		date = now
+		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
+			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+				date = d
+			}
+		}
+		// Find the Sunday that starts this week
+		weekday := int(date.Weekday())
+		start = time.Date(date.Year(), date.Month(), date.Day()-weekday, 0, 0, 0, 0, time.Local)
+		end = start.AddDate(0, 0, 7)
+		year = date.Year()
+		month = int(date.Month())
+
+	case "day":
+		date = now
+		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
+			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+				date = d
+			}
+		}
+		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+		end = start.AddDate(0, 0, 1)
+		year = date.Year()
+		month = int(date.Month())
+
+	default: // "month"
+		view = "month"
+		year = now.Year()
+		month = int(now.Month())
+		if yearStr := r.URL.Query().Get("year"); yearStr != "" {
+			if y, err := strconv.Atoi(yearStr); err == nil {
+				year = y
+			}
+		}
+		if monthStr := r.URL.Query().Get("month"); monthStr != "" {
+			if m, err := strconv.Atoi(monthStr); err == nil {
+				month = m
+			}
+		}
+		start = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+		end = start.AddDate(0, 1, 0)
+		date = start
+	}
 
 	events, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{
-		StartAfter:  &startOfMonth,
-		StartBefore: &endOfMonth,
+		StartAfter:  &start,
+		StartBefore: &end,
 	})
 	if err != nil {
 		slog.Error("finding events for calendar", "error", err)
 	}
 
 	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		DueAfter:  &startOfMonth,
-		DueBefore: &endOfMonth,
+		DueAfter:  &start,
+		DueBefore: &end,
 	})
 	if err != nil {
 		slog.Error("finding chores for calendar", "error", err)
@@ -91,6 +141,8 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		User:          user,
 		Year:          year,
 		Month:         month,
+		View:          view,
+		Date:          date,
 		Events:        events,
 		Chores:        chores,
 		UserNameMap:   userNameMap,

@@ -12,6 +12,8 @@ type CalendarProps struct {
 	User          models.User
 	Year          int
 	Month         int
+	View          string
+	Date          time.Time
 	Events        []models.Event
 	Chores        []models.Chore
 	UserNameMap   map[string]string
@@ -21,7 +23,7 @@ type CalendarProps struct {
 templ Calendar(props CalendarProps) {
 	@layouts.Base("Calendar", props.User) {
 		<div class="space-y-6">
-			<div class="flex justify-between items-center">
+			<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 				<h1 class="text-2xl font-bold text-gray-900">Calendar</h1>
 				<div class="flex items-center space-x-4">
 					<button
@@ -33,18 +35,47 @@ templ Calendar(props CalendarProps) {
 					>
 						Share Calendar
 					</button>
-					<a
-						href={ templ.SafeURL(prevMonthURL(props.Year, props.Month)) }
-						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
-					>&larr; Prev</a>
-					<span class="text-lg font-medium text-gray-900">
-						{ time.Month(props.Month).String() } { fmt.Sprintf("%d", props.Year) }
-					</span>
-					<a
-						href={ templ.SafeURL(nextMonthURL(props.Year, props.Month)) }
-						class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
-					>Next &rarr;</a>
+					<!-- View toggle -->
+					<div class="inline-flex rounded-md shadow-sm">
+						<a
+							href={ templ.SafeURL(viewURL("year", props.Date)) }
+							class={ "px-3 py-1.5 text-sm font-medium rounded-l-md border " + viewToggleClass(props.View, "year") }
+						>Year</a>
+						<a
+							href={ templ.SafeURL(viewURL("month", props.Date)) }
+							class={ "px-3 py-1.5 text-sm font-medium border-t border-b border-r " + viewToggleClass(props.View, "month") }
+						>Month</a>
+						<a
+							href={ templ.SafeURL(viewURL("week", props.Date)) }
+							class={ "px-3 py-1.5 text-sm font-medium border-t border-b " + viewToggleClass(props.View, "week") }
+						>Week</a>
+						<a
+							href={ templ.SafeURL(viewURL("day", props.Date)) }
+							class={ "px-3 py-1.5 text-sm font-medium rounded-r-md border " + viewToggleClass(props.View, "day") }
+						>Day</a>
+					</div>
 				</div>
+			</div>
+
+			<!-- Navigation -->
+			<div class="flex items-center justify-center space-x-4">
+				<a
+					href={ templ.SafeURL(prevURL(props)) }
+					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+				>&larr; Prev</a>
+				<span class="text-lg font-medium text-gray-900">
+					{ viewTitle(props) }
+				</span>
+				<a
+					href={ templ.SafeURL(nextURL(props)) }
+					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+				>Next &rarr;</a>
+				if props.View != "month" && props.View != "year" {
+					<a
+						href={ templ.SafeURL(todayURL(props.View)) }
+						class="text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded border border-indigo-300 text-sm font-medium"
+					>Today</a>
+				}
 			</div>
 
 			<!-- Share Modal -->
@@ -60,42 +91,189 @@ templ Calendar(props CalendarProps) {
 				</div>
 			</div>
 
+			if props.View == "year" {
+				@yearView(props)
+			} else if props.View == "month" {
+				@monthView(props)
+			} else if props.View == "week" {
+				@weekView(props)
+			} else {
+				@dayView(props)
+			}
+		</div>
+	}
+}
+
+templ yearView(props CalendarProps) {
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+		for _, m := range months() {
 			<div class="bg-white shadow rounded-lg overflow-hidden">
-				<!-- Day headers -->
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/calendar?view=month&year=%d&month=%d", props.Year, m)) }
+					class="block px-3 py-2 text-sm font-medium text-gray-900 bg-gray-50 hover:bg-indigo-50 border-b text-center"
+				>
+					{ time.Month(m).String() }
+				</a>
 				<div class="grid grid-cols-7 bg-gray-50">
-					for _, day := range []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"} {
-						<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">{ day }</div>
+					for _, day := range []string{"S", "M", "T", "W", "T", "F", "S"} {
+						<div class="px-0.5 py-1 text-center text-xs text-gray-400">{ day }</div>
 					}
 				</div>
-
-				<!-- Calendar grid -->
-				<div class="grid grid-cols-7 divide-x divide-y divide-gray-200">
-					for _, day := range calendarDays(props.Year, props.Month) {
-						<div class={ "min-h-24 p-1 " + dayClass(day, props.Year, props.Month) }>
-							if day.Day() > 0 {
-								<div class={ "text-sm font-medium mb-1 " + todayClass(day) }>
+				<div class="grid grid-cols-7">
+					for _, day := range calendarDays(props.Year, m) {
+						<div class="px-0.5 py-0.5 text-center">
+							if !day.IsZero() {
+								<a
+									href={ templ.SafeURL(fmt.Sprintf("/calendar?view=day&date=%s", day.Format("2006-01-02"))) }
+									class={ "inline-block w-6 h-6 leading-6 text-xs rounded-full " + yearDayClass(day, props.Events, props.Chores) }
+								>
 									{ fmt.Sprintf("%d", day.Day()) }
-								</div>
-								for _, event := range eventsOnDay(props.Events, day) {
-									<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
-										{ event.Title }
-									</div>
-								}
-								for _, chore := range choresOnDay(props.Chores, day) {
-									<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 " + choreColor(chore.Status) } title={ chore.Name }>
-										if chore.AssignedToUserID != nil {
-											@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-4 w-4 text-[0.5rem]")
-										}
-										{ chore.Name }
-									</div>
-								}
+								</a>
 							}
 						</div>
 					}
 				</div>
 			</div>
+		}
+	</div>
+}
+
+templ monthView(props CalendarProps) {
+	<div class="bg-white shadow rounded-lg overflow-hidden">
+		<!-- Day headers -->
+		<div class="grid grid-cols-7 bg-gray-50">
+			for _, day := range []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"} {
+				<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">{ day }</div>
+			}
 		</div>
-	}
+
+		<!-- Calendar grid -->
+		<div class="grid grid-cols-7 divide-x divide-y divide-gray-200">
+			for _, day := range calendarDays(props.Year, props.Month) {
+				<div class={ "min-h-24 p-1 " + dayClass(day, props.Year, props.Month) }>
+					if day.Day() > 0 {
+						<div class={ "text-sm font-medium mb-1 " + todayClass(day) }>
+							{ fmt.Sprintf("%d", day.Day()) }
+						</div>
+						for _, event := range eventsOnDay(props.Events, day) {
+							<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+								{ event.Title }
+							</div>
+						}
+						for _, chore := range choresOnDay(props.Chores, day) {
+							<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 " + choreColor(chore.Status) } title={ chore.Name }>
+								if chore.AssignedToUserID != nil {
+									@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-4 w-4 text-[0.5rem]")
+								}
+								{ chore.Name }
+							</div>
+						}
+					}
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ weekView(props CalendarProps) {
+	<div class="bg-white shadow rounded-lg overflow-hidden">
+		<!-- Day headers with dates -->
+		<div class="grid grid-cols-8 bg-gray-50 border-b">
+			<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase border-r">Time</div>
+			for _, day := range weekDays(props.Date) {
+				<div class={ "px-2 py-3 text-center border-r " + weekDayHeaderClass(day) }>
+					<div class="text-xs font-medium text-gray-500 uppercase">{ day.Format("Mon") }</div>
+					<div class={ "text-sm font-medium " + todayClass(day) }>{ fmt.Sprintf("%d", day.Day()) }</div>
+				</div>
+			}
+		</div>
+
+		<!-- All-day section -->
+		if hasAllDayItems(props.Events, props.Chores, weekDays(props.Date)) {
+			<div class="grid grid-cols-8 border-b bg-gray-50">
+				<div class="px-2 py-1 text-xs text-gray-500 border-r flex items-center justify-center">All Day</div>
+				for _, day := range weekDays(props.Date) {
+					<div class="px-1 py-1 border-r min-h-8">
+						for _, event := range allDayEventsOnDay(props.Events, day) {
+							<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+								{ event.Title }
+							</div>
+						}
+						for _, chore := range choresOnDay(props.Chores, day) {
+							<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate " + choreColor(chore.Status) } title={ chore.Name }>
+								{ chore.Name }
+							</div>
+						}
+					</div>
+				}
+			</div>
+		}
+
+		<!-- Time grid -->
+		<div class="overflow-y-auto" style="max-height: 600px;">
+			for _, hour := range hours() {
+				<div class="grid grid-cols-8 border-b divide-x divide-gray-200">
+					<div class="px-2 py-3 text-xs text-gray-500 text-right pr-3 border-r">
+						{ formatHour(hour) }
+					</div>
+					for _, day := range weekDays(props.Date) {
+						<div class={ "px-1 py-1 min-h-12 " + weekDayCellClass(day) }>
+							for _, event := range timedEventsAtHour(props.Events, day, hour) {
+								<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+									{ formatEventTime(event) } { event.Title }
+								</div>
+							}
+						</div>
+					}
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ dayView(props CalendarProps) {
+	<div class="bg-white shadow rounded-lg overflow-hidden">
+		<!-- All-day section -->
+		if hasAllDayItemsForDay(props.Events, props.Chores, props.Date) {
+			<div class="border-b bg-gray-50 px-4 py-2">
+				<div class="text-xs font-medium text-gray-500 uppercase mb-1">All Day</div>
+				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
+					<div class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1" title={ event.Title }>
+						{ event.Title }
+						if event.Location != "" {
+							<span class="text-blue-600"> &middot; { event.Location }</span>
+						}
+					</div>
+				}
+				for _, chore := range choresOnDay(props.Chores, props.Date) {
+					<div class={ "text-sm rounded px-2 py-1 mb-1 " + choreColor(chore.Status) } title={ chore.Name }>
+						{ chore.Name }
+					</div>
+				}
+			</div>
+		}
+
+		<!-- Time grid -->
+		<div class="overflow-y-auto" style="max-height: 700px;">
+			for _, hour := range hours() {
+				<div class="flex border-b">
+					<div class="w-20 flex-shrink-0 px-2 py-3 text-xs text-gray-500 text-right pr-3 border-r">
+						{ formatHour(hour) }
+					</div>
+					<div class={ "flex-1 px-3 py-1 min-h-14 " + dayTimeCellClass(props.Date, hour) }>
+						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
+							<div class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1">
+								<span class="font-medium">{ formatEventTime(event) }</span> { event.Title }
+								if event.Location != "" {
+									<span class="text-blue-600"> &middot; { event.Location }</span>
+								}
+							</div>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	</div>
 }
 
 templ CalendarShareModal(icalURL string) {
@@ -125,19 +303,208 @@ templ CalendarShareModal(icalURL string) {
 	</div>
 }
 
+// View toggle helpers
+
+func viewURL(view string, date time.Time) string {
+	switch view {
+	case "year":
+		return fmt.Sprintf("/calendar?view=year&year=%d", date.Year())
+	case "month":
+		return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", date.Year(), int(date.Month()))
+	case "week":
+		return fmt.Sprintf("/calendar?view=week&date=%s", date.Format("2006-01-02"))
+	case "day":
+		return fmt.Sprintf("/calendar?view=day&date=%s", date.Format("2006-01-02"))
+	}
+	return "/calendar"
+}
+
+func viewToggleClass(currentView, buttonView string) string {
+	if currentView == buttonView {
+		return "bg-indigo-600 text-white border-indigo-600"
+	}
+	return "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+}
+
+func viewTitle(props CalendarProps) string {
+	switch props.View {
+	case "year":
+		return fmt.Sprintf("%d", props.Year)
+	case "week":
+		start := weekStart(props.Date)
+		end := start.AddDate(0, 0, 6)
+		if start.Month() == end.Month() {
+			return fmt.Sprintf("%s %d - %d, %d", start.Month().String(), start.Day(), end.Day(), start.Year())
+		}
+		return fmt.Sprintf("%s %d - %s %d, %d", start.Month().String()[:3], start.Day(), end.Month().String()[:3], end.Day(), end.Year())
+	case "day":
+		return props.Date.Format("Monday, January 2, 2006")
+	default:
+		return fmt.Sprintf("%s %d", time.Month(props.Month).String(), props.Year)
+	}
+}
+
+func todayURL(view string) string {
+	today := time.Now()
+	return fmt.Sprintf("/calendar?view=%s&date=%s", view, today.Format("2006-01-02"))
+}
+
+// Navigation helpers
+
+func prevURL(props CalendarProps) string {
+	switch props.View {
+	case "year":
+		return fmt.Sprintf("/calendar?view=year&year=%d", props.Year-1)
+	case "week":
+		prev := weekStart(props.Date).AddDate(0, 0, -7)
+		return fmt.Sprintf("/calendar?view=week&date=%s", prev.Format("2006-01-02"))
+	case "day":
+		prev := props.Date.AddDate(0, 0, -1)
+		return fmt.Sprintf("/calendar?view=day&date=%s", prev.Format("2006-01-02"))
+	default:
+		return prevMonthURL(props.Year, props.Month)
+	}
+}
+
+func nextURL(props CalendarProps) string {
+	switch props.View {
+	case "year":
+		return fmt.Sprintf("/calendar?view=year&year=%d", props.Year+1)
+	case "week":
+		next := weekStart(props.Date).AddDate(0, 0, 7)
+		return fmt.Sprintf("/calendar?view=week&date=%s", next.Format("2006-01-02"))
+	case "day":
+		next := props.Date.AddDate(0, 0, 1)
+		return fmt.Sprintf("/calendar?view=day&date=%s", next.Format("2006-01-02"))
+	default:
+		return nextMonthURL(props.Year, props.Month)
+	}
+}
+
 func prevMonthURL(year, month int) string {
 	if month == 1 {
-		return fmt.Sprintf("/calendar?year=%d&month=%d", year-1, 12)
+		return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", year-1, 12)
 	}
-	return fmt.Sprintf("/calendar?year=%d&month=%d", year, month-1)
+	return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", year, month-1)
 }
 
 func nextMonthURL(year, month int) string {
 	if month == 12 {
-		return fmt.Sprintf("/calendar?year=%d&month=%d", year+1, 1)
+		return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", year+1, 1)
 	}
-	return fmt.Sprintf("/calendar?year=%d&month=%d", year, month+1)
+	return fmt.Sprintf("/calendar?view=month&year=%d&month=%d", year, month+1)
 }
+
+// Week view helpers
+
+func weekStart(date time.Time) time.Time {
+	weekday := int(date.Weekday())
+	return time.Date(date.Year(), date.Month(), date.Day()-weekday, 0, 0, 0, 0, time.Local)
+}
+
+func weekDays(date time.Time) []time.Time {
+	start := weekStart(date)
+	days := make([]time.Time, 7)
+	for i := 0; i < 7; i++ {
+		days[i] = start.AddDate(0, 0, i)
+	}
+	return days
+}
+
+func weekDayHeaderClass(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "bg-indigo-50"
+	}
+	return ""
+}
+
+func weekDayCellClass(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "bg-indigo-50"
+	}
+	return ""
+}
+
+// Day view helpers
+
+func dayTimeCellClass(day time.Time, hour int) string {
+	now := time.Now()
+	if day.Year() == now.Year() && day.Month() == now.Month() && day.Day() == now.Day() && now.Hour() == hour {
+		return "bg-indigo-50"
+	}
+	return ""
+}
+
+// Shared time helpers
+
+func hours() []int {
+	h := make([]int, 24)
+	for i := 0; i < 24; i++ {
+		h[i] = i
+	}
+	return h
+}
+
+func formatHour(hour int) string {
+	if hour == 0 {
+		return "12 AM"
+	}
+	if hour < 12 {
+		return fmt.Sprintf("%d AM", hour)
+	}
+	if hour == 12 {
+		return "12 PM"
+	}
+	return fmt.Sprintf("%d PM", hour-12)
+}
+
+func formatEventTime(event models.Event) string {
+	return event.StartTime.Format("3:04 PM")
+}
+
+func allDayEventsOnDay(events []models.Event, day time.Time) []models.Event {
+	var result []models.Event
+	for _, event := range events {
+		if event.AllDay &&
+			event.StartTime.Year() == day.Year() &&
+			event.StartTime.Month() == day.Month() &&
+			event.StartTime.Day() == day.Day() {
+			result = append(result, event)
+		}
+	}
+	return result
+}
+
+func timedEventsAtHour(events []models.Event, day time.Time, hour int) []models.Event {
+	var result []models.Event
+	for _, event := range events {
+		if !event.AllDay &&
+			event.StartTime.Year() == day.Year() &&
+			event.StartTime.Month() == day.Month() &&
+			event.StartTime.Day() == day.Day() &&
+			event.StartTime.Hour() == hour {
+			result = append(result, event)
+		}
+	}
+	return result
+}
+
+func hasAllDayItems(events []models.Event, chores []models.Chore, days []time.Time) bool {
+	for _, day := range days {
+		if len(allDayEventsOnDay(events, day)) > 0 || len(choresOnDay(chores, day)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAllDayItemsForDay(events []models.Event, chores []models.Chore, day time.Time) bool {
+	return len(allDayEventsOnDay(events, day)) > 0 || len(choresOnDay(chores, day)) > 0
+}
+
+// Month view helpers (unchanged)
 
 func calendarDays(year, month int) []time.Time {
 	firstOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
@@ -212,4 +579,38 @@ func choreColor(status models.ChoreStatus) string {
 	default:
 		return "bg-gray-100 text-gray-800"
 	}
+}
+
+// Year view helpers
+
+func months() []int {
+	m := make([]int, 12)
+	for i := 0; i < 12; i++ {
+		m[i] = i + 1
+	}
+	return m
+}
+
+func yearDayClass(day time.Time, events []models.Event, chores []models.Chore) string {
+	today := time.Now()
+	isToday := day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day()
+	hasEvents := len(eventsOnDay(events, day)) > 0
+	hasChores := len(choresOnDay(chores, day)) > 0
+
+	if isToday && (hasEvents || hasChores) {
+		return "bg-indigo-600 text-white font-bold"
+	}
+	if isToday {
+		return "bg-indigo-100 text-indigo-700 font-bold"
+	}
+	if hasEvents && hasChores {
+		return "bg-purple-100 text-purple-800 hover:bg-purple-200"
+	}
+	if hasEvents {
+		return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+	}
+	if hasChores {
+		return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+	}
+	return "text-gray-700 hover:bg-gray-100"
 }

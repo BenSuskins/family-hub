@@ -1,6 +1,7 @@
 .PHONY: build run test templ css dev docker-dev docker-prod clean
 
 build: templ css
+	export PATH="$PATH:$(go env GOPATH)/bin"
 	go build -o bin/family-hub .
 
 run: build

@@ -17,13 +17,14 @@ const (
 )
 
 type ChoreFilter struct {
-	Status         *models.ChoreStatus
-	Statuses       []models.ChoreStatus
-	AssignedToUser *string
-	CategoryID     *string
-	DueBefore      *time.Time
-	DueAfter       *time.Time
-	OrderBy        string
+	Status          *models.ChoreStatus
+	Statuses        []models.ChoreStatus
+	RecurrenceTypes []models.RecurrenceType
+	AssignedToUser  *string
+	CategoryID      *string
+	DueBefore       *time.Time
+	DueAfter        *time.Time
+	OrderBy         string
 }
 
 type ChoreRepository interface {
@@ -93,6 +94,14 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 			args = append(args, string(s))
 		}
 		query += " AND status IN (" + strings.Join(placeholders, ",") + ")"
+	}
+	if len(filter.RecurrenceTypes) > 0 {
+		placeholders := make([]string, len(filter.RecurrenceTypes))
+		for i, rt := range filter.RecurrenceTypes {
+			placeholders[i] = "?"
+			args = append(args, string(rt))
+		}
+		query += " AND recurrence_type IN (" + strings.Join(placeholders, ",") + ")"
 	}
 	if filter.AssignedToUser != nil {
 		query += " AND assigned_to_user_id = ?"

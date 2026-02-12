@@ -27,7 +27,6 @@ type DashboardProps struct {
 	ChoresDueToday []models.Chore
 	OverdueChores  []models.Chore
 	UpcomingEvents []models.Event
-	AllChores      []models.Chore
 	Users          []models.User
 	UserStats      []UserStatProps
 	UserAvatarMap  map[string]string
@@ -38,14 +37,6 @@ templ Dashboard(props DashboardProps) {
 	@layouts.Base("Dashboard", props.User) {
 		<div class="space-y-6">
 			<h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-
-			<!-- Stats Cards -->
-			<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-				@statCard("Chores Due Today", fmt.Sprintf("%d", len(props.ChoresDueToday)), "bg-yellow-100 text-yellow-800")
-				@statCard("Overdue", fmt.Sprintf("%d", len(props.OverdueChores)), "bg-red-100 text-red-800")
-				@statCard("Upcoming Events", fmt.Sprintf("%d", len(props.UpcomingEvents)), "bg-blue-100 text-blue-800")
-				@statCard("Total Chores", fmt.Sprintf("%d", len(props.AllChores)), "bg-green-100 text-green-800")
-			</div>
 
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<!-- Chores Due Today -->
@@ -243,13 +234,6 @@ templ LeaderboardTable(props LeaderboardProps) {
 				</table>
 			</div>
 		}
-	</div>
-}
-
-templ statCard(title, value, colorClass string) {
-	<div class={ "rounded-lg p-5 " + colorClass }>
-		<p class="text-sm font-medium truncate">{ title }</p>
-		<p class="mt-1 text-3xl font-semibold">{ value }</p>
 	</div>
 }
 

@@ -107,11 +107,6 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		})
 	}
 
-	allChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
-	if err != nil {
-		slog.Error("finding all chores", "error", err)
-	}
-
 	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
 	if err != nil {
 		slog.Error("finding today's meals", "error", err)
@@ -122,7 +117,6 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		ChoresDueToday: choresDueToday,
 		OverdueChores:  overdueChores,
 		UpcomingEvents: upcomingEvents,
-		AllChores:      allChores,
 		Users:          users,
 		UserStats:      convertUserStats(userStats, "week"),
 		UserAvatarMap:  userAvatarMap,

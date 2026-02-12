@@ -75,9 +75,9 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 				date = d
 			}
 		}
-		// Find the Sunday that starts this week
-		weekday := int(date.Weekday())
-		start = time.Date(date.Year(), date.Month(), date.Day()-weekday, 0, 0, 0, 0, time.Local)
+		// Find the Monday that starts this week
+		offset := (int(date.Weekday()) + 6) % 7
+		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.Local)
 		end = start.AddDate(0, 0, 7)
 		year = date.Year()
 		month = int(date.Month())

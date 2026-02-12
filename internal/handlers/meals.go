@@ -31,8 +31,8 @@ func (handler *MealHandler) Planner(w http.ResponseWriter, r *http.Request) {
 			weekStart = parsed
 		}
 	} else {
-		weekday := int(weekStart.Weekday())
-		weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day()-weekday, 0, 0, 0, 0, time.Local)
+		offset := (int(weekStart.Weekday()) + 6) % 7
+		weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day()-offset, 0, 0, 0, 0, time.Local)
 	}
 
 	weekEnd := weekStart.AddDate(0, 0, 6)

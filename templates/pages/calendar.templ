@@ -128,7 +128,7 @@ templ yearView(props CalendarProps) {
 					{ time.Month(m).String() }
 				</a>
 				<div class="grid grid-cols-7 bg-gray-50">
-					for _, day := range []string{"S", "M", "T", "W", "T", "F", "S"} {
+					for _, day := range []string{"M", "T", "W", "T", "F", "S", "S"} {
 						<div class="px-0.5 py-1 text-center text-xs text-gray-400">{ day }</div>
 					}
 				</div>
@@ -155,7 +155,7 @@ templ monthView(props CalendarProps) {
 	<div class="bg-white shadow rounded-lg overflow-hidden">
 		<!-- Day headers -->
 		<div class="grid grid-cols-7 bg-gray-50">
-			for _, day := range []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"} {
+			for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
 				<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">{ day }</div>
 			}
 		</div>
@@ -578,8 +578,8 @@ func nextMonthURL(year, month int) string {
 // Week view helpers
 
 func weekStart(date time.Time) time.Time {
-	weekday := int(date.Weekday())
-	return time.Date(date.Year(), date.Month(), date.Day()-weekday, 0, 0, 0, 0, time.Local)
+	offset := (int(date.Weekday()) + 6) % 7
+	return time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.Local)
 }
 
 func weekDays(date time.Time) []time.Time {
@@ -688,7 +688,7 @@ func hasAllDayItemsForDay(events []models.Event, chores []models.Chore, day time
 
 func calendarDays(year, month int) []time.Time {
 	firstOfMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
-	startDay := int(firstOfMonth.Weekday())
+	startDay := (int(firstOfMonth.Weekday()) + 6) % 7
 	daysInMonth := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.Local).Day()
 
 	var days []time.Time

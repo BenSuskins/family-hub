@@ -21,6 +21,7 @@ import (
 
 type AuthService struct {
 	oauthConfig  *oauth2.Config
+	oidcProvider *oidc.Provider
 	oidcVerifier *oidc.IDTokenVerifier
 	secureCookie *securecookie.SecureCookie
 	userRepo     repository.UserRepository
@@ -56,6 +57,7 @@ func NewAuthService(ctx context.Context, cfg config.Config, userRepo repository.
 
 	return &AuthService{
 		oauthConfig:  oauthConfig,
+		oidcProvider: provider,
 		oidcVerifier: verifier,
 		secureCookie: securecookie.New([]byte(cfg.SessionSecret), nil),
 		userRepo:     userRepo,
@@ -101,26 +103,52 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 		return models.User{}, fmt.Errorf("verifying id token: %w", err)
 	}
 
-	var claims struct {
+	type oidcClaims struct {
 		Subject          string `json:"sub"`
 		Email            string `json:"email"`
 		Name             string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
 		Picture          string `json:"picture"`
 	}
-	if err := idToken.Claims(&claims); err != nil {
-		return models.User{}, fmt.Errorf("parsing claims: %w", err)
+
+	var idTokenClaims oidcClaims
+	if err := idToken.Claims(&idTokenClaims); err != nil {
+		return models.User{}, fmt.Errorf("parsing id token claims: %w", err)
 	}
 
-	displayName := claims.Name
-	if displayName == "" {
-		displayName = claims.PreferredUsername
-	}
-	if displayName == "" {
-		displayName = claims.Email
+	var userInfoClaims oidcClaims
+	userInfo, err := service.oidcProvider.UserInfo(ctx, oauth2.StaticTokenSource(token))
+	if err != nil {
+		slog.Warn("failed to fetch userinfo, falling back to id token claims", "error", err)
+	} else {
+		if err := userInfo.Claims(&userInfoClaims); err != nil {
+			slog.Warn("failed to parse userinfo claims, falling back to id token claims", "error", err)
+		}
 	}
 
-	return service.provisionUser(ctx, claims.Subject, claims.Email, displayName, claims.Picture)
+	merged := idTokenClaims
+	if userInfoClaims.Email != "" {
+		merged.Email = userInfoClaims.Email
+	}
+	if userInfoClaims.Name != "" {
+		merged.Name = userInfoClaims.Name
+	}
+	if userInfoClaims.PreferredUsername != "" {
+		merged.PreferredUsername = userInfoClaims.PreferredUsername
+	}
+	if userInfoClaims.Picture != "" {
+		merged.Picture = userInfoClaims.Picture
+	}
+
+	displayName := merged.Name
+	if displayName == "" {
+		displayName = merged.PreferredUsername
+	}
+	if displayName == "" {
+		displayName = merged.Email
+	}
+
+	return service.provisionUser(ctx, merged.Subject, merged.Email, displayName, merged.Picture)
 }
 
 func (service *AuthService) provisionUser(ctx context.Context, subject, email, name, avatarURL string) (models.User, error) {

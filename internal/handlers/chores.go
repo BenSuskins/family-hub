@@ -415,6 +415,37 @@ func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/chores", http.StatusFound)
 }
 
+func (handler *ChoreHandler) Detail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	choreID := chi.URLParam(r, "id")
+
+	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	var assignedToName, assignedToAvatar string
+	if chore.AssignedToUserID != nil {
+		assignedUser, err := handler.userRepo.FindByID(ctx, *chore.AssignedToUserID)
+		if err == nil {
+			assignedToName = assignedUser.Name
+			assignedToAvatar = assignedUser.AvatarURL
+		}
+	}
+
+	var categoryName string
+	if chore.CategoryID != nil {
+		category, err := handler.categoryRepo.FindByID(ctx, *chore.CategoryID)
+		if err == nil {
+			categoryName = category.Name
+		}
+	}
+
+	component := pages.ChoreDetailFragment(chore, assignedToName, assignedToAvatar, categoryName)
+	component.Render(ctx, w)
+}
+
 type recurrenceConfigJSON struct {
 	Interval   int      `json:"interval,omitempty"`
 	Unit       string   `json:"unit,omitempty"`

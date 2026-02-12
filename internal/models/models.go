@@ -88,6 +88,7 @@ type Event struct {
 	StartTime       time.Time
 	EndTime         *time.Time
 	AllDay          bool
+	CategoryID      *string
 	CreatedByUserID string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

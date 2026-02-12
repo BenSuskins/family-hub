@@ -33,7 +33,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	authHandler := handlers.NewAuthHandler(authService)
 	dashboardHandler := handlers.NewDashboardHandler(choreRepo, eventRepo, userRepo, assignmentRepo, choreService)
 	choreHandler := handlers.NewChoreHandler(choreRepo, categoryRepo, userRepo, choreService)
-	eventHandler := handlers.NewEventHandler(eventRepo)
+	eventHandler := handlers.NewEventHandler(eventRepo, categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	calendarHandler := handlers.NewCalendarHandler(choreRepo, eventRepo, userRepo, tokenRepo, cfg.BaseURL)
 	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
@@ -64,6 +64,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Get("/leaderboard", dashboardHandler.Leaderboard)
 
 		r.Get("/chores", choreHandler.List)
+		r.Get("/chores/{id}/detail", choreHandler.Detail)
 		r.Post("/chores/{id}/complete", choreHandler.Complete)
 
 		r.Group(func(r chi.Router) {
@@ -77,6 +78,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		})
 
 		r.Get("/events", eventHandler.List)
+		r.Get("/events/{id}/detail", eventHandler.Detail)
 		r.Get("/events/new", eventHandler.CreateForm)
 		r.Post("/events", eventHandler.Create)
 

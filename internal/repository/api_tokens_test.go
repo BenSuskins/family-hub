@@ -89,6 +89,41 @@ func TestAPITokenRepository_Delete(t *testing.T) {
 	}
 }
 
+func TestAPITokenRepository_FindByUserIDAndName(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	tokenRepo := repository.NewAPITokenRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	tokenRepo.Create(ctx, models.APIToken{
+		Name: "iCal Feed", TokenHash: "hash-ical-1", CreatedByUserID: user.ID,
+	})
+	tokenRepo.Create(ctx, models.APIToken{
+		Name: "Other Token", TokenHash: "hash-other", CreatedByUserID: user.ID,
+	})
+
+	tokens, err := tokenRepo.FindByUserIDAndName(ctx, user.ID, "iCal Feed")
+	if err != nil {
+		t.Fatalf("finding tokens by user and name: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Errorf("expected 1 token, got %d", len(tokens))
+	}
+	if len(tokens) > 0 && tokens[0].Name != "iCal Feed" {
+		t.Errorf("expected name 'iCal Feed', got '%s'", tokens[0].Name)
+	}
+
+	tokens, err = tokenRepo.FindByUserIDAndName(ctx, user.ID, "Nonexistent")
+	if err != nil {
+		t.Fatalf("finding nonexistent tokens: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Errorf("expected 0 tokens, got %d", len(tokens))
+	}
+}
+
 func TestHashToken(t *testing.T) {
 	hash1 := repository.HashToken("token1")
 	hash2 := repository.HashToken("token2")

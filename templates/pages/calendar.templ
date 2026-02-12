@@ -89,6 +89,19 @@ templ Calendar(props CalendarProps) {
 				</div>
 			</div>
 
+			<!-- Detail Modal -->
+			<div id="detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this) this.classList.add('hidden')">
+				<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+					<div class="flex justify-between items-center p-4 border-b">
+						<h3 class="text-lg font-medium text-gray-900">Details</h3>
+						<button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+					</div>
+					<div id="detail-modal-content" class="p-4">
+						<p class="text-sm text-gray-500">Loading...</p>
+					</div>
+				</div>
+			</div>
+
 			if props.View == "year" {
 				@yearView(props)
 			} else if props.View == "month" {
@@ -154,12 +167,26 @@ templ monthView(props CalendarProps) {
 							{ fmt.Sprintf("%d", day.Day()) }
 						</div>
 						for _, event := range eventsOnDay(props.Events, day) {
-							<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+							<div
+								class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+								title={ event.Title }
+								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
 								{ event.Title }
 							</div>
 						}
 						for _, chore := range choresOnDay(props.Chores, day) {
-							<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 " + choreColor(chore.Status) } title={ chore.Name }>
+							<div
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 cursor-pointer " + choreColor(chore.Status) }
+								title={ chore.Name }
+								hx-get={ fmt.Sprintf("/chores/%s/detail", chore.ID) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
 								if chore.AssignedToUserID != nil {
 									@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-4 w-4 text-[0.5rem]")
 								}
@@ -193,12 +220,26 @@ templ weekView(props CalendarProps) {
 				for _, day := range weekDays(props.Date) {
 					<div class="px-1 py-1 border-r min-h-8">
 						for _, event := range allDayEventsOnDay(props.Events, day) {
-							<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+							<div
+								class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+								title={ event.Title }
+								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
 								{ event.Title }
 							</div>
 						}
 						for _, chore := range choresOnDay(props.Chores, day) {
-							<div class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate " + choreColor(chore.Status) } title={ chore.Name }>
+							<div
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer " + choreColor(chore.Status) }
+								title={ chore.Name }
+								hx-get={ fmt.Sprintf("/chores/%s/detail", chore.ID) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
 								{ chore.Name }
 							</div>
 						}
@@ -217,7 +258,14 @@ templ weekView(props CalendarProps) {
 					for _, day := range weekDays(props.Date) {
 						<div class={ "px-1 py-1 min-h-12 " + weekDayCellClass(day) }>
 							for _, event := range timedEventsAtHour(props.Events, day, hour) {
-								<div class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate" title={ event.Title }>
+								<div
+									class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+									title={ event.Title }
+									hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+									hx-target="#detail-modal-content"
+									hx-swap="innerHTML"
+									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+								>
 									{ formatEventTime(event) } { event.Title }
 								</div>
 							}
@@ -236,7 +284,14 @@ templ dayView(props CalendarProps) {
 			<div class="border-b bg-gray-50 px-4 py-2">
 				<div class="text-xs font-medium text-gray-500 uppercase mb-1">All Day</div>
 				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
-					<div class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1" title={ event.Title }>
+					<div
+						class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-200"
+						title={ event.Title }
+						hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+						hx-target="#detail-modal-content"
+						hx-swap="innerHTML"
+						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+					>
 						{ event.Title }
 						if event.Location != "" {
 							<span class="text-blue-600"> &middot; { event.Location }</span>
@@ -244,7 +299,14 @@ templ dayView(props CalendarProps) {
 					</div>
 				}
 				for _, chore := range choresOnDay(props.Chores, props.Date) {
-					<div class={ "text-sm rounded px-2 py-1 mb-1 " + choreColor(chore.Status) } title={ chore.Name }>
+					<div
+						class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer " + choreColor(chore.Status) }
+						title={ chore.Name }
+						hx-get={ fmt.Sprintf("/chores/%s/detail", chore.ID) }
+						hx-target="#detail-modal-content"
+						hx-swap="innerHTML"
+						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+					>
 						{ chore.Name }
 					</div>
 				}
@@ -260,7 +322,13 @@ templ dayView(props CalendarProps) {
 					</div>
 					<div class={ "flex-1 px-3 py-1 min-h-14 " + dayTimeCellClass(props.Date, hour) }>
 						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
-							<div class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1">
+							<div
+								class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-200"
+								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
 								<span class="font-medium">{ formatEventTime(event) }</span> { event.Title }
 								if event.Location != "" {
 									<span class="text-blue-600"> &middot; { event.Location }</span>
@@ -268,6 +336,90 @@ templ dayView(props CalendarProps) {
 							</div>
 						}
 					</div>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ EventDetailFragment(event models.Event, categoryName string) {
+	<div class="space-y-4">
+		<h3 class="text-lg font-semibold text-gray-900">{ event.Title }</h3>
+		<div class="space-y-2 text-sm">
+			<div class="flex items-start gap-2">
+				<span class="font-medium text-gray-500 w-20">When</span>
+				<span class="text-gray-900">
+					if event.AllDay {
+						{ event.StartTime.Format("Jan 2, 2006") }
+						<span class="text-gray-500">(All day)</span>
+					} else {
+						{ event.StartTime.Format("Jan 2, 2006 3:04 PM") }
+						if event.EndTime != nil {
+							<span class="text-gray-500"> to </span>
+							{ event.EndTime.Format("3:04 PM") }
+						}
+					}
+				</span>
+			</div>
+			if event.Location != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Where</span>
+					<span class="text-gray-900">{ event.Location }</span>
+				</div>
+			}
+			if categoryName != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Category</span>
+					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{ categoryName }</span>
+				</div>
+			}
+			if event.Description != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Details</span>
+					<span class="text-gray-900">{ event.Description }</span>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ ChoreDetailFragment(chore models.Chore, assignedToName string, assignedToAvatar string, categoryName string) {
+	<div class="space-y-4">
+		<div class="flex items-center gap-3">
+			<h3 class="text-lg font-semibold text-gray-900">{ chore.Name }</h3>
+			@choreStatusBadge(chore.Status)
+		</div>
+		<div class="space-y-2 text-sm">
+			if chore.DueDate != nil {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Due</span>
+					<span class="text-gray-900">
+						{ chore.DueDate.Format("Jan 2, 2006") }
+						if chore.DueTime != nil {
+							{ " " + *chore.DueTime }
+						}
+					</span>
+				</div>
+			}
+			if assignedToName != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Assigned</span>
+					<div class="flex items-center gap-2">
+						@components.UserAvatar(assignedToName, assignedToAvatar, "h-6 w-6 text-xs")
+						<span class="text-gray-900">{ assignedToName }</span>
+					</div>
+				</div>
+			}
+			if categoryName != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Category</span>
+					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{ categoryName }</span>
+				</div>
+			}
+			if chore.Description != "" {
+				<div class="flex items-start gap-2">
+					<span class="font-medium text-gray-500 w-20">Details</span>
+					<span class="text-gray-900">{ chore.Description }</span>
 				</div>
 			}
 		</div>

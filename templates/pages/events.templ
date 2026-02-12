@@ -7,14 +7,17 @@ import (
 )
 
 type EventListProps struct {
-	User   models.User
-	Events []models.Event
+	User        models.User
+	Events      []models.Event
+	Categories  []models.Category
+	CategoryMap map[string]string
 }
 
 type EventFormProps struct {
-	User   models.User
-	Event  *models.Event
-	IsEdit bool
+	User       models.User
+	Event      *models.Event
+	Categories []models.Category
+	IsEdit     bool
 }
 
 templ EventList(props EventListProps) {
@@ -38,6 +41,7 @@ templ EventList(props EventListProps) {
 									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
 									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
 									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
 									if props.User.Role == models.RoleAdmin {
 										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
 									}
@@ -67,6 +71,15 @@ templ EventList(props EventListProps) {
 										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 											if event.Location != "" {
 												{ event.Location }
+											} else {
+												<span class="text-gray-400">-</span>
+											}
+										</td>
+										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+											if event.CategoryID != nil {
+												<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+													{ lookupCategoryName(props.CategoryMap, *event.CategoryID) }
+												</span>
 											} else {
 												<span class="text-gray-400">-</span>
 											}
@@ -143,6 +156,21 @@ templ EventForm(props EventFormProps) {
 						}
 						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 					/>
+				</div>
+
+				<div>
+					<label for="category_id" class="block text-sm font-medium text-gray-700">Category</label>
+					<select id="category_id" name="category_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+						<option value="">No Category</option>
+						for _, cat := range props.Categories {
+							<option
+								value={ cat.ID }
+								if props.Event != nil && props.Event.CategoryID != nil && *props.Event.CategoryID == cat.ID {
+									selected
+								}
+							>{ cat.Name }</option>
+						}
+					</select>
 				</div>
 
 				<div class="flex items-center">
@@ -234,4 +262,11 @@ func eventFormTitle(isEdit bool) string {
 		return "Edit Event"
 	}
 	return "New Event"
+}
+
+func lookupCategoryName(categoryMap map[string]string, categoryID string) string {
+	if name, ok := categoryMap[categoryID]; ok {
+		return name
+	}
+	return "Unknown"
 }

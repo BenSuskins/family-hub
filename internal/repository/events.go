@@ -35,12 +35,12 @@ func (repository *SQLiteEventRepository) FindByID(ctx context.Context, id string
 	var event models.Event
 	err := repository.database.QueryRowContext(ctx,
 		`SELECT id, title, description, location, start_time, end_time, all_day,
-			created_by_user_id, created_at, updated_at
+			category_id, created_by_user_id, created_at, updated_at
 		FROM events WHERE id = ?`, id,
 	).Scan(
 		&event.ID, &event.Title, &event.Description, &event.Location,
 		&event.StartTime, &event.EndTime, &event.AllDay,
-		&event.CreatedByUserID, &event.CreatedAt, &event.UpdatedAt,
+		&event.CategoryID, &event.CreatedByUserID, &event.CreatedAt, &event.UpdatedAt,
 	)
 	if err != nil {
 		return models.Event{}, fmt.Errorf("finding event by id: %w", err)
@@ -50,7 +50,7 @@ func (repository *SQLiteEventRepository) FindByID(ctx context.Context, id string
 
 func (repository *SQLiteEventRepository) FindAll(ctx context.Context, filter EventFilter) ([]models.Event, error) {
 	query := `SELECT id, title, description, location, start_time, end_time, all_day,
-		created_by_user_id, created_at, updated_at
+		category_id, created_by_user_id, created_at, updated_at
 	FROM events WHERE 1=1`
 
 	var args []interface{}
@@ -78,7 +78,7 @@ func (repository *SQLiteEventRepository) FindAll(ctx context.Context, filter Eve
 		if err := rows.Scan(
 			&event.ID, &event.Title, &event.Description, &event.Location,
 			&event.StartTime, &event.EndTime, &event.AllDay,
-			&event.CreatedByUserID, &event.CreatedAt, &event.UpdatedAt,
+			&event.CategoryID, &event.CreatedByUserID, &event.CreatedAt, &event.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning event: %w", err)
 		}
@@ -97,11 +97,11 @@ func (repository *SQLiteEventRepository) Create(ctx context.Context, event model
 
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO events (id, title, description, location, start_time, end_time, all_day,
-			created_by_user_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			category_id, created_by_user_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID, event.Title, event.Description, event.Location,
 		event.StartTime, event.EndTime, event.AllDay,
-		event.CreatedByUserID, event.CreatedAt, event.UpdatedAt,
+		event.CategoryID, event.CreatedByUserID, event.CreatedAt, event.UpdatedAt,
 	)
 	if err != nil {
 		return models.Event{}, fmt.Errorf("creating event: %w", err)
@@ -113,11 +113,11 @@ func (repository *SQLiteEventRepository) Update(ctx context.Context, event model
 	event.UpdatedAt = time.Now()
 	_, err := repository.database.ExecContext(ctx,
 		`UPDATE events SET title = ?, description = ?, location = ?,
-			start_time = ?, end_time = ?, all_day = ?, updated_at = ?
+			start_time = ?, end_time = ?, all_day = ?, category_id = ?, updated_at = ?
 		WHERE id = ?`,
 		event.Title, event.Description, event.Location,
 		event.StartTime, event.EndTime, event.AllDay,
-		event.UpdatedAt, event.ID,
+		event.CategoryID, event.UpdatedAt, event.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("updating event: %w", err)

@@ -69,6 +69,17 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		slog.Error("finding overdue chores", "error", err)
 	}
 
+	// Merge overdue chores into today's list, deduplicating by ID
+	seen := make(map[string]bool, len(choresDueToday))
+	for _, chore := range choresDueToday {
+		seen[chore.ID] = true
+	}
+	for _, chore := range overdueChores {
+		if !seen[chore.ID] {
+			choresDueToday = append(choresDueToday, chore)
+		}
+	}
+
 	now := time.Now()
 	weekFromNow := now.AddDate(0, 0, 7)
 	upcomingEvents, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{
@@ -115,7 +126,6 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	component := pages.Dashboard(pages.DashboardProps{
 		User:           user,
 		ChoresDueToday: choresDueToday,
-		OverdueChores:  overdueChores,
 		UpcomingEvents: upcomingEvents,
 		Users:          users,
 		UserStats:      convertUserStats(userStats, "week"),

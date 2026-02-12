@@ -25,7 +25,6 @@ type LeaderboardProps struct {
 type DashboardProps struct {
 	User           models.User
 	ChoresDueToday []models.Chore
-	OverdueChores  []models.Chore
 	UpcomingEvents []models.Event
 	Users          []models.User
 	UserStats      []UserStatProps
@@ -54,9 +53,17 @@ templ Dashboard(props DashboardProps) {
 										}
 										<div>
 											<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
-											if chore.AssignedToUserID != nil {
-												<p class="text-xs text-gray-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
-											}
+											<div class="flex items-center gap-2">
+												if chore.AssignedToUserID != nil {
+													<p class="text-xs text-gray-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
+												}
+												if chore.Status == models.ChoreStatusOverdue {
+													<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Overdue</span>
+													if chore.DueDate != nil {
+														<span class="text-xs text-red-600">{ chore.DueDate.Format("Jan 2") }</span>
+													}
+												}
+											</div>
 										</div>
 									</div>
 									<button
@@ -73,44 +80,6 @@ templ Dashboard(props DashboardProps) {
 						</ul>
 					}
 				</div>
-
-				<!-- Overdue Chores -->
-				if len(props.OverdueChores) > 0 {
-					<div class="bg-white shadow rounded-lg p-6 border-l-4 border-red-500">
-						<h2 class="text-lg font-medium text-red-800 mb-4">Overdue Chores</h2>
-						<ul class="divide-y divide-gray-200">
-							for _, chore := range props.OverdueChores {
-								<li id={ "dashboard-overdue-" + chore.ID } class="py-3 flex justify-between items-center">
-									<div class="flex items-center gap-2">
-										if chore.AssignedToUserID != nil {
-											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
-										}
-										<div>
-											<p class="text-sm font-medium text-gray-900">{ chore.Name }</p>
-											if chore.AssignedToUserID != nil {
-												<p class="text-xs text-gray-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
-											}
-										</div>
-									</div>
-									<div class="flex items-center gap-2">
-										if chore.DueDate != nil {
-											<span class="text-xs text-red-600">Due: { chore.DueDate.Format("Jan 2") }</span>
-										}
-										<button
-											type="button"
-											hx-post={ "/chores/" + chore.ID + "/complete" }
-											hx-target={ "#dashboard-overdue-" + chore.ID }
-											hx-swap="delete"
-											class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200"
-										>
-											Complete
-										</button>
-									</div>
-								</li>
-							}
-						</ul>
-					</div>
-				}
 
 				<!-- Upcoming Events -->
 				<div class="bg-white shadow rounded-lg p-6">

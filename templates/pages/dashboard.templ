@@ -55,7 +55,7 @@ templ Dashboard(props DashboardProps) {
 					} else {
 						<ul class="divide-y divide-gray-200">
 							for _, chore := range props.ChoresDueToday {
-								<li class="py-3 flex justify-between items-center">
+								<li id={ "dashboard-chore-" + chore.ID } class="py-3 flex justify-between items-center">
 									<div class="flex items-center gap-2">
 										if chore.AssignedToUserID != nil {
 											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
@@ -67,7 +67,15 @@ templ Dashboard(props DashboardProps) {
 											}
 										</div>
 									</div>
-									@choreStatusBadge(chore.Status)
+									<button
+										type="button"
+										hx-post={ "/chores/" + chore.ID + "/complete" }
+										hx-target={ "#dashboard-chore-" + chore.ID }
+										hx-swap="delete"
+										class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200"
+									>
+										Complete
+									</button>
 								</li>
 							}
 						</ul>
@@ -80,7 +88,7 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-medium text-red-800 mb-4">Overdue Chores</h2>
 						<ul class="divide-y divide-gray-200">
 							for _, chore := range props.OverdueChores {
-								<li class="py-3 flex justify-between items-center">
+								<li id={ "dashboard-overdue-" + chore.ID } class="py-3 flex justify-between items-center">
 									<div class="flex items-center gap-2">
 										if chore.AssignedToUserID != nil {
 											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
@@ -92,9 +100,20 @@ templ Dashboard(props DashboardProps) {
 											}
 										</div>
 									</div>
-									if chore.DueDate != nil {
-										<span class="text-xs text-red-600">Due: { chore.DueDate.Format("Jan 2") }</span>
-									}
+									<div class="flex items-center gap-2">
+										if chore.DueDate != nil {
+											<span class="text-xs text-red-600">Due: { chore.DueDate.Format("Jan 2") }</span>
+										}
+										<button
+											type="button"
+											hx-post={ "/chores/" + chore.ID + "/complete" }
+											hx-target={ "#dashboard-overdue-" + chore.ID }
+											hx-swap="delete"
+											class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200"
+										>
+											Complete
+										</button>
+									</div>
 								</li>
 							}
 						</ul>

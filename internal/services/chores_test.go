@@ -109,7 +109,7 @@ func TestChoreService_CompleteChore(t *testing.T) {
 	}
 }
 
-func TestChoreService_CompleteChore_WrongUser(t *testing.T) {
+func TestChoreService_CompleteChore_AnyUser(t *testing.T) {
 	service, choreRepo, _, userRepo := setupChoreService(t)
 	ctx := context.Background()
 
@@ -122,12 +122,16 @@ func TestChoreService_CompleteChore_WrongUser(t *testing.T) {
 		Status:           models.ChoreStatusPending,
 	})
 
-	err := service.CompleteChore(ctx, chore.ID, users[1].ID)
-	if err == nil {
-		t.Fatal("expected error completing chore assigned to different user")
+	if err := service.CompleteChore(ctx, chore.ID, users[1].ID); err != nil {
+		t.Fatalf("any user should be able to complete a chore: %v", err)
 	}
-	if err != services.ErrNotAssignedToUser {
-		t.Errorf("expected ErrNotAssignedToUser, got %v", err)
+
+	completed, _ := choreRepo.FindByID(ctx, chore.ID)
+	if completed.Status != models.ChoreStatusCompleted {
+		t.Errorf("expected completed status, got '%s'", completed.Status)
+	}
+	if completed.CompletedByUserID == nil || *completed.CompletedByUserID != users[1].ID {
+		t.Error("expected CompletedByUserID to be users[1]")
 	}
 }
 

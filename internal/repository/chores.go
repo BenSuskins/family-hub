@@ -202,6 +202,10 @@ func (repository *SQLiteChoreRepository) Delete(ctx context.Context, id string) 
 }
 
 func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) ([]models.Chore, error) {
+	now := time.Now()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfToday := startOfToday.Add(24 * time.Hour)
+
 	rows, err := repository.database.QueryContext(ctx,
 		`SELECT id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
@@ -212,14 +216,25 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 		FROM chores
 		WHERE status = 'pending' AND due_date IS NOT NULL AND due_date < ?
 		ORDER BY due_date ASC`,
-		time.Now(),
+		endOfToday,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("finding overdue chores: %w", err)
 	}
 	defer rows.Close()
 
-	return scanChores(rows)
+	candidates, err := scanChores(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	var overdue []models.Chore
+	for _, chore := range candidates {
+		if IsOverdue(chore, now) {
+			overdue = append(overdue, chore)
+		}
+	}
+	return overdue, nil
 }
 
 func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]models.Chore, error) {
@@ -234,7 +249,7 @@ func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]mo
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at
 		FROM chores
-		WHERE due_date >= ? AND due_date < ? AND status != 'completed'
+		WHERE due_date >= ? AND due_date < ? AND status = 'pending'
 		ORDER BY due_date ASC`,
 		today, tomorrow,
 	)
@@ -300,6 +315,30 @@ func (repository *SQLiteChoreRepository) GetEligibleAssignees(ctx context.Contex
 		userIDs = append(userIDs, userID)
 	}
 	return userIDs, rows.Err()
+}
+
+func IsOverdue(chore models.Chore, now time.Time) bool {
+	if chore.DueDate == nil {
+		return false
+	}
+
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dueDay := time.Date(chore.DueDate.Year(), chore.DueDate.Month(), chore.DueDate.Day(), 0, 0, 0, 0, now.Location())
+
+	if dueDay.Before(startOfToday) {
+		return true
+	}
+
+	if dueDay.Equal(startOfToday) && chore.DueTime != nil {
+		parsed, err := time.Parse("15:04", *chore.DueTime)
+		if err != nil {
+			return false
+		}
+		dueAt := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, now.Location())
+		return now.After(dueAt)
+	}
+
+	return false
 }
 
 func scanChores(rows *sql.Rows) ([]models.Chore, error) {

@@ -12,7 +12,6 @@ import (
 
 var (
 	ErrUserHasOverdueChores = errors.New("user has overdue chores")
-	ErrNotAssignedToUser    = errors.New("chore is not assigned to this user")
 	ErrChoreAlreadyComplete = errors.New("chore is already completed")
 )
 
@@ -124,10 +123,6 @@ func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, 
 
 	if chore.Status == models.ChoreStatusCompleted {
 		return ErrChoreAlreadyComplete
-	}
-
-	if chore.AssignedToUserID == nil || *chore.AssignedToUserID != userID {
-		return ErrNotAssignedToUser
 	}
 
 	now := time.Now()

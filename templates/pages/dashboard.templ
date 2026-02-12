@@ -31,6 +31,7 @@ type DashboardProps struct {
 	Users          []models.User
 	UserStats      []UserStatProps
 	UserAvatarMap  map[string]string
+	TodayMeals     []models.MealPlan
 }
 
 templ Dashboard(props DashboardProps) {
@@ -137,6 +138,34 @@ templ Dashboard(props DashboardProps) {
 											{ event.StartTime.Format("Jan 2, 3:04 PM") }
 										}
 									</p>
+								</li>
+							}
+						</ul>
+					}
+				</div>
+
+				<!-- Today's Meals -->
+				<div class="bg-white shadow rounded-lg p-6 border-l-4 border-orange-400">
+					<h2 class="text-lg font-medium text-gray-900 mb-4">Today's Meals</h2>
+					if len(props.TodayMeals) == 0 {
+						<p class="text-gray-500 text-sm">No meals planned for today</p>
+					} else {
+						<ul class="divide-y divide-gray-200">
+							for _, meal := range props.TodayMeals {
+								<li class="py-3">
+									<span class="text-xs font-medium text-orange-600 uppercase">{ dashboardMealTypeLabel(meal.MealType) }</span>
+									<p class="text-sm font-medium text-gray-900">
+										if meal.RecipeID != nil {
+											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-orange-700 hover:text-orange-900 underline">
+												{ meal.Name }
+											</a>
+										} else {
+											{ meal.Name }
+										}
+									</p>
+									if meal.Notes != "" {
+										<p class="text-xs text-gray-500">{ meal.Notes }</p>
+									}
 								</li>
 							}
 						</ul>
@@ -256,4 +285,16 @@ func lookupAvatarURL(avatarMap map[string]string, userID string) string {
 		return ""
 	}
 	return avatarMap[userID]
+}
+
+func dashboardMealTypeLabel(mealType models.MealType) string {
+	switch mealType {
+	case models.MealTypeBreakfast:
+		return "Breakfast"
+	case models.MealTypeLunch:
+		return "Lunch"
+	case models.MealTypeDinner:
+		return "Dinner"
+	}
+	return string(mealType)
 }

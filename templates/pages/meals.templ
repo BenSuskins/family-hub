@@ -1,0 +1,323 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/layouts"
+)
+
+type MealPlannerProps struct {
+	User      models.User
+	WeekStart time.Time
+	Days      []time.Time
+	MealMap   map[string]models.MealPlan
+	Recipes   []models.Recipe
+}
+
+templ MealPlanner(props MealPlannerProps) {
+	@layouts.Base("Meal Planner", props.User) {
+		<div class="space-y-6">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold text-gray-900">Meal Planner</h1>
+			</div>
+
+			<!-- Week Navigation -->
+			<div class="flex items-center justify-center space-x-4">
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, -7).Format("2006-01-02"))) }
+					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+				>&larr; Prev</a>
+				<span class="text-lg font-medium text-gray-900">
+					{ mealWeekTitle(props.WeekStart) }
+				</span>
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, 7).Format("2006-01-02"))) }
+					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
+				>Next &rarr;</a>
+				<a
+					href="/meals"
+					class="text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded border border-indigo-300 text-sm font-medium"
+				>This Week</a>
+			</div>
+
+			<!-- Desktop: 7-column grid -->
+			<div class="hidden md:block">
+				<div class="bg-white shadow rounded-lg overflow-hidden">
+					<!-- Day headers -->
+					<div class="grid grid-cols-8 bg-gray-50 border-b">
+						<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase border-r"></div>
+						for _, day := range props.Days {
+							<div class={ "px-2 py-3 text-center border-r " + mealDayHeaderClass(day) }>
+								<div class="text-xs font-medium text-gray-500 uppercase">{ day.Format("Mon") }</div>
+								<div class={ "text-sm font-medium " + mealTodayClass(day) }>{ fmt.Sprintf("%d", day.Day()) }</div>
+							</div>
+						}
+					</div>
+
+					<!-- Meal rows -->
+					for _, mealType := range mealTypes() {
+						<div class="grid grid-cols-8 border-b divide-x divide-gray-200">
+							<div class="px-2 py-3 text-xs font-medium text-gray-500 uppercase flex items-start justify-center border-r bg-gray-50">
+								{ mealTypeLabel(mealType) }
+							</div>
+							for _, day := range props.Days {
+								<div class="p-1 min-h-20">
+									@mealCellContent(day, mealType, props.MealMap, props.Recipes)
+								</div>
+							}
+						</div>
+					}
+				</div>
+			</div>
+
+			<!-- Mobile: stacked day cards -->
+			<div class="md:hidden space-y-4">
+				for _, day := range props.Days {
+					<div class={ "bg-white shadow rounded-lg overflow-hidden " + mealMobileDayBorder(day) }>
+						<div class={ "px-4 py-2 bg-gray-50 border-b font-medium text-sm " + mealTodayClass(day) }>
+							{ day.Format("Monday, Jan 2") }
+						</div>
+						<div class="divide-y divide-gray-200">
+							for _, mealType := range mealTypes() {
+								<div class="px-4 py-2">
+									<div class="text-xs font-medium text-gray-500 uppercase mb-1">{ mealTypeLabel(mealType) }</div>
+									@mealCellContent(day, mealType, props.MealMap, props.Recipes)
+								</div>
+							}
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ mealCellContent(day time.Time, mealType models.MealType, mealMap map[string]models.MealPlan, recipes []models.Recipe) {
+	@MealCell(day.Format("2006-01-02"), mealType, lookupMeal(mealMap, day.Format("2006-01-02"), mealType), recipes)
+}
+
+func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models.MealType) *models.MealPlan {
+	key := date + "-" + string(mealType)
+	if meal, ok := mealMap[key]; ok {
+		return &meal
+	}
+	return nil
+}
+
+templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	<div id={ mealCellID(date, mealType) }>
+		if meal != nil {
+			<div class="group relative">
+				<div class="text-sm font-medium text-gray-900">
+					if meal.RecipeID != nil {
+						<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-orange-700 hover:text-orange-900 underline">
+							{ meal.Name }
+						</a>
+					} else {
+						{ meal.Name }
+					}
+				</div>
+				if meal.Notes != "" {
+					<div class="text-xs text-gray-500 mt-0.5">{ meal.Notes }</div>
+				}
+				<div class="mt-1 flex gap-1">
+					<button
+						type="button"
+						hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
+						hx-target={ "#" + mealCellID(date, mealType) }
+						hx-swap="outerHTML"
+						class="text-xs text-indigo-600 hover:text-indigo-800"
+					>Edit</button>
+					<form
+						hx-post="/meals/delete"
+						hx-target={ "#" + mealCellID(date, mealType) }
+						hx-swap="outerHTML"
+					>
+						<input type="hidden" name="date" value={ date }/>
+						<input type="hidden" name="meal_type" value={ string(mealType) }/>
+						<button type="submit" class="text-xs text-red-600 hover:text-red-800">Clear</button>
+					</form>
+				</div>
+			</div>
+		} else {
+			<button
+				type="button"
+				hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
+				hx-target={ "#" + mealCellID(date, mealType) }
+				hx-swap="outerHTML"
+				class="w-full text-center text-xs text-gray-400 hover:text-indigo-600 py-2"
+			>
+				+ Add
+			</button>
+		}
+	</div>
+}
+
+templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	<div id={ mealCellID(date, mealType) }>
+		<form
+			hx-post="/meals"
+			hx-target={ "#" + mealCellID(date, mealType) }
+			hx-swap="outerHTML"
+			class="space-y-1"
+		>
+			<input type="hidden" name="date" value={ date }/>
+			<input type="hidden" name="meal_type" value={ string(mealType) }/>
+
+			<!-- Toggle: Recipe or Freeform -->
+			<div class="flex gap-1 mb-1">
+				<button type="button" onclick="toggleMealMode(this, 'recipe')" class="meal-mode-btn text-xs px-2 py-0.5 rounded border bg-indigo-100 text-indigo-700 border-indigo-300" data-mode="recipe">Recipe</button>
+				<button type="button" onclick="toggleMealMode(this, 'freeform')" class="meal-mode-btn text-xs px-2 py-0.5 rounded border bg-white text-gray-600 border-gray-300" data-mode="freeform">Freeform</button>
+			</div>
+
+			<div class="meal-recipe-select">
+				<select name="recipe_id" class="w-full text-xs rounded border-gray-300" onchange="updateMealName(this)">
+					<option value="">Select recipe...</option>
+					for _, recipe := range recipes {
+						<option
+							value={ recipe.ID }
+							data-title={ recipe.Title }
+							if meal != nil && meal.RecipeID != nil && *meal.RecipeID == recipe.ID {
+								selected
+							}
+						>{ recipe.Title }</option>
+					}
+				</select>
+			</div>
+
+			<div class="meal-freeform-input hidden">
+				<input
+					type="text"
+					class="w-full text-xs rounded border-gray-300"
+					placeholder="Meal name"
+					onchange="this.form.querySelector('input[name=name]').value = this.value"
+					if meal != nil && meal.RecipeID == nil {
+						value={ meal.Name }
+					}
+				/>
+			</div>
+
+			<input type="hidden" name="name"
+				if meal != nil {
+					value={ meal.Name }
+				}
+			/>
+
+			<input
+				type="text"
+				name="notes"
+				placeholder="Notes (optional)"
+				class="w-full text-xs rounded border-gray-300"
+				if meal != nil {
+					value={ meal.Notes }
+				}
+			/>
+
+			<div class="flex gap-1">
+				<button type="submit" class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Save</button>
+				<button
+					type="button"
+					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s", date, string(mealType)) }
+					hx-target={ "#" + mealCellID(date, mealType) }
+					hx-swap="outerHTML"
+					class="text-xs text-gray-500 hover:text-gray-700 px-2 py-0.5"
+				>Cancel</button>
+			</div>
+		</form>
+
+		<script>
+			function toggleMealMode(btn, mode) {
+				var form = btn.closest('form');
+				var btns = form.querySelectorAll('.meal-mode-btn');
+				btns.forEach(function(b) {
+					if (b.dataset.mode === mode) {
+						b.className = 'meal-mode-btn text-xs px-2 py-0.5 rounded border bg-indigo-100 text-indigo-700 border-indigo-300';
+					} else {
+						b.className = 'meal-mode-btn text-xs px-2 py-0.5 rounded border bg-white text-gray-600 border-gray-300';
+					}
+				});
+				if (mode === 'recipe') {
+					form.querySelector('.meal-recipe-select').classList.remove('hidden');
+					form.querySelector('.meal-freeform-input').classList.add('hidden');
+				} else {
+					form.querySelector('.meal-recipe-select').classList.add('hidden');
+					form.querySelector('.meal-freeform-input').classList.remove('hidden');
+				}
+			}
+			function updateMealName(select) {
+				var form = select.closest('form');
+				var selected = select.options[select.selectedIndex];
+				if (selected && selected.dataset.title) {
+					form.querySelector('input[name=name]').value = selected.dataset.title;
+				}
+			}
+			// Initialize mode for edit
+			(function() {
+				var form = document.currentScript.closest('form');
+				if (!form) return;
+				var recipeSelect = form.querySelector('select[name=recipe_id]');
+				if (recipeSelect && recipeSelect.value) {
+					// Already in recipe mode (default)
+				} else {
+					var nameInput = form.querySelector('input[name=name]');
+					if (nameInput && nameInput.value) {
+						toggleMealMode(form.querySelector('[data-mode=freeform]'), 'freeform');
+					}
+				}
+			})();
+		</script>
+	</div>
+}
+
+func mealCellID(date string, mealType models.MealType) string {
+	return fmt.Sprintf("meal-%s-%s", date, string(mealType))
+}
+
+func mealTypes() []models.MealType {
+	return []models.MealType{models.MealTypeBreakfast, models.MealTypeLunch, models.MealTypeDinner}
+}
+
+func mealTypeLabel(mealType models.MealType) string {
+	switch mealType {
+	case models.MealTypeBreakfast:
+		return "Breakfast"
+	case models.MealTypeLunch:
+		return "Lunch"
+	case models.MealTypeDinner:
+		return "Dinner"
+	}
+	return string(mealType)
+}
+
+func mealWeekTitle(weekStart time.Time) string {
+	end := weekStart.AddDate(0, 0, 6)
+	if weekStart.Month() == end.Month() {
+		return fmt.Sprintf("%s %d - %d, %d", weekStart.Month().String(), weekStart.Day(), end.Day(), weekStart.Year())
+	}
+	return fmt.Sprintf("%s %d - %s %d, %d", weekStart.Month().String()[:3], weekStart.Day(), end.Month().String()[:3], end.Day(), end.Year())
+}
+
+func mealDayHeaderClass(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "bg-orange-50"
+	}
+	return ""
+}
+
+func mealTodayClass(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "text-orange-600 font-bold"
+	}
+	return "text-gray-700"
+}
+
+func mealMobileDayBorder(day time.Time) string {
+	today := time.Now()
+	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
+		return "border-l-4 border-orange-500"
+	}
+	return ""
+}

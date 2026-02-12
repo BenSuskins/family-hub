@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"strings"
 	"time"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/templates/components"
@@ -16,6 +17,7 @@ type CalendarProps struct {
 	Date          time.Time
 	Events        []models.Event
 	Chores        []models.Chore
+	Meals         []models.MealPlan
 	UserNameMap   map[string]string
 	UserAvatarMap map[string]string
 }
@@ -136,7 +138,7 @@ templ yearView(props CalendarProps) {
 							if !day.IsZero() {
 								<a
 									href={ templ.SafeURL(fmt.Sprintf("/calendar?view=day&date=%s", day.Format("2006-01-02"))) }
-									class={ "inline-block w-6 h-6 leading-6 text-xs rounded-full " + yearDayClass(day, props.Events, props.Chores) }
+									class={ "inline-block w-6 h-6 leading-6 text-xs rounded-full " + yearDayClassWithMeals(day, props.Events, props.Chores, props.Meals) }
 								>
 									{ fmt.Sprintf("%d", day.Day()) }
 								</a>
@@ -193,6 +195,14 @@ templ monthView(props CalendarProps) {
 								{ chore.Name }
 							</div>
 						}
+						for _, meal := range mealsOnDay(props.Meals, day) {
+							<div
+								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
+								title={ mealCalendarTitle(meal) }
+							>
+								{ meal.Name }
+							</div>
+						}
 					}
 				</div>
 			}
@@ -214,7 +224,7 @@ templ weekView(props CalendarProps) {
 		</div>
 
 		<!-- All-day section -->
-		if hasAllDayItems(props.Events, props.Chores, weekDays(props.Date)) {
+		if hasAllDayItems(props.Events, props.Chores, weekDays(props.Date)) || hasMealsInWeek(props.Meals, weekDays(props.Date)) {
 			<div class="grid grid-cols-8 border-b bg-gray-50">
 				<div class="px-2 py-1 text-xs text-gray-500 border-r flex items-center justify-center">All Day</div>
 				for _, day := range weekDays(props.Date) {
@@ -241,6 +251,14 @@ templ weekView(props CalendarProps) {
 								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
 							>
 								{ chore.Name }
+							</div>
+						}
+						for _, meal := range mealsOnDay(props.Meals, day) {
+							<div
+								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
+								title={ mealCalendarTitle(meal) }
+							>
+								{ meal.Name }
 							</div>
 						}
 					</div>
@@ -280,7 +298,7 @@ templ weekView(props CalendarProps) {
 templ dayView(props CalendarProps) {
 	<div class="bg-white shadow rounded-lg overflow-hidden">
 		<!-- All-day section -->
-		if hasAllDayItemsForDay(props.Events, props.Chores, props.Date) {
+		if hasAllDayItemsForDay(props.Events, props.Chores, props.Date) || len(mealsOnDay(props.Meals, props.Date)) > 0 {
 			<div class="border-b bg-gray-50 px-4 py-2">
 				<div class="text-xs font-medium text-gray-500 uppercase mb-1">All Day</div>
 				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
@@ -308,6 +326,11 @@ templ dayView(props CalendarProps) {
 						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
 					>
 						{ chore.Name }
+					</div>
+				}
+				for _, meal := range mealsOnDay(props.Meals, props.Date) {
+					<div class="text-sm bg-orange-100 text-orange-800 rounded px-2 py-1 mb-1" title={ mealCalendarTitle(meal) }>
+						{ meal.Name }
 					</div>
 				}
 			</div>
@@ -770,4 +793,60 @@ func yearDayClass(day time.Time, events []models.Event, chores []models.Chore) s
 		return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
 	}
 	return "text-gray-700 hover:bg-gray-100"
+}
+
+func yearDayClassWithMeals(day time.Time, events []models.Event, chores []models.Chore, meals []models.MealPlan) string {
+	today := time.Now()
+	isToday := day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day()
+	hasEvents := len(eventsOnDay(events, day)) > 0
+	hasChores := len(choresOnDay(chores, day)) > 0
+	hasMeals := len(mealsOnDay(meals, day)) > 0
+
+	if isToday && (hasEvents || hasChores || hasMeals) {
+		return "bg-indigo-600 text-white font-bold"
+	}
+	if isToday {
+		return "bg-indigo-100 text-indigo-700 font-bold"
+	}
+	if hasEvents && hasChores {
+		return "bg-purple-100 text-purple-800 hover:bg-purple-200"
+	}
+	if hasEvents {
+		return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+	}
+	if hasChores {
+		return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+	}
+	if hasMeals {
+		return "bg-orange-100 text-orange-800 hover:bg-orange-200"
+	}
+	return "text-gray-700 hover:bg-gray-100"
+}
+
+func mealsOnDay(meals []models.MealPlan, day time.Time) []models.MealPlan {
+	dateStr := day.Format("2006-01-02")
+	var result []models.MealPlan
+	for _, meal := range meals {
+		if meal.Date == dateStr {
+			result = append(result, meal)
+		}
+	}
+	return result
+}
+
+func hasMealsInWeek(meals []models.MealPlan, days []time.Time) bool {
+	for _, day := range days {
+		if len(mealsOnDay(meals, day)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func mealCalendarTitle(meal models.MealPlan) string {
+	label := string(meal.MealType)
+	if label != "" {
+		label = strings.ToUpper(label[:1]) + label[1:]
+	}
+	return fmt.Sprintf("[%s] %s", label, meal.Name)
 }

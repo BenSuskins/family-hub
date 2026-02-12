@@ -15,11 +15,12 @@ import (
 )
 
 type CalendarHandler struct {
-	choreRepo repository.ChoreRepository
-	eventRepo repository.EventRepository
-	userRepo  repository.UserRepository
-	tokenRepo repository.APITokenRepository
-	baseURL   string
+	choreRepo    repository.ChoreRepository
+	eventRepo    repository.EventRepository
+	userRepo     repository.UserRepository
+	tokenRepo    repository.APITokenRepository
+	mealPlanRepo repository.MealPlanRepository
+	baseURL      string
 }
 
 func NewCalendarHandler(
@@ -27,14 +28,16 @@ func NewCalendarHandler(
 	eventRepo repository.EventRepository,
 	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
+	mealPlanRepo repository.MealPlanRepository,
 	baseURL string,
 ) *CalendarHandler {
 	return &CalendarHandler{
-		choreRepo: choreRepo,
-		eventRepo: eventRepo,
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
-		baseURL:   baseURL,
+		choreRepo:    choreRepo,
+		eventRepo:    eventRepo,
+		userRepo:     userRepo,
+		tokenRepo:    tokenRepo,
+		mealPlanRepo: mealPlanRepo,
+		baseURL:      baseURL,
 	}
 }
 
@@ -154,6 +157,14 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		slog.Error("finding users for calendar", "error", err)
 	}
 
+	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		DateFrom: start.Format("2006-01-02"),
+		DateTo:   end.Format("2006-01-02"),
+	})
+	if err != nil {
+		slog.Error("finding meals for calendar", "error", err)
+	}
+
 	userNameMap := make(map[string]string, len(users))
 	userAvatarMap := make(map[string]string, len(users))
 	for _, u := range users {
@@ -169,6 +180,7 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		Date:          date,
 		Events:        events,
 		Chores:        chores,
+		Meals:         meals,
 		UserNameMap:   userNameMap,
 		UserAvatarMap: userAvatarMap,
 	})

@@ -16,6 +16,7 @@ type ICalHandler struct {
 	userRepo     repository.UserRepository
 	tokenRepo    repository.APITokenRepository
 	settingsRepo repository.SettingsRepository
+	mealPlanRepo repository.MealPlanRepository
 	haToken      string
 }
 
@@ -25,6 +26,7 @@ func NewICalHandler(
 	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
+	mealPlanRepo repository.MealPlanRepository,
 	haToken string,
 ) *ICalHandler {
 	return &ICalHandler{
@@ -33,6 +35,7 @@ func NewICalHandler(
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
 		settingsRepo: settingsRepo,
+		mealPlanRepo: mealPlanRepo,
 		haToken:      haToken,
 	}
 }
@@ -121,6 +124,28 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 		builder.WriteString("END:VEVENT\r\n")
 	}
 
+	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{})
+	if err != nil {
+		slog.Error("finding meals for ical", "error", err)
+	}
+
+	for _, meal := range meals {
+		builder.WriteString("BEGIN:VEVENT\r\n")
+		builder.WriteString(fmt.Sprintf("UID:meal-%s-%s@family-hub\r\n", meal.Date, string(meal.MealType)))
+		mealLabel := capitalizeFirst(string(meal.MealType))
+		builder.WriteString(fmt.Sprintf("SUMMARY:[%s] %s\r\n", mealLabel, escapeICalText(meal.Name)))
+		if meal.Notes != "" {
+			builder.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICalText(meal.Notes)))
+		}
+		builder.WriteString(fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", strings.ReplaceAll(meal.Date, "-", "")))
+		// End date is the next day for all-day events per iCal spec
+		if parsedDate, err := time.Parse("2006-01-02", meal.Date); err == nil {
+			builder.WriteString(fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", parsedDate.AddDate(0, 0, 1).Format("20060102")))
+		}
+		builder.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", meal.CreatedAt.UTC().Format("20060102T150405Z")))
+		builder.WriteString("END:VEVENT\r\n")
+	}
+
 	for _, chore := range chores {
 		builder.WriteString("BEGIN:VTODO\r\n")
 		builder.WriteString(fmt.Sprintf("UID:%s@family-hub\r\n", chore.ID))
@@ -160,6 +185,13 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	builder.WriteString("END:VCALENDAR\r\n")
 
 	w.Write([]byte(builder.String()))
+}
+
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func escapeICalText(text string) string {

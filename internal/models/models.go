@@ -104,10 +104,49 @@ type ChoreAssignment struct {
 }
 
 type APIToken struct {
-	ID          string
-	Name        string
-	TokenHash   string
+	ID              string
+	Name            string
+	TokenHash       string
 	CreatedByUserID string
-	ExpiresAt   *time.Time
-	CreatedAt   time.Time
+	ExpiresAt       *time.Time
+	CreatedAt       time.Time
+}
+
+type IngredientGroup struct {
+	Name  string   `json:"name"`
+	Items []string `json:"items"`
+}
+
+type Recipe struct {
+	ID              string
+	Title           string
+	Instructions    string
+	Ingredients     []IngredientGroup
+	Servings        *int
+	PrepTime        *string
+	CookTime        *string
+	SourceURL       *string
+	CategoryID      *string
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type MealType string
+
+const (
+	MealTypeBreakfast MealType = "breakfast"
+	MealTypeLunch     MealType = "lunch"
+	MealTypeDinner    MealType = "dinner"
+)
+
+type MealPlan struct {
+	Date            string
+	MealType        MealType
+	RecipeID        *string
+	Name            string
+	Notes           string
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }

@@ -10,6 +10,62 @@ import (
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
+func stringPtr(s string) *string { return &s }
+func timePtr(t time.Time) *time.Time { return &t }
+
+func TestIsOverdue(t *testing.T) {
+	now := time.Date(2025, 6, 15, 14, 30, 0, 0, time.UTC)
+	today := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	tests := []struct {
+		name    string
+		chore   models.Chore
+		want    bool
+	}{
+		{
+			name:  "due yesterday no DueTime",
+			chore: models.Chore{DueDate: timePtr(yesterday)},
+			want:  true,
+		},
+		{
+			name:  "due today no DueTime",
+			chore: models.Chore{DueDate: timePtr(today)},
+			want:  false,
+		},
+		{
+			name:  "due today DueTime in past",
+			chore: models.Chore{DueDate: timePtr(today), DueTime: stringPtr("10:00")},
+			want:  true,
+		},
+		{
+			name:  "due today DueTime in future",
+			chore: models.Chore{DueDate: timePtr(today), DueTime: stringPtr("16:00")},
+			want:  false,
+		},
+		{
+			name:  "due tomorrow",
+			chore: models.Chore{DueDate: timePtr(tomorrow)},
+			want:  false,
+		},
+		{
+			name:  "nil DueDate",
+			chore: models.Chore{},
+			want:  false,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := repository.IsOverdue(testCase.chore, now)
+			if got != testCase.want {
+				t.Errorf("IsOverdue() = %v, want %v", got, testCase.want)
+			}
+		})
+	}
+}
+
 func createTestUser(t *testing.T, repo *repository.SQLiteUserRepository) models.User {
 	t.Helper()
 	user, err := repo.Create(context.Background(), models.User{

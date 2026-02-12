@@ -13,11 +13,12 @@ import (
 )
 
 type EventHandler struct {
-	eventRepo repository.EventRepository
+	eventRepo    repository.EventRepository
+	categoryRepo repository.CategoryRepository
 }
 
-func NewEventHandler(eventRepo repository.EventRepository) *EventHandler {
-	return &EventHandler{eventRepo: eventRepo}
+func NewEventHandler(eventRepo repository.EventRepository, categoryRepo repository.CategoryRepository) *EventHandler {
+	return &EventHandler{eventRepo: eventRepo, categoryRepo: categoryRepo}
 }
 
 func (handler *EventHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -43,9 +44,21 @@ func (handler *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	categories, err := handler.categoryRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding categories", "error", err)
+	}
+
+	categoryMap := make(map[string]string, len(categories))
+	for _, c := range categories {
+		categoryMap[c.ID] = c.Name
+	}
+
 	component := pages.EventList(pages.EventListProps{
-		User:   user,
-		Events: events,
+		User:        user,
+		Events:      events,
+		Categories:  categories,
+		CategoryMap: categoryMap,
 	})
 	component.Render(ctx, w)
 }
@@ -54,9 +67,15 @@ func (handler *EventHandler) CreateForm(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
+	categories, err := handler.categoryRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding categories", "error", err)
+	}
+
 	component := pages.EventForm(pages.EventFormProps{
-		User:   user,
-		IsEdit: false,
+		User:       user,
+		Categories: categories,
+		IsEdit:     false,
 	})
 	component.Render(ctx, w)
 }
@@ -76,6 +95,10 @@ func (handler *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Location:        r.FormValue("location"),
 		AllDay:          r.FormValue("all_day") == "on",
 		CreatedByUserID: user.ID,
+	}
+
+	if categoryID := r.FormValue("category_id"); categoryID != "" {
+		event.CategoryID = &categoryID
 	}
 
 	startDate := r.FormValue("start_date")
@@ -112,10 +135,16 @@ func (handler *EventHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	categories, err := handler.categoryRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding categories", "error", err)
+	}
+
 	component := pages.EventForm(pages.EventFormProps{
-		User:   user,
-		Event:  &event,
-		IsEdit: true,
+		User:       user,
+		Event:      &event,
+		Categories: categories,
+		IsEdit:     true,
 	})
 	component.Render(ctx, w)
 }
@@ -139,6 +168,12 @@ func (handler *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	event.Description = r.FormValue("description")
 	event.Location = r.FormValue("location")
 	event.AllDay = r.FormValue("all_day") == "on"
+
+	if categoryID := r.FormValue("category_id"); categoryID != "" {
+		event.CategoryID = &categoryID
+	} else {
+		event.CategoryID = nil
+	}
 
 	startDate := r.FormValue("start_date")
 	if event.AllDay {
@@ -177,6 +212,28 @@ func (handler *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/events", http.StatusFound)
+}
+
+func (handler *EventHandler) Detail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	eventID := chi.URLParam(r, "id")
+
+	event, err := handler.eventRepo.FindByID(ctx, eventID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	var categoryName string
+	if event.CategoryID != nil {
+		category, err := handler.categoryRepo.FindByID(ctx, *event.CategoryID)
+		if err == nil {
+			categoryName = category.Name
+		}
+	}
+
+	component := pages.EventDetailFragment(event, categoryName)
+	component.Render(ctx, w)
 }
 
 func parseDateTime(dateStr string, timeStr string) time.Time {

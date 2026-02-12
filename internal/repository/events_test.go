@@ -100,6 +100,52 @@ func TestEventRepository_Update(t *testing.T) {
 	}
 }
 
+func TestEventRepository_CreateWithCategory(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	eventRepo := repository.NewEventRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	category, err := categoryRepo.Create(ctx, models.Category{
+		Name:            "Birthday",
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating category: %v", err)
+	}
+
+	event := models.Event{
+		Title:           "Birthday Party",
+		StartTime:       time.Date(2025, 6, 15, 18, 0, 0, 0, time.UTC),
+		CategoryID:      &category.ID,
+		CreatedByUserID: user.ID,
+	}
+
+	created, err := eventRepo.Create(ctx, event)
+	if err != nil {
+		t.Fatalf("creating event with category: %v", err)
+	}
+
+	found, err := eventRepo.FindByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("finding event: %v", err)
+	}
+	if found.CategoryID == nil || *found.CategoryID != category.ID {
+		t.Errorf("expected category ID %s, got %v", category.ID, found.CategoryID)
+	}
+
+	found.CategoryID = nil
+	if err := eventRepo.Update(ctx, found); err != nil {
+		t.Fatalf("updating event to remove category: %v", err)
+	}
+	updated, _ := eventRepo.FindByID(ctx, created.ID)
+	if updated.CategoryID != nil {
+		t.Errorf("expected nil category after update, got %v", updated.CategoryID)
+	}
+}
+
 func TestEventRepository_Delete(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

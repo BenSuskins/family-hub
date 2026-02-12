@@ -1,0 +1,1 @@
+ALTER TABLE events ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL;

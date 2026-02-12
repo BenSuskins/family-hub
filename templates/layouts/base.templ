@@ -56,6 +56,8 @@ templ Navigation(user models.User) {
 							<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
 							<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Chores</a>
 							<a href="/events" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Events</a>
+							<a href="/meals" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Meals</a>
+							<a href="/recipes" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Recipes</a>
 							if user.Role == models.RoleAdmin {
 								<a href="/admin/users" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Admin</a>
 							}
@@ -75,6 +77,8 @@ templ Navigation(user models.User) {
 					<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
 					<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Chores</a>
 					<a href="/events" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Events</a>
+					<a href="/meals" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Meals</a>
+					<a href="/recipes" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Recipes</a>
 					if user.Role == models.RoleAdmin {
 						<a href="/admin/users" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Admin</a>
 					}

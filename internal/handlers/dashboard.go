@@ -34,6 +34,7 @@ type DashboardHandler struct {
 	userRepo       repository.UserRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	choreService   *services.ChoreService
+	mealPlanRepo   repository.MealPlanRepository
 }
 
 func NewDashboardHandler(
@@ -42,6 +43,7 @@ func NewDashboardHandler(
 	userRepo repository.UserRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	choreService *services.ChoreService,
+	mealPlanRepo repository.MealPlanRepository,
 ) *DashboardHandler {
 	return &DashboardHandler{
 		choreRepo:      choreRepo,
@@ -49,6 +51,7 @@ func NewDashboardHandler(
 		userRepo:       userRepo,
 		assignmentRepo: assignmentRepo,
 		choreService:   choreService,
+		mealPlanRepo:   mealPlanRepo,
 	}
 }
 
@@ -109,6 +112,11 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		slog.Error("finding all chores", "error", err)
 	}
 
+	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
+	if err != nil {
+		slog.Error("finding today's meals", "error", err)
+	}
+
 	component := pages.Dashboard(pages.DashboardProps{
 		User:           user,
 		ChoresDueToday: choresDueToday,
@@ -118,6 +126,7 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		Users:          users,
 		UserStats:      convertUserStats(userStats, "week"),
 		UserAvatarMap:  userAvatarMap,
+		TodayMeals:     todayMeals,
 	})
 	component.Render(ctx, w)
 }

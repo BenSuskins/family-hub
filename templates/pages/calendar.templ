@@ -200,7 +200,7 @@ templ monthView(props CalendarProps) {
 								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
 								title={ mealCalendarTitle(meal) }
 							>
-								{ meal.Name }
+								{ mealSlotPrefix(meal) }{ meal.Name }
 							</div>
 						}
 					}
@@ -258,7 +258,7 @@ templ weekView(props CalendarProps) {
 								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
 								title={ mealCalendarTitle(meal) }
 							>
-								{ meal.Name }
+								{ mealSlotPrefix(meal) }{ meal.Name }
 							</div>
 						}
 					</div>
@@ -330,7 +330,7 @@ templ dayView(props CalendarProps) {
 				}
 				for _, meal := range mealsOnDay(props.Meals, props.Date) {
 					<div class="text-sm bg-orange-100 text-orange-800 rounded px-2 py-1 mb-1" title={ mealCalendarTitle(meal) }>
-						{ meal.Name }
+						{ mealSlotPrefix(meal) }{ meal.Name }
 					</div>
 				}
 			</div>
@@ -841,6 +841,18 @@ func hasMealsInWeek(meals []models.MealPlan, days []time.Time) bool {
 		}
 	}
 	return false
+}
+
+func mealSlotPrefix(meal models.MealPlan) string {
+	switch meal.MealType {
+	case models.MealTypeBreakfast:
+		return "B: "
+	case models.MealTypeLunch:
+		return "L: "
+	case models.MealTypeDinner:
+		return "D: "
+	}
+	return ""
 }
 
 func mealCalendarTitle(meal models.MealPlan) string {

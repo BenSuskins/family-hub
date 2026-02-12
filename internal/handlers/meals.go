@@ -117,6 +117,7 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding saved meal", "error", err)
 	}
 
+	w.Header().Set("HX-Trigger", "closeMealModal")
 	component := pages.MealCell(date, mealType, &saved, recipes)
 	component.Render(ctx, w)
 }
@@ -143,6 +144,7 @@ func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding recipes", "error", err)
 	}
 
+	w.Header().Set("HX-Trigger", "closeMealModal")
 	component := pages.MealCell(date, mealType, nil, recipes)
 	component.Render(ctx, w)
 }

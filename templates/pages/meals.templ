@@ -89,6 +89,24 @@ templ MealPlanner(props MealPlannerProps) {
 					</div>
 				}
 			</div>
+
+			<!-- Meal Edit Modal -->
+			<div id="meal-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this) this.classList.add('hidden')">
+				<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+					<div class="flex justify-between items-center p-4 border-b">
+						<h3 class="text-lg font-medium text-gray-900">Meal</h3>
+						<button onclick="document.getElementById('meal-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+					</div>
+					<div id="meal-modal-content" class="p-4">
+						<p class="text-sm text-gray-500">Loading...</p>
+					</div>
+				</div>
+			</div>
+			<script>
+				document.body.addEventListener("closeMealModal", function() {
+					document.getElementById("meal-modal").classList.add("hidden");
+				});
+			</script>
 		</div>
 	}
 }
@@ -125,9 +143,10 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 					<button
 						type="button"
 						hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-						hx-target={ "#" + mealCellID(date, mealType) }
-						hx-swap="outerHTML"
+						hx-target="#meal-modal-content"
+						hx-swap="innerHTML"
 						class="text-xs text-indigo-600 hover:text-indigo-800"
+						onclick="document.getElementById('meal-modal').classList.remove('hidden')"
 					>Edit</button>
 					<form
 						hx-post="/meals/delete"
@@ -144,9 +163,10 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 			<button
 				type="button"
 				hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-				hx-target={ "#" + mealCellID(date, mealType) }
-				hx-swap="outerHTML"
+				hx-target="#meal-modal-content"
+				hx-swap="innerHTML"
 				class="w-full text-center text-xs text-gray-400 hover:text-indigo-600 py-2"
+				onclick="document.getElementById('meal-modal').classList.remove('hidden')"
 			>
 				+ Add
 			</button>
@@ -155,119 +175,119 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 }
 
 templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	<div id={ mealCellID(date, mealType) }>
-		<form
-			hx-post="/meals"
-			hx-target={ "#" + mealCellID(date, mealType) }
-			hx-swap="outerHTML"
-			class="space-y-1"
-		>
-			<input type="hidden" name="date" value={ date }/>
-			<input type="hidden" name="meal_type" value={ string(mealType) }/>
+	<form
+		hx-post="/meals"
+		hx-target={ "#" + mealCellID(date, mealType) }
+		hx-swap="outerHTML"
+		class="space-y-4"
+	>
+		<input type="hidden" name="date" value={ date }/>
+		<input type="hidden" name="meal_type" value={ string(mealType) }/>
 
-			<!-- Toggle: Recipe or Freeform -->
-			<div class="flex gap-1 mb-1">
-				<button type="button" onclick="toggleMealMode(this, 'recipe')" class="meal-mode-btn text-xs px-2 py-0.5 rounded border bg-indigo-100 text-indigo-700 border-indigo-300" data-mode="recipe">Recipe</button>
-				<button type="button" onclick="toggleMealMode(this, 'freeform')" class="meal-mode-btn text-xs px-2 py-0.5 rounded border bg-white text-gray-600 border-gray-300" data-mode="freeform">Freeform</button>
-			</div>
+		<div class="text-sm text-gray-500">
+			{ mealTypeLabel(mealType) } &middot; { mealEditDateLabel(date) }
+		</div>
 
-			<div class="meal-recipe-select">
-				<select name="recipe_id" class="w-full text-xs rounded border-gray-300" onchange="updateMealName(this)">
-					<option value="">Select recipe...</option>
-					for _, recipe := range recipes {
-						<option
-							value={ recipe.ID }
-							data-title={ recipe.Title }
-							if meal != nil && meal.RecipeID != nil && *meal.RecipeID == recipe.ID {
-								selected
-							}
-						>{ recipe.Title }</option>
-					}
-				</select>
-			</div>
-
-			<div class="meal-freeform-input hidden">
-				<input
-					type="text"
-					class="w-full text-xs rounded border-gray-300"
-					placeholder="Meal name"
-					onchange="this.form.querySelector('input[name=name]').value = this.value"
-					if meal != nil && meal.RecipeID == nil {
-						value={ meal.Name }
-					}
-				/>
-			</div>
-
-			<input type="hidden" name="name"
-				if meal != nil {
+		<!-- Freeform input (default) -->
+		<div class="meal-freeform-input">
+			<label class="block text-sm font-medium text-gray-700 mb-1">Meal name</label>
+			<input
+				type="text"
+				class="w-full rounded-md border-gray-300 shadow-sm text-sm"
+				placeholder="e.g. Spaghetti Bolognese"
+				oninput="this.form.querySelector('input[name=name]').value = this.value"
+				if meal != nil && meal.RecipeID == nil {
 					value={ meal.Name }
 				}
 			/>
+		</div>
 
+		<!-- Recipe select (hidden by default) -->
+		<div class="meal-recipe-select hidden">
+			<label class="block text-sm font-medium text-gray-700 mb-1">Recipe</label>
+			<select name="recipe_id" class="w-full rounded-md border-gray-300 shadow-sm text-sm" onchange="updateMealName(this)">
+				<option value="">Select recipe...</option>
+				for _, recipe := range recipes {
+					<option
+						value={ recipe.ID }
+						data-title={ recipe.Title }
+						if meal != nil && meal.RecipeID != nil && *meal.RecipeID == recipe.ID {
+							selected
+						}
+					>{ recipe.Title }</option>
+				}
+			</select>
+		</div>
+
+		<input type="hidden" name="name"
+			if meal != nil {
+				value={ meal.Name }
+			}
+		/>
+
+		<!-- Toggle link -->
+		<button type="button" onclick="toggleMealMode(this)" class="meal-mode-toggle text-sm text-indigo-600 hover:text-indigo-800">
+			Use a recipe instead
+		</button>
+
+		<div>
+			<label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
 			<input
 				type="text"
 				name="notes"
-				placeholder="Notes (optional)"
-				class="w-full text-xs rounded border-gray-300"
+				placeholder="Optional"
+				class="w-full rounded-md border-gray-300 shadow-sm text-sm"
 				if meal != nil {
 					value={ meal.Notes }
 				}
 			/>
+		</div>
 
-			<div class="flex gap-1">
-				<button type="submit" class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">Save</button>
-				<button
-					type="button"
-					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s", date, string(mealType)) }
-					hx-target={ "#" + mealCellID(date, mealType) }
-					hx-swap="outerHTML"
-					class="text-xs text-gray-500 hover:text-gray-700 px-2 py-0.5"
-				>Cancel</button>
-			</div>
-		</form>
+		<div class="flex gap-2 pt-2">
+			<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Save</button>
+			<button
+				type="button"
+				onclick="document.getElementById('meal-modal').classList.add('hidden')"
+				class="text-gray-500 hover:text-gray-700 px-4 py-2 text-sm"
+			>Cancel</button>
+		</div>
+	</form>
 
-		<script>
-			function toggleMealMode(btn, mode) {
-				var form = btn.closest('form');
-				var btns = form.querySelectorAll('.meal-mode-btn');
-				btns.forEach(function(b) {
-					if (b.dataset.mode === mode) {
-						b.className = 'meal-mode-btn text-xs px-2 py-0.5 rounded border bg-indigo-100 text-indigo-700 border-indigo-300';
-					} else {
-						b.className = 'meal-mode-btn text-xs px-2 py-0.5 rounded border bg-white text-gray-600 border-gray-300';
-					}
-				});
-				if (mode === 'recipe') {
-					form.querySelector('.meal-recipe-select').classList.remove('hidden');
-					form.querySelector('.meal-freeform-input').classList.add('hidden');
-				} else {
-					form.querySelector('.meal-recipe-select').classList.add('hidden');
-					form.querySelector('.meal-freeform-input').classList.remove('hidden');
-				}
+	<script>
+		function toggleMealMode(btn) {
+			var form = btn.closest('form');
+			var freeform = form.querySelector('.meal-freeform-input');
+			var recipe = form.querySelector('.meal-recipe-select');
+			var toggle = form.querySelector('.meal-mode-toggle');
+			if (recipe.classList.contains('hidden')) {
+				recipe.classList.remove('hidden');
+				freeform.classList.add('hidden');
+				toggle.textContent = 'Enter name instead';
+			} else {
+				recipe.classList.add('hidden');
+				freeform.classList.remove('hidden');
+				toggle.textContent = 'Use a recipe instead';
 			}
-			function updateMealName(select) {
-				var form = select.closest('form');
-				var selected = select.options[select.selectedIndex];
-				if (selected && selected.dataset.title) {
-					form.querySelector('input[name=name]').value = selected.dataset.title;
-				}
+		}
+		function updateMealName(select) {
+			var form = select.closest('form');
+			var selected = select.options[select.selectedIndex];
+			if (selected && selected.dataset.title) {
+				form.querySelector('input[name=name]').value = selected.dataset.title;
 			}
-			// Initialize mode for edit
-			(function() {
-				var form = document.currentScript.closest('form');
-				if (!form) return;
-				var recipeSelect = form.querySelector('select[name=recipe_id]');
-				if (recipeSelect && recipeSelect.value) {
-					// Already in recipe mode (default)
-				} else {
-					var nameInput = form.querySelector('input[name=name]');
-					if (nameInput && nameInput.value) {
-						toggleMealMode(form.querySelector('[data-mode=freeform]'), 'freeform');
-					}
-				}
-			})();
-		</script>
-	</div>
+		}
+		// Initialize mode for edit: if meal has a recipe, show recipe mode
+		(function() {
+			var container = document.getElementById('meal-modal-content');
+			if (!container) return;
+			var form = container.querySelector('form');
+			if (!form) return;
+			var recipeSelect = form.querySelector('select[name=recipe_id]');
+			if (recipeSelect && recipeSelect.value) {
+				toggleMealMode(form.querySelector('.meal-mode-toggle'));
+			}
+		})();
+	</script>
 }
 
 func mealCellID(date string, mealType models.MealType) string {
@@ -312,6 +332,14 @@ func mealTodayClass(day time.Time) string {
 		return "text-orange-600 font-bold"
 	}
 	return "text-gray-700"
+}
+
+func mealEditDateLabel(date string) string {
+	parsed, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return date
+	}
+	return parsed.Format("Mon, Jan 2")
 }
 
 func mealMobileDayBorder(day time.Time) string {

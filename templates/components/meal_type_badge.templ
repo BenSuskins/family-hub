@@ -1,0 +1,51 @@
+package components
+
+import "github.com/bensuskins/family-hub/internal/models"
+
+func MealTypeColorClass(mealType models.MealType) string {
+	switch mealType {
+	case models.MealTypeBreakfast:
+		return "bg-amber-50 text-amber-700"
+	case models.MealTypeLunch:
+		return "bg-sky-50 text-sky-700"
+	case models.MealTypeDinner:
+		return "bg-violet-50 text-violet-700"
+	default:
+		return "bg-stone-50 text-stone-700"
+	}
+}
+
+templ MealTypeBadge(mealType models.MealType) {
+	switch mealType {
+		case models.MealTypeBreakfast:
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+				@IconSun("h-3.5 w-3.5")
+				Breakfast
+			</span>
+		case models.MealTypeLunch:
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+				@IconSandwich("h-3.5 w-3.5")
+				Lunch
+			</span>
+		case models.MealTypeDinner:
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+				@IconUtensils("h-3.5 w-3.5")
+				Dinner
+			</span>
+		default:
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-stone-50 text-stone-700">
+				{ string(mealType) }
+			</span>
+	}
+}
+
+templ MealTypeIcon(mealType models.MealType, sizeClass string) {
+	switch mealType {
+		case models.MealTypeBreakfast:
+			@IconSun(sizeClass)
+		case models.MealTypeLunch:
+			@IconSandwich(sizeClass)
+		case models.MealTypeDinner:
+			@IconUtensils(sizeClass)
+	}
+}

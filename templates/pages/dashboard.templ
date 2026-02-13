@@ -157,7 +157,7 @@ templ Dashboard(props DashboardProps) {
 						<ul class="divide-y divide-stone-100">
 							for _, meal := range props.TodayMeals {
 								<li class="py-3">
-									@dashboardMealTypeBadge(meal.MealType)
+									@components.MealTypeBadge(meal.MealType)
 									<p class="text-sm font-medium text-stone-900">
 										if meal.RecipeID != nil {
 											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-amber-700 hover:text-amber-900 underline">
@@ -289,26 +289,3 @@ func lookupAvatarURL(avatarMap map[string]string, userID string) string {
 	return avatarMap[userID]
 }
 
-templ dashboardMealTypeBadge(mealType models.MealType) {
-	switch mealType {
-		case models.MealTypeBreakfast:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
-				@components.IconSun("h-3.5 w-3.5")
-				Breakfast
-			</span>
-		case models.MealTypeLunch:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
-				@components.IconSandwich("h-3.5 w-3.5")
-				Lunch
-			</span>
-		case models.MealTypeDinner:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
-				@components.IconUtensils("h-3.5 w-3.5")
-				Dinner
-			</span>
-		default:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-stone-50 text-stone-700">
-				{ string(mealType) }
-			</span>
-	}
-}

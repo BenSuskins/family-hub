@@ -63,8 +63,8 @@ templ MealPlanner(props MealPlannerProps) {
 					<!-- Meal rows -->
 					for _, mealType := range mealTypes() {
 						<div class="grid grid-cols-8 border-b border-stone-200 divide-x divide-stone-200">
-							<div class="px-2 py-3 text-xs font-medium text-stone-500 uppercase flex items-start justify-center border-r border-stone-200 bg-stone-50">
-								{ mealTypeLabel(mealType) }
+							<div class="px-2 py-3 text-xs font-medium text-stone-500 flex items-start justify-center border-r border-stone-200 bg-stone-50">
+								@components.MealTypeBadge(mealType)
 							</div>
 							for _, day := range props.Days {
 								<div class="p-1 min-h-16">
@@ -86,7 +86,9 @@ templ MealPlanner(props MealPlannerProps) {
 						<div class="divide-y divide-stone-200">
 							for _, mealType := range mealTypes() {
 								<div class="px-4 py-2">
-									<div class="text-xs font-medium text-stone-500 uppercase mb-1">{ mealTypeLabel(mealType) }</div>
+									<div class="text-xs font-medium text-stone-500 mb-1">
+									@components.MealTypeBadge(mealType)
+								</div>
 									@mealCellContentMobile(day, mealType, props.MealMap, props.Recipes)
 								</div>
 							}

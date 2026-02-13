@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,8 +11,10 @@
     input[type="datetime-local"],
     input[type="email"],
     input[type="password"],
+    input[type="url"],
+    input[type="number"],
     textarea,
     select {
-        @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm;
+        @apply block w-full rounded-xl border-stone-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm;
     }
 }

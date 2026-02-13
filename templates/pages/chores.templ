@@ -49,15 +49,16 @@ type ChoreFormProps struct {
 templ ChoreList(props ChoreListProps) {
 	@layouts.Base("Chores", props.User, "/chores") {
 		<div class="space-y-6">
-			<div class="flex justify-between items-center">
-				<h1 class="text-2xl font-bold text-stone-900">Chores</h1>
-				if props.User.Role == models.RoleAdmin {
+			if props.User.Role == models.RoleAdmin {
+				@components.PageHeaderWithAction("Chores", "Manage your family's chores and assignments") {
 					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
 						@components.IconPlus("h-4 w-4")
 						New Chore
 					</a>
 				}
-			</div>
+			} else {
+				@components.PageHeader("Chores", "Manage your family's chores and assignments")
+			}
 
 			<!-- Tabs -->
 			<div class="flex space-x-1 bg-stone-100 p-1 rounded-lg w-fit" id="chore-tabs">
@@ -290,6 +291,17 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 			}
 		</td>
 	</tr>
+}
+
+templ choreStatusBadge(status models.ChoreStatus) {
+	switch status {
+		case models.ChoreStatusPending:
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending</span>
+		case models.ChoreStatusCompleted:
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Completed</span>
+		case models.ChoreStatusOverdue:
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Overdue</span>
+	}
 }
 
 templ ChoreForm(props ChoreFormProps) {
@@ -537,13 +549,6 @@ func choreTabClass(activeTab, thisTab string) string {
 		return "px-4 py-2 text-sm font-medium rounded-md bg-white text-stone-900 shadow"
 	}
 	return "px-4 py-2 text-sm font-medium rounded-md text-stone-500 hover:text-stone-900"
-}
-
-func lookupUserName(userNameMap map[string]string, userID string) string {
-	if name, ok := userNameMap[userID]; ok {
-		return name
-	}
-	return "Unknown"
 }
 
 func isEligibleAssignee(eligible []string, userID string) bool {

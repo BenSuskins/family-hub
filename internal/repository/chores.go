@@ -25,6 +25,7 @@ type ChoreFilter struct {
 	DueBefore       *time.Time
 	DueAfter        *time.Time
 	OrderBy         string
+	Limit           int
 }
 
 type ChoreRepository interface {
@@ -125,6 +126,10 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 		orderBy = OrderByDueDateAsc
 	}
 	query += " ORDER BY " + orderBy
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
 
 	rows, err := repository.database.QueryContext(ctx, query, args...)
 	if err != nil {

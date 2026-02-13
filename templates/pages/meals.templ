@@ -19,9 +19,7 @@ type MealPlannerProps struct {
 templ MealPlanner(props MealPlannerProps) {
 	@layouts.Base("Meal Planner", props.User, "/meals") {
 		<div class="space-y-6">
-			<div class="flex justify-between items-center">
-				<h1 class="text-2xl font-bold text-stone-900">Meal Planner</h1>
-			</div>
+			@components.PageHeader("Meal Planner", "Plan your family's meals for the week")
 
 			<!-- Week Navigation -->
 			<div class="flex items-center justify-center space-x-4">

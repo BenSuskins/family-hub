@@ -25,8 +25,7 @@ type CalendarProps struct {
 templ Calendar(props CalendarProps) {
 	@layouts.Base("Calendar", props.User, "/calendar") {
 		<div class="space-y-6">
-			<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-				<h1 class="text-2xl font-bold text-stone-900">Calendar</h1>
+			@components.PageHeaderWithAction("Calendar", "Your family's schedule") {
 				<div class="flex items-center space-x-4">
 					<button
 						hx-post="/calendar/share"
@@ -38,7 +37,6 @@ templ Calendar(props CalendarProps) {
 						@components.IconShare("h-4 w-4")
 						Share Calendar
 					</button>
-					<!-- View toggle -->
 					<div class="inline-flex rounded-xl shadow-sm">
 						<a
 							href={ templ.SafeURL(viewURL("year", props.Date)) }
@@ -58,7 +56,7 @@ templ Calendar(props CalendarProps) {
 						>Day</a>
 					</div>
 				</div>
-			</div>
+			}
 
 			<!-- Navigation -->
 			<div class="flex items-center justify-center space-x-4">

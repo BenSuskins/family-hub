@@ -159,17 +159,15 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	var request struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+	name := r.FormValue("name")
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
 		return
 	}
 
 	rawToken := generateToken()
 	token := models.APIToken{
-		Name:            request.Name,
+		Name:            name,
 		TokenHash:       repository.HashToken(rawToken),
 		CreatedByUserID: user.ID,
 	}

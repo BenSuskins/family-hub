@@ -69,7 +69,7 @@ templ MealPlanner(props MealPlannerProps) {
 								{ mealTypeLabel(mealType) }
 							</div>
 							for _, day := range props.Days {
-								<div class="p-1 min-h-20">
+								<div class="p-1 min-h-16">
 									@mealCellContent(day, mealType, props.MealMap, props.Recipes)
 								</div>
 							}
@@ -148,7 +148,7 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 				if meal.Notes != "" {
 					<div class="text-xs text-stone-500 mt-0.5">{ meal.Notes }</div>
 				}
-				<div class="mt-1 flex gap-1">
+				<div class="mt-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
 					<button
 						type="button"
 						hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
@@ -180,10 +180,10 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 				hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
 				hx-target="#meal-modal-content"
 				hx-swap="innerHTML"
-				class="w-full text-center text-xs text-stone-400 hover:text-blue-600 py-2"
+				class="w-full text-center text-xs text-stone-300 hover:text-stone-600 py-2"
 				onclick="document.getElementById('meal-modal').classList.remove('hidden')"
 			>
-				+ Add
+				+
 			</button>
 		}
 	</div>

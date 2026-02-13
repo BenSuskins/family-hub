@@ -260,22 +260,14 @@ templ RecipeForm(props RecipeFormProps) {
 					</div>
 					<button
 						type="button"
-						id="add-ingredient-group-btn"
-						hx-get="/recipes/ingredient-group?index=0"
+						hx-get="/recipes/ingredient-group"
+						hx-vals="js:{index: document.querySelectorAll('#ingredient-groups > div').length}"
 						hx-target="#ingredient-groups"
 						hx-swap="beforeend"
 						class="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
 					>
 						+ Add Ingredient Group
 					</button>
-					<script>
-						document.body.addEventListener('htmx:configRequest', function(event) {
-							if (event.detail.elt.id === 'add-ingredient-group-btn') {
-								var groups = document.querySelectorAll('#ingredient-groups > div');
-								event.detail.parameters.index = groups.length;
-							}
-						});
-					</script>
 				</div>
 
 				<div>
@@ -312,7 +304,7 @@ templ IngredientGroupFields(index int, group models.IngredientGroup) {
 		if index > 0 {
 			<button
 				type="button"
-				onclick="this.closest('[id^=ingredient-group-]').remove()"
+				onclick="this.closest('[id^=ingredient-group-]').remove(); document.querySelectorAll('#ingredient-groups > div').forEach(function(div, i) { div.id = 'ingredient-group-' + i; div.querySelectorAll('input, textarea').forEach(function(el) { el.name = el.name.replace(/_\d+$/, '_' + i); }); })"
 				class="absolute top-2 right-2 text-gray-400 hover:text-red-600 text-sm"
 			>
 				Remove
@@ -354,10 +346,3 @@ func recipeCategory(categoryMap map[string]string, categoryID string) string {
 	return "Unknown"
 }
 
-func nextIngredientGroupURL(recipe *models.Recipe) string {
-	nextIndex := 1
-	if recipe != nil && len(recipe.Ingredients) > 0 {
-		nextIndex = len(recipe.Ingredients)
-	}
-	return fmt.Sprintf("/recipes/ingredient-group?index=%d", nextIndex)
-}

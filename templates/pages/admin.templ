@@ -147,6 +147,7 @@ templ AdminUsers(props AdminUsersProps) {
 								<tr>
 									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
 									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-gray-200">
@@ -154,6 +155,15 @@ templ AdminUsers(props AdminUsersProps) {
 									<tr>
 										<td class="px-4 py-2 text-sm text-gray-900">{ token.Name }</td>
 										<td class="px-4 py-2 text-sm text-gray-500">{ token.CreatedAt.Format("Jan 2, 2006") }</td>
+										<td class="px-4 py-2 text-sm">
+											<button
+												hx-delete={ fmt.Sprintf("/api/tokens/%s", token.ID) }
+												hx-confirm="Revoke this token?"
+												hx-target="closest tr"
+												hx-swap="outerHTML"
+												class="text-red-600 hover:text-red-900 text-sm font-medium"
+											>Revoke</button>
+										</td>
 									</tr>
 								}
 							</tbody>

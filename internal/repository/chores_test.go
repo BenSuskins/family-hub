@@ -287,6 +287,64 @@ func TestChoreRepository_FindAll_WithOrderBy(t *testing.T) {
 	}
 }
 
+func TestChoreRepository_FindAll_WithLimit(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	for i := 0; i < 5; i++ {
+		choreRepo.Create(ctx, models.Chore{
+			Name:            "Chore " + time.Now().String(),
+			CreatedByUserID: user.ID,
+			Status:          models.ChoreStatusPending,
+		})
+	}
+
+	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{Limit: 3})
+	if err != nil {
+		t.Fatalf("finding chores with limit: %v", err)
+	}
+	if len(chores) != 3 {
+		t.Errorf("expected 3 chores with limit, got %d", len(chores))
+	}
+
+	allChores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{})
+	if err != nil {
+		t.Fatalf("finding all chores: %v", err)
+	}
+	if len(allChores) != 5 {
+		t.Errorf("expected 5 chores without limit, got %d", len(allChores))
+	}
+}
+
+func TestChoreRepository_FindAll_LimitZeroReturnsAll(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	for i := 0; i < 4; i++ {
+		choreRepo.Create(ctx, models.Chore{
+			Name:            "Chore " + time.Now().String(),
+			CreatedByUserID: user.ID,
+			Status:          models.ChoreStatusPending,
+		})
+	}
+
+	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{Limit: 0})
+	if err != nil {
+		t.Fatalf("finding chores with limit 0: %v", err)
+	}
+	if len(chores) != 4 {
+		t.Errorf("expected 4 chores with limit 0 (no limit), got %d", len(chores))
+	}
+}
+
 func TestChoreRepository_CountByStatusAndUser(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

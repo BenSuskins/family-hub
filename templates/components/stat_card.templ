@@ -1,0 +1,34 @@
+package components
+
+import "fmt"
+
+type StatCardProps struct {
+	Label    string
+	Value    int
+	SubLabel string
+	SubColor string
+}
+
+func statSubColor(color string) string {
+	if color != "" {
+		return color
+	}
+	return "text-stone-500"
+}
+
+templ StatCard(props StatCardProps) {
+	<div class="bg-white border border-stone-200 rounded-xl p-6">
+		<div class="flex items-center gap-3">
+			<div class="flex-shrink-0 p-2 bg-stone-100 rounded-lg">
+				{ children... }
+			</div>
+			<div>
+				<p class="text-sm font-medium text-stone-500">{ props.Label }</p>
+				<p class="text-2xl font-bold text-stone-900">{ fmt.Sprintf("%d", props.Value) }</p>
+				if props.SubLabel != "" {
+					<p class={ "text-xs mt-0.5 " + statSubColor(props.SubColor) }>{ props.SubLabel }</p>
+				}
+			</div>
+		</div>
+	</div>
+}

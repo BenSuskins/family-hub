@@ -33,7 +33,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
-	dashboardHandler := handlers.NewDashboardHandler(choreRepo, eventRepo, userRepo, assignmentRepo, choreService, mealPlanRepo)
+	dashboardHandler := handlers.NewDashboardHandler(choreRepo, eventRepo, userRepo, assignmentRepo, choreService, mealPlanRepo, categoryRepo)
 	choreHandler := handlers.NewChoreHandler(choreRepo, categoryRepo, userRepo, choreService)
 	eventHandler := handlers.NewEventHandler(eventRepo, categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
@@ -70,7 +70,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Use(middleware.RequireAuth(authService))
 
 		r.Get("/", dashboardHandler.Dashboard)
-		r.Get("/leaderboard", dashboardHandler.Leaderboard)
+		r.Get("/dashboard/chores", dashboardHandler.DashboardChoresTable)
 
 		r.Get("/chores", choreHandler.List)
 		r.Get("/chores/{id}/detail", choreHandler.Detail)

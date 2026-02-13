@@ -5,254 +5,244 @@ import (
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/templates/components"
 	"github.com/bensuskins/family-hub/templates/layouts"
-	"strconv"
 )
 
-type UserStatProps struct {
-	Rank            int
-	UserName        string
-	UserAvatarURL   string
-	CompletedWeek   int
-	CompletedMonth  int
-	AssignedPending int
-}
-
-type LeaderboardProps struct {
-	UserStats []UserStatProps
-	Period    string
-}
-
 type DashboardProps struct {
+	User               models.User
+	ActiveChoreCount   int
+	OverdueCount       int
+	UpcomingEventCount int
+	MealsThisWeek      int
+	UpcomingChores     []models.Chore
+	MyChores           []models.Chore
+	Users              []models.User
+	UserNameMap        map[string]string
+	UserAvatarMap      map[string]string
+	CategoryMap        map[string]string
+	ActiveChoreTab     string
+}
+
+type DashboardChoresTableProps struct {
+	Chores         []models.Chore
 	User           models.User
-	ChoresDueToday []models.Chore
-	UpcomingEvents []models.Event
-	Users          []models.User
-	UserStats      []UserStatProps
+	UserNameMap    map[string]string
 	UserAvatarMap  map[string]string
-	TodayMeals     []models.MealPlan
+	ActiveChoreTab string
 }
 
 templ Dashboard(props DashboardProps) {
 	@layouts.Base("Dashboard", props.User, "/") {
-		<div class="space-y-6">
-			<h1 class="text-2xl font-bold text-stone-900">Dashboard</h1>
+		<div class="space-y-8">
+			@components.PageHeader("Overview", "Your family's activity at a glance")
 
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-				<!-- Chores Due Today -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconClipboardList("h-5 w-5 text-stone-400")
-						<h2 class="text-lg font-medium text-stone-900">Chores Due Today</h2>
-					</div>
-					if len(props.ChoresDueToday) == 0 {
-						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
-							@components.IconCheckCircle("h-8 w-8")
-							<p class="text-sm mt-2">You're all caught up!</p>
-						</div>
-					} else {
-						<ul class="divide-y divide-stone-200">
-							for _, chore := range props.ChoresDueToday {
-								<li id={ "dashboard-chore-" + chore.ID } class="py-3 flex justify-between items-center">
-									<div class="flex items-center gap-2">
-										if chore.AssignedToUserID != nil {
-											@components.UserAvatar(getUserName(props.Users, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
-										}
-										<div>
-											<p class="text-sm font-medium text-stone-900">{ chore.Name }</p>
-											<div class="flex items-center gap-2">
-												if chore.AssignedToUserID != nil {
-													<p class="text-xs text-stone-500">{ getUserName(props.Users, *chore.AssignedToUserID) }</p>
-												}
-												if chore.Status == models.ChoreStatusOverdue {
-													<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Overdue</span>
-													if chore.DueDate != nil {
-														<span class="text-xs text-red-600">{ chore.DueDate.Format("Jan 2") }</span>
-													}
-												}
-											</div>
-										</div>
-									</div>
-									<button
-										type="button"
-										hx-post={ "/chores/" + chore.ID + "/complete" }
-										hx-target={ "#dashboard-chore-" + chore.ID }
-										hx-swap="delete"
-										class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-									>
-										@components.IconCheck("h-3.5 w-3.5")
-										Complete
-									</button>
-								</li>
-							}
-						</ul>
-					}
-				</div>
-
-				<!-- Upcoming Events -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconCalendarDays("h-5 w-5 text-stone-400")
-						<h2 class="text-lg font-medium text-stone-900">Upcoming Events</h2>
-					</div>
-					if len(props.UpcomingEvents) == 0 {
-						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
-							@components.IconCalendar("h-8 w-8")
-							<p class="text-sm mt-2">Nothing on the horizon</p>
-						</div>
-					} else {
-						<ul class="divide-y divide-stone-200">
-							for _, event := range props.UpcomingEvents {
-								<li class="py-3">
-									<p class="text-sm font-medium text-stone-900">{ event.Title }</p>
-									<p class="text-xs text-stone-500">
-										if event.AllDay {
-											{ event.StartTime.Format("Jan 2") } (All day)
-										} else {
-											{ event.StartTime.Format("Jan 2, 3:04 PM") }
-										}
-									</p>
-								</li>
-							}
-						</ul>
-					}
-				</div>
-
-				<!-- Today's Meals -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconFire("h-5 w-5 text-stone-400")
-						<h2 class="text-lg font-medium text-stone-900">Today's Meals</h2>
-					</div>
-					if len(props.TodayMeals) == 0 {
-						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
-							@components.IconFire("h-8 w-8")
-							<p class="text-sm mt-2">No meals planned yet</p>
-						</div>
-					} else {
-						<ul class="divide-y divide-stone-200">
-							for _, meal := range props.TodayMeals {
-								<li class="py-3">
-									<div class="mb-1">
-										<span class="inline-flex items-center bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 text-xs font-medium">{ dashboardMealTypeLabel(meal.MealType) }</span>
-									</div>
-									<p class="text-sm font-medium text-stone-900">
-										if meal.RecipeID != nil {
-											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
-												{ meal.Name }
-											</a>
-										} else {
-											{ meal.Name }
-										}
-									</p>
-									if meal.Notes != "" {
-										<p class="text-xs text-stone-500">{ meal.Notes }</p>
-									}
-								</li>
-							}
-						</ul>
-					}
-				</div>
-
-				@LeaderboardTable(LeaderboardProps{
-					UserStats: props.UserStats,
-					Period:    "week",
-				})
+			<!-- Stat Cards -->
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+				@components.StatCard(components.StatCardProps{
+					Label:    "Active Chores",
+					Value:    props.ActiveChoreCount,
+					SubLabel: dashboardOverdueSubLabel(props.OverdueCount),
+					SubColor: dashboardOverdueSubColor(props.OverdueCount),
+				}) {
+					@components.IconClipboardList("h-5 w-5 text-stone-600")
+				}
+				@components.StatCard(components.StatCardProps{
+					Label:    "Upcoming Events",
+					Value:    props.UpcomingEventCount,
+					SubLabel: "In next 7 days",
+				}) {
+					@components.IconCalendarDays("h-5 w-5 text-stone-600")
+				}
+				@components.StatCard(components.StatCardProps{
+					Label:    "Meals This Week",
+					Value:    props.MealsThisWeek,
+					SubLabel: "of 21 planned",
+				}) {
+					@components.IconFire("h-5 w-5 text-stone-600")
+				}
 			</div>
+
+			<!-- Upcoming Chores - Horizontal Scroll -->
+			<div>
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-semibold text-stone-900">Upcoming Chores</h2>
+					<a href="/chores" class="text-sm font-medium text-stone-600 hover:text-stone-900">See all &rarr;</a>
+				</div>
+				if len(props.UpcomingChores) == 0 {
+					<div class="bg-white border border-stone-200 rounded-xl p-8 text-center text-stone-400">
+						<p class="text-sm">No upcoming chores</p>
+					</div>
+				} else {
+					<div class="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+						for _, chore := range props.UpcomingChores {
+							<div class="flex-shrink-0 w-64 bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-300 transition-colors">
+								<div class="flex items-start justify-between mb-2">
+									<p class="text-sm font-medium text-stone-900 truncate pr-2">{ chore.Name }</p>
+									@dashboardChoreStatusBadge(chore.Status)
+								</div>
+								<div class="space-y-1.5">
+									if chore.AssignedToUserID != nil {
+										<div class="flex items-center gap-1.5">
+											@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-5 w-5 text-[0.6rem]")
+											<span class="text-xs text-stone-500">{ lookupUserName(props.UserNameMap, *chore.AssignedToUserID) }</span>
+										</div>
+									}
+									if chore.DueDate != nil {
+										<p class="text-xs text-stone-500">Due { chore.DueDate.Format("Jan 2") }</p>
+									}
+									if chore.CategoryID != nil {
+										<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+											{ lookupCategory(props.CategoryMap, *chore.CategoryID) }
+										</span>
+									}
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+
+			<!-- My Chores Table -->
+			@DashboardChoresTable(DashboardChoresTableProps{
+				Chores:         props.MyChores,
+				User:           props.User,
+				UserNameMap:    props.UserNameMap,
+				UserAvatarMap:  props.UserAvatarMap,
+				ActiveChoreTab: props.ActiveChoreTab,
+			})
 		</div>
 	}
 }
 
-templ LeaderboardTable(props LeaderboardProps) {
-	<div id="leaderboard" class="bg-white border border-stone-200 rounded-xl p-6">
+templ DashboardChoresTable(props DashboardChoresTableProps) {
+	<div id="dashboard-chores-table">
 		<div class="flex items-center justify-between mb-4">
-			<div class="flex items-center gap-2">
-				@components.IconTrophy("h-5 w-5 text-stone-400")
-				<h2 class="text-lg font-medium text-stone-900">Leaderboard</h2>
-			</div>
+			<h2 class="text-lg font-semibold text-stone-900">My Chores</h2>
 			<div class="flex space-x-1 bg-stone-100 p-1 rounded-lg">
 				<button
 					type="button"
-					class={ leaderboardPeriodClass(props.Period, "week") }
-					hx-get="/leaderboard?period=week"
-					hx-target="#leaderboard"
+					class={ dashboardTabClass(props.ActiveChoreTab, "all") }
+					hx-get="/dashboard/chores?tab=all"
+					hx-target="#dashboard-chores-table"
 					hx-swap="outerHTML"
 				>
-					Week
+					All
 				</button>
 				<button
 					type="button"
-					class={ leaderboardPeriodClass(props.Period, "month") }
-					hx-get="/leaderboard?period=month"
-					hx-target="#leaderboard"
+					class={ dashboardTabClass(props.ActiveChoreTab, "pending") }
+					hx-get="/dashboard/chores?tab=pending"
+					hx-target="#dashboard-chores-table"
 					hx-swap="outerHTML"
 				>
-					Month
+					Pending
+				</button>
+				<button
+					type="button"
+					class={ dashboardTabClass(props.ActiveChoreTab, "overdue") }
+					hx-get="/dashboard/chores?tab=overdue"
+					hx-target="#dashboard-chores-table"
+					hx-swap="outerHTML"
+				>
+					Overdue
 				</button>
 			</div>
 		</div>
-		if len(props.UserStats) == 0 {
-			<p class="text-stone-500 text-sm">No stats yet</p>
-		} else {
-			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-stone-200">
-					<thead>
-						<tr>
-							<th class="px-3 py-2 text-left text-xs font-medium text-stone-500 uppercase">#</th>
-							<th class="px-3 py-2 text-left text-xs font-medium text-stone-500 uppercase">Name</th>
-							<th class="px-3 py-2 text-left text-xs font-medium text-stone-500 uppercase">Completed</th>
-							<th class="px-3 py-2 text-left text-xs font-medium text-stone-500 uppercase">Pending</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-stone-200">
-						for _, stat := range props.UserStats {
+		<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+			if len(props.Chores) == 0 {
+				<div class="p-8 text-center text-stone-400">
+					<p class="text-sm">No chores to show</p>
+				</div>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="min-w-full divide-y divide-stone-200">
+						<thead class="bg-stone-50">
 							<tr>
-								<td class="px-3 py-2 text-sm font-medium text-stone-500">{ strconv.Itoa(stat.Rank) }</td>
-								<td class="px-3 py-2 text-sm text-stone-900">
-									<div class="flex items-center gap-2">
-										@components.UserAvatar(stat.UserName, stat.UserAvatarURL, "h-6 w-6 text-xs")
-										{ stat.UserName }
-									</div>
-								</td>
-								<td class="px-3 py-2 text-sm text-stone-600">
-									if props.Period == "month" {
-										{ fmt.Sprintf("%d", stat.CompletedMonth) }
-									} else {
-										{ fmt.Sprintf("%d", stat.CompletedWeek) }
-									}
-								</td>
-								<td class="px-3 py-2 text-sm text-stone-600">{ fmt.Sprintf("%d", stat.AssignedPending) }</td>
+								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Chore</th>
+								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Due Date</th>
+								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Status</th>
+								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Actions</th>
 							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
-		}
+						</thead>
+						<tbody class="bg-white divide-y divide-stone-200">
+							for _, chore := range props.Chores {
+								<tr id={ "dashboard-chore-" + chore.ID }>
+									<td class="px-6 py-4 whitespace-nowrap">
+										<div class="text-sm font-medium text-stone-900">{ chore.Name }</div>
+										if chore.Description != "" {
+											<div class="text-sm text-stone-500 truncate max-w-xs">{ chore.Description }</div>
+										}
+									</td>
+									<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+										if chore.DueDate != nil {
+											{ chore.DueDate.Format("Jan 2, 2006") }
+											if chore.DueTime != nil {
+												{ " " + *chore.DueTime }
+											}
+										} else {
+											<span class="text-stone-400">No due date</span>
+										}
+									</td>
+									<td class="px-6 py-4 whitespace-nowrap">
+										@dashboardChoreStatusBadge(chore.Status)
+									</td>
+									<td class="px-6 py-4 whitespace-nowrap text-sm">
+										if chore.Status != models.ChoreStatusCompleted {
+											<button
+												hx-post={ fmt.Sprintf("/chores/%s/complete", chore.ID) }
+												hx-target={ "#dashboard-chore-" + chore.ID }
+												hx-swap="delete"
+												class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium"
+											>
+												@components.IconCheck("h-4 w-4")
+												Complete
+											</button>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
 	</div>
 }
 
-templ choreStatusBadge(status models.ChoreStatus) {
+templ dashboardChoreStatusBadge(status models.ChoreStatus) {
 	switch status {
 		case models.ChoreStatusPending:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending</span>
-		case models.ChoreStatusCompleted:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Completed</span>
+			<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending</span>
 		case models.ChoreStatusOverdue:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Overdue</span>
+			<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Overdue</span>
+		case models.ChoreStatusCompleted:
+			<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Completed</span>
 	}
 }
 
-func leaderboardPeriodClass(activePeriod, thisPeriod string) string {
-	if activePeriod == thisPeriod {
+func dashboardTabClass(activeTab, thisTab string) string {
+	if activeTab == thisTab {
 		return "px-3 py-1 text-xs font-medium rounded-md bg-white text-stone-900 shadow"
 	}
 	return "px-3 py-1 text-xs font-medium rounded-md text-stone-500 hover:text-stone-900"
 }
 
-func getUserName(users []models.User, userID string) string {
-	for _, user := range users {
-		if user.ID == userID {
-			return user.Name
-		}
+func dashboardOverdueSubLabel(overdueCount int) string {
+	if overdueCount == 0 {
+		return "All on track"
+	}
+	return fmt.Sprintf("%d overdue", overdueCount)
+}
+
+func dashboardOverdueSubColor(overdueCount int) string {
+	if overdueCount > 0 {
+		return "text-red-600"
+	}
+	return "text-emerald-600"
+}
+
+func lookupUserName(userNameMap map[string]string, userID string) string {
+	if name, ok := userNameMap[userID]; ok {
+		return name
 	}
 	return "Unknown"
 }
@@ -264,14 +254,9 @@ func lookupAvatarURL(avatarMap map[string]string, userID string) string {
 	return avatarMap[userID]
 }
 
-func dashboardMealTypeLabel(mealType models.MealType) string {
-	switch mealType {
-	case models.MealTypeBreakfast:
-		return "Breakfast"
-	case models.MealTypeLunch:
-		return "Lunch"
-	case models.MealTypeDinner:
-		return "Dinner"
+func lookupCategory(categoryMap map[string]string, categoryID string) string {
+	if name, ok := categoryMap[categoryID]; ok {
+		return name
 	}
-	return string(mealType)
+	return ""
 }

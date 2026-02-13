@@ -214,7 +214,7 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at
 		FROM chores
-		WHERE status = 'pending' AND due_date IS NOT NULL AND due_date < ?
+		WHERE status IN ('pending', 'overdue') AND due_date IS NOT NULL AND due_date < ?
 		ORDER BY due_date ASC`,
 		endOfToday,
 	)

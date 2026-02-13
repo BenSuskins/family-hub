@@ -77,7 +77,7 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-semibold text-stone-900">Chores Due Today</h2>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
-						<p class="text-stone-400 text-sm">No chores due today</p>
+						<p class="text-stone-400 text-sm">You're all caught up!</p>
 					} else {
 						<ul class="divide-y divide-stone-100">
 							for _, chore := range props.ChoresDueToday {
@@ -126,7 +126,7 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-semibold text-stone-900">Upcoming Events</h2>
 					</div>
 					if len(props.UpcomingEvents) == 0 {
-						<p class="text-stone-400 text-sm">No upcoming events this week</p>
+						<p class="text-stone-400 text-sm">Nothing on the calendar this week</p>
 					} else {
 						<ul class="divide-y divide-stone-100">
 							for _, event := range props.UpcomingEvents {
@@ -152,7 +152,7 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-semibold text-stone-900">Today's Meals</h2>
 					</div>
 					if len(props.TodayMeals) == 0 {
-						<p class="text-stone-400 text-sm">No meals planned for today</p>
+						<p class="text-stone-400 text-sm">No meals planned yet — what's cooking?</p>
 					} else {
 						<ul class="divide-y divide-stone-100">
 							for _, meal := range props.TodayMeals {

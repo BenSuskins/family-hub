@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -11,6 +12,14 @@ import (
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/templates/pages"
 )
+
+type UserStat struct {
+	UserName        string
+	UserAvatarURL   string
+	CompletedWeek   int
+	CompletedMonth  int
+	AssignedPending int
+}
 
 type DashboardHandler struct {
 	choreRepo      repository.ChoreRepository
@@ -47,7 +56,28 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	user := middleware.GetUser(ctx)
 	now := time.Now()
 
-	// Active chores (pending + overdue)
+	// Chores due today + overdue (merged, deduplicated)
+	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
+	if err != nil {
+		slog.Error("finding chores due today", "error", err)
+	}
+
+	overdueChores, err := handler.choreRepo.FindOverdueChores(ctx)
+	if err != nil {
+		slog.Error("finding overdue chores", "error", err)
+	}
+
+	seen := make(map[string]bool, len(choresDueToday))
+	for _, chore := range choresDueToday {
+		seen[chore.ID] = true
+	}
+	for _, chore := range overdueChores {
+		if !seen[chore.ID] {
+			choresDueToday = append(choresDueToday, chore)
+		}
+	}
+
+	// Active chore count for stat card
 	activeChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
 	})
@@ -72,7 +102,7 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		slog.Error("finding upcoming events", "error", err)
 	}
 
-	// Meals this week
+	// Meals this week (for stat card)
 	weekStart := now.Truncate(24 * time.Hour)
 	weekEnd := weekStart.AddDate(0, 0, 7)
 	mealsThisWeek, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
@@ -83,26 +113,13 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		slog.Error("finding meals this week", "error", err)
 	}
 
-	// Upcoming chores (next 8 due)
-	upcomingChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		OrderBy:  repository.OrderByDueDateAsc,
-		Limit:    8,
-	})
+	// Today's meals (for widget)
+	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
 	if err != nil {
-		slog.Error("finding upcoming chores", "error", err)
+		slog.Error("finding today's meals", "error", err)
 	}
 
-	// My chores (all pending/overdue)
-	myChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses:       []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		AssignedToUser: &user.ID,
-		OrderBy:        repository.OrderByDueDateAsc,
-	})
-	if err != nil {
-		slog.Error("finding my chores", "error", err)
-	}
-
+	// Users + maps
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users", "error", err)
@@ -115,82 +132,101 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		userAvatarMap[u.ID] = u.AvatarURL
 	}
 
-	categories, err := handler.categoryRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding categories", "error", err)
-	}
-	categoryMap := make(map[string]string, len(categories))
-	for _, c := range categories {
-		categoryMap[c.ID] = c.Name
+	// Per-user stats for leaderboard
+	weekAgo := now.AddDate(0, 0, -7)
+	monthAgo := now.AddDate(0, -1, 0)
+
+	var userStats []UserStat
+	for _, u := range users {
+		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
+		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
+		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusPending, u.ID)
+
+		userStats = append(userStats, UserStat{
+			UserName:        u.Name,
+			UserAvatarURL:   u.AvatarURL,
+			CompletedWeek:   completedWeek,
+			CompletedMonth:  completedMonth,
+			AssignedPending: assignedPending,
+		})
 	}
 
 	component := pages.Dashboard(pages.DashboardProps{
-		User:              user,
-		ActiveChoreCount:  len(activeChores),
-		OverdueCount:      overdueCount,
+		User:               user,
+		ActiveChoreCount:   len(activeChores),
+		OverdueCount:       overdueCount,
 		UpcomingEventCount: len(upcomingEvents),
-		MealsThisWeek:     len(mealsThisWeek),
-		UpcomingChores:    upcomingChores,
-		MyChores:          myChores,
-		Users:             users,
-		UserNameMap:       userNameMap,
-		UserAvatarMap:     userAvatarMap,
-		CategoryMap:       categoryMap,
-		ActiveChoreTab:    "all",
+		MealsThisWeek:      len(mealsThisWeek),
+		ChoresDueToday:     choresDueToday,
+		UpcomingEvents:     upcomingEvents,
+		TodayMeals:         todayMeals,
+		UserStats:          convertUserStats(userStats, "week"),
+		Users:              users,
+		UserNameMap:        userNameMap,
+		UserAvatarMap:      userAvatarMap,
 	})
 	component.Render(ctx, w)
 }
 
-func (handler *DashboardHandler) DashboardChoresTable(w http.ResponseWriter, r *http.Request) {
+func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := middleware.GetUser(ctx)
 
-	tab := r.URL.Query().Get("tab")
-	if tab == "" {
-		tab = "all"
-	}
-
-	filter := repository.ChoreFilter{
-		AssignedToUser: &user.ID,
-		OrderBy:        repository.OrderByDueDateAsc,
-	}
-
-	switch tab {
-	case "pending":
-		pending := models.ChoreStatusPending
-		filter.Status = &pending
-	case "overdue":
-		overdue := models.ChoreStatusOverdue
-		filter.Status = &overdue
-	default:
-		filter.Statuses = []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}
-	}
-
-	chores, err := handler.choreRepo.FindAll(ctx, filter)
-	if err != nil {
-		slog.Error("finding dashboard chores", "error", err)
-		http.Error(w, "Error loading chores", http.StatusInternalServerError)
-		return
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "week"
 	}
 
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users", "error", err)
+		http.Error(w, "Error loading leaderboard", http.StatusInternalServerError)
+		return
 	}
 
-	userNameMap := make(map[string]string, len(users))
-	userAvatarMap := make(map[string]string, len(users))
+	now := time.Now()
+	weekAgo := now.AddDate(0, 0, -7)
+	monthAgo := now.AddDate(0, -1, 0)
+
+	var userStats []UserStat
 	for _, u := range users {
-		userNameMap[u.ID] = u.Name
-		userAvatarMap[u.ID] = u.AvatarURL
+		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
+		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
+		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusPending, u.ID)
+
+		userStats = append(userStats, UserStat{
+			UserName:        u.Name,
+			UserAvatarURL:   u.AvatarURL,
+			CompletedWeek:   completedWeek,
+			CompletedMonth:  completedMonth,
+			AssignedPending: assignedPending,
+		})
 	}
 
-	component := pages.DashboardChoresTable(pages.DashboardChoresTableProps{
-		Chores:         chores,
-		User:           user,
-		UserNameMap:    userNameMap,
-		UserAvatarMap:  userAvatarMap,
-		ActiveChoreTab: tab,
+	component := pages.LeaderboardTable(pages.LeaderboardProps{
+		UserStats: convertUserStats(userStats, period),
+		Period:    period,
 	})
 	component.Render(ctx, w)
+}
+
+func convertUserStats(stats []UserStat, period string) []pages.UserStatProps {
+	sort.Slice(stats, func(i, j int) bool {
+		if period == "month" {
+			return stats[i].CompletedMonth > stats[j].CompletedMonth
+		}
+		return stats[i].CompletedWeek > stats[j].CompletedWeek
+	})
+
+	var result []pages.UserStatProps
+	for index, stat := range stats {
+		result = append(result, pages.UserStatProps{
+			Rank:            index + 1,
+			UserName:        stat.UserName,
+			UserAvatarURL:   stat.UserAvatarURL,
+			CompletedWeek:   stat.CompletedWeek,
+			CompletedMonth:  stat.CompletedMonth,
+			AssignedPending: stat.AssignedPending,
+		})
+	}
+	return result
 }

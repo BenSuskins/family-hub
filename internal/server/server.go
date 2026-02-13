@@ -70,7 +70,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Use(middleware.RequireAuth(authService))
 
 		r.Get("/", dashboardHandler.Dashboard)
-		r.Get("/dashboard/chores", dashboardHandler.DashboardChoresTable)
+		r.Get("/leaderboard", dashboardHandler.Leaderboard)
 
 		r.Get("/chores", choreHandler.List)
 		r.Get("/chores/{id}/detail", choreHandler.Detail)

@@ -45,70 +45,6 @@ func requestWithUser(request *http.Request, user models.User) *http.Request {
 	return request.WithContext(ctx)
 }
 
-func TestDashboardChoresTable_AllTab(t *testing.T) {
-	handler, user, choreRepo := setupDashboardHandler(t)
-	ctx := context.Background()
-
-	choreRepo.Create(ctx, models.Chore{
-		Name:             "Pending chore",
-		CreatedByUserID:  user.ID,
-		AssignedToUserID: &user.ID,
-		Status:           models.ChoreStatusPending,
-	})
-
-	router := chi.NewRouter()
-	router.Get("/dashboard/chores", handler.DashboardChoresTable)
-
-	request := httptest.NewRequest(http.MethodGet, "/dashboard/chores?tab=all", nil)
-	request = requestWithUser(request, user)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", recorder.Code)
-	}
-}
-
-func TestDashboardChoresTable_PendingTab(t *testing.T) {
-	handler, user, choreRepo := setupDashboardHandler(t)
-	ctx := context.Background()
-
-	choreRepo.Create(ctx, models.Chore{
-		Name:             "My pending chore",
-		CreatedByUserID:  user.ID,
-		AssignedToUserID: &user.ID,
-		Status:           models.ChoreStatusPending,
-	})
-
-	router := chi.NewRouter()
-	router.Get("/dashboard/chores", handler.DashboardChoresTable)
-
-	request := httptest.NewRequest(http.MethodGet, "/dashboard/chores?tab=pending", nil)
-	request = requestWithUser(request, user)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", recorder.Code)
-	}
-}
-
-func TestDashboardChoresTable_OverdueTab(t *testing.T) {
-	handler, user, _ := setupDashboardHandler(t)
-
-	router := chi.NewRouter()
-	router.Get("/dashboard/chores", handler.DashboardChoresTable)
-
-	request := httptest.NewRequest(http.MethodGet, "/dashboard/chores?tab=overdue", nil)
-	request = requestWithUser(request, user)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", recorder.Code)
-	}
-}
-
 func TestDashboard_FullPage(t *testing.T) {
 	handler, user, _ := setupDashboardHandler(t)
 
@@ -116,6 +52,38 @@ func TestDashboard_FullPage(t *testing.T) {
 	router.Get("/", handler.Dashboard)
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = requestWithUser(request, user)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", recorder.Code)
+	}
+}
+
+func TestLeaderboard_WeekPeriod(t *testing.T) {
+	handler, user, _ := setupDashboardHandler(t)
+
+	router := chi.NewRouter()
+	router.Get("/leaderboard", handler.Leaderboard)
+
+	request := httptest.NewRequest(http.MethodGet, "/leaderboard?period=week", nil)
+	request = requestWithUser(request, user)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", recorder.Code)
+	}
+}
+
+func TestLeaderboard_MonthPeriod(t *testing.T) {
+	handler, user, _ := setupDashboardHandler(t)
+
+	router := chi.NewRouter()
+	router.Get("/leaderboard", handler.Leaderboard)
+
+	request := httptest.NewRequest(http.MethodGet, "/leaderboard?period=month", nil)
 	request = requestWithUser(request, user)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)

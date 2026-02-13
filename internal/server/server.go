@@ -54,6 +54,11 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
 	router.Get("/login", authHandler.LoginPage)
 	router.Get("/auth/callback", authHandler.Callback)
 	router.Get("/logout", authHandler.Logout)

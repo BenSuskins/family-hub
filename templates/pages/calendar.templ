@@ -26,7 +26,7 @@ templ Calendar(props CalendarProps) {
 	@layouts.Base("Calendar", props.User, "/calendar") {
 		<div class="space-y-6">
 			@components.PageHeaderWithAction("Calendar", "Your family's schedule") {
-				<div class="flex items-center space-x-4">
+				<div class="flex flex-wrap items-center gap-2 sm:gap-4">
 					<button
 						hx-post="/calendar/share"
 						hx-target="#share-modal-content"
@@ -59,7 +59,7 @@ templ Calendar(props CalendarProps) {
 			}
 
 			<!-- Navigation -->
-			<div class="flex items-center justify-center space-x-4">
+			<div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
 				<a
 					href={ templ.SafeURL(prevURL(props)) }
 					class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-stone-200"

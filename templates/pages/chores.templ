@@ -52,7 +52,7 @@ templ ChoreList(props ChoreListProps) {
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold text-stone-900">Chores</h1>
 				if props.User.Role == models.RoleAdmin {
-					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">
+					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
 						@components.IconPlus("h-4 w-4")
 						New Chore
 					</a>
@@ -273,7 +273,7 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 				</button>
 			}
 			if user.Role == models.RoleAdmin {
-				<a href={ templ.SafeURL(fmt.Sprintf("/chores/%s/edit", chore.ID)) } class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
+				<a href={ templ.SafeURL(fmt.Sprintf("/chores/%s/edit", chore.ID)) } class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900">
 					@components.IconPencil("h-4 w-4")
 					Edit
 				</a>
@@ -488,7 +488,7 @@ templ ChoreForm(props ChoreFormProps) {
 
 				<div class="flex justify-end space-x-3">
 					<a href="/chores" class="bg-white py-2 px-4 border border-stone-200 rounded-xl shadow-sm text-sm font-medium text-stone-700 hover:bg-stone-50">Cancel</a>
-					<button type="submit" class="bg-blue-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-blue-700">
+					<button type="submit" class="bg-stone-700 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-stone-800">
 						if props.IsEdit {
 							Update
 						} else {

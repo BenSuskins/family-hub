@@ -36,7 +36,7 @@ templ AdminUsers(props AdminUsersProps) {
 								required
 							/>
 						</div>
-						<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">Save</button>
+						<button type="submit" class="bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">Save</button>
 					</form>
 				</div>
 			</div>
@@ -59,7 +59,7 @@ templ AdminUsers(props AdminUsersProps) {
 							required
 							class="flex-1 rounded-xl border-stone-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 						/>
-						<button type="submit" class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">
+						<button type="submit" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
 							@components.IconPlus("h-4 w-4")
 							Add
 						</button>
@@ -104,7 +104,7 @@ templ AdminUsers(props AdminUsersProps) {
 										if u.ID != props.User.ID {
 											if u.Role == models.RoleMember {
 												<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/admin/users/%s/promote", u.ID)) } class="inline">
-													<button type="submit" class="text-blue-600 hover:text-blue-800">Promote to Admin</button>
+													<button type="submit" class="text-stone-600 hover:text-stone-900">Promote to Admin</button>
 												</form>
 											} else {
 												<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/admin/users/%s/demote", u.ID)) } class="inline">
@@ -141,7 +141,7 @@ templ AdminUsers(props AdminUsersProps) {
 							required
 							class="flex-1 rounded-xl border-stone-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 						/>
-						<button type="submit" class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">
+						<button type="submit" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
 							@components.IconPlus("h-4 w-4")
 							Create Token
 						</button>

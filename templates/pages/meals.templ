@@ -44,7 +44,7 @@ templ MealPlanner(props MealPlannerProps) {
 				</a>
 				<a
 					href="/meals"
-					class="text-blue-600 hover:text-blue-800 px-3 py-1 rounded-xl border border-blue-200 text-sm font-medium"
+					class="text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-blue-200 text-sm font-medium"
 				>This Week</a>
 			</div>
 
@@ -138,7 +138,7 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 			<div class="group relative">
 				<div class="text-sm font-medium text-stone-900">
 					if meal.RecipeID != nil {
-						<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-orange-700 hover:text-orange-900 underline">
+						<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
 							{ meal.Name }
 						</a>
 					} else {
@@ -154,7 +154,7 @@ templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, rec
 						hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
 						hx-target="#meal-modal-content"
 						hx-swap="innerHTML"
-						class="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800"
+						class="inline-flex items-center gap-0.5 text-xs text-stone-600 hover:text-stone-900"
 						onclick="document.getElementById('meal-modal').classList.remove('hidden')"
 					>
 						@components.IconPencil("h-3 w-3")
@@ -241,7 +241,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 		/>
 
 		<!-- Toggle link -->
-		<button type="button" onclick="toggleMealMode(this)" class="meal-mode-toggle text-sm text-blue-600 hover:text-blue-800">
+		<button type="button" onclick="toggleMealMode(this)" class="meal-mode-toggle text-sm text-stone-600 hover:text-stone-900">
 			Use a recipe instead
 		</button>
 
@@ -259,7 +259,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 		</div>
 
 		<div class="flex gap-2 pt-2">
-			<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">Save</button>
+			<button type="submit" class="bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">Save</button>
 			<button
 				type="button"
 				onclick="document.getElementById('meal-modal').classList.add('hidden')"

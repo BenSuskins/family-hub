@@ -45,7 +45,10 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-medium text-stone-900">Chores Due Today</h2>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
-						<p class="text-stone-500 text-sm">No chores due today</p>
+						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
+							@components.IconCheckCircle("h-8 w-8")
+							<p class="text-sm mt-2">You're all caught up!</p>
+						</div>
 					} else {
 						<ul class="divide-y divide-stone-200">
 							for _, chore := range props.ChoresDueToday {
@@ -92,7 +95,10 @@ templ Dashboard(props DashboardProps) {
 						<h2 class="text-lg font-medium text-stone-900">Upcoming Events</h2>
 					</div>
 					if len(props.UpcomingEvents) == 0 {
-						<p class="text-stone-500 text-sm">No upcoming events this week</p>
+						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
+							@components.IconCalendar("h-8 w-8")
+							<p class="text-sm mt-2">Nothing on the horizon</p>
+						</div>
 					} else {
 						<ul class="divide-y divide-stone-200">
 							for _, event := range props.UpcomingEvents {
@@ -112,21 +118,26 @@ templ Dashboard(props DashboardProps) {
 				</div>
 
 				<!-- Today's Meals -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6 border-l-4 border-l-orange-400">
+				<div class="bg-white border border-stone-200 rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
 						@components.IconFire("h-5 w-5 text-stone-400")
 						<h2 class="text-lg font-medium text-stone-900">Today's Meals</h2>
 					</div>
 					if len(props.TodayMeals) == 0 {
-						<p class="text-stone-500 text-sm">No meals planned for today</p>
+						<div class="flex flex-col items-center justify-center py-6 text-stone-400">
+							@components.IconFire("h-8 w-8")
+							<p class="text-sm mt-2">No meals planned yet</p>
+						</div>
 					} else {
 						<ul class="divide-y divide-stone-200">
 							for _, meal := range props.TodayMeals {
 								<li class="py-3">
-									<span class="text-xs font-medium text-orange-600 uppercase">{ dashboardMealTypeLabel(meal.MealType) }</span>
+									<div class="mb-1">
+										<span class="inline-flex items-center bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 text-xs font-medium">{ dashboardMealTypeLabel(meal.MealType) }</span>
+									</div>
 									<p class="text-sm font-medium text-stone-900">
 										if meal.RecipeID != nil {
-											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-orange-700 hover:text-orange-900 underline">
+											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
 												{ meal.Name }
 											</a>
 										} else {

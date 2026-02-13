@@ -26,7 +26,7 @@ templ EventList(props EventListProps) {
 		<div class="space-y-6">
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold text-stone-900">Events</h1>
-				<a href="/events/new" class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">
+				<a href="/events/new" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
 					@components.IconPlus("h-4 w-4")
 					New Event
 				</a>
@@ -90,7 +90,7 @@ templ EventList(props EventListProps) {
 										</td>
 										if props.User.Role == models.RoleAdmin {
 											<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-												<a href={ templ.SafeURL(fmt.Sprintf("/events/%s/edit", event.ID)) } class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
+												<a href={ templ.SafeURL(fmt.Sprintf("/events/%s/edit", event.ID)) } class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900">
 													@components.IconPencil("h-4 w-4")
 													Edit
 												</a>
@@ -235,7 +235,7 @@ templ EventForm(props EventFormProps) {
 
 				<div class="flex justify-end space-x-3">
 					<a href="/events" class="bg-white py-2 px-4 border border-stone-200 rounded-xl shadow-sm text-sm font-medium text-stone-700 hover:bg-stone-50">Cancel</a>
-					<button type="submit" class="bg-blue-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-blue-700">
+					<button type="submit" class="bg-stone-700 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-stone-800">
 						if props.IsEdit {
 							Update
 						} else {

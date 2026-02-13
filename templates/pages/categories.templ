@@ -3,18 +3,20 @@ package pages
 import (
 	"fmt"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/components"
 )
 
 templ CategoryRow(category models.Category) {
 	<li class="flex items-center justify-between px-6 py-4" id={ "category-" + category.ID }>
-		<span class="text-sm font-medium text-gray-900">{ category.Name }</span>
+		<span class="text-sm font-medium text-stone-900">{ category.Name }</span>
 		<button
 			hx-post={ fmt.Sprintf("/categories/%s/delete", category.ID) }
 			hx-target={ "#category-" + category.ID }
 			hx-swap="outerHTML"
 			hx-confirm="Delete this category?"
-			class="text-red-600 hover:text-red-900 text-sm"
+			class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm"
 		>
+			@components.IconTrash("h-4 w-4")
 			Delete
 		</button>
 	</li>

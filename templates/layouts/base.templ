@@ -21,86 +21,131 @@ func GetFamilyName(ctx context.Context) string {
 	return "Family Hub"
 }
 
-templ Base(title string, user models.User) {
+func navLinkClass(currentPath, linkPath string) string {
+	if currentPath == linkPath {
+		return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-600"
+	}
+	return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+}
+
+templ Base(title string, user models.User, currentPath string) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-gray-50">
+	<html lang="en" class="h-full bg-stone-50">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } - { GetFamilyName(ctx) }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 			<script src="/static/js/htmx.min.js"></script>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
 		<body class="h-full">
-			<div class="min-h-full">
-				@Navigation(user)
+			<!-- Mobile top bar -->
+			<div class="lg:hidden sticky top-0 z-40 flex items-center justify-between bg-white border-b border-stone-200 px-4 h-14">
+				<button onclick="toggleSidebar()" class="text-stone-500 hover:text-stone-700">
+					@components.IconBars3("h-6 w-6")
+				</button>
+				<span class="text-sm font-semibold text-stone-900">{ GetFamilyName(ctx) }</span>
+				<div class="flex items-center gap-2">
+					@components.UserAvatar(user.Name, user.AvatarURL, "h-7 w-7 text-xs")
+				</div>
+			</div>
+
+			<!-- Sidebar overlay (mobile) -->
+			<div id="sidebar-overlay" class="hidden fixed inset-0 bg-stone-900/50 z-40 lg:hidden" onclick="toggleSidebar()"></div>
+
+			<!-- Sidebar -->
+			<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-stone-200 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
+				<!-- Logo -->
+				<div class="flex items-center h-14 px-5 border-b border-stone-200 shrink-0">
+					<a href="/" class="text-lg font-bold text-stone-900">{ GetFamilyName(ctx) }</a>
+				</div>
+
+				<!-- Nav links -->
+				<nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+					<a href="/" class={ navLinkClass(currentPath, "/") }>
+						@components.IconHome("h-5 w-5")
+						Home
+					</a>
+					<a href="/calendar" class={ navLinkClass(currentPath, "/calendar") }>
+						@components.IconCalendar("h-5 w-5")
+						Calendar
+					</a>
+					<a href="/chores" class={ navLinkClass(currentPath, "/chores") }>
+						@components.IconClipboardList("h-5 w-5")
+						Chores
+					</a>
+					<a href="/events" class={ navLinkClass(currentPath, "/events") }>
+						@components.IconCalendarDays("h-5 w-5")
+						Events
+					</a>
+					<a href="/meals" class={ navLinkClass(currentPath, "/meals") }>
+						@components.IconFire("h-5 w-5")
+						Meals
+					</a>
+					<a href="/recipes" class={ navLinkClass(currentPath, "/recipes") }>
+						@components.IconBookOpen("h-5 w-5")
+						Recipes
+					</a>
+					if user.Role == models.RoleAdmin {
+						<a href="/admin/users" class={ navLinkClass(currentPath, "/admin/users") }>
+							@components.IconCog("h-5 w-5")
+							Admin
+						</a>
+					}
+				</nav>
+
+				<!-- User section -->
+				<div class="border-t border-stone-200 px-4 py-3 shrink-0">
+					<div class="flex items-center gap-3">
+						@components.UserAvatar(user.Name, user.AvatarURL, "h-8 w-8 text-xs")
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-medium text-stone-900 truncate">{ user.Name }</p>
+						</div>
+						<a href="/logout" class="text-stone-400 hover:text-stone-600" title="Logout">
+							@components.IconArrowRightOnRectangle("h-5 w-5")
+						</a>
+					</div>
+				</div>
+			</aside>
+
+			<!-- Main content -->
+			<div class="lg:pl-64">
 				<main class="py-6">
 					<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						{ children... }
 					</div>
 				</main>
 			</div>
+
+			<script>
+				function toggleSidebar() {
+					var sidebar = document.getElementById('sidebar');
+					var overlay = document.getElementById('sidebar-overlay');
+					sidebar.classList.toggle('-translate-x-full');
+					overlay.classList.toggle('hidden');
+				}
+			</script>
 		</body>
 	</html>
 }
 
-templ Navigation(user models.User) {
-	<nav class="bg-indigo-600 shadow-lg">
-		<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-			<div class="flex h-16 items-center justify-between">
-				<div class="flex items-center">
-					<a href="/" class="text-white text-xl font-bold">{ GetFamilyName(ctx) }</a>
-					<div class="hidden md:block ml-10">
-						<div class="flex items-baseline space-x-4">
-							<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Home</a>
-							<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
-							<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Chores</a>
-							<a href="/events" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Events</a>
-							<a href="/meals" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Meals</a>
-							<a href="/recipes" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Recipes</a>
-							if user.Role == models.RoleAdmin {
-								<a href="/admin/users" class="text-indigo-100 hover:bg-indigo-500 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Admin</a>
-							}
-						</div>
-					</div>
-				</div>
-				<div class="flex items-center space-x-3">
-					@components.UserAvatar(user.Name, user.AvatarURL, "h-8 w-8 text-xs")
-					<span class="text-indigo-100 text-sm">{ user.Name }</span>
-					<a href="/logout" class="text-indigo-100 hover:text-white text-sm">Logout</a>
-				</div>
-			</div>
-			<!-- Mobile menu -->
-			<div class="md:hidden pb-3">
-				<div class="flex flex-wrap gap-2">
-					<a href="/" class="text-white hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Home</a>
-					<a href="/calendar" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Calendar</a>
-					<a href="/chores" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Chores</a>
-					<a href="/events" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Events</a>
-					<a href="/meals" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Meals</a>
-					<a href="/recipes" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Recipes</a>
-					if user.Role == models.RoleAdmin {
-						<a href="/admin/users" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Admin</a>
-					}
-				</div>
-			</div>
-		</div>
-	</nav>
-}
-
 templ LoginPage() {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-gray-50">
+	<html lang="en" class="h-full bg-stone-50">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>Login - { GetFamilyName(ctx) }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
 		<body class="h-full flex items-center justify-center">
 			<div class="text-center">
-				<h1 class="text-4xl font-bold text-gray-900 mb-8">{ GetFamilyName(ctx) }</h1>
-				<a href="/login" class="bg-indigo-600 text-white px-6 py-3 rounded-lg text-lg font-medium hover:bg-indigo-700">
+				<h1 class="text-4xl font-bold text-stone-900 mb-8">{ GetFamilyName(ctx) }</h1>
+				<a href="/login" class="bg-blue-600 text-white px-6 py-3 rounded-xl text-lg font-medium hover:bg-blue-700">
 					Sign in with SSO
 				</a>
 			</div>

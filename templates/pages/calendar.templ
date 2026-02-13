@@ -23,25 +23,26 @@ type CalendarProps struct {
 }
 
 templ Calendar(props CalendarProps) {
-	@layouts.Base("Calendar", props.User) {
+	@layouts.Base("Calendar", props.User, "/calendar") {
 		<div class="space-y-6">
 			<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-				<h1 class="text-2xl font-bold text-gray-900">Calendar</h1>
+				<h1 class="text-2xl font-bold text-stone-900">Calendar</h1>
 				<div class="flex items-center space-x-4">
 					<button
 						hx-post="/calendar/share"
 						hx-target="#share-modal-content"
 						hx-swap="innerHTML"
-						class="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-green-700"
+						class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700"
 						onclick="document.getElementById('share-modal').classList.remove('hidden')"
 					>
+						@components.IconShare("h-4 w-4")
 						Share Calendar
 					</button>
 					<!-- View toggle -->
-					<div class="inline-flex rounded-md shadow-sm">
+					<div class="inline-flex rounded-xl shadow-sm">
 						<a
 							href={ templ.SafeURL(viewURL("year", props.Date)) }
-							class={ "px-3 py-1.5 text-sm font-medium rounded-l-md border " + viewToggleClass(props.View, "year") }
+							class={ "px-3 py-1.5 text-sm font-medium rounded-l-xl border " + viewToggleClass(props.View, "year") }
 						>Year</a>
 						<a
 							href={ templ.SafeURL(viewURL("month", props.Date)) }
@@ -53,7 +54,7 @@ templ Calendar(props CalendarProps) {
 						>Week</a>
 						<a
 							href={ templ.SafeURL(viewURL("day", props.Date)) }
-							class={ "px-3 py-1.5 text-sm font-medium rounded-r-md border " + viewToggleClass(props.View, "day") }
+							class={ "px-3 py-1.5 text-sm font-medium rounded-r-xl border " + viewToggleClass(props.View, "day") }
 						>Day</a>
 					</div>
 				</div>
@@ -63,43 +64,53 @@ templ Calendar(props CalendarProps) {
 			<div class="flex items-center justify-center space-x-4">
 				<a
 					href={ templ.SafeURL(prevURL(props)) }
-					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
-				>&larr; Prev</a>
-				<span class="text-lg font-medium text-gray-900">
+					class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-stone-200"
+				>
+					@components.IconChevronLeft("h-4 w-4")
+					Prev
+				</a>
+				<span class="text-lg font-medium text-stone-900">
 					{ viewTitle(props) }
 				</span>
 				<a
 					href={ templ.SafeURL(nextURL(props)) }
-					class="text-gray-600 hover:text-gray-900 px-3 py-1 rounded border"
-				>Next &rarr;</a>
+					class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-stone-200"
+				>
+					Next
+					@components.IconChevronRight("h-4 w-4")
+				</a>
 				<a
 					href={ templ.SafeURL(todayURL(props.View)) }
-					class="text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded border border-indigo-300 text-sm font-medium"
+					class="text-blue-600 hover:text-blue-800 px-3 py-1 rounded-xl border border-blue-200 text-sm font-medium"
 				>Today</a>
 			</div>
 
 			<!-- Share Modal -->
-			<div id="share-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-				<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-					<div class="flex justify-between items-center p-4 border-b">
-						<h3 class="text-lg font-medium text-gray-900">Share Calendar</h3>
-						<button onclick="document.getElementById('share-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+			<div id="share-modal" class="hidden fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50">
+				<div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+					<div class="flex justify-between items-center p-4 border-b border-stone-200">
+						<h3 class="text-lg font-medium text-stone-900">Share Calendar</h3>
+						<button onclick="document.getElementById('share-modal').classList.add('hidden')" class="text-stone-400 hover:text-stone-600">
+							@components.IconXMark("h-5 w-5")
+						</button>
 					</div>
 					<div id="share-modal-content" class="p-4">
-						<p class="text-sm text-gray-500">Loading...</p>
+						<p class="text-sm text-stone-500">Loading...</p>
 					</div>
 				</div>
 			</div>
 
 			<!-- Detail Modal -->
-			<div id="detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this) this.classList.add('hidden')">
-				<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-					<div class="flex justify-between items-center p-4 border-b">
-						<h3 class="text-lg font-medium text-gray-900">Details</h3>
-						<button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+			<div id="detail-modal" class="hidden fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50" onclick="if(event.target===this) this.classList.add('hidden')">
+				<div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+					<div class="flex justify-between items-center p-4 border-b border-stone-200">
+						<h3 class="text-lg font-medium text-stone-900">Details</h3>
+						<button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="text-stone-400 hover:text-stone-600">
+							@components.IconXMark("h-5 w-5")
+						</button>
 					</div>
 					<div id="detail-modal-content" class="p-4">
-						<p class="text-sm text-gray-500">Loading...</p>
+						<p class="text-sm text-stone-500">Loading...</p>
 					</div>
 				</div>
 			</div>
@@ -120,16 +131,16 @@ templ Calendar(props CalendarProps) {
 templ yearView(props CalendarProps) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 		for _, m := range months() {
-			<div class="bg-white shadow rounded-lg overflow-hidden">
+			<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
 				<a
 					href={ templ.SafeURL(fmt.Sprintf("/calendar?view=month&year=%d&month=%d", props.Year, m)) }
-					class="block px-3 py-2 text-sm font-medium text-gray-900 bg-gray-50 hover:bg-indigo-50 border-b text-center"
+					class="block px-3 py-2 text-sm font-medium text-stone-900 bg-stone-50 hover:bg-blue-50 border-b border-stone-200 text-center"
 				>
 					{ time.Month(m).String() }
 				</a>
-				<div class="grid grid-cols-7 bg-gray-50">
+				<div class="grid grid-cols-7 bg-stone-50">
 					for _, day := range []string{"M", "T", "W", "T", "F", "S", "S"} {
-						<div class="px-0.5 py-1 text-center text-xs text-gray-400">{ day }</div>
+						<div class="px-0.5 py-1 text-center text-xs text-stone-400">{ day }</div>
 					}
 				</div>
 				<div class="grid grid-cols-7">
@@ -152,16 +163,16 @@ templ yearView(props CalendarProps) {
 }
 
 templ monthView(props CalendarProps) {
-	<div class="bg-white shadow rounded-lg overflow-hidden">
+	<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
 		<!-- Day headers -->
-		<div class="grid grid-cols-7 bg-gray-50">
+		<div class="grid grid-cols-7 bg-stone-50">
 			for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
-				<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">{ day }</div>
+				<div class="px-2 py-3 text-center text-xs font-medium text-stone-500 uppercase">{ day }</div>
 			}
 		</div>
 
 		<!-- Calendar grid -->
-		<div class="grid grid-cols-7 divide-x divide-y divide-gray-200">
+		<div class="grid grid-cols-7 divide-x divide-y divide-stone-200">
 			for _, day := range calendarDays(props.Year, props.Month) {
 				<div class={ "min-h-24 p-1 " + dayClass(day, props.Year, props.Month) }>
 					if day.Day() > 0 {
@@ -170,7 +181,7 @@ templ monthView(props CalendarProps) {
 						</div>
 						for _, event := range eventsOnDay(props.Events, day) {
 							<div
-								class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+								class="text-xs bg-blue-50 text-blue-700 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-100"
 								title={ event.Title }
 								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
 								hx-target="#detail-modal-content"
@@ -197,7 +208,7 @@ templ monthView(props CalendarProps) {
 						}
 						for _, meal := range mealsOnDay(props.Meals, day) {
 							<div
-								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
+								class="text-xs bg-amber-50 text-amber-700 rounded px-1 py-0.5 mb-0.5 truncate"
 								title={ mealCalendarTitle(meal) }
 							>
 								{ mealSlotPrefix(meal) }{ meal.Name }
@@ -211,13 +222,13 @@ templ monthView(props CalendarProps) {
 }
 
 templ weekView(props CalendarProps) {
-	<div class="bg-white shadow rounded-lg overflow-hidden">
+	<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
 		<!-- Day headers with dates -->
-		<div class="grid grid-cols-8 bg-gray-50 border-b">
-			<div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase border-r">Time</div>
+		<div class="grid grid-cols-8 bg-stone-50 border-b border-stone-200">
+			<div class="px-2 py-3 text-center text-xs font-medium text-stone-500 uppercase border-r border-stone-200">Time</div>
 			for _, day := range weekDays(props.Date) {
-				<div class={ "px-2 py-3 text-center border-r " + weekDayHeaderClass(day) }>
-					<div class="text-xs font-medium text-gray-500 uppercase">{ day.Format("Mon") }</div>
+				<div class={ "px-2 py-3 text-center border-r border-stone-200 " + weekDayHeaderClass(day) }>
+					<div class="text-xs font-medium text-stone-500 uppercase">{ day.Format("Mon") }</div>
 					<div class={ "text-sm font-medium " + todayClass(day) }>{ fmt.Sprintf("%d", day.Day()) }</div>
 				</div>
 			}
@@ -225,13 +236,13 @@ templ weekView(props CalendarProps) {
 
 		<!-- All-day section -->
 		if hasAllDayItems(props.Events, props.Chores, weekDays(props.Date)) || hasMealsInWeek(props.Meals, weekDays(props.Date)) {
-			<div class="grid grid-cols-8 border-b bg-gray-50">
-				<div class="px-2 py-1 text-xs text-gray-500 border-r flex items-center justify-center">All Day</div>
+			<div class="grid grid-cols-8 border-b border-stone-200 bg-stone-50">
+				<div class="px-2 py-1 text-xs text-stone-500 border-r border-stone-200 flex items-center justify-center">All Day</div>
 				for _, day := range weekDays(props.Date) {
-					<div class="px-1 py-1 border-r min-h-8">
+					<div class="px-1 py-1 border-r border-stone-200 min-h-8">
 						for _, event := range allDayEventsOnDay(props.Events, day) {
 							<div
-								class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+								class="text-xs bg-blue-50 text-blue-700 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-100"
 								title={ event.Title }
 								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
 								hx-target="#detail-modal-content"
@@ -255,7 +266,7 @@ templ weekView(props CalendarProps) {
 						}
 						for _, meal := range mealsOnDay(props.Meals, day) {
 							<div
-								class="text-xs bg-orange-100 text-orange-800 rounded px-1 py-0.5 mb-0.5 truncate"
+								class="text-xs bg-amber-50 text-amber-700 rounded px-1 py-0.5 mb-0.5 truncate"
 								title={ mealCalendarTitle(meal) }
 							>
 								{ mealSlotPrefix(meal) }{ meal.Name }
@@ -269,15 +280,15 @@ templ weekView(props CalendarProps) {
 		<!-- Time grid -->
 		<div class="overflow-y-auto" style="max-height: 600px;">
 			for _, hour := range hours() {
-				<div class="grid grid-cols-8 border-b divide-x divide-gray-200">
-					<div class="px-2 py-3 text-xs text-gray-500 text-right pr-3 border-r">
+				<div class="grid grid-cols-8 border-b divide-x divide-stone-200">
+					<div class="px-2 py-3 text-xs text-stone-500 text-right pr-3 border-r border-stone-200">
 						{ formatHour(hour) }
 					</div>
 					for _, day := range weekDays(props.Date) {
 						<div class={ "px-1 py-1 min-h-12 " + weekDayCellClass(day) }>
 							for _, event := range timedEventsAtHour(props.Events, day, hour) {
 								<div
-									class="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-200"
+									class="text-xs bg-blue-50 text-blue-700 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-blue-100"
 									title={ event.Title }
 									hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
 									hx-target="#detail-modal-content"
@@ -296,14 +307,14 @@ templ weekView(props CalendarProps) {
 }
 
 templ dayView(props CalendarProps) {
-	<div class="bg-white shadow rounded-lg overflow-hidden">
+	<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
 		<!-- All-day section -->
 		if hasAllDayItemsForDay(props.Events, props.Chores, props.Date) || len(mealsOnDay(props.Meals, props.Date)) > 0 {
-			<div class="border-b bg-gray-50 px-4 py-2">
-				<div class="text-xs font-medium text-gray-500 uppercase mb-1">All Day</div>
+			<div class="border-b border-stone-200 bg-stone-50 px-4 py-2">
+				<div class="text-xs font-medium text-stone-500 uppercase mb-1">All Day</div>
 				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
 					<div
-						class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-200"
+						class="text-sm bg-blue-50 text-blue-700 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-100"
 						title={ event.Title }
 						hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
 						hx-target="#detail-modal-content"
@@ -312,7 +323,7 @@ templ dayView(props CalendarProps) {
 					>
 						{ event.Title }
 						if event.Location != "" {
-							<span class="text-blue-600"> &middot; { event.Location }</span>
+							<span class="text-blue-500"> &middot; { event.Location }</span>
 						}
 					</div>
 				}
@@ -329,7 +340,7 @@ templ dayView(props CalendarProps) {
 					</div>
 				}
 				for _, meal := range mealsOnDay(props.Meals, props.Date) {
-					<div class="text-sm bg-orange-100 text-orange-800 rounded px-2 py-1 mb-1" title={ mealCalendarTitle(meal) }>
+					<div class="text-sm bg-amber-50 text-amber-700 rounded px-2 py-1 mb-1" title={ mealCalendarTitle(meal) }>
 						{ mealSlotPrefix(meal) }{ meal.Name }
 					</div>
 				}
@@ -339,14 +350,14 @@ templ dayView(props CalendarProps) {
 		<!-- Time grid -->
 		<div class="overflow-y-auto" style="max-height: 700px;">
 			for _, hour := range hours() {
-				<div class="flex border-b">
-					<div class="w-20 flex-shrink-0 px-2 py-3 text-xs text-gray-500 text-right pr-3 border-r">
+				<div class="flex border-b border-stone-200">
+					<div class="w-20 flex-shrink-0 px-2 py-3 text-xs text-stone-500 text-right pr-3 border-r border-stone-200">
 						{ formatHour(hour) }
 					</div>
 					<div class={ "flex-1 px-3 py-1 min-h-14 " + dayTimeCellClass(props.Date, hour) }>
 						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
 							<div
-								class="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-200"
+								class="text-sm bg-blue-50 text-blue-700 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-blue-100"
 								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
 								hx-target="#detail-modal-content"
 								hx-swap="innerHTML"
@@ -354,7 +365,7 @@ templ dayView(props CalendarProps) {
 							>
 								<span class="font-medium">{ formatEventTime(event) }</span> { event.Title }
 								if event.Location != "" {
-									<span class="text-blue-600"> &middot; { event.Location }</span>
+									<span class="text-blue-500"> &middot; { event.Location }</span>
 								}
 							</div>
 						}
@@ -367,18 +378,18 @@ templ dayView(props CalendarProps) {
 
 templ EventDetailFragment(event models.Event, categoryName string) {
 	<div class="space-y-4">
-		<h3 class="text-lg font-semibold text-gray-900">{ event.Title }</h3>
+		<h3 class="text-lg font-semibold text-stone-900">{ event.Title }</h3>
 		<div class="space-y-2 text-sm">
 			<div class="flex items-start gap-2">
-				<span class="font-medium text-gray-500 w-20">When</span>
-				<span class="text-gray-900">
+				<span class="font-medium text-stone-500 w-20">When</span>
+				<span class="text-stone-900">
 					if event.AllDay {
 						{ event.StartTime.Format("Jan 2, 2006") }
-						<span class="text-gray-500">(All day)</span>
+						<span class="text-stone-500">(All day)</span>
 					} else {
 						{ event.StartTime.Format("Jan 2, 2006 3:04 PM") }
 						if event.EndTime != nil {
-							<span class="text-gray-500"> to </span>
+							<span class="text-stone-500"> to </span>
 							{ event.EndTime.Format("3:04 PM") }
 						}
 					}
@@ -386,20 +397,20 @@ templ EventDetailFragment(event models.Event, categoryName string) {
 			</div>
 			if event.Location != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Where</span>
-					<span class="text-gray-900">{ event.Location }</span>
+					<span class="font-medium text-stone-500 w-20">Where</span>
+					<span class="text-stone-900">{ event.Location }</span>
 				</div>
 			}
 			if categoryName != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Category</span>
-					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{ categoryName }</span>
+					<span class="font-medium text-stone-500 w-20">Category</span>
+					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{ categoryName }</span>
 				</div>
 			}
 			if event.Description != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Details</span>
-					<span class="text-gray-900">{ event.Description }</span>
+					<span class="font-medium text-stone-500 w-20">Details</span>
+					<span class="text-stone-900">{ event.Description }</span>
 				</div>
 			}
 		</div>
@@ -409,14 +420,14 @@ templ EventDetailFragment(event models.Event, categoryName string) {
 templ ChoreDetailFragment(chore models.Chore, assignedToName string, assignedToAvatar string, categoryName string) {
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<h3 class="text-lg font-semibold text-gray-900">{ chore.Name }</h3>
+			<h3 class="text-lg font-semibold text-stone-900">{ chore.Name }</h3>
 			@choreStatusBadge(chore.Status)
 		</div>
 		<div class="space-y-2 text-sm">
 			if chore.DueDate != nil {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Due</span>
-					<span class="text-gray-900">
+					<span class="font-medium text-stone-500 w-20">Due</span>
+					<span class="text-stone-900">
 						{ chore.DueDate.Format("Jan 2, 2006") }
 						if chore.DueTime != nil {
 							{ " " + *chore.DueTime }
@@ -426,23 +437,23 @@ templ ChoreDetailFragment(chore models.Chore, assignedToName string, assignedToA
 			}
 			if assignedToName != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Assigned</span>
+					<span class="font-medium text-stone-500 w-20">Assigned</span>
 					<div class="flex items-center gap-2">
 						@components.UserAvatar(assignedToName, assignedToAvatar, "h-6 w-6 text-xs")
-						<span class="text-gray-900">{ assignedToName }</span>
+						<span class="text-stone-900">{ assignedToName }</span>
 					</div>
 				</div>
 			}
 			if categoryName != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Category</span>
-					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{ categoryName }</span>
+					<span class="font-medium text-stone-500 w-20">Category</span>
+					<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{ categoryName }</span>
 				</div>
 			}
 			if chore.Description != "" {
 				<div class="flex items-start gap-2">
-					<span class="font-medium text-gray-500 w-20">Details</span>
-					<span class="text-gray-900">{ chore.Description }</span>
+					<span class="font-medium text-stone-500 w-20">Details</span>
+					<span class="text-stone-900">{ chore.Description }</span>
 				</div>
 			}
 		</div>
@@ -452,24 +463,24 @@ templ ChoreDetailFragment(chore models.Chore, assignedToName string, assignedToA
 templ CalendarShareModal(icalURL string) {
 	<div class="space-y-4">
 		<div>
-			<label class="block text-sm font-medium text-gray-700 mb-1">iCal Feed URL</label>
+			<label class="block text-sm font-medium text-stone-700 mb-1">iCal Feed URL</label>
 			<div class="flex gap-2">
 				<input
 					type="text"
 					id="ical-url"
 					value={ icalURL }
 					readonly
-					class="flex-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm sm:text-sm"
+					class="flex-1 block w-full rounded-xl border-stone-200 bg-stone-50 shadow-sm sm:text-sm"
 				/>
 				<button
 					onclick="navigator.clipboard.writeText(document.getElementById('ical-url').value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
-					class="bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700"
+					class="bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
 				>
 					Copy
 				</button>
 			</div>
 		</div>
-		<div class="text-sm text-gray-600 space-y-2">
+		<div class="text-sm text-stone-600 space-y-2">
 			<p><strong>Google Calendar:</strong> Settings &rarr; Add calendar &rarr; From URL &rarr; paste the link above</p>
 			<p><strong>Apple Calendar:</strong> File &rarr; New Calendar Subscription &rarr; paste the link above</p>
 		</div>
@@ -494,9 +505,9 @@ func viewURL(view string, date time.Time) string {
 
 func viewToggleClass(currentView, buttonView string) string {
 	if currentView == buttonView {
-		return "bg-indigo-600 text-white border-indigo-600"
+		return "bg-blue-600 text-white border-blue-600"
 	}
-	return "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+	return "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
 }
 
 func viewTitle(props CalendarProps) string {
@@ -594,7 +605,7 @@ func weekDays(date time.Time) []time.Time {
 func weekDayHeaderClass(day time.Time) string {
 	today := time.Now()
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "bg-indigo-50"
+		return "bg-blue-50"
 	}
 	return ""
 }
@@ -602,7 +613,7 @@ func weekDayHeaderClass(day time.Time) string {
 func weekDayCellClass(day time.Time) string {
 	today := time.Now()
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "bg-indigo-50"
+		return "bg-blue-50"
 	}
 	return ""
 }
@@ -612,7 +623,7 @@ func weekDayCellClass(day time.Time) string {
 func dayTimeCellClass(day time.Time, hour int) string {
 	now := time.Now()
 	if day.Year() == now.Year() && day.Month() == now.Month() && day.Day() == now.Day() && now.Hour() == hour {
-		return "bg-indigo-50"
+		return "bg-blue-50"
 	}
 	return ""
 }
@@ -710,7 +721,7 @@ func calendarDays(year, month int) []time.Time {
 
 func dayClass(day time.Time, year, month int) string {
 	if day.IsZero() {
-		return "bg-gray-50"
+		return "bg-stone-50"
 	}
 	return "bg-white"
 }
@@ -718,9 +729,9 @@ func dayClass(day time.Time, year, month int) string {
 func todayClass(day time.Time) string {
 	today := time.Now()
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "text-indigo-600 font-bold"
+		return "text-blue-600 font-bold"
 	}
-	return "text-gray-700"
+	return "text-stone-700"
 }
 
 func eventsOnDay(events []models.Event, day time.Time) []models.Event {
@@ -751,13 +762,13 @@ func choresOnDay(chores []models.Chore, day time.Time) []models.Chore {
 func choreColor(status models.ChoreStatus) string {
 	switch status {
 	case models.ChoreStatusPending:
-		return "bg-yellow-100 text-yellow-800"
+		return "bg-amber-50 text-amber-700"
 	case models.ChoreStatusCompleted:
-		return "bg-green-100 text-green-800"
+		return "bg-emerald-50 text-emerald-700"
 	case models.ChoreStatusOverdue:
-		return "bg-red-100 text-red-800"
+		return "bg-red-50 text-red-700"
 	default:
-		return "bg-gray-100 text-gray-800"
+		return "bg-stone-100 text-stone-700"
 	}
 }
 
@@ -778,21 +789,21 @@ func yearDayClass(day time.Time, events []models.Event, chores []models.Chore) s
 	hasChores := len(choresOnDay(chores, day)) > 0
 
 	if isToday && (hasEvents || hasChores) {
-		return "bg-indigo-600 text-white font-bold"
+		return "bg-blue-600 text-white font-bold"
 	}
 	if isToday {
-		return "bg-indigo-100 text-indigo-700 font-bold"
+		return "bg-blue-100 text-blue-700 font-bold"
 	}
 	if hasEvents && hasChores {
-		return "bg-purple-100 text-purple-800 hover:bg-purple-200"
+		return "bg-purple-50 text-purple-700 hover:bg-purple-100"
 	}
 	if hasEvents {
-		return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+		return "bg-blue-50 text-blue-700 hover:bg-blue-100"
 	}
 	if hasChores {
-		return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+		return "bg-amber-50 text-amber-700 hover:bg-amber-100"
 	}
-	return "text-gray-700 hover:bg-gray-100"
+	return "text-stone-700 hover:bg-stone-100"
 }
 
 func yearDayClassWithMeals(day time.Time, events []models.Event, chores []models.Chore, meals []models.MealPlan) string {
@@ -803,24 +814,24 @@ func yearDayClassWithMeals(day time.Time, events []models.Event, chores []models
 	hasMeals := len(mealsOnDay(meals, day)) > 0
 
 	if isToday && (hasEvents || hasChores || hasMeals) {
-		return "bg-indigo-600 text-white font-bold"
+		return "bg-blue-600 text-white font-bold"
 	}
 	if isToday {
-		return "bg-indigo-100 text-indigo-700 font-bold"
+		return "bg-blue-100 text-blue-700 font-bold"
 	}
 	if hasEvents && hasChores {
-		return "bg-purple-100 text-purple-800 hover:bg-purple-200"
+		return "bg-purple-50 text-purple-700 hover:bg-purple-100"
 	}
 	if hasEvents {
-		return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+		return "bg-blue-50 text-blue-700 hover:bg-blue-100"
 	}
 	if hasChores {
-		return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+		return "bg-amber-50 text-amber-700 hover:bg-amber-100"
 	}
 	if hasMeals {
-		return "bg-orange-100 text-orange-800 hover:bg-orange-200"
+		return "bg-amber-50 text-amber-700 hover:bg-amber-100"
 	}
-	return "text-gray-700 hover:bg-gray-100"
+	return "text-stone-700 hover:bg-stone-100"
 }
 
 func mealsOnDay(meals []models.MealPlan, day time.Time) []models.MealPlan {

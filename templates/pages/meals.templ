@@ -87,7 +87,7 @@ templ MealPlanner(props MealPlannerProps) {
 							for _, mealType := range mealTypes() {
 								<div class="px-4 py-2">
 									<div class="text-xs font-medium text-stone-500 uppercase mb-1">{ mealTypeLabel(mealType) }</div>
-									@mealCellContent(day, mealType, props.MealMap, props.Recipes)
+									@mealCellContentMobile(day, mealType, props.MealMap, props.Recipes)
 								</div>
 							}
 						</div>
@@ -122,6 +122,10 @@ templ mealCellContent(day time.Time, mealType models.MealType, mealMap map[strin
 	@MealCell(day.Format("2006-01-02"), mealType, lookupMeal(mealMap, day.Format("2006-01-02"), mealType), recipes)
 }
 
+templ mealCellContentMobile(day time.Time, mealType models.MealType, mealMap map[string]models.MealPlan, recipes []models.Recipe) {
+	@MealCellMobile(day.Format("2006-01-02"), mealType, lookupMeal(mealMap, day.Format("2006-01-02"), mealType), recipes)
+}
+
 func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models.MealType) *models.MealPlan {
 	key := date + "-" + string(mealType)
 	if meal, ok := mealMap[key]; ok {
@@ -132,59 +136,76 @@ func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models
 
 templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
 	<div id={ mealCellID(date, mealType) }>
-		if meal != nil {
-			<div class="group relative">
-				<div class="text-sm font-medium text-stone-900">
-					if meal.RecipeID != nil {
-						<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
-							{ meal.Name }
-						</a>
-					} else {
-						{ meal.Name }
-					}
-				</div>
-				if meal.Notes != "" {
-					<div class="text-xs text-stone-500 mt-0.5">{ meal.Notes }</div>
-				}
-				<div class="mt-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-					<button
-						type="button"
-						hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-						hx-target="#meal-modal-content"
-						hx-swap="innerHTML"
-						class="inline-flex items-center gap-0.5 text-xs text-stone-600 hover:text-stone-900"
-						onclick="document.getElementById('meal-modal').classList.remove('hidden')"
-					>
-						@components.IconPencil("h-3 w-3")
-						Edit
-					</button>
-					<form
-						hx-post="/meals/delete"
-						hx-target={ "#" + mealCellID(date, mealType) }
-						hx-swap="outerHTML"
-					>
-						<input type="hidden" name="date" value={ date }/>
-						<input type="hidden" name="meal_type" value={ string(mealType) }/>
-						<button type="submit" class="inline-flex items-center gap-0.5 text-xs text-red-600 hover:text-red-800">
-							@components.IconTrash("h-3 w-3")
-							Clear
-						</button>
-					</form>
-				</div>
-			</div>
-		} else {
-			<button
-				type="button"
-				hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-				hx-target="#meal-modal-content"
-				hx-swap="innerHTML"
-				class="w-full text-center text-xs text-stone-300 hover:text-stone-600 py-2"
-				onclick="document.getElementById('meal-modal').classList.remove('hidden')"
-			>
-				+
-			</button>
-		}
+		@mealCellInner(date, mealType, meal, recipes)
 	</div>
+}
+
+templ MealCellMobile(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	<div id={ mealCellMobileID(date, mealType) }>
+		@mealCellInner(date, mealType, meal, recipes)
+	</div>
+}
+
+templ MealCellWithMobileSync(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	@MealCell(date, mealType, meal, recipes)
+	<div id={ mealCellMobileID(date, mealType) } hx-swap-oob="outerHTML">
+		@mealCellInner(date, mealType, meal, recipes)
+	</div>
+}
+
+templ mealCellInner(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	if meal != nil {
+		<div class="group relative">
+			<div class="text-sm font-medium text-stone-900">
+				if meal.RecipeID != nil {
+					<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
+						{ meal.Name }
+					</a>
+				} else {
+					{ meal.Name }
+				}
+			</div>
+			if meal.Notes != "" {
+				<div class="text-xs text-stone-500 mt-0.5">{ meal.Notes }</div>
+			}
+			<div class="mt-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+				<button
+					type="button"
+					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
+					hx-target="#meal-modal-content"
+					hx-swap="innerHTML"
+					class="inline-flex items-center gap-0.5 text-xs text-stone-600 hover:text-stone-900"
+					onclick="document.getElementById('meal-modal').classList.remove('hidden')"
+				>
+					@components.IconPencil("h-3 w-3")
+					Edit
+				</button>
+				<form
+					hx-post="/meals/delete"
+					hx-target={ "#" + mealCellID(date, mealType) }
+					hx-swap="outerHTML"
+				>
+					<input type="hidden" name="date" value={ date }/>
+					<input type="hidden" name="meal_type" value={ string(mealType) }/>
+					<button type="submit" class="inline-flex items-center gap-0.5 text-xs text-red-600 hover:text-red-800">
+						@components.IconTrash("h-3 w-3")
+						Clear
+					</button>
+				</form>
+			</div>
+		</div>
+	} else {
+		<button
+			type="button"
+			hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
+			hx-target="#meal-modal-content"
+			hx-swap="innerHTML"
+			class="w-full text-center text-xs text-stone-300 hover:text-stone-600 py-2"
+			onclick="document.getElementById('meal-modal').classList.remove('hidden')"
+		>
+			+
+		</button>
+	}
 }
 
 templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
@@ -305,6 +326,10 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 
 func mealCellID(date string, mealType models.MealType) string {
 	return fmt.Sprintf("meal-%s-%s", date, string(mealType))
+}
+
+func mealCellMobileID(date string, mealType models.MealType) string {
+	return fmt.Sprintf("meal-m-%s-%s", date, string(mealType))
 }
 
 func mealTypes() []models.MealType {

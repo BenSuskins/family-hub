@@ -118,7 +118,7 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("HX-Trigger", "closeMealModal")
-	component := pages.MealCell(date, mealType, &saved, recipes)
+	component := pages.MealCellWithMobileSync(date, mealType, &saved, recipes)
 	component.Render(ctx, w)
 }
 
@@ -145,7 +145,7 @@ func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("HX-Trigger", "closeMealModal")
-	component := pages.MealCell(date, mealType, nil, recipes)
+	component := pages.MealCellWithMobileSync(date, mealType, nil, recipes)
 	component.Render(ctx, w)
 }
 

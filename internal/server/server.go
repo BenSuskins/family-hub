@@ -148,6 +148,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Use(middleware.RequireAdmin)
 
 		r.Post("/api/tokens", apiHandler.CreateToken)
+		r.Delete("/api/tokens/{id}", apiHandler.DeleteToken)
 	})
 
 	server := &Server{

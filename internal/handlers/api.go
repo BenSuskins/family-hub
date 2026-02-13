@@ -186,6 +186,19 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+
+	if err := handler.tokenRepo.Delete(ctx, id); err != nil {
+		slog.Error("deleting token", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete token"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

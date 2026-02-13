@@ -2,13 +2,16 @@
 
 Read-only REST API for accessing Family Hub data. Useful for integrations, dashboards, and home automation.
 
+## Setup
+
+```bash
+export TOKEN=your-token-here
+export BASE_URL=https://hub.suskins.co.uk
+```
+
 ## Authentication
 
 All API endpoints require a Bearer token. Create tokens from the Admin page.
-
-```
-Authorization: Bearer <your-token>
-```
 
 Tokens are shown only once at creation. If lost, create a new one.
 
@@ -20,12 +23,8 @@ Tokens are shown only once at creation. If lost, create a new one.
 
 Summary stats for the dashboard.
 
-```json
-{
-  "chores_due_today": 3,
-  "chores_overdue": 1,
-  "upcoming_events": 5
-}
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/dashboard" | jq
 ```
 
 ### Chores
@@ -39,11 +38,25 @@ List all chores. Supports query parameters:
 | `status`      | Filter by status: `pending`, `completed`, `overdue`  |
 | `assigned_to` | Filter by user ID                                    |
 
-Example: `GET /api/chores?status=pending&assigned_to=abc123`
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/chores" | jq
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/chores?status=pending" | jq
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/chores?status=overdue&assigned_to=USER_ID" | jq
+```
 
 #### `GET /api/chores/{id}`
 
 Get a single chore by ID.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/chores/CHORE_ID" | jq
+```
 
 ### Events
 
@@ -51,16 +64,26 @@ Get a single chore by ID.
 
 List all events. Supports query parameters:
 
-| Parameter | Description                          |
-|-----------|--------------------------------------|
+| Parameter | Description                              |
+|-----------|------------------------------------------|
 | `after`   | Only events starting after (YYYY-MM-DD)  |
 | `before`  | Only events starting before (YYYY-MM-DD) |
 
-Example: `GET /api/events?after=2025-02-01&before=2025-02-28`
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/events" | jq
+```
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/events?after=2025-02-01&before=2025-02-28" | jq
+```
 
 #### `GET /api/events/{id}`
 
 Get a single event by ID.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/events/EVENT_ID" | jq
+```
 
 ### Users
 
@@ -68,9 +91,17 @@ Get a single event by ID.
 
 List all users.
 
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/users" | jq
+```
+
 #### `GET /api/users/{id}`
 
 Get a single user by ID.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/users/USER_ID" | jq
+```
 
 ### Categories
 
@@ -78,9 +109,6 @@ Get a single user by ID.
 
 List all chore categories.
 
-## Example
-
 ```bash
-curl -H "Authorization: Bearer your-token-here" \
-  https://hub.example.com/api/chores?status=overdue
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/categories" | jq
 ```

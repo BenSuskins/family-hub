@@ -45,7 +45,8 @@ class FamilyHubAPI:
                     raise FamilyHubConnectionError(
                         f"Unexpected status {response.status} from {path}"
                     )
-                return await response.json()
+                # Go encodes nil slices as null, not []
+                return await response.json() or []
         except FamilyHubAuthError:
             raise
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:

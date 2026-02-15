@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Family Hub",
+        "data": {
+          "url": "URL",
+          "token": "API Token"
+        },
+        "data_description": {
+          "url": "The base URL of your Family Hub instance (e.g. http://192.168.1.100:8080)",
+          "token": "An API token generated from Family Hub settings"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Family Hub",
+      "invalid_auth": "Invalid API token",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This Family Hub instance is already configured"
+    }
+  }
+}

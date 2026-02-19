@@ -25,13 +25,13 @@ type CalendarProps struct {
 templ Calendar(props CalendarProps) {
 	@layouts.Base("Calendar", props.User, "/calendar") {
 		<div class="space-y-6">
-			@components.PageHeaderWithAction("Calendar", "Your family's schedule") {
+			@components.PageHeaderWithAction("Calendar") {
 				<div class="flex flex-wrap items-center gap-2 sm:gap-4">
 					<button
 						hx-post="/calendar/share"
 						hx-target="#share-modal-content"
 						hx-swap="innerHTML"
-						class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-stone-800"
+						class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700"
 						onclick="document.getElementById('share-modal').classList.remove('hidden')"
 					>
 						@components.IconShare("h-4 w-4")
@@ -475,7 +475,7 @@ templ CalendarShareModal(icalURL string) {
 				/>
 				<button
 					onclick="navigator.clipboard.writeText(document.getElementById('ical-url').value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
-					class="bg-stone-700 text-white px-3 py-2 rounded-xl text-sm font-medium hover:bg-stone-800"
+					class="bg-blue-600 text-white px-3 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
 				>
 					Copy
 				</button>
@@ -506,7 +506,7 @@ func viewURL(view string, date time.Time) string {
 
 func viewToggleClass(currentView, buttonView string) string {
 	if currentView == buttonView {
-		return "bg-stone-700 text-white border-stone-700"
+		return "bg-blue-600 text-white border-blue-600"
 	}
 	return "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
 }

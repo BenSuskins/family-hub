@@ -1,23 +1,17 @@
 package components
 
-templ PageHeader(title, subtitle string) {
+templ PageHeader(title string) {
 	<div class="flex justify-between items-start mb-8">
 		<div>
 			<h1 class="text-2xl font-bold text-stone-900">{ title }</h1>
-			if subtitle != "" {
-				<p class="mt-1 text-sm text-stone-500">{ subtitle }</p>
-			}
 		</div>
 	</div>
 }
 
-templ PageHeaderWithAction(title, subtitle string) {
+templ PageHeaderWithAction(title string) {
 	<div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-8">
 		<div>
 			<h1 class="text-2xl font-bold text-stone-900">{ title }</h1>
-			if subtitle != "" {
-				<p class="mt-1 text-sm text-stone-500">{ subtitle }</p>
-			}
 		</div>
 		<div>
 			{ children... }

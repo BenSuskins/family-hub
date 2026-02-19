@@ -146,6 +146,43 @@ func TestEventRepository_CreateWithCategory(t *testing.T) {
 	}
 }
 
+func TestEventRepository_FindAll_WithCategoryFilter(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	eventRepo := repository.NewEventRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	category, err := categoryRepo.Create(ctx, models.Category{
+		Name:            "Sports",
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating category: %v", err)
+	}
+
+	eventRepo.Create(ctx, models.Event{
+		Title: "Soccer Game", StartTime: time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC),
+		CategoryID: &category.ID, CreatedByUserID: user.ID,
+	})
+	eventRepo.Create(ctx, models.Event{
+		Title: "Family Dinner", StartTime: time.Date(2025, 6, 16, 18, 0, 0, 0, time.UTC),
+		CreatedByUserID: user.ID,
+	})
+
+	events, err := eventRepo.FindAll(ctx, repository.EventFilter{CategoryID: &category.ID})
+	if err != nil {
+		t.Fatalf("finding events with category filter: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Title != "Soccer Game" {
+		t.Errorf("expected 'Soccer Game', got '%s'", events[0].Title)
+	}
+}
+
 func TestEventRepository_Delete(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

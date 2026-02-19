@@ -36,6 +36,9 @@ func (handler *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			filter.StartBefore = &before
 		}
 	}
+	if categoryID := r.URL.Query().Get("category"); categoryID != "" {
+		filter.CategoryID = &categoryID
+	}
 
 	events, err := handler.eventRepo.FindAll(ctx, filter)
 	if err != nil {
@@ -54,12 +57,21 @@ func (handler *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		categoryMap[c.ID] = c.Name
 	}
 
-	component := pages.EventList(pages.EventListProps{
-		User:        user,
-		Events:      events,
-		Categories:  categories,
-		CategoryMap: categoryMap,
-	})
+	props := pages.EventListProps{
+		User:           user,
+		Events:         events,
+		Categories:     categories,
+		CategoryMap:    categoryMap,
+		CategoryFilter: filter.CategoryID,
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		component := pages.EventListContent(props)
+		component.Render(ctx, w)
+		return
+	}
+
+	component := pages.EventList(props)
 	component.Render(ctx, w)
 }
 

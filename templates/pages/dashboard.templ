@@ -40,7 +40,7 @@ type DashboardProps struct {
 templ Dashboard(props DashboardProps) {
 	@layouts.Base("Dashboard", props.User, "/") {
 		<div class="space-y-8">
-			@components.PageHeader("Overview", "Your family's activity at a glance")
+			@components.PageHeader("Overview")
 
 			<!-- Stat Cards -->
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -74,7 +74,7 @@ templ Dashboard(props DashboardProps) {
 				<div class="bg-white border border-stone-200 rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
 						@components.IconClipboardList("h-5 w-5 text-stone-600")
-						<h2 class="text-lg font-semibold text-stone-900">Chores Due Today</h2>
+						<a href="/chores" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Chores Due Today</a>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
 						<p class="text-stone-400 text-sm">You're all caught up!</p>
@@ -123,7 +123,7 @@ templ Dashboard(props DashboardProps) {
 				<div class="bg-white border border-stone-200 rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
 						@components.IconCalendarDays("h-5 w-5 text-stone-600")
-						<h2 class="text-lg font-semibold text-stone-900">Upcoming Events</h2>
+						<a href="/events" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Upcoming Events</a>
 					</div>
 					if len(props.UpcomingEvents) == 0 {
 						<p class="text-stone-400 text-sm">Nothing on the calendar this week</p>
@@ -149,7 +149,7 @@ templ Dashboard(props DashboardProps) {
 				<div class="bg-white border border-stone-200 rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
 						@components.IconFire("h-5 w-5 text-stone-600")
-						<h2 class="text-lg font-semibold text-stone-900">Today's Meals</h2>
+						<a href="/meals" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Today's Meals</a>
 					</div>
 					if len(props.TodayMeals) == 0 {
 						<p class="text-stone-400 text-sm">No meals planned yet — what's cooking?</p>
@@ -256,7 +256,7 @@ templ LeaderboardTable(props LeaderboardProps) {
 
 func leaderboardPeriodClass(activePeriod, thisPeriod string) string {
 	if activePeriod == thisPeriod {
-		return "px-3 py-1 text-xs font-medium rounded-md bg-white text-stone-900 shadow"
+		return "px-3 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-600"
 	}
 	return "px-3 py-1 text-xs font-medium rounded-md text-stone-500 hover:text-stone-900"
 }

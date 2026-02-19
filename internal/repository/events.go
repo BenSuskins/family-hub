@@ -13,6 +13,7 @@ import (
 type EventFilter struct {
 	StartAfter  *time.Time
 	StartBefore *time.Time
+	CategoryID  *string
 }
 
 type EventRepository interface {
@@ -62,6 +63,10 @@ func (repository *SQLiteEventRepository) FindAll(ctx context.Context, filter Eve
 	if filter.StartBefore != nil {
 		query += " AND start_time <= ?"
 		args = append(args, *filter.StartBefore)
+	}
+	if filter.CategoryID != nil {
+		query += " AND category_id = ?"
+		args = append(args, *filter.CategoryID)
 	}
 
 	query += " ORDER BY start_time ASC"

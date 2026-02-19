@@ -19,7 +19,7 @@ type MealPlannerProps struct {
 templ MealPlanner(props MealPlannerProps) {
 	@layouts.Base("Meal Planner", props.User, "/meals") {
 		<div class="space-y-6">
-			@components.PageHeader("Meal Planner", "Plan your family's meals for the week")
+			@components.PageHeader("Meal Planner")
 
 			<!-- Week Navigation -->
 			<div class="flex items-center justify-center space-x-4">
@@ -42,194 +42,122 @@ templ MealPlanner(props MealPlannerProps) {
 				</a>
 				<a
 					href="/meals"
-					class="text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-blue-200 text-sm font-medium"
+					class="text-stone-600 hover:text-stone-900 px-3 py-1 rounded-xl border border-stone-200 text-sm font-medium"
 				>This Week</a>
 			</div>
 
-			<!-- Desktop: 7-column grid -->
-			<div class="hidden md:block">
-				<div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
-					<!-- Day headers -->
-					<div class="grid grid-cols-8 bg-stone-50 border-b border-stone-200">
-						<div class="px-2 py-3 text-center text-xs font-medium text-stone-500 uppercase border-r border-stone-200"></div>
-						for _, day := range props.Days {
-							<div class={ "px-2 py-3 text-center border-r border-stone-200 " + mealDayHeaderClass(day) }>
-								<div class="text-xs font-medium text-stone-500 uppercase">{ day.Format("Mon") }</div>
-								<div class={ "text-sm font-medium " + mealTodayClass(day) }>{ fmt.Sprintf("%d", day.Day()) }</div>
-							</div>
-						}
-					</div>
-
-					<!-- Meal rows -->
-					for _, mealType := range mealTypes() {
-						<div class="grid grid-cols-8 border-b border-stone-200 divide-x divide-stone-200">
-							<div class="px-2 py-3 text-xs font-medium text-stone-500 flex items-start justify-center border-r border-stone-200 bg-stone-50">
-								@components.MealTypeBadge(mealType)
-							</div>
-							for _, day := range props.Days {
-								<div class="p-1 min-h-16">
-									@mealCellContent(day, mealType, props.MealMap, props.Recipes)
-								</div>
-							}
-						</div>
-					}
-				</div>
-			</div>
-
-			<!-- Mobile: stacked day cards -->
-			<div class="md:hidden space-y-4">
+			<!-- Timeline List -->
+			<div class="space-y-4">
 				for _, day := range props.Days {
-					<div class={ "bg-white border border-stone-200 rounded-xl overflow-hidden " + mealMobileDayBorder(day) }>
-						<div class={ "px-4 py-2 bg-stone-50 border-b border-stone-200 font-medium text-sm " + mealTodayClass(day) }>
+					<div class={ "bg-white border border-stone-200 rounded-xl overflow-hidden " + mealTodayBorder(day) }>
+						<!-- Day Header -->
+						<div class={ "px-4 py-2 bg-stone-50 border-b border-stone-200 text-sm font-medium " + mealDayHeaderTextClass(day) }>
 							{ day.Format("Monday, Jan 2") }
 						</div>
-						<div class="divide-y divide-stone-200">
+						<!-- Meal Rows -->
+						<div class="divide-y divide-stone-100">
 							for _, mealType := range mealTypes() {
-								<div class="px-4 py-2">
-									<div class="text-xs font-medium text-stone-500 mb-1">
-									@components.MealTypeBadge(mealType)
-								</div>
-									@mealCellContentMobile(day, mealType, props.MealMap, props.Recipes)
-								</div>
+								@MealRow(day.Format("2006-01-02"), mealType, lookupMeal(props.MealMap, day.Format("2006-01-02"), mealType), props.Recipes)
 							}
 						</div>
 					</div>
 				}
 			</div>
-
-			<!-- Meal Edit Modal -->
-			<div id="meal-modal" class="hidden fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50" onclick="if(event.target===this) this.classList.add('hidden')">
-				<div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-					<div class="flex justify-between items-center p-4 border-b border-stone-200">
-						<h3 class="text-lg font-medium text-stone-900">Meal</h3>
-						<button onclick="document.getElementById('meal-modal').classList.add('hidden')" class="p-1 -m-1 text-stone-400 hover:text-stone-600">
-							@components.IconXMark("h-5 w-5")
-						</button>
-					</div>
-					<div id="meal-modal-content" class="p-4">
-						<p class="text-sm text-stone-500">Loading...</p>
-					</div>
-				</div>
-			</div>
-			<script>
-				document.body.addEventListener("closeMealModal", function() {
-					document.getElementById("meal-modal").classList.add("hidden");
-				});
-			</script>
 		</div>
 	}
 }
 
-templ mealCellContent(day time.Time, mealType models.MealType, mealMap map[string]models.MealPlan, recipes []models.Recipe) {
-	@MealCell(day.Format("2006-01-02"), mealType, lookupMeal(mealMap, day.Format("2006-01-02"), mealType), recipes)
-}
-
-templ mealCellContentMobile(day time.Time, mealType models.MealType, mealMap map[string]models.MealPlan, recipes []models.Recipe) {
-	@MealCellMobile(day.Format("2006-01-02"), mealType, lookupMeal(mealMap, day.Format("2006-01-02"), mealType), recipes)
-}
-
-func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models.MealType) *models.MealPlan {
-	key := date + "-" + string(mealType)
-	if meal, ok := mealMap[key]; ok {
-		return &meal
-	}
-	return nil
-}
-
-templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	<div id={ mealCellID(date, mealType) }>
-		@mealCellInner(date, mealType, meal, recipes)
+templ MealRow(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	<div id={ mealCellID(date, mealType) } class="px-4 py-2">
+		@mealRowContent(date, mealType, meal, recipes)
 	</div>
 }
 
-templ MealCellMobile(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	<div id={ mealCellMobileID(date, mealType) }>
-		@mealCellInner(date, mealType, meal, recipes)
-	</div>
-}
-
-templ MealCellWithMobileSync(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	@MealCell(date, mealType, meal, recipes)
-	<div id={ mealCellMobileID(date, mealType) } hx-swap-oob="outerHTML">
-		@mealCellInner(date, mealType, meal, recipes)
-	</div>
-}
-
-templ mealCellInner(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	if meal != nil {
-		<div class="group relative">
-			<div class="text-sm font-medium text-stone-900">
-				if meal.RecipeID != nil {
-					<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-stone-900 underline decoration-stone-300 hover:decoration-stone-500">
-						{ meal.Name }
-					</a>
-				} else {
-					{ meal.Name }
-				}
-			</div>
-			if meal.Notes != "" {
-				<div class="text-xs text-stone-500 mt-0.5">{ meal.Notes }</div>
+templ mealRowContent(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	<div class="flex items-center gap-3">
+		<div class="flex-shrink-0 w-24">
+			@components.MealTypeBadge(mealType)
+		</div>
+		<div class="flex-1 min-w-0">
+			if meal != nil {
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-stone-900 truncate">
+						if meal.RecipeID != nil {
+							<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-blue-600 hover:text-blue-800 underline">
+								{ meal.Name }
+							</a>
+						} else {
+							{ meal.Name }
+						}
+					</span>
+					if meal.Notes != "" {
+						<span class="text-xs text-stone-400 truncate hidden sm:inline">{ meal.Notes }</span>
+					}
+				</div>
+			} else {
+				<span class="text-sm text-stone-400">&mdash;</span>
 			}
-			<div class="mt-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+		</div>
+		<div class="flex-shrink-0 flex items-center gap-1">
+			if meal != nil {
 				<button
 					type="button"
 					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-					hx-target="#meal-modal-content"
+					hx-target={ "#" + mealCellID(date, mealType) }
 					hx-swap="innerHTML"
-					class="inline-flex items-center gap-0.5 text-xs text-stone-600 hover:text-stone-900"
-					onclick="document.getElementById('meal-modal').classList.remove('hidden')"
+					class="inline-flex items-center gap-0.5 text-xs text-stone-500 hover:text-stone-700 px-2 py-1 rounded hover:bg-stone-50"
 				>
 					@components.IconPencil("h-3 w-3")
-					Edit
+					<span class="hidden sm:inline">Edit</span>
 				</button>
 				<form
 					hx-post="/meals/delete"
 					hx-target={ "#" + mealCellID(date, mealType) }
-					hx-swap="outerHTML"
+					hx-swap="innerHTML"
 				>
 					<input type="hidden" name="date" value={ date }/>
 					<input type="hidden" name="meal_type" value={ string(mealType) }/>
-					<button type="submit" class="inline-flex items-center gap-0.5 text-xs text-red-600 hover:text-red-800">
+					<button type="submit" class="inline-flex items-center gap-0.5 text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">
 						@components.IconTrash("h-3 w-3")
-						Clear
+						<span class="hidden sm:inline">Clear</span>
 					</button>
 				</form>
-			</div>
+			} else {
+				<button
+					type="button"
+					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
+					hx-target={ "#" + mealCellID(date, mealType) }
+					hx-swap="innerHTML"
+					class="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+				>
+					@components.IconPlus("h-3 w-3")
+					Add
+				</button>
+			}
 		</div>
-	} else {
-		<button
-			type="button"
-			hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
-			hx-target="#meal-modal-content"
-			hx-swap="innerHTML"
-			class="w-full text-center text-sm text-stone-400 hover:text-stone-600 py-3"
-			onclick="document.getElementById('meal-modal').classList.remove('hidden')"
-		>
-			+
-		</button>
-	}
+	</div>
 }
 
 templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
 	<form
 		hx-post="/meals"
 		hx-target={ "#" + mealCellID(date, mealType) }
-		hx-swap="outerHTML"
-		class="space-y-4"
+		hx-swap="innerHTML"
+		class="py-2 space-y-3"
 	>
 		<input type="hidden" name="date" value={ date }/>
 		<input type="hidden" name="meal_type" value={ string(mealType) }/>
 
-		<div class="text-sm text-stone-500">
-			{ mealTypeLabel(mealType) } &middot; { mealEditDateLabel(date) }
+		<div class="flex items-center gap-2 text-xs text-stone-500">
+			@components.MealTypeBadge(mealType)
+			<span>{ mealEditDateLabel(date) }</span>
 		</div>
 
 		<!-- Freeform input (default) -->
 		<div class="meal-freeform-input">
-			<label class="block text-sm font-medium text-stone-700 mb-1">Meal name</label>
 			<input
 				type="text"
-				class="w-full rounded-xl border-stone-200 shadow-sm text-sm"
+				class="w-full rounded-lg border-stone-200 shadow-sm text-sm"
 				placeholder="e.g. Spaghetti Bolognese"
 				oninput="this.form.querySelector('input[name=name]').value = this.value"
 				if meal != nil && meal.RecipeID == nil {
@@ -240,8 +168,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 
 		<!-- Recipe select (hidden by default) -->
 		<div class="meal-recipe-select hidden">
-			<label class="block text-sm font-medium text-stone-700 mb-1">Recipe</label>
-			<select name="recipe_id" class="w-full rounded-xl border-stone-200 shadow-sm text-sm" onchange="updateMealName(this)">
+			<select name="recipe_id" class="w-full rounded-lg border-stone-200 shadow-sm text-sm" onchange="updateMealName(this)">
 				<option value="">Select recipe...</option>
 				for _, recipe := range recipes {
 					<option
@@ -261,31 +188,32 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 			}
 		/>
 
-		<!-- Toggle link -->
-		<button type="button" onclick="toggleMealMode(this)" class="meal-mode-toggle text-sm text-stone-600 hover:text-stone-900">
-			Use a recipe instead
-		</button>
+		<div class="flex items-center justify-between">
+			<button type="button" onclick="toggleMealMode(this)" class="meal-mode-toggle text-xs text-stone-500 hover:text-stone-700">
+				Use a recipe instead
+			</button>
+			<div class="flex gap-2">
+				<button
+					type="button"
+					hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s", date, string(mealType)) }
+					hx-target={ "#" + mealCellID(date, mealType) }
+					hx-swap="innerHTML"
+					class="text-xs text-stone-500 hover:text-stone-700 px-3 py-1.5"
+				>Cancel</button>
+				<button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700">Save</button>
+			</div>
+		</div>
 
-		<div>
-			<label class="block text-sm font-medium text-stone-700 mb-1">Notes</label>
+		<div class="hidden">
 			<input
 				type="text"
 				name="notes"
-				placeholder="Optional"
-				class="w-full rounded-xl border-stone-200 shadow-sm text-sm"
+				placeholder="Notes (optional)"
+				class="w-full rounded-lg border-stone-200 shadow-sm text-sm"
 				if meal != nil {
 					value={ meal.Notes }
 				}
 			/>
-		</div>
-
-		<div class="flex gap-2 pt-2">
-			<button type="submit" class="bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">Save</button>
-			<button
-				type="button"
-				onclick="document.getElementById('meal-modal').classList.add('hidden')"
-				class="text-stone-500 hover:text-stone-700 px-4 py-2 text-sm"
-			>Cancel</button>
 		</div>
 	</form>
 
@@ -314,9 +242,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 		}
 		// Initialize mode for edit: if meal has a recipe, show recipe mode
 		(function() {
-			var container = document.getElementById('meal-modal-content');
-			if (!container) return;
-			var form = container.querySelector('form');
+			var form = document.querySelector('[hx-post="/meals"]:last-of-type') || document.querySelector('form[hx-post="/meals"]');
 			if (!form) return;
 			var recipeSelect = form.querySelector('select[name=recipe_id]');
 			if (recipeSelect && recipeSelect.value) {
@@ -326,12 +252,13 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 	</script>
 }
 
-func mealCellID(date string, mealType models.MealType) string {
-	return fmt.Sprintf("meal-%s-%s", date, string(mealType))
+// MealCell renders a non-edit meal row (used by handler for HTMX responses)
+templ MealCell(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+	@mealRowContent(date, mealType, meal, recipes)
 }
 
-func mealCellMobileID(date string, mealType models.MealType) string {
-	return fmt.Sprintf("meal-m-%s-%s", date, string(mealType))
+func mealCellID(date string, mealType models.MealType) string {
+	return fmt.Sprintf("meal-%s-%s", date, string(mealType))
 }
 
 func mealTypes() []models.MealType {
@@ -358,20 +285,20 @@ func mealWeekTitle(weekStart time.Time) string {
 	return fmt.Sprintf("%s %d - %s %d, %d", weekStart.Month().String()[:3], weekStart.Day(), end.Month().String()[:3], end.Day(), end.Year())
 }
 
-func mealDayHeaderClass(day time.Time) string {
+func mealDayHeaderTextClass(day time.Time) string {
 	today := time.Now()
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "bg-orange-50"
+		return "text-blue-600"
 	}
-	return ""
+	return "text-stone-900"
 }
 
-func mealTodayClass(day time.Time) string {
+func mealTodayBorder(day time.Time) string {
 	today := time.Now()
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "text-orange-600 font-bold"
+		return "border-blue-300"
 	}
-	return "text-stone-700"
+	return ""
 }
 
 func mealEditDateLabel(date string) string {
@@ -382,10 +309,10 @@ func mealEditDateLabel(date string) string {
 	return parsed.Format("Mon, Jan 2")
 }
 
-func mealMobileDayBorder(day time.Time) string {
-	today := time.Now()
-	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
-		return "border-l-4 border-orange-500"
+func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models.MealType) *models.MealPlan {
+	key := date + "-" + string(mealType)
+	if meal, ok := mealMap[key]; ok {
+		return &meal
 	}
-	return ""
+	return nil
 }

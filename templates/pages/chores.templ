@@ -50,14 +50,14 @@ templ ChoreList(props ChoreListProps) {
 	@layouts.Base("Chores", props.User, "/chores") {
 		<div class="space-y-6">
 			if props.User.Role == models.RoleAdmin {
-				@components.PageHeaderWithAction("Chores", "Manage your family's chores and assignments") {
-					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-stone-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-stone-800">
+				@components.PageHeaderWithAction("Chores") {
+					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700">
 						@components.IconPlus("h-4 w-4")
 						New Chore
 					</a>
 				}
 			} else {
-				@components.PageHeader("Chores", "Manage your family's chores and assignments")
+				@components.PageHeader("Chores")
 			}
 
 			<!-- Tabs -->
@@ -66,10 +66,9 @@ templ ChoreList(props ChoreListProps) {
 					type="button"
 					class={ choreTabClass(props.ActiveTab, "active") }
 					onclick="switchTab('active')"
-					hx-get="/chores?tab=active"
+					hx-get={ choreFilterURL("active", choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) }
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-include="[name='assigned_to'],[name='category']"
 				>
 					Chores
 				</button>
@@ -77,61 +76,73 @@ templ ChoreList(props ChoreListProps) {
 					type="button"
 					class={ choreTabClass(props.ActiveTab, "history") }
 					onclick="switchTab('history')"
-					hx-get="/chores?tab=history"
+					hx-get={ choreFilterURL("history", "", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) }
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-include="[name='assigned_to'],[name='category']"
 				>
 					History
 				</button>
-				<input type="hidden" name="tab" id="tab-input" value={ props.ActiveTab }/>
 			</div>
 
 			<!-- Filters -->
-			<div class="flex flex-wrap gap-3 bg-white border border-stone-200 p-4 rounded-xl">
+			<div class="flex flex-wrap items-center gap-2">
 				if props.ActiveTab != "history" {
-					<select
-						name="status"
-						class="rounded-xl border-stone-200 text-sm"
-						hx-get="/chores"
+					<button
+						type="button"
+						class={ choreStatusPillClass(props.Filter, "") }
+						hx-get={ choreFilterURL(props.ActiveTab, "", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) }
 						hx-target="#chore-table-content"
 						hx-swap="outerHTML"
-						hx-trigger="change"
-						hx-include="[name='status'],[name='assigned_to'],[name='category'],[name='tab']"
-					>
-						<option value="">All Statuses</option>
-						<option value="pending" if props.Filter.Status != nil && string(*props.Filter.Status) == "pending" { selected }>Pending</option>
-						<option value="overdue" if props.Filter.Status != nil && string(*props.Filter.Status) == "overdue" { selected }>Overdue</option>
-					</select>
+					>All</button>
+					<button
+						type="button"
+						class={ choreStatusPillClass(props.Filter, "pending") }
+						hx-get={ choreFilterURL(props.ActiveTab, "pending", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) }
+						hx-target="#chore-table-content"
+						hx-swap="outerHTML"
+					>Pending</button>
+					<button
+						type="button"
+						class={ choreStatusPillClass(props.Filter, "overdue") }
+						hx-get={ choreFilterURL(props.ActiveTab, "overdue", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) }
+						hx-target="#chore-table-content"
+						hx-swap="outerHTML"
+					>Overdue</button>
+					<div class="w-px h-6 bg-stone-200 mx-1"></div>
 				}
-				<select
-					name="assigned_to"
-					class="rounded-xl border-stone-200 text-sm"
-					hx-get="/chores"
+				<button
+					type="button"
+					class={ choreUserPillClass(props.Filter, "") }
+					hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), "", choreFilterCategoryID(props.Filter)) }
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-trigger="change"
-					hx-include="[name='status'],[name='assigned_to'],[name='category'],[name='tab']"
-				>
-					<option value="">All Users</option>
-					for _, u := range props.Users {
-						<option value={ u.ID } if props.Filter.AssignedToUser != nil && *props.Filter.AssignedToUser == u.ID { selected }>{ u.Name }</option>
-					}
-				</select>
-				<select
-					name="category"
-					class="rounded-xl border-stone-200 text-sm"
-					hx-get="/chores"
+				>All Users</button>
+				for _, u := range props.Users {
+					<button
+						type="button"
+						class={ choreUserPillClass(props.Filter, u.ID) }
+						hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), u.ID, choreFilterCategoryID(props.Filter)) }
+						hx-target="#chore-table-content"
+						hx-swap="outerHTML"
+					>{ u.Name }</button>
+				}
+				<div class="w-px h-6 bg-stone-200 mx-1"></div>
+				<button
+					type="button"
+					class={ choreCategoryPillClass(props.Filter, "") }
+					hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), "") }
 					hx-target="#chore-table-content"
 					hx-swap="outerHTML"
-					hx-trigger="change"
-					hx-include="[name='status'],[name='assigned_to'],[name='category'],[name='tab']"
-				>
-					<option value="">All Categories</option>
-					for _, c := range props.Categories {
-						<option value={ c.ID } if props.Filter.CategoryID != nil && *props.Filter.CategoryID == c.ID { selected }>{ c.Name }</option>
-					}
-				</select>
+				>All Categories</button>
+				for _, c := range props.Categories {
+					<button
+						type="button"
+						class={ choreCategoryPillClass(props.Filter, c.ID) }
+						hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), c.ID) }
+						hx-target="#chore-table-content"
+						hx-swap="outerHTML"
+					>{ c.Name }</button>
+				}
 			</div>
 
 			if props.ActiveTab == "history" {
@@ -153,7 +164,7 @@ templ ChoreList(props ChoreListProps) {
 				document.querySelectorAll('#chore-tabs button').forEach(function(btn) {
 					var btnText = btn.textContent.trim().toLowerCase();
 					btn.className = btnText === tabLabels[tab] ?
-						'px-4 py-2 text-sm font-medium rounded-md bg-white text-stone-900 shadow' :
+						'px-4 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-600' :
 						'px-4 py-2 text-sm font-medium rounded-md text-stone-500 hover:text-stone-900';
 				});
 			}
@@ -162,74 +173,74 @@ templ ChoreList(props ChoreListProps) {
 }
 
 templ ChoreTableContent(props ChoreTableProps) {
-	<div id="chore-table-content" class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+	<div id="chore-table-content">
 		if len(props.Chores) == 0 {
-			<div class="p-8 text-center text-stone-500">
+			<div class="bg-white border border-stone-200 rounded-xl p-8 text-center text-stone-500">
 				<p>No chores found</p>
 			</div>
 		} else {
-			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-stone-200">
-					<thead class="bg-stone-50">
-						<tr>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Chore</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Assigned To</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Due Date</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Status</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Actions</th>
-						</tr>
-					</thead>
-					<tbody class="bg-white divide-y divide-stone-200" id="chore-list">
-						for _, chore := range props.Chores {
-							@ChoreRow(chore, props.User, props.UserNameMap, props.UserAvatarMap)
-						}
-					</tbody>
-				</table>
+			<!-- Desktop grid header -->
+			<div class="hidden md:grid md:grid-cols-5 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wider">
+				<div>Chore</div>
+				<div>Assigned To</div>
+				<div>Due Date</div>
+				<div>Status</div>
+				<div>Actions</div>
+			</div>
+			<div class="space-y-2 md:space-y-0" id="chore-list">
+				for _, chore := range props.Chores {
+					@ChoreRow(chore, props.User, props.UserNameMap, props.UserAvatarMap)
+				}
 			</div>
 		}
 	</div>
 }
 
 templ ChoreHistoryContent(entries []ChoreHistoryEntry) {
-	<div id="chore-table-content" class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+	<div id="chore-table-content">
 		if len(entries) == 0 {
-			<div class="p-8 text-center text-stone-500">
+			<div class="bg-white border border-stone-200 rounded-xl p-8 text-center text-stone-500">
 				<p>No completion history</p>
 			</div>
 		} else {
-			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-stone-200">
-					<thead class="bg-stone-50">
-						<tr>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Chore Name</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Times Completed</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Last Completed</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Last Completed By</th>
-						</tr>
-					</thead>
-					<tbody class="bg-white divide-y divide-stone-200">
-						for _, entry := range entries {
-							<tr>
-								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{ entry.Name }</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">{ strconv.Itoa(entry.CompletionCount) }</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-									if entry.LastCompletedAt != nil {
-										{ entry.LastCompletedAt.Format("Jan 2, 2006") }
-									}
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">{ entry.LastCompletedBy }</td>
-							</tr>
-						}
-					</tbody>
-				</table>
+			<!-- Desktop grid header -->
+			<div class="hidden md:grid md:grid-cols-4 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wider">
+				<div>Chore Name</div>
+				<div>Times Completed</div>
+				<div>Last Completed</div>
+				<div>Last Completed By</div>
+			</div>
+			<div class="space-y-2 md:space-y-0">
+				for _, entry := range entries {
+					<div class="bg-white border border-stone-200 rounded-xl p-4 md:rounded-none md:border-x-0 md:border-t-0 md:border-b md:grid md:grid-cols-4 md:gap-4 md:items-center md:px-4 md:py-3">
+						<div class="text-sm font-medium text-stone-900">{ entry.Name }</div>
+						<div class="text-sm text-stone-500 mt-1 md:mt-0">
+							<span class="md:hidden text-xs text-stone-400">Completed: </span>
+							{ strconv.Itoa(entry.CompletionCount) } times
+						</div>
+						<div class="text-sm text-stone-500 mt-1 md:mt-0">
+							if entry.LastCompletedAt != nil {
+								<span class="md:hidden text-xs text-stone-400">Last: </span>
+								{ entry.LastCompletedAt.Format("Jan 2, 2006") }
+							}
+						</div>
+						<div class="text-sm text-stone-500 mt-1 md:mt-0">
+							if entry.LastCompletedBy != "" {
+								<span class="md:hidden text-xs text-stone-400">By: </span>
+								{ entry.LastCompletedBy }
+							}
+						</div>
+					</div>
+				}
 			</div>
 		}
 	</div>
 }
 
 templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]string, userAvatarMap map[string]string) {
-	<tr id={ "chore-" + chore.ID }>
-		<td class="px-6 py-4 whitespace-nowrap">
+	<div id={ "chore-" + chore.ID } class="bg-white border border-stone-200 rounded-xl p-4 md:rounded-none md:border-x-0 md:border-t-0 md:border-b md:grid md:grid-cols-5 md:gap-4 md:items-center md:px-4 md:py-3">
+		<!-- Chore name -->
+		<div>
 			<div class="text-sm font-medium text-stone-900">{ chore.Name }</div>
 			if chore.Description != "" {
 				<div class="text-sm text-stone-500 truncate max-w-xs">{ chore.Description }</div>
@@ -237,8 +248,9 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 			if chore.RecurrenceType != models.RecurrenceNone {
 				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700">Recurring</span>
 			}
-		</td>
-		<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+		</div>
+		<!-- Assigned to -->
+		<div class="mt-2 md:mt-0 text-sm text-stone-500">
 			if chore.AssignedToUserID != nil {
 				<div class="flex items-center gap-2">
 					@components.UserAvatar(lookupUserName(userNameMap, *chore.AssignedToUserID), lookupAvatarURL(userAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
@@ -247,8 +259,9 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 			} else {
 				<span class="text-stone-400">Unassigned</span>
 			}
-		</td>
-		<td class="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+		</div>
+		<!-- Due date -->
+		<div class="mt-1 md:mt-0 text-sm text-stone-500">
 			if chore.DueDate != nil {
 				{ chore.DueDate.Format("Jan 2, 2006") }
 				if chore.DueTime != nil {
@@ -257,11 +270,13 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 			} else {
 				<span class="text-stone-400">No due date</span>
 			}
-		</td>
-		<td class="px-6 py-4 whitespace-nowrap">
+		</div>
+		<!-- Status -->
+		<div class="mt-2 md:mt-0">
 			@choreStatusBadge(chore.Status)
-		</td>
-		<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+		</div>
+		<!-- Actions -->
+		<div class="mt-3 md:mt-0 flex items-center gap-3 text-sm">
 			if chore.Status != models.ChoreStatusCompleted && chore.AssignedToUserID != nil && *chore.AssignedToUserID == user.ID {
 				<button
 					hx-post={ fmt.Sprintf("/chores/%s/complete", chore.ID) }
@@ -289,8 +304,8 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 					Delete
 				</button>
 			}
-		</td>
-	</tr>
+		</div>
+	</div>
 }
 
 templ choreStatusBadge(status models.ChoreStatus) {
@@ -500,7 +515,7 @@ templ ChoreForm(props ChoreFormProps) {
 
 				<div class="flex justify-end space-x-3">
 					<a href="/chores" class="bg-white py-2 px-4 border border-stone-200 rounded-xl shadow-sm text-sm font-medium text-stone-700 hover:bg-stone-50">Cancel</a>
-					<button type="submit" class="bg-stone-700 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-stone-800">
+					<button type="submit" class="bg-blue-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-blue-700">
 						if props.IsEdit {
 							Update
 						} else {
@@ -546,7 +561,7 @@ templ ChoreForm(props ChoreFormProps) {
 
 func choreTabClass(activeTab, thisTab string) string {
 	if activeTab == thisTab {
-		return "px-4 py-2 text-sm font-medium rounded-md bg-white text-stone-900 shadow"
+		return "px-4 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-600"
 	}
 	return "px-4 py-2 text-sm font-medium rounded-md text-stone-500 hover:text-stone-900"
 }
@@ -626,4 +641,63 @@ func capitalizeDay(day string) string {
 		return day
 	}
 	return strings.ToUpper(day[:1]) + day[1:3]
+}
+
+func choreStatusPillClass(filter repository.ChoreFilter, value string) string {
+	active := (value == "" && filter.Status == nil) || (filter.Status != nil && string(*filter.Status) == value)
+	if active {
+		return "px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600"
+	}
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-600 hover:bg-stone-100"
+}
+
+func choreUserPillClass(filter repository.ChoreFilter, userID string) string {
+	active := (userID == "" && filter.AssignedToUser == nil) || (filter.AssignedToUser != nil && *filter.AssignedToUser == userID)
+	if active {
+		return "px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600"
+	}
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-600 hover:bg-stone-100"
+}
+
+func choreCategoryPillClass(filter repository.ChoreFilter, categoryID string) string {
+	active := (categoryID == "" && filter.CategoryID == nil) || (filter.CategoryID != nil && *filter.CategoryID == categoryID)
+	if active {
+		return "px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-600"
+	}
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-600 hover:bg-stone-100"
+}
+
+func choreFilterStatus(filter repository.ChoreFilter) string {
+	if filter.Status != nil {
+		return string(*filter.Status)
+	}
+	return ""
+}
+
+func choreFilterAssignedTo(filter repository.ChoreFilter) string {
+	if filter.AssignedToUser != nil {
+		return *filter.AssignedToUser
+	}
+	return ""
+}
+
+func choreFilterCategoryID(filter repository.ChoreFilter) string {
+	if filter.CategoryID != nil {
+		return *filter.CategoryID
+	}
+	return ""
+}
+
+func choreFilterURL(tab, status, assignedTo, categoryID string) string {
+	url := "/chores?tab=" + tab
+	if status != "" {
+		url += "&status=" + status
+	}
+	if assignedTo != "" {
+		url += "&assigned_to=" + assignedTo
+	}
+	if categoryID != "" {
+		url += "&category=" + categoryID
+	}
+	return url
 }

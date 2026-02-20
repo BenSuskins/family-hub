@@ -50,31 +50,31 @@ templ Dashboard(props DashboardProps) {
 					SubLabel: dashboardOverdueSubLabel(props.OverdueCount),
 					SubColor: dashboardOverdueSubColor(props.OverdueCount),
 				}) {
-					@components.IconClipboardList("h-5 w-5 text-stone-600")
+					@components.IconClipboardList("h-5 w-5")
 				}
 				@components.StatCard(components.StatCardProps{
 					Label:    "Upcoming Events",
 					Value:    props.UpcomingEventCount,
 					SubLabel: "In next 7 days",
 				}) {
-					@components.IconCalendarDays("h-5 w-5 text-stone-600")
+					@components.IconCalendarDays("h-5 w-5")
 				}
 				@components.StatCard(components.StatCardProps{
 					Label:    "Meals This Week",
 					Value:    props.MealsThisWeek,
 					SubLabel: "of 21 planned",
 				}) {
-					@components.IconFire("h-5 w-5 text-stone-600")
+					@components.IconFire("h-5 w-5")
 				}
 			</div>
 
 			<!-- Widget Grid -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<!-- Chores Due Today -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
+				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
-						@components.IconClipboardList("h-5 w-5 text-stone-600")
-						<a href="/chores" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Chores Due Today</a>
+						@components.IconClipboardList("h-5 w-5")
+						<a href="/chores" class="text-lg font-semibold text-stone-800 hover:text-indigo-600 transition-colors">Chores Due Today</a>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
 						<p class="text-stone-400 text-sm">You're all caught up!</p>
@@ -120,10 +120,10 @@ templ Dashboard(props DashboardProps) {
 				</div>
 
 				<!-- Upcoming Events -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
+				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
-						@components.IconCalendarDays("h-5 w-5 text-stone-600")
-						<a href="/events" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Upcoming Events</a>
+						@components.IconCalendarDays("h-5 w-5")
+						<a href="/events" class="text-lg font-semibold text-stone-800 hover:text-indigo-600 transition-colors">Upcoming Events</a>
 					</div>
 					if len(props.UpcomingEvents) == 0 {
 						<p class="text-stone-400 text-sm">Nothing on the calendar this week</p>
@@ -146,10 +146,10 @@ templ Dashboard(props DashboardProps) {
 				</div>
 
 				<!-- Today's Meals -->
-				<div class="bg-white border border-stone-200 rounded-xl p-6">
+				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
-						@components.IconFire("h-5 w-5 text-stone-600")
-						<a href="/meals" class="text-lg font-semibold text-stone-900 hover:text-blue-600 transition-colors">Today's Meals</a>
+						@components.IconFire("h-5 w-5")
+						<a href="/meals" class="text-lg font-semibold text-stone-800 hover:text-indigo-600 transition-colors">Today's Meals</a>
 					</div>
 					if len(props.TodayMeals) == 0 {
 						<p class="text-stone-400 text-sm">No meals planned yet — what's cooking?</p>
@@ -187,7 +187,7 @@ templ Dashboard(props DashboardProps) {
 }
 
 templ LeaderboardTable(props LeaderboardProps) {
-	<div id="leaderboard" class="bg-white border border-stone-200 rounded-xl p-6">
+	<div id="leaderboard" class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 		<div class="flex items-center justify-between mb-4">
 			<div class="flex items-center gap-2">
 				@components.IconTrophy("h-5 w-5 text-stone-600")
@@ -256,7 +256,7 @@ templ LeaderboardTable(props LeaderboardProps) {
 
 func leaderboardPeriodClass(activePeriod, thisPeriod string) string {
 	if activePeriod == thisPeriod {
-		return "px-3 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-600"
+		return "px-3 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700"
 	}
 	return "px-3 py-1 text-xs font-medium rounded-md text-stone-500 hover:text-stone-900"
 }

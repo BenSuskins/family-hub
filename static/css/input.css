@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+    body {
+        font-family: 'Inter', sans-serif;
+        font-feature-settings: 'cv11', 'ss01';
+    }
+
     input[type="text"],
     input[type="date"],
     input[type="time"],
@@ -15,6 +20,6 @@
     input[type="number"],
     textarea,
     select {
-        @apply block w-full rounded-xl border-stone-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm;
+        @apply block w-full rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm;
     }
 }

@@ -13,21 +13,26 @@ func statSubColor(color string) string {
 	if color != "" {
 		return color
 	}
-	return "text-stone-500"
+	return "text-stone-400"
 }
 
 templ StatCard(props StatCardProps) {
-	<div class="bg-white border border-stone-200 rounded-xl p-6">
-		<div class="flex items-center gap-3">
-			<div class="flex-shrink-0 p-2 bg-blue-50 rounded-lg">
-				{ children... }
-			</div>
-			<div>
-				<p class="text-sm font-medium text-stone-500">{ props.Label }</p>
-				<p class="text-2xl font-bold text-stone-900">{ fmt.Sprintf("%d", props.Value) }</p>
-				if props.SubLabel != "" {
-					<p class={ "text-xs mt-0.5 " + statSubColor(props.SubColor) }>{ props.SubLabel }</p>
-				}
+	<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl overflow-hidden">
+		<div class="flex">
+			<div class="w-1 bg-indigo-400 flex-shrink-0"></div>
+			<div class="p-5 flex-1">
+				<div class="flex items-start justify-between">
+					<div>
+						<p class="text-xs font-medium text-stone-400 uppercase tracking-wide">{ props.Label }</p>
+						<p class="text-2xl font-bold text-stone-800 mt-1">{ fmt.Sprintf("%d", props.Value) }</p>
+						if props.SubLabel != "" {
+							<p class={ "text-xs mt-1 " + statSubColor(props.SubColor) }>{ props.SubLabel }</p>
+						}
+					</div>
+					<div class="text-stone-300 mt-0.5">
+						{ children... }
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

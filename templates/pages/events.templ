@@ -34,24 +34,23 @@ templ EventList(props EventListProps) {
 
 			<!-- Category Filter Pills -->
 			if len(props.Categories) > 0 {
-				<div class="flex flex-wrap items-center gap-2">
-					<button
-						type="button"
-						class={ eventCategoryPillClass(props.CategoryFilter, "") }
-						hx-get="/events"
-						hx-target="#event-list-content"
-						hx-swap="outerHTML"
-					>All</button>
-					for _, c := range props.Categories {
-						<button
-							type="button"
-							class={ eventCategoryPillClass(props.CategoryFilter, c.ID) }
-							hx-get={ fmt.Sprintf("/events?category=%s", c.ID) }
-							hx-target="#event-list-content"
-							hx-swap="outerHTML"
-						>{ c.Name }</button>
-					}
-				</div>
+				<details class="relative">
+					<summary class="inline-flex items-center gap-2 cursor-pointer list-none px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 hover:bg-stone-50 select-none">
+						Filters
+						if props.CategoryFilter != nil {
+							<span class="inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-600 text-white text-xs font-bold">!</span>
+						}
+					</summary>
+					<div class="absolute z-10 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg p-4 min-w-[220px]">
+						<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Category</p>
+						<div class="flex flex-wrap gap-1.5">
+							<button type="button" class={ eventCategoryPillClass(props.CategoryFilter, "") } hx-get="/events" hx-target="#event-list-content" hx-swap="outerHTML">All</button>
+							for _, c := range props.Categories {
+								<button type="button" class={ eventCategoryPillClass(props.CategoryFilter, c.ID) } hx-get={ fmt.Sprintf("/events?category=%s", c.ID) } hx-target="#event-list-content" hx-swap="outerHTML">{ c.Name }</button>
+							}
+						</div>
+					</div>
+				</details>
 			}
 
 			@EventListContent(props)

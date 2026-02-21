@@ -124,6 +124,57 @@ func TestAPITokenRepository_FindByUserIDAndName(t *testing.T) {
 	}
 }
 
+func TestAPITokenRepository_ScopeRoundTrip(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	tokenRepo := repository.NewAPITokenRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	_, err := tokenRepo.Create(ctx, models.APIToken{
+		Name: "iCal Feed", TokenHash: "hash-ical", Scope: "ical", CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating ical token: %v", err)
+	}
+
+	_, err = tokenRepo.Create(ctx, models.APIToken{
+		Name: "API Key", TokenHash: "hash-api", Scope: "api", CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating api token: %v", err)
+	}
+
+	found, err := tokenRepo.FindByTokenHash(ctx, "hash-ical")
+	if err != nil {
+		t.Fatalf("finding ical token: %v", err)
+	}
+	if found.Scope != "ical" {
+		t.Errorf("expected scope 'ical', got '%s'", found.Scope)
+	}
+
+	found, err = tokenRepo.FindByTokenHash(ctx, "hash-api")
+	if err != nil {
+		t.Fatalf("finding api token: %v", err)
+	}
+	if found.Scope != "api" {
+		t.Errorf("expected scope 'api', got '%s'", found.Scope)
+	}
+
+	all, err := tokenRepo.FindAll(ctx)
+	if err != nil {
+		t.Fatalf("finding all tokens: %v", err)
+	}
+	scopesByName := make(map[string]string)
+	for _, tok := range all {
+		scopesByName[tok.Name] = tok.Scope
+	}
+	if scopesByName["iCal Feed"] != "ical" {
+		t.Errorf("expected FindAll to return ical scope, got '%s'", scopesByName["iCal Feed"])
+	}
+}
+
 func TestHashToken(t *testing.T) {
 	hash1 := repository.HashToken("token1")
 	hash2 := repository.HashToken("token2")

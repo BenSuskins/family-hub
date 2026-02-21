@@ -50,7 +50,7 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	authorized := handler.haToken != "" && token == handler.haToken
 	if !authorized {
 		tokenHash := repository.HashToken(token)
-		if _, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash); err == nil {
+		if found, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash); err == nil && found.Scope == "ical" {
 			authorized = true
 		}
 	}

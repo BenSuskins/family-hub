@@ -107,6 +107,7 @@ type APIToken struct {
 	ID              string
 	Name            string
 	TokenHash       string
+	Scope           string // "api" or "ical"
 	CreatedByUserID string
 	ExpiresAt       *time.Time
 	CreatedAt       time.Time

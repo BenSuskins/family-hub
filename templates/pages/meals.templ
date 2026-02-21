@@ -68,7 +68,7 @@ templ MealPlanner(props MealPlannerProps) {
 }
 
 templ MealRow(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	<div id={ mealCellID(date, mealType) } class="px-4 py-2">
+	<div id={ mealCellID(date, mealType) } class="px-4 py-3 min-h-[3.5rem] flex items-center">
 		@mealRowContent(date, mealType, meal, recipes)
 	</div>
 }

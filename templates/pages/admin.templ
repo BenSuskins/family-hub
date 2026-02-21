@@ -177,6 +177,24 @@ templ AdminUsers(props AdminUsersProps) {
 					}
 				</div>
 			</div>
+			<!-- Maintenance -->
+			<div>
+				<h2 class="text-lg font-medium text-stone-900 mb-4">Maintenance</h2>
+				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
+					<p class="text-sm text-stone-500 mb-4">Permanently delete all completed chore assignments from the history log. Active chores are not affected.</p>
+					<form
+						hx-post="/admin/chores/history/delete"
+						hx-confirm="Delete all chore history? This cannot be undone."
+					>
+						<button
+							type="submit"
+							class="inline-flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-700"
+						>
+							Clear Chore History
+						</button>
+					</form>
+				</div>
+			</div>
 		</div>
 	}
 }

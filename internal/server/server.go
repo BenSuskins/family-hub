@@ -128,6 +128,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/admin/users/{id}/demote", adminHandler.DemoteUser)
 			r.Post("/admin/settings", adminHandler.UpdateSettings)
 			r.Post("/admin/tokens", adminHandler.CreateToken)
+			r.Post("/admin/chores/history/delete", adminHandler.DeleteChoreHistory)
 		})
 	})
 

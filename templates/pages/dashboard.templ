@@ -74,7 +74,7 @@ templ Dashboard(props DashboardProps) {
 				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 					<div class="flex items-center gap-2 mb-4">
 						@components.IconClipboardList("h-5 w-5")
-						<a href="/chores" class="text-lg font-semibold text-stone-800 hover:text-indigo-600 transition-colors">Chores Due Today</a>
+						<a href="/chores" class="text-lg font-semibold text-stone-800 hover:text-indigo-600 transition-colors">Chores Due</a>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
 						<p class="text-stone-400 text-sm">You're all caught up!</p>

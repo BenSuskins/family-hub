@@ -61,6 +61,11 @@ func APITokenAuth(tokenRepo repository.APITokenRepository, userRepo repository.U
 				return
 			}
 
+			if token.Scope != "api" {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
 			if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
 				http.Error(w, "Token expired", http.StatusUnauthorized)
 				return

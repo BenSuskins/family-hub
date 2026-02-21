@@ -108,9 +108,15 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	scope := r.FormValue("scope")
+	if scope != "api" && scope != "ical" {
+		scope = "api"
+	}
+
 	rawToken := generateToken()
 	token := models.APIToken{
 		Name:            name,
+		Scope:           scope,
 		TokenHash:       repository.HashToken(rawToken),
 		CreatedByUserID: user.ID,
 	}

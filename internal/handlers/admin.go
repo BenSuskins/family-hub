@@ -124,6 +124,15 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 	pages.AdminTokenCreated(name, rawToken).Render(ctx, w)
 }
 
+func (handler *AdminHandler) DeleteChoreHistory(w http.ResponseWriter, r *http.Request) {
+	if err := handler.assignmentRepo.DeleteCompleted(r.Context()); err != nil {
+		slog.Error("deleting chore history", "error", err)
+		http.Error(w, "failed to delete chore history", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/admin/users", http.StatusFound)
+}
+
 func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

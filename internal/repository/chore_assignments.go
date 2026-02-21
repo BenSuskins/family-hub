@@ -17,6 +17,7 @@ type ChoreAssignmentRepository interface {
 	MarkReassigned(ctx context.Context, choreID string) error
 	CompletedCountByUser(ctx context.Context, userID string, since time.Time) (int, error)
 	RecentCompleted(ctx context.Context, limit int) ([]models.ChoreAssignment, error)
+	DeleteCompleted(ctx context.Context) error
 }
 
 type SQLiteChoreAssignmentRepository struct {
@@ -106,6 +107,15 @@ func (repository *SQLiteChoreAssignmentRepository) CompletedCountByUser(ctx cont
 		return 0, fmt.Errorf("counting completed assignments: %w", err)
 	}
 	return count, nil
+}
+
+func (repository *SQLiteChoreAssignmentRepository) DeleteCompleted(ctx context.Context) error {
+	_, err := repository.database.ExecContext(ctx,
+		`DELETE FROM chore_assignments WHERE status = 'completed'`)
+	if err != nil {
+		return fmt.Errorf("deleting completed chore assignments: %w", err)
+	}
+	return nil
 }
 
 func (repository *SQLiteChoreAssignmentRepository) RecentCompleted(ctx context.Context, limit int) ([]models.ChoreAssignment, error) {

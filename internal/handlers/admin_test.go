@@ -47,4 +47,23 @@ func TestAdminHandler_CreateToken_ReturnsHTML(t *testing.T) {
 	if !strings.Contains(body, "mytoken") {
 		t.Error("expected token name in response HTML")
 	}
+	// Verify the raw token value (64-char hex) appears in the response
+	found := false
+	for i := 0; i <= len(body)-64; i++ {
+		candidate := body[i : i+64]
+		isHex := true
+		for _, c := range candidate {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				isHex = false
+				break
+			}
+		}
+		if isHex {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected raw token (64-char hex) to appear in response HTML")
+	}
 }

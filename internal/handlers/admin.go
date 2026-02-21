@@ -108,12 +108,6 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	scope := r.FormValue("scope")
-	if scope != "api" && scope != "ical" {
-		scope = "api"
-	}
-	_ = scope
-
 	rawToken := generateToken()
 	token := models.APIToken{
 		Name:            name,

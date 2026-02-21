@@ -5,35 +5,35 @@ import "github.com/bensuskins/family-hub/internal/models"
 func MealTypeColorClass(mealType models.MealType) string {
 	switch mealType {
 	case models.MealTypeBreakfast:
-		return "bg-amber-50 text-amber-700"
+		return "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
 	case models.MealTypeLunch:
-		return "bg-sky-50 text-sky-700"
+		return "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400"
 	case models.MealTypeDinner:
-		return "bg-violet-50 text-violet-700"
+		return "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400"
 	default:
-		return "bg-stone-50 text-stone-700"
+		return "bg-stone-50 text-stone-700 dark:bg-slate-700 dark:text-slate-300"
 	}
 }
 
 templ MealTypeBadge(mealType models.MealType) {
 	switch mealType {
 		case models.MealTypeBreakfast:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
 				@IconSun("h-3.5 w-3.5")
 				Breakfast
 			</span>
 		case models.MealTypeLunch:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400">
 				@IconSandwich("h-3.5 w-3.5")
 				Lunch
 			</span>
 		case models.MealTypeDinner:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400">
 				@IconUtensils("h-3.5 w-3.5")
 				Dinner
 			</span>
 		default:
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-stone-50 text-stone-700">
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-stone-50 text-stone-700 dark:bg-slate-700 dark:text-slate-300">
 				{ string(mealType) }
 			</span>
 	}

@@ -8,13 +8,13 @@ import (
 
 templ CategoryRow(category models.Category) {
 	<li class="flex items-center justify-between px-6 py-4" id={ "category-" + category.ID }>
-		<span class="text-sm font-medium text-stone-900">{ category.Name }</span>
+		<span class="text-sm font-medium text-stone-900 dark:text-slate-100">{ category.Name }</span>
 		<div class="flex items-center gap-3">
 			<button
 				hx-get={ fmt.Sprintf("/categories/%s/edit", category.ID) }
 				hx-target={ "#category-" + category.ID }
 				hx-swap="outerHTML"
-				class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm"
+				class="inline-flex items-center gap-1 text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 text-sm transition-colors duration-150"
 			>
 				@components.IconPencil("h-4 w-4")
 				Edit
@@ -24,7 +24,7 @@ templ CategoryRow(category models.Category) {
 				hx-target={ "#category-" + category.ID }
 				hx-swap="outerHTML"
 				hx-confirm="Delete this category?"
-				class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm"
+				class="inline-flex items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm transition-colors duration-150"
 			>
 				@components.IconTrash("h-4 w-4")
 				Delete
@@ -46,16 +46,16 @@ templ CategoryEditForm(category models.Category) {
 				name="name"
 				value={ category.Name }
 				required
-				class="flex-1 min-w-0 rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+				class="flex-1 min-w-0 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 			/>
-			<button type="submit" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+			<button type="submit" class="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm font-medium transition-colors duration-150">
 				Save
 			</button>
 			<a
 				hx-get={ fmt.Sprintf("/categories/%s/cancel", category.ID) }
 				hx-target={ "#category-" + category.ID }
 				hx-swap="outerHTML"
-				class="text-sm text-stone-500 hover:text-stone-700 cursor-pointer"
+				class="text-sm text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 cursor-pointer transition-colors duration-150"
 			>Cancel</a>
 		</form>
 	</li>

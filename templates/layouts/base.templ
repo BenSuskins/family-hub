@@ -23,14 +23,14 @@ func GetFamilyName(ctx context.Context) string {
 
 func navLinkClass(currentPath, linkPath string) string {
 	if currentPath == linkPath {
-		return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-50 text-indigo-700"
+		return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 transition-colors duration-150"
 	}
-	return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
+	return "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100/80 hover:text-stone-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100 transition-colors duration-150"
 }
 
 templ Base(title string, user models.User, currentPath string) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-stone-50">
+	<html lang="en" class="h-full bg-stone-50 dark:bg-slate-900 dark">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
@@ -40,26 +40,26 @@ templ Base(title string, user models.User, currentPath string) {
 			<script src="/static/js/htmx.min.js"></script>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
-		<body class="h-full">
+		<body class="h-full dark:bg-slate-900">
 			<!-- Mobile top bar -->
-			<div class="lg:hidden sticky top-0 z-40 flex items-center justify-between bg-white border-b border-stone-100 shadow-sm px-4 h-14">
-				<button onclick="toggleSidebar()" class="text-stone-500 hover:text-stone-700">
+			<div class="lg:hidden sticky top-0 z-40 flex items-center justify-between bg-white dark:bg-slate-950 border-b border-stone-100 dark:border-slate-800 shadow-sm px-4 h-14">
+				<button onclick="toggleSidebar()" class="text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 transition-colors duration-150">
 					@components.IconBars3("h-6 w-6")
 				</button>
-				<a href="/" class="text-sm font-semibold text-stone-900">{ GetFamilyName(ctx) }</a>
+				<a href="/" class="text-sm font-semibold text-stone-900 dark:text-slate-100">{ GetFamilyName(ctx) }</a>
 				<div class="flex items-center gap-2">
 					@components.UserAvatar(user.Name, user.AvatarURL, "h-7 w-7 text-xs")
 				</div>
 			</div>
 
 			<!-- Sidebar overlay (mobile) -->
-			<div id="sidebar-overlay" class="hidden fixed inset-0 bg-stone-900/50 z-40 lg:hidden" onclick="toggleSidebar()"></div>
+			<div id="sidebar-overlay" class="hidden fixed inset-0 bg-slate-900/70 z-40 lg:hidden" onclick="toggleSidebar()"></div>
 
 			<!-- Sidebar -->
-			<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-stone-100 shadow-[1px_0_12px_0_rgba(0,0,0,0.06)] transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
+			<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-950 border-r border-stone-100 dark:border-slate-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
 				<!-- Logo -->
-				<div class="flex items-center h-14 px-5 border-b border-stone-100 shrink-0">
-					<a href="/" class="text-lg font-semibold text-stone-800">{ GetFamilyName(ctx) }</a>
+				<div class="flex items-center h-14 px-5 border-b border-stone-100 dark:border-slate-800 shrink-0">
+					<a href="/" class="text-lg font-semibold text-stone-800 dark:text-slate-100">{ GetFamilyName(ctx) }</a>
 				</div>
 
 				<!-- Nav links -->
@@ -97,13 +97,13 @@ templ Base(title string, user models.User, currentPath string) {
 				</nav>
 
 				<!-- User section -->
-				<div class="border-t border-stone-100 bg-stone-50 px-4 py-3 shrink-0">
+				<div class="border-t border-stone-100 dark:border-slate-800 bg-stone-50 dark:bg-slate-950 px-4 py-3 shrink-0">
 					<div class="flex items-center gap-3">
 						@components.UserAvatar(user.Name, user.AvatarURL, "h-8 w-8 text-xs")
 						<div class="flex-1 min-w-0">
-							<p class="text-sm font-medium text-stone-900 truncate">{ user.Name }</p>
+							<p class="text-sm font-medium text-stone-900 dark:text-slate-100 truncate">{ user.Name }</p>
 						</div>
-						<a href="/logout" class="text-stone-400 hover:text-stone-600" title="Logout">
+						<a href="/logout" class="text-stone-400 dark:text-slate-500 hover:text-stone-600 dark:hover:text-slate-300 transition-colors duration-150" title="Logout">
 							@components.IconArrowRightOnRectangle("h-5 w-5")
 						</a>
 					</div>
@@ -133,7 +133,7 @@ templ Base(title string, user models.User, currentPath string) {
 
 templ LoginPage() {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-stone-50">
+	<html lang="en" class="h-full bg-stone-50 dark:bg-slate-900 dark">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
@@ -142,10 +142,10 @@ templ LoginPage() {
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
-		<body class="h-full flex items-center justify-center">
+		<body class="h-full flex items-center justify-center dark:bg-slate-900">
 			<div class="text-center">
-				<h1 class="text-4xl font-bold text-stone-900 mb-8">{ GetFamilyName(ctx) }</h1>
-				<a href="/login" class="bg-stone-700 text-white px-6 py-3 rounded-xl text-lg font-medium hover:bg-stone-800">
+				<h1 class="text-4xl font-bold text-stone-900 dark:text-slate-100 mb-8">{ GetFamilyName(ctx) }</h1>
+				<a href="/login" class="bg-stone-700 dark:bg-indigo-600 text-white px-6 py-3 rounded-xl text-lg font-medium hover:bg-stone-800 dark:hover:bg-indigo-500 transition-colors duration-150">
 					Sign in with SSO
 				</a>
 			</div>

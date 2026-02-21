@@ -20,6 +20,37 @@
     input[type="number"],
     textarea,
     select {
-        @apply block w-full rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm;
+        @apply block w-full rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-[border-color,box-shadow] duration-150;
+    }
+
+    .dark input[type="text"],
+    .dark input[type="date"],
+    .dark input[type="time"],
+    .dark input[type="datetime-local"],
+    .dark input[type="email"],
+    .dark input[type="password"],
+    .dark input[type="url"],
+    .dark input[type="number"],
+    .dark textarea,
+    .dark select {
+        @apply bg-slate-700 border-slate-600 text-slate-100;
+    }
+
+    .dark input::placeholder,
+    .dark textarea::placeholder {
+        @apply text-slate-400;
+    }
+
+    .dark select option {
+        @apply bg-slate-700 text-slate-100;
+    }
+
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+        display: inline-block;
     }
 }

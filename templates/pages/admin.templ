@@ -183,8 +183,9 @@ templ AdminUsers(props AdminUsersProps) {
 				<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6">
 					<p class="text-sm text-stone-500 mb-4">Permanently delete all completed chore assignments from the history log. Active chores are not affected.</p>
 					<form
-						hx-post="/admin/chores/history/delete"
-						hx-confirm="Delete all chore history? This cannot be undone."
+						method="POST"
+						action="/admin/chores/history/delete"
+						onsubmit="return confirm('Delete all chore history? This cannot be undone.')"
 					>
 						<button
 							type="submit"

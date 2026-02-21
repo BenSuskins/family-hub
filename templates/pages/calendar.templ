@@ -39,19 +39,19 @@ templ Calendar(props CalendarProps) {
 					</button>
 					<div class="inline-flex rounded-xl shadow-sm">
 						<a
-							href={ templ.SafeURL(viewURL("year", props.Date)) }
+							href={ templ.SafeURL(todayURL("year")) }
 							class={ "px-3 py-1.5 text-sm font-medium rounded-l-xl border " + viewToggleClass(props.View, "year") }
 						>Year</a>
 						<a
-							href={ templ.SafeURL(viewURL("month", props.Date)) }
+							href={ templ.SafeURL(todayURL("month")) }
 							class={ "px-3 py-1.5 text-sm font-medium border-t border-b border-r " + viewToggleClass(props.View, "month") }
 						>Month</a>
 						<a
-							href={ templ.SafeURL(viewURL("week", props.Date)) }
+							href={ templ.SafeURL(todayURL("week")) }
 							class={ "px-3 py-1.5 text-sm font-medium border-t border-b " + viewToggleClass(props.View, "week") }
 						>Week</a>
 						<a
-							href={ templ.SafeURL(viewURL("day", props.Date)) }
+							href={ templ.SafeURL(todayURL("day")) }
 							class={ "px-3 py-1.5 text-sm font-medium rounded-r-xl border " + viewToggleClass(props.View, "day") }
 						>Day</a>
 					</div>

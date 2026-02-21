@@ -64,7 +64,34 @@ func (handler *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/admin/users", http.StatusFound)
+	category, err := handler.categoryRepo.FindByID(ctx, categoryID)
+	if err != nil {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+	pages.CategoryRow(category).Render(ctx, w)
+}
+
+func (handler *CategoryHandler) EditForm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+	category, err := handler.categoryRepo.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+	pages.CategoryEditForm(category).Render(ctx, w)
+}
+
+func (handler *CategoryHandler) CancelEdit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+	category, err := handler.categoryRepo.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+	pages.CategoryRow(category).Render(ctx, w)
 }
 
 func (handler *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {

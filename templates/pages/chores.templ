@@ -85,8 +85,8 @@ templ ChoreList(props ChoreListProps) {
 			</div>
 
 			<!-- Filters -->
-			<details class="relative">
-				<summary class="inline-flex items-center gap-2 cursor-pointer list-none px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 hover:bg-stone-50 select-none">
+			<details class="relative" id="chore-filter-details">
+				<summary class="inline-flex items-center gap-2 cursor-pointer [&::-webkit-details-marker]:hidden px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 hover:bg-stone-50 select-none">
 					Filters
 					if hasActiveChoreFilter(props.Filter) {
 						<span class="inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-600 text-white text-xs font-bold">!</span>
@@ -97,18 +97,18 @@ templ ChoreList(props ChoreListProps) {
 						<div>
 							<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Status</p>
 							<div class="flex flex-wrap gap-1.5">
-								<button type="button" class={ choreStatusPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, "", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML">All</button>
-								<button type="button" class={ choreStatusPillClass(props.Filter, "pending") } hx-get={ choreFilterURL(props.ActiveTab, "pending", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML">Pending</button>
-								<button type="button" class={ choreStatusPillClass(props.Filter, "overdue") } hx-get={ choreFilterURL(props.ActiveTab, "overdue", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML">Overdue</button>
+								<button type="button" class={ choreStatusPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, "", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
+								<button type="button" class={ choreStatusPillClass(props.Filter, "pending") } hx-get={ choreFilterURL(props.ActiveTab, "pending", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">Pending</button>
+								<button type="button" class={ choreStatusPillClass(props.Filter, "overdue") } hx-get={ choreFilterURL(props.ActiveTab, "overdue", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">Overdue</button>
 							</div>
 						</div>
 					}
 					<div>
 						<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">User</p>
 						<div class="flex flex-wrap gap-1.5">
-							<button type="button" class={ choreUserPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), "", choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML">All</button>
+							<button type="button" class={ choreUserPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), "", choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
 							for _, u := range props.Users {
-								<button type="button" class={ choreUserPillClass(props.Filter, u.ID) } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), u.ID, choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML">{ u.Name }</button>
+								<button type="button" class={ choreUserPillClass(props.Filter, u.ID) } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), u.ID, choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">{ u.Name }</button>
 							}
 						</div>
 					</div>
@@ -116,9 +116,9 @@ templ ChoreList(props ChoreListProps) {
 						<div>
 							<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Category</p>
 							<div class="flex flex-wrap gap-1.5">
-								<button type="button" class={ choreCategoryPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), "") } hx-target="#chore-table-content" hx-swap="outerHTML">All</button>
+								<button type="button" class={ choreCategoryPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), "") } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
 								for _, c := range props.Categories {
-									<button type="button" class={ choreCategoryPillClass(props.Filter, c.ID) } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), c.ID) } hx-target="#chore-table-content" hx-swap="outerHTML">{ c.Name }</button>
+									<button type="button" class={ choreCategoryPillClass(props.Filter, c.ID) } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), c.ID) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">{ c.Name }</button>
 								}
 							</div>
 						</div>

@@ -13,25 +13,22 @@ func statSubColor(color string) string {
 	if color != "" {
 		return color
 	}
-	return "text-stone-400"
+	return "text-stone-400 dark:text-slate-500"
 }
 
 templ StatCard(props StatCardProps) {
-	<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl overflow-hidden">
-		<div class="flex">
-			<div class="w-1 bg-indigo-400 flex-shrink-0"></div>
-			<div class="p-5 flex-1">
-				<div class="flex items-start justify-between">
-					<div>
-						<p class="text-xs font-medium text-stone-400 uppercase tracking-wide">{ props.Label }</p>
-						<p class="text-2xl font-bold text-stone-800 mt-1">{ fmt.Sprintf("%d", props.Value) }</p>
-						if props.SubLabel != "" {
-							<p class={ "text-xs mt-1 " + statSubColor(props.SubColor) }>{ props.SubLabel }</p>
-						}
-					</div>
-					<div class="text-stone-300 mt-0.5">
-						{ children... }
-					</div>
+	<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl overflow-hidden transition-[ring-color] duration-200">
+		<div class="p-5">
+			<div class="flex items-start justify-between">
+				<div>
+					<p class="text-xs font-medium text-stone-400 dark:text-slate-400 uppercase tracking-wide">{ props.Label }</p>
+					<p class="text-3xl font-bold text-stone-800 dark:text-slate-100 mt-1">{ fmt.Sprintf("%d", props.Value) }</p>
+					if props.SubLabel != "" {
+						<p class={ "text-xs mt-1 " + statSubColor(props.SubColor) }>{ props.SubLabel }</p>
+					}
+				</div>
+				<div class="text-stone-300 dark:text-slate-500 mt-0.5">
+					{ children... }
 				</div>
 			</div>
 		</div>

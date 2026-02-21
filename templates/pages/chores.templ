@@ -51,7 +51,7 @@ templ ChoreList(props ChoreListProps) {
 		<div class="space-y-6">
 			if props.User.Role == models.RoleAdmin {
 				@components.PageHeaderWithAction("Chores") {
-					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-sm text-sm font-medium hover:bg-indigo-700">
+					<a href="/chores/new" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-sm text-sm font-medium hover:bg-indigo-500 transition-all duration-150 hover:-translate-y-px active:translate-y-0">
 						@components.IconPlus("h-4 w-4")
 						New Chore
 					</a>
@@ -61,7 +61,7 @@ templ ChoreList(props ChoreListProps) {
 			}
 
 			<!-- Tabs -->
-			<div class="flex border-b border-stone-100" id="chore-tabs">
+			<div class="flex border-b border-stone-100 dark:border-slate-700" id="chore-tabs">
 				<button
 					type="button"
 					class={ choreTabClass(props.ActiveTab, "active") }
@@ -86,16 +86,16 @@ templ ChoreList(props ChoreListProps) {
 
 			<!-- Filters -->
 			<details class="relative" id="chore-filter-details">
-				<summary class="inline-flex items-center gap-2 cursor-pointer [&::-webkit-details-marker]:hidden px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 hover:bg-stone-50 select-none">
+				<summary class="inline-flex items-center gap-2 cursor-pointer [&::-webkit-details-marker]:hidden px-3 py-1.5 rounded-xl border border-stone-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-stone-700 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-slate-700 transition-colors duration-150 select-none">
 					Filters
 					if hasActiveChoreFilter(props.Filter) {
 						<span class="inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-600 text-white text-xs font-bold">!</span>
 					}
 				</summary>
-				<div class="absolute z-10 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg p-4 min-w-[300px] space-y-4">
+				<div class="absolute z-10 mt-1 bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 rounded-xl shadow-lg dark:shadow-slate-900/50 p-4 min-w-[300px] space-y-4">
 					if props.ActiveTab != "history" {
 						<div>
-							<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Status</p>
+							<p class="text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wide mb-2">Status</p>
 							<div class="flex flex-wrap gap-1.5">
 								<button type="button" class={ choreStatusPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, "", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
 								<button type="button" class={ choreStatusPillClass(props.Filter, "pending") } hx-get={ choreFilterURL(props.ActiveTab, "pending", choreFilterAssignedTo(props.Filter), choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">Pending</button>
@@ -104,7 +104,7 @@ templ ChoreList(props ChoreListProps) {
 						</div>
 					}
 					<div>
-						<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">User</p>
+						<p class="text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wide mb-2">User</p>
 						<div class="flex flex-wrap gap-1.5">
 							<button type="button" class={ choreUserPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), "", choreFilterCategoryID(props.Filter)) } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
 							for _, u := range props.Users {
@@ -114,7 +114,7 @@ templ ChoreList(props ChoreListProps) {
 					</div>
 					if len(props.Categories) > 0 {
 						<div>
-							<p class="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Category</p>
+							<p class="text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wide mb-2">Category</p>
 							<div class="flex flex-wrap gap-1.5">
 								<button type="button" class={ choreCategoryPillClass(props.Filter, "") } hx-get={ choreFilterURL(props.ActiveTab, choreFilterStatus(props.Filter), choreFilterAssignedTo(props.Filter), "") } hx-target="#chore-table-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('chore-filter-details').removeAttribute('open')">All</button>
 								for _, c := range props.Categories {
@@ -145,8 +145,8 @@ templ ChoreList(props ChoreListProps) {
 				document.querySelectorAll('#chore-tabs button').forEach(function(btn) {
 					var btnText = btn.textContent.trim().toLowerCase();
 					btn.className = btnText === tabLabels[tab] ?
-						'px-4 py-3 text-sm font-medium text-stone-900 border-b-2 border-indigo-500 -mb-px' :
-						'px-4 py-3 text-sm font-medium text-stone-400 hover:text-stone-700';
+						'px-4 py-3 text-sm font-medium text-stone-900 dark:text-slate-100 border-b-2 border-indigo-500 -mb-px transition-colors duration-150' :
+						'px-4 py-3 text-sm font-medium text-stone-400 dark:text-slate-500 hover:text-stone-700 dark:hover:text-slate-300 transition-colors duration-150';
 				});
 			}
 		</script>
@@ -156,12 +156,12 @@ templ ChoreList(props ChoreListProps) {
 templ ChoreTableContent(props ChoreTableProps) {
 	<div id="chore-table-content">
 		if len(props.Chores) == 0 {
-			<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-8 text-center text-stone-500">
+			<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-8 text-center text-stone-500 dark:text-slate-400">
 				<p>No chores found</p>
 			</div>
 		} else {
 			<!-- Desktop grid header -->
-			<div class="hidden md:grid md:grid-cols-5 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wider">
+			<div class="hidden md:grid md:grid-cols-5 gap-4 px-4 py-2 text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wider">
 				<div>Chore</div>
 				<div>Assigned To</div>
 				<div>Due Date</div>
@@ -180,12 +180,12 @@ templ ChoreTableContent(props ChoreTableProps) {
 templ ChoreHistoryContent(entries []ChoreHistoryEntry) {
 	<div id="chore-table-content">
 		if len(entries) == 0 {
-			<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-8 text-center text-stone-500">
+			<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-8 text-center text-stone-500 dark:text-slate-400">
 				<p>No completion history</p>
 			</div>
 		} else {
 			<!-- Desktop grid header -->
-			<div class="hidden md:grid md:grid-cols-4 gap-4 px-4 py-2 text-xs font-medium text-stone-500 uppercase tracking-wider">
+			<div class="hidden md:grid md:grid-cols-4 gap-4 px-4 py-2 text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wider">
 				<div>Chore Name</div>
 				<div>Times Completed</div>
 				<div>Last Completed</div>
@@ -193,21 +193,21 @@ templ ChoreHistoryContent(entries []ChoreHistoryEntry) {
 			</div>
 			<div class="space-y-2 md:space-y-0">
 				for _, entry := range entries {
-					<div class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 md:rounded-none md:grid md:grid-cols-4 md:gap-4 md:items-center md:px-4 md:py-3">
-						<div class="text-sm font-medium text-stone-900">{ entry.Name }</div>
-						<div class="text-sm text-stone-500 mt-1 md:mt-0">
-							<span class="md:hidden text-xs text-stone-400">Completed: </span>
+					<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 dark:md:border-slate-700 md:rounded-none md:grid md:grid-cols-4 md:gap-4 md:items-center md:px-4 md:py-3">
+						<div class="text-sm font-medium text-stone-900 dark:text-slate-100">{ entry.Name }</div>
+						<div class="text-sm text-stone-500 dark:text-slate-400 mt-1 md:mt-0">
+							<span class="md:hidden text-xs text-stone-400 dark:text-slate-500">Completed: </span>
 							{ strconv.Itoa(entry.CompletionCount) } times
 						</div>
-						<div class="text-sm text-stone-500 mt-1 md:mt-0">
+						<div class="text-sm text-stone-500 dark:text-slate-400 mt-1 md:mt-0">
 							if entry.LastCompletedAt != nil {
-								<span class="md:hidden text-xs text-stone-400">Last: </span>
+								<span class="md:hidden text-xs text-stone-400 dark:text-slate-500">Last: </span>
 								{ entry.LastCompletedAt.Format("Jan 2, 2006") }
 							}
 						</div>
-						<div class="text-sm text-stone-500 mt-1 md:mt-0">
+						<div class="text-sm text-stone-500 dark:text-slate-400 mt-1 md:mt-0">
 							if entry.LastCompletedBy != "" {
-								<span class="md:hidden text-xs text-stone-400">By: </span>
+								<span class="md:hidden text-xs text-stone-400 dark:text-slate-500">By: </span>
 								{ entry.LastCompletedBy }
 							}
 						</div>
@@ -219,37 +219,37 @@ templ ChoreHistoryContent(entries []ChoreHistoryEntry) {
 }
 
 templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]string, userAvatarMap map[string]string) {
-	<div id={ "chore-" + chore.ID } class="bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 md:rounded-none md:grid md:grid-cols-5 md:gap-4 md:items-center md:px-4 md:py-3">
+	<div id={ "chore-" + chore.ID } class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 dark:md:border-slate-700 md:rounded-none md:grid md:grid-cols-5 md:gap-4 md:items-center md:px-4 md:py-3 hover:dark:bg-slate-700/30 transition-colors duration-100">
 		<!-- Chore name -->
 		<div>
-			<div class="text-sm font-medium text-stone-900">{ chore.Name }</div>
+			<div class="text-sm font-medium text-stone-900 dark:text-slate-100">{ chore.Name }</div>
 			if chore.Description != "" {
-				<div class="text-sm text-stone-500 truncate max-w-xs">{ chore.Description }</div>
+				<div class="text-sm text-stone-500 dark:text-slate-400 truncate max-w-xs">{ chore.Description }</div>
 			}
 			if chore.RecurrenceType != models.RecurrenceNone {
-				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700">Recurring</span>
+				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400">Recurring</span>
 			}
 		</div>
 		<!-- Assigned to -->
-		<div class="mt-2 md:mt-0 text-sm text-stone-500">
+		<div class="mt-2 md:mt-0 text-sm text-stone-500 dark:text-slate-400">
 			if chore.AssignedToUserID != nil {
 				<div class="flex items-center gap-2">
 					@components.UserAvatar(lookupUserName(userNameMap, *chore.AssignedToUserID), lookupAvatarURL(userAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
 					{ lookupUserName(userNameMap, *chore.AssignedToUserID) }
 				</div>
 			} else {
-				<span class="text-stone-400">Unassigned</span>
+				<span class="text-stone-400 dark:text-slate-500">Unassigned</span>
 			}
 		</div>
 		<!-- Due date -->
-		<div class="mt-1 md:mt-0 text-sm text-stone-500">
+		<div class="mt-1 md:mt-0 text-sm text-stone-500 dark:text-slate-400">
 			if chore.DueDate != nil {
 				{ chore.DueDate.Format("Jan 2, 2006") }
 				if chore.DueTime != nil {
 					{ " " + *chore.DueTime }
 				}
 			} else {
-				<span class="text-stone-400">No due date</span>
+				<span class="text-stone-400 dark:text-slate-500">No due date</span>
 			}
 		</div>
 		<!-- Status -->
@@ -263,14 +263,14 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 					hx-post={ fmt.Sprintf("/chores/%s/complete", chore.ID) }
 					hx-target={ "#chore-" + chore.ID }
 					hx-swap="outerHTML"
-					class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium"
+					class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-medium transition-colors duration-150"
 				>
 					@components.IconCheck("h-4 w-4")
 					Complete
 				</button>
 			}
 			if user.Role == models.RoleAdmin {
-				<a href={ templ.SafeURL(fmt.Sprintf("/chores/%s/edit", chore.ID)) } class="inline-flex items-center gap-1 text-stone-600 hover:text-stone-900">
+				<a href={ templ.SafeURL(fmt.Sprintf("/chores/%s/edit", chore.ID)) } class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-slate-100 transition-colors duration-150">
 					@components.IconPencil("h-4 w-4")
 					Edit
 				</a>
@@ -279,7 +279,7 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 					hx-target={ "#chore-" + chore.ID }
 					hx-swap="outerHTML"
 					hx-confirm="Delete this chore?"
-					class="inline-flex items-center gap-1 text-red-600 hover:text-red-800"
+					class="inline-flex items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-150"
 				>
 					@components.IconTrash("h-4 w-4")
 					Delete
@@ -292,18 +292,18 @@ templ ChoreRow(chore models.Chore, user models.User, userNameMap map[string]stri
 templ choreStatusBadge(status models.ChoreStatus) {
 	switch status {
 		case models.ChoreStatusPending:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending</span>
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">Pending</span>
 		case models.ChoreStatusCompleted:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Completed</span>
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Completed</span>
 		case models.ChoreStatusOverdue:
-			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Overdue</span>
+			<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400">Overdue</span>
 	}
 }
 
 templ ChoreForm(props ChoreFormProps) {
 	@layouts.Base(choreFormTitle(props.IsEdit), props.User, "/chores") {
 		<div class="max-w-2xl mx-auto">
-			<h1 class="text-xl font-semibold text-stone-800 mb-6">{ choreFormTitle(props.IsEdit) }</h1>
+			<h1 class="text-xl font-semibold text-stone-800 dark:text-slate-100 mb-6">{ choreFormTitle(props.IsEdit) }</h1>
 
 			<form
 				if props.IsEdit && props.Chore != nil {
@@ -312,10 +312,10 @@ templ ChoreForm(props ChoreFormProps) {
 					action="/chores"
 				}
 				method="POST"
-				class="space-y-6 bg-white ring-1 ring-stone-100 shadow-sm rounded-xl p-6"
+				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6"
 			>
 				<div>
-					<label for="name" class="block text-sm font-medium text-stone-700">Name</label>
+					<label for="name" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Name</label>
 					<input
 						type="text"
 						id="name"
@@ -328,7 +328,7 @@ templ ChoreForm(props ChoreFormProps) {
 				</div>
 
 				<div>
-					<label for="description" class="block text-sm font-medium text-stone-700">Description</label>
+					<label for="description" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Description</label>
 					<textarea
 						id="description"
 						name="description"
@@ -341,7 +341,7 @@ templ ChoreForm(props ChoreFormProps) {
 				</div>
 
 				<div>
-					<label for="category_id" class="block text-sm font-medium text-stone-700">Category</label>
+					<label for="category_id" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Category</label>
 					<select id="category_id" name="category_id">
 						<option value="">No Category</option>
 						for _, cat := range props.Categories {
@@ -356,8 +356,8 @@ templ ChoreForm(props ChoreFormProps) {
 				</div>
 
 				<div>
-					<label class="block text-sm font-medium text-stone-700 mb-2">Eligible Assignees</label>
-					<p class="text-xs text-stone-500 mb-2">Select which family members can be assigned this chore. If none selected, all members are eligible.</p>
+					<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Eligible Assignees</label>
+					<p class="text-xs text-stone-500 dark:text-slate-400 mb-2">Select which family members can be assigned this chore. If none selected, all members are eligible.</p>
 					<div class="space-y-2">
 						for _, u := range props.AllUsers {
 							<label class="flex items-center">
@@ -368,9 +368,9 @@ templ ChoreForm(props ChoreFormProps) {
 									if props.Chore != nil && isEligibleAssignee(props.Chore.EligibleAssignees, u.ID) {
 										checked
 									}
-									class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 rounded"
+									class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 dark:border-slate-600 rounded"
 								/>
-								<span class="ml-2 text-sm text-stone-700">{ u.Name }</span>
+								<span class="ml-2 text-sm text-stone-700 dark:text-slate-300">{ u.Name }</span>
 							</label>
 						}
 					</div>
@@ -378,7 +378,7 @@ templ ChoreForm(props ChoreFormProps) {
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div>
-						<label for="due_date" class="block text-sm font-medium text-stone-700">Due Date</label>
+						<label for="due_date" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Due Date</label>
 						<input
 							type="date"
 							id="due_date"
@@ -389,7 +389,7 @@ templ ChoreForm(props ChoreFormProps) {
 						/>
 					</div>
 					<div>
-						<label for="due_time" class="block text-sm font-medium text-stone-700">Due Time</label>
+						<label for="due_time" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Due Time</label>
 						<input
 							type="time"
 							id="due_time"
@@ -402,7 +402,7 @@ templ ChoreForm(props ChoreFormProps) {
 				</div>
 
 				<div>
-					<label for="recurrence_type" class="block text-sm font-medium text-stone-700">Recurrence</label>
+					<label for="recurrence_type" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Recurrence</label>
 					<select
 						id="recurrence_type"
 						name="recurrence_type"
@@ -419,7 +419,7 @@ templ ChoreForm(props ChoreFormProps) {
 				<!-- Recurrence config fields (shown/hidden by JS) -->
 				<div id="recurrence-fields" class="space-y-4">
 					<div id="recurrence-interval-field" class="hidden">
-						<label for="recurrence_interval" class="block text-sm font-medium text-stone-700">
+						<label for="recurrence_interval" class="block text-sm font-medium text-stone-700 dark:text-slate-300">
 							Repeat every
 						</label>
 						<div class="mt-1 flex items-center gap-2">
@@ -429,14 +429,14 @@ templ ChoreForm(props ChoreFormProps) {
 								name="recurrence_interval"
 								min="1"
 								value={ recurrenceInterval(props.Chore) }
-								class="block w-20 rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+								class="block w-20 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 							/>
-							<span id="recurrence-interval-unit" class="text-sm text-stone-500">weeks</span>
+							<span id="recurrence-interval-unit" class="text-sm text-stone-500 dark:text-slate-400">weeks</span>
 						</div>
 					</div>
 
 					<div id="recurrence-days-field" class="hidden">
-						<label class="block text-sm font-medium text-stone-700 mb-2">On days</label>
+						<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">On days</label>
 						<div class="flex flex-wrap gap-3">
 							for _, day := range []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"} {
 								<label class="flex items-center">
@@ -447,16 +447,16 @@ templ ChoreForm(props ChoreFormProps) {
 										if props.Chore != nil && hasRecurrenceDay(props.Chore.RecurrenceValue, day) {
 											checked
 										}
-										class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 rounded"
+										class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 dark:border-slate-600 rounded"
 									/>
-									<span class="ml-1 text-sm text-stone-700">{ capitalizeDay(day) }</span>
+									<span class="ml-1 text-sm text-stone-700 dark:text-slate-300">{ capitalizeDay(day) }</span>
 								</label>
 							}
 						</div>
 					</div>
 
 					<div id="recurrence-day-of-month-field" class="hidden">
-						<label for="recurrence_day_of_month" class="block text-sm font-medium text-stone-700">Day of month</label>
+						<label for="recurrence_day_of_month" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Day of month</label>
 						<input
 							type="number"
 							id="recurrence_day_of_month"
@@ -464,12 +464,12 @@ templ ChoreForm(props ChoreFormProps) {
 							min="1"
 							max="31"
 							value={ recurrenceDayOfMonth(props.Chore) }
-							class="mt-1 block w-20 rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							class="mt-1 block w-20 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 						/>
 					</div>
 
 					<div id="recurrence-unit-field" class="hidden">
-						<label for="recurrence_unit" class="block text-sm font-medium text-stone-700">Unit</label>
+						<label for="recurrence_unit" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Unit</label>
 						<select
 							id="recurrence_unit"
 							name="recurrence_unit"
@@ -489,14 +489,14 @@ templ ChoreForm(props ChoreFormProps) {
 						if props.Chore != nil && props.Chore.RecurOnComplete {
 							checked
 						}
-						class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 rounded"
+						class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-stone-300 dark:border-slate-600 rounded"
 					/>
-					<label for="recur_on_complete" class="ml-2 block text-sm text-stone-700">Recur after completion (vs fixed schedule)</label>
+					<label for="recur_on_complete" class="ml-2 block text-sm text-stone-700 dark:text-slate-300">Recur after completion (vs fixed schedule)</label>
 				</div>
 
 				<div class="flex justify-end space-x-3">
-					<a href="/chores" class="bg-white py-2 px-4 border border-stone-200 rounded-xl shadow-sm text-sm font-medium text-stone-700 hover:bg-stone-50">Cancel</a>
-					<button type="submit" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-indigo-700">
+					<a href="/chores" class="bg-white dark:bg-slate-700 py-2 px-4 border border-stone-200 dark:border-slate-600 rounded-xl shadow-sm text-sm font-medium text-stone-700 dark:text-slate-200 hover:bg-stone-50 dark:hover:bg-slate-600 transition-colors duration-150">Cancel</a>
+					<button type="submit" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-indigo-500 transition-all duration-150 hover:-translate-y-px active:translate-y-0">
 						if props.IsEdit {
 							Update
 						} else {
@@ -542,9 +542,9 @@ templ ChoreForm(props ChoreFormProps) {
 
 func choreTabClass(activeTab, thisTab string) string {
 	if activeTab == thisTab {
-		return "px-4 py-3 text-sm font-medium text-stone-900 border-b-2 border-indigo-500 -mb-px"
+		return "px-4 py-3 text-sm font-medium text-stone-900 dark:text-slate-100 border-b-2 border-indigo-500 -mb-px transition-colors duration-150"
 	}
-	return "px-4 py-3 text-sm font-medium text-stone-400 hover:text-stone-700"
+	return "px-4 py-3 text-sm font-medium text-stone-400 dark:text-slate-500 hover:text-stone-700 dark:hover:text-slate-300 transition-colors duration-150"
 }
 
 func isEligibleAssignee(eligible []string, userID string) bool {
@@ -627,25 +627,25 @@ func capitalizeDay(day string) string {
 func choreStatusPillClass(filter repository.ChoreFilter, value string) string {
 	active := (value == "" && filter.Status == nil) || (filter.Status != nil && string(*filter.Status) == value)
 	if active {
-		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 ring-1 ring-indigo-100 dark:ring-indigo-500/30 transition-colors duration-150"
 	}
-	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-50"
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors duration-150"
 }
 
 func choreUserPillClass(filter repository.ChoreFilter, userID string) string {
 	active := (userID == "" && filter.AssignedToUser == nil) || (filter.AssignedToUser != nil && *filter.AssignedToUser == userID)
 	if active {
-		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 ring-1 ring-indigo-100 dark:ring-indigo-500/30 transition-colors duration-150"
 	}
-	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-50"
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors duration-150"
 }
 
 func choreCategoryPillClass(filter repository.ChoreFilter, categoryID string) string {
 	active := (categoryID == "" && filter.CategoryID == nil) || (filter.CategoryID != nil && *filter.CategoryID == categoryID)
 	if active {
-		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 ring-1 ring-indigo-100 dark:ring-indigo-500/30 transition-colors duration-150"
 	}
-	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-50"
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors duration-150"
 }
 
 func choreFilterStatus(filter repository.ChoreFilter) string {

@@ -120,6 +120,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Use(middleware.RequireAdmin)
 
 			r.Post("/categories", categoryHandler.Create)
+			r.Get("/categories/{id}/edit", categoryHandler.EditForm)
+			r.Get("/categories/{id}/cancel", categoryHandler.CancelEdit)
 			r.Post("/categories/{id}", categoryHandler.Update)
 			r.Post("/categories/{id}/delete", categoryHandler.Delete)
 

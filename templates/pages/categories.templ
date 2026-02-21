@@ -9,15 +9,54 @@ import (
 templ CategoryRow(category models.Category) {
 	<li class="flex items-center justify-between px-6 py-4" id={ "category-" + category.ID }>
 		<span class="text-sm font-medium text-stone-900">{ category.Name }</span>
-		<button
-			hx-post={ fmt.Sprintf("/categories/%s/delete", category.ID) }
+		<div class="flex items-center gap-3">
+			<button
+				hx-get={ fmt.Sprintf("/categories/%s/edit", category.ID) }
+				hx-target={ "#category-" + category.ID }
+				hx-swap="outerHTML"
+				class="inline-flex items-center gap-1 text-stone-500 hover:text-stone-700 text-sm"
+			>
+				@components.IconPencil("h-4 w-4")
+				Edit
+			</button>
+			<button
+				hx-post={ fmt.Sprintf("/categories/%s/delete", category.ID) }
+				hx-target={ "#category-" + category.ID }
+				hx-swap="outerHTML"
+				hx-confirm="Delete this category?"
+				class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm"
+			>
+				@components.IconTrash("h-4 w-4")
+				Delete
+			</button>
+		</div>
+	</li>
+}
+
+templ CategoryEditForm(category models.Category) {
+	<li class="flex items-center justify-between px-6 py-4" id={ "category-" + category.ID }>
+		<form
+			hx-post={ fmt.Sprintf("/categories/%s", category.ID) }
 			hx-target={ "#category-" + category.ID }
 			hx-swap="outerHTML"
-			hx-confirm="Delete this category?"
-			class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm"
+			class="flex items-center gap-3 flex-1"
 		>
-			@components.IconTrash("h-4 w-4")
-			Delete
-		</button>
+			<input
+				type="text"
+				name="name"
+				value={ category.Name }
+				required
+				class="flex-1 min-w-0 rounded-xl border-stone-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+			/>
+			<button type="submit" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+				Save
+			</button>
+			<a
+				hx-get={ fmt.Sprintf("/categories/%s/cancel", category.ID) }
+				hx-target={ "#category-" + category.ID }
+				hx-swap="outerHTML"
+				class="text-sm text-stone-500 hover:text-stone-700 cursor-pointer"
+			>Cancel</a>
+		</form>
 	</li>
 }

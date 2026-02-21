@@ -129,7 +129,7 @@ templ AdminUsers(props AdminUsersProps) {
 					<div id="new-token-result" class="mb-4"></div>
 
 					<form
-						hx-post="/api/tokens"
+						hx-post="/admin/tokens"
 						hx-target="#new-token-result"
 						hx-swap="innerHTML"
 						class="flex gap-3 mb-6"
@@ -179,4 +179,13 @@ templ AdminUsers(props AdminUsersProps) {
 			</div>
 		</div>
 	}
+}
+
+templ AdminTokenCreated(name string, token string) {
+	<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+		<p class="text-sm font-medium text-emerald-800 mb-2">
+			Token "<span class="font-mono">{ name }</span>" created — copy it now, it won't be shown again.
+		</p>
+		<code class="block text-xs font-mono bg-white border border-emerald-200 rounded-lg p-3 break-all text-stone-800 select-all">{ token }</code>
+	</div>
 }

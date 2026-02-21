@@ -12,10 +12,11 @@ import (
 )
 
 type AdminHandler struct {
-	userRepo     repository.UserRepository
-	tokenRepo    repository.APITokenRepository
-	settingsRepo repository.SettingsRepository
-	categoryRepo repository.CategoryRepository
+	userRepo       repository.UserRepository
+	tokenRepo      repository.APITokenRepository
+	settingsRepo   repository.SettingsRepository
+	categoryRepo   repository.CategoryRepository
+	assignmentRepo repository.ChoreAssignmentRepository
 }
 
 func NewAdminHandler(
@@ -23,12 +24,14 @@ func NewAdminHandler(
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
 	categoryRepo repository.CategoryRepository,
+	assignmentRepo repository.ChoreAssignmentRepository,
 ) *AdminHandler {
 	return &AdminHandler{
-		userRepo:     userRepo,
-		tokenRepo:    tokenRepo,
-		settingsRepo: settingsRepo,
-		categoryRepo: categoryRepo,
+		userRepo:       userRepo,
+		tokenRepo:      tokenRepo,
+		settingsRepo:   settingsRepo,
+		categoryRepo:   categoryRepo,
+		assignmentRepo: assignmentRepo,
 	}
 }
 
@@ -93,6 +96,38 @@ func (handler *AdminHandler) DemoteUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.Redirect(w, r, "/admin/users", http.StatusFound)
+}
+
+func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	scope := r.FormValue("scope")
+	if scope != "api" && scope != "ical" {
+		scope = "api"
+	}
+	_ = scope
+
+	rawToken := generateToken()
+	token := models.APIToken{
+		Name:            name,
+		TokenHash:       repository.HashToken(rawToken),
+		CreatedByUserID: user.ID,
+	}
+
+	if _, err := handler.tokenRepo.Create(ctx, token); err != nil {
+		slog.Error("creating token", "error", err)
+		http.Error(w, "failed to create token", http.StatusInternalServerError)
+		return
+	}
+
+	pages.AdminTokenCreated(name, rawToken).Render(ctx, w)
 }
 
 func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {

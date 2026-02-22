@@ -178,16 +178,13 @@ templ monthView(props CalendarProps) {
 						<div class={ "text-sm font-medium mb-1 " + todayClass(day) }>
 							{ fmt.Sprintf("%d", day.Day()) }
 						</div>
-						for _, event := range eventsOnDay(props.Events, day) {
+						for _, meal := range mealsOnDay(props.Meals, day) {
 							<div
-								class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-								title={ event.Title }
-								hx-get={ eventDetailURL(event) }
-								hx-target="#detail-modal-content"
-								hx-swap="innerHTML"
-								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-0.5 " + components.MealTypeColorClass(meal.MealType) }
+								title={ mealCalendarTitle(meal) }
 							>
-								{ event.Title }
+								@components.MealTypeIcon(meal.MealType, "h-3 w-3")
+								{ meal.Name }
 							</div>
 						}
 						for _, chore := range choresOnDay(props.Chores, day) {
@@ -205,13 +202,16 @@ templ monthView(props CalendarProps) {
 								{ chore.Name }
 							</div>
 						}
-						for _, meal := range mealsOnDay(props.Meals, day) {
+						for _, event := range eventsOnDay(props.Events, day) {
 							<div
-								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-0.5 " + components.MealTypeColorClass(meal.MealType) }
-								title={ mealCalendarTitle(meal) }
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+								title={ event.Title }
+								hx-get={ eventDetailURL(event) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
 							>
-								@components.MealTypeIcon(meal.MealType, "h-3 w-3")
-								{ meal.Name }
+								{ event.Title }
 							</div>
 						}
 					}
@@ -240,16 +240,13 @@ templ weekView(props CalendarProps) {
 				<div class="px-2 py-1 text-xs text-stone-500 dark:text-slate-400 border-r border-zinc-200 dark:border-slate-700 flex items-center justify-center">All Day</div>
 				for _, day := range weekDays(props.Date) {
 					<div class="px-1 py-1 border-r border-zinc-200 dark:border-slate-700 min-h-8">
-						for _, event := range allDayEventsOnDay(props.Events, day) {
+						for _, meal := range mealsOnDay(props.Meals, day) {
 							<div
-								class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-								title={ event.Title }
-								hx-get={ eventDetailURL(event) }
-								hx-target="#detail-modal-content"
-								hx-swap="innerHTML"
-								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-0.5 " + components.MealTypeColorClass(meal.MealType) }
+								title={ mealCalendarTitle(meal) }
 							>
-								{ event.Title }
+								@components.MealTypeIcon(meal.MealType, "h-3 w-3")
+								{ meal.Name }
 							</div>
 						}
 						for _, chore := range choresOnDay(props.Chores, day) {
@@ -264,13 +261,16 @@ templ weekView(props CalendarProps) {
 								{ chore.Name }
 							</div>
 						}
-						for _, meal := range mealsOnDay(props.Meals, day) {
+						for _, event := range allDayEventsOnDay(props.Events, day) {
 							<div
-								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-0.5 " + components.MealTypeColorClass(meal.MealType) }
-								title={ mealCalendarTitle(meal) }
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+								title={ event.Title }
+								hx-get={ eventDetailURL(event) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
 							>
-								@components.MealTypeIcon(meal.MealType, "h-3 w-3")
-								{ meal.Name }
+								{ event.Title }
 							</div>
 						}
 					</div>
@@ -288,16 +288,29 @@ templ weekView(props CalendarProps) {
 					for _, day := range weekDays(props.Date) {
 						<div class={ "px-1 py-1 min-h-12 " + weekDayCellClass(day) }>
 							for _, event := range timedEventsAtHour(props.Events, day, hour) {
-								<div
-									class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-									title={ event.Title }
-									hx-get={ eventDetailURL(event) }
-									hx-target="#detail-modal-content"
-									hx-swap="innerHTML"
-									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-								>
-									{ formatEventTime(event) } { event.Title }
-								</div>
+								if isEventStart(event, hour) {
+									<div
+										class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+										title={ event.Title }
+										hx-get={ eventDetailURL(event) }
+										hx-target="#detail-modal-content"
+										hx-swap="innerHTML"
+										onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+									>
+										{ formatEventTimeRange(event) } { event.Title }
+									</div>
+								} else {
+									<div
+										class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer opacity-75 transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+										title={ event.Title }
+										hx-get={ eventDetailURL(event) }
+										hx-target="#detail-modal-content"
+										hx-swap="innerHTML"
+										onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+									>
+										↕ { event.Title }
+									</div>
+								}
 							}
 						</div>
 					}
@@ -313,19 +326,10 @@ templ dayView(props CalendarProps) {
 		if hasAllDayItemsForDay(props.Events, props.Chores, props.Date) || len(mealsOnDay(props.Meals, props.Date)) > 0 {
 			<div class="border-b border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-700/50 px-4 py-2">
 				<div class="text-xs font-medium text-stone-500 dark:text-slate-400 uppercase mb-1">All Day</div>
-				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
-					<div
-						class="text-sm bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-						title={ event.Title }
-						hx-get={ eventDetailURL(event) }
-						hx-target="#detail-modal-content"
-						hx-swap="innerHTML"
-						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-					>
-						{ event.Title }
-						if event.Location != "" {
-							<span class="text-indigo-500 dark:text-indigo-400/70"> &middot; { event.Location }</span>
-						}
+				for _, meal := range mealsOnDay(props.Meals, props.Date) {
+					<div class={ "text-sm rounded px-2 py-1 mb-1 flex items-center gap-1 " + components.MealTypeColorClass(meal.MealType) } title={ mealCalendarTitle(meal) }>
+						@components.MealTypeIcon(meal.MealType, "h-3.5 w-3.5")
+						{ meal.Name }
 					</div>
 				}
 				for _, chore := range choresOnDay(props.Chores, props.Date) {
@@ -340,10 +344,19 @@ templ dayView(props CalendarProps) {
 						{ chore.Name }
 					</div>
 				}
-				for _, meal := range mealsOnDay(props.Meals, props.Date) {
-					<div class={ "text-sm rounded px-2 py-1 mb-1 flex items-center gap-1 " + components.MealTypeColorClass(meal.MealType) } title={ mealCalendarTitle(meal) }>
-						@components.MealTypeIcon(meal.MealType, "h-3.5 w-3.5")
-						{ meal.Name }
+				for _, event := range allDayEventsOnDay(props.Events, props.Date) {
+					<div
+						class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+						title={ event.Title }
+						hx-get={ eventDetailURL(event) }
+						hx-target="#detail-modal-content"
+						hx-swap="innerHTML"
+						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+					>
+						{ event.Title }
+						if event.Location != "" {
+							<span class="opacity-70"> &middot; { event.Location }</span>
+						}
 					</div>
 				}
 			</div>
@@ -358,18 +371,30 @@ templ dayView(props CalendarProps) {
 					</div>
 					<div class={ "flex-1 px-3 py-1 min-h-14 " + dayTimeCellClass(props.Date, hour) }>
 						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
-							<div
-								class="text-sm bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-								hx-get={ eventDetailURL(event) }
-								hx-target="#detail-modal-content"
-								hx-swap="innerHTML"
-								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-							>
-								<span class="font-medium">{ formatEventTime(event) }</span> { event.Title }
-								if event.Location != "" {
-									<span class="text-indigo-500 dark:text-indigo-400/70"> &middot; { event.Location }</span>
-								}
-							</div>
+							if isEventStart(event, hour) {
+								<div
+									class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+									hx-get={ eventDetailURL(event) }
+									hx-target="#detail-modal-content"
+									hx-swap="innerHTML"
+									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+								>
+									<span class="font-medium">{ formatEventTimeRange(event) }</span> { event.Title }
+									if event.Location != "" {
+										<span class="opacity-70"> &middot; { event.Location }</span>
+									}
+								</div>
+							} else {
+								<div
+									class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer opacity-75 transition-colors duration-150 " + icalEventColorClasses(event.Color) }
+									hx-get={ eventDetailURL(event) }
+									hx-target="#detail-modal-content"
+									hx-swap="innerHTML"
+									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+								>
+									↕ { event.Title }
+								</div>
+							}
 						}
 					</div>
 				</div>
@@ -657,6 +682,17 @@ func formatEventTime(event models.Event) string {
 	return event.StartTime.Format("3:04 PM")
 }
 
+func formatEventTimeRange(event models.Event) string {
+	if event.EndTime == nil {
+		return event.StartTime.Format("3:04 PM")
+	}
+	return event.StartTime.Format("3:04 PM") + " - " + event.EndTime.Format("3:04 PM")
+}
+
+func isEventStart(event models.Event, hour int) bool {
+	return event.StartTime.Hour() == hour
+}
+
 func eventDetailURL(event models.Event) string {
 	params := url.Values{}
 	params.Set("title", event.Title)
@@ -688,11 +724,27 @@ func allDayEventsOnDay(events []models.Event, day time.Time) []models.Event {
 func timedEventsAtHour(events []models.Event, day time.Time, hour int) []models.Event {
 	var result []models.Event
 	for _, event := range events {
-		if !event.AllDay &&
-			event.StartTime.Year() == day.Year() &&
-			event.StartTime.Month() == day.Month() &&
-			event.StartTime.Day() == day.Day() &&
-			event.StartTime.Hour() == hour {
+		if event.AllDay {
+			continue
+		}
+		if event.StartTime.Year() != day.Year() ||
+			event.StartTime.Month() != day.Month() ||
+			event.StartTime.Day() != day.Day() {
+			continue
+		}
+		startHour := event.StartTime.Hour()
+		if hour < startHour {
+			continue
+		}
+		if event.EndTime == nil {
+			if hour == startHour {
+				result = append(result, event)
+			}
+			continue
+		}
+		// Include if the hour slot [hour:00, hour+1:00) overlaps the event
+		endMinutes := event.EndTime.Hour()*60 + event.EndTime.Minute()
+		if hour*60 < endMinutes {
 			result = append(result, event)
 		}
 	}
@@ -786,6 +838,31 @@ func choreColor(status models.ChoreStatus) string {
 		return "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400"
 	default:
 		return "bg-stone-100 text-stone-700 dark:bg-slate-700 dark:text-slate-300"
+	}
+}
+
+func icalEventColorClasses(color string) string {
+	switch color {
+	case "violet":
+		return "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/25"
+	case "rose":
+		return "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/25"
+	case "red":
+		return "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/25"
+	case "orange":
+		return "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/25"
+	case "amber":
+		return "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/25"
+	case "emerald":
+		return "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/25"
+	case "teal":
+		return "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-500/25"
+	case "sky":
+		return "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/25"
+	case "blue":
+		return "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25"
+	default:
+		return "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/25"
 	}
 }
 

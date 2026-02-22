@@ -15,6 +15,7 @@ type ICalSubscriptionRepository interface {
 	FindByID(ctx context.Context, id string) (models.ICalSubscription, error)
 	Create(ctx context.Context, sub models.ICalSubscription) error
 	UpdateCache(ctx context.Context, id string, data string, fetchedAt time.Time) error
+	UpdateColor(ctx context.Context, id string, color string) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -28,7 +29,7 @@ func NewICalSubscriptionRepository(database *sql.DB) *SQLiteICalSubscriptionRepo
 
 func (r *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]models.ICalSubscription, error) {
 	rows, err := r.database.QueryContext(ctx,
-		`SELECT id, name, url, cached_data, last_fetched_at, created_at
+		`SELECT id, name, url, color, cached_data, last_fetched_at, created_at
 		FROM ical_subscriptions ORDER BY created_at ASC`,
 	)
 	if err != nil {
@@ -39,7 +40,7 @@ func (r *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]model
 	var subs []models.ICalSubscription
 	for rows.Next() {
 		var sub models.ICalSubscription
-		if err := rows.Scan(&sub.ID, &sub.Name, &sub.URL, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt); err != nil {
+		if err := rows.Scan(&sub.ID, &sub.Name, &sub.URL, &sub.Color, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning ical subscription: %w", err)
 		}
 		subs = append(subs, sub)
@@ -50,9 +51,9 @@ func (r *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]model
 func (r *SQLiteICalSubscriptionRepository) FindByID(ctx context.Context, id string) (models.ICalSubscription, error) {
 	var sub models.ICalSubscription
 	err := r.database.QueryRowContext(ctx,
-		`SELECT id, name, url, cached_data, last_fetched_at, created_at
+		`SELECT id, name, url, color, cached_data, last_fetched_at, created_at
 		FROM ical_subscriptions WHERE id = ?`, id,
-	).Scan(&sub.ID, &sub.Name, &sub.URL, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt)
+	).Scan(&sub.ID, &sub.Name, &sub.URL, &sub.Color, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt)
 	if err != nil {
 		return models.ICalSubscription{}, fmt.Errorf("finding ical subscription by id: %w", err)
 	}
@@ -63,12 +64,27 @@ func (r *SQLiteICalSubscriptionRepository) Create(ctx context.Context, sub model
 	if sub.ID == "" {
 		sub.ID = uuid.New().String()
 	}
+	color := sub.Color
+	if color == "" {
+		color = "indigo"
+	}
 	_, err := r.database.ExecContext(ctx,
-		`INSERT INTO ical_subscriptions (id, name, url, created_at) VALUES (?, ?, ?, ?)`,
-		sub.ID, sub.Name, sub.URL, time.Now(),
+		`INSERT INTO ical_subscriptions (id, name, url, color, created_at) VALUES (?, ?, ?, ?, ?)`,
+		sub.ID, sub.Name, sub.URL, color, time.Now(),
 	)
 	if err != nil {
 		return fmt.Errorf("inserting ical subscription: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLiteICalSubscriptionRepository) UpdateColor(ctx context.Context, id string, color string) error {
+	_, err := r.database.ExecContext(ctx,
+		`UPDATE ical_subscriptions SET color = ? WHERE id = ?`,
+		color, id,
+	)
+	if err != nil {
+		return fmt.Errorf("updating ical subscription color: %w", err)
 	}
 	return nil
 }

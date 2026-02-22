@@ -140,7 +140,6 @@ templ ChoreList(props ChoreListProps) {
 
 		<script>
 			function switchTab(tab) {
-				document.getElementById('tab-input').value = tab;
 				var tabLabels = {'active': 'chores', 'history': 'history'};
 				document.querySelectorAll('#chore-tabs button').forEach(function(btn) {
 					var btnText = btn.textContent.trim().toLowerCase();

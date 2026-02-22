@@ -89,6 +89,7 @@ type Event struct {
 	StartTime       time.Time
 	EndTime         *time.Time
 	AllDay          bool
+	Color           string
 	CategoryID      *string
 	CreatedByUserID string
 	CreatedAt       time.Time
@@ -157,6 +158,7 @@ type ICalSubscription struct {
 	ID            string
 	Name          string
 	URL           string
+	Color         string
 	CachedData    *string
 	LastFetchedAt *time.Time
 	CreatedAt     time.Time

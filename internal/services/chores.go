@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -139,8 +140,14 @@ func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, 
 	}
 
 	if chore.RecurrenceType != models.RecurrenceNone {
-		if err := service.createNextRecurrence(ctx, chore, now); err != nil {
-			return fmt.Errorf("creating next recurrence: %w", err)
+		if chore.RecurOnComplete {
+			if err := service.createNextRecurrence(ctx, chore, now); err != nil {
+				return fmt.Errorf("creating next recurrence: %w", err)
+			}
+		} else {
+			if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(1, 0, 0)); err != nil {
+				return fmt.Errorf("seeding future occurrences: %w", err)
+			}
 		}
 	}
 
@@ -157,11 +164,19 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 		return nil
 	}
 
+	if chore.SeriesID == nil {
+		chore.SeriesID = &chore.ID
+		if err := service.choreRepo.Update(ctx, chore); err != nil {
+			return fmt.Errorf("setting series_id on legacy chore: %w", err)
+		}
+	}
+
 	newChore := models.Chore{
 		Name:              chore.Name,
 		Description:       chore.Description,
 		CreatedByUserID:   chore.CreatedByUserID,
 		CategoryID:        chore.CategoryID,
+		SeriesID:          chore.SeriesID,
 		LastAssignedIndex: chore.LastAssignedIndex,
 		DueDate:           nextDueDate,
 		DueTime:           chore.DueTime,
@@ -277,6 +292,37 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 		currentChore = assigned
 	}
 
+	return nil
+}
+
+// SeedExistingRecurringChores seeds future instances for all pending recurring chores
+// that have not yet been assigned a series_id. Call once at server startup.
+func (service *ChoreService) SeedExistingRecurringChores(ctx context.Context, until time.Time) error {
+	chores, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+		RecurrenceTypes: []models.RecurrenceType{
+			models.RecurrenceDaily,
+			models.RecurrenceWeekly,
+			models.RecurrenceMonthly,
+			models.RecurrenceCustom,
+			models.RecurrenceCalendar,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("finding chores to seed: %w", err)
+	}
+
+	for _, chore := range chores {
+		if chore.SeriesID != nil {
+			continue
+		}
+		if chore.RecurOnComplete || chore.DueDate == nil {
+			continue
+		}
+		if err := service.SeedFutureOccurrences(ctx, chore, until); err != nil {
+			slog.Error("seeding existing chore", "chore_id", chore.ID, "error", err)
+		}
+	}
 	return nil
 }
 

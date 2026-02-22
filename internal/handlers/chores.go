@@ -427,6 +427,23 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/chores", http.StatusFound)
 }
 
+func (handler *ChoreHandler) DeleteHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := handler.choreRepo.DeleteCompletedByName(ctx, name); err != nil {
+		slog.Error("deleting chore history by name", "error", err, "name", name)
+		http.Error(w, "Error deleting history", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)

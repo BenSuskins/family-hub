@@ -87,6 +87,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Get("/chores/{id}/edit", choreHandler.EditForm)
 			r.Post("/chores/{id}", choreHandler.Update)
 			r.Post("/chores/{id}/delete", choreHandler.Delete)
+			r.Post("/chores/history/delete", choreHandler.DeleteHistory)
 		})
 
 		r.Get("/calendars", icalSubHandler.List)

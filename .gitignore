@@ -44,3 +44,6 @@ node_modules/
 spec.md
 todo.md
 family-hub
+
+# Claude local config (may contain secrets)
+.claude/

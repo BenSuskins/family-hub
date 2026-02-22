@@ -1,5 +1,5 @@
 [build]
-  cmd = "templ generate && npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify && go build -o ./tmp/main ."
+  cmd = "/Users/bensuskins/go/bin/templ generate && npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify && go build -o ./tmp/main ."
   bin = "./tmp/main"
   delay = 1000
   exclude_dir = ["tmp", "node_modules", "data", ".git"]

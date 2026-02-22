@@ -35,13 +35,13 @@ templ EventList(props EventListProps) {
 			<!-- Category Filter Pills -->
 			if len(props.Categories) > 0 {
 				<details class="relative" id="event-filter-details">
-					<summary class="inline-flex items-center gap-2 cursor-pointer [&::-webkit-details-marker]:hidden px-3 py-1.5 rounded-xl border border-stone-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-stone-700 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-slate-700 select-none transition-colors duration-150">
+					<summary class="inline-flex items-center gap-2 cursor-pointer [&::-webkit-details-marker]:hidden px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-stone-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-700 select-none transition-colors duration-150">
 						Filters
 						if props.CategoryFilter != nil {
 							<span class="inline-flex items-center justify-center h-4 w-4 rounded-full bg-indigo-600 text-white text-xs font-bold">!</span>
 						}
 					</summary>
-					<div class="absolute z-10 mt-1 bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 rounded-xl shadow-lg p-4 min-w-[220px]">
+					<div class="absolute z-10 mt-1 bg-white dark:bg-slate-800 border border-zinc-200 dark:border-slate-700 rounded-xl shadow-lg p-4 min-w-[220px]">
 						<p class="text-xs font-medium text-stone-500 dark:text-slate-400 uppercase tracking-wide mb-2">Category</p>
 						<div class="flex flex-wrap gap-1.5">
 							<button type="button" class={ eventCategoryPillClass(props.CategoryFilter, "") } hx-get="/events" hx-target="#event-list-content" hx-swap="outerHTML" hx-on::after-request="document.getElementById('event-filter-details').removeAttribute('open')">All</button>
@@ -61,7 +61,7 @@ templ EventList(props EventListProps) {
 templ EventListContent(props EventListProps) {
 	<div id="event-list-content">
 		if len(props.Events) == 0 {
-			<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-8 text-center text-stone-500 dark:text-slate-400">
+			<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-8 text-center text-stone-500 dark:text-slate-400">
 				<p>No events found</p>
 			</div>
 		} else {
@@ -77,7 +77,7 @@ templ EventListContent(props EventListProps) {
 			</div>
 			<div class="space-y-2 md:space-y-0">
 				for _, event := range props.Events {
-					<div class={ "bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 dark:md:border-slate-700 md:rounded-none md:grid md:gap-4 md:items-center md:px-4 md:py-3 transition-colors duration-100 " + eventGridCols(props.User) }>
+					<div class={ "bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-4 md:shadow-none md:ring-0 md:border-b md:border-stone-100 dark:md:border-slate-700 md:rounded-none md:grid md:gap-4 md:items-center md:px-4 md:py-3 transition-colors duration-100 " + eventGridCols(props.User) }>
 						<!-- Event name -->
 						<div>
 							<div class="text-sm font-medium text-stone-900 dark:text-slate-100">{ event.Title }</div>
@@ -149,7 +149,7 @@ templ EventForm(props EventFormProps) {
 					action="/events"
 				}
 				method="POST"
-				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6"
+				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6"
 			>
 				<div>
 					<label for="title" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Title</label>
@@ -258,7 +258,7 @@ templ EventForm(props EventFormProps) {
 				</div>
 
 				<div class="flex justify-end space-x-3">
-					<a href="/events" class="bg-white dark:bg-slate-700 py-2 px-4 border border-stone-200 dark:border-slate-600 rounded-xl shadow-sm text-sm font-medium text-stone-700 dark:text-slate-100 hover:bg-stone-50 dark:hover:bg-slate-600 transition-colors duration-150">Cancel</a>
+					<a href="/events" class="bg-white dark:bg-slate-700 py-2 px-4 border border-zinc-200 dark:border-slate-600 rounded-xl shadow-sm text-sm font-medium text-stone-700 dark:text-slate-100 hover:bg-zinc-50 dark:hover:bg-slate-600 transition-colors duration-150">Cancel</a>
 					<button type="submit" class="bg-indigo-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-indigo-500 transition-colors duration-150 hover:-translate-y-px active:translate-y-0">
 						if props.IsEdit {
 							Update
@@ -311,5 +311,5 @@ func eventCategoryPillClass(filter *string, categoryID string) string {
 	if active {
 		return "px-3 py-1 rounded-full text-sm font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-400 dark:ring-indigo-500/30 transition-colors duration-150"
 	}
-	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors duration-150"
+	return "px-3 py-1 rounded-full text-sm font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors duration-150"
 }

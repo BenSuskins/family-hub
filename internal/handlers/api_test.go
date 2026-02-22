@@ -41,7 +41,7 @@ func TestAPITokenAuth_RejectsICalScopedToken(t *testing.T) {
 		t.Fatalf("creating ical token: %v", err)
 	}
 
-	apiHandler := NewAPIHandler(nil, nil, nil, nil, nil, tokenRepo)
+	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo)
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -84,7 +84,7 @@ func TestDeleteToken(t *testing.T) {
 		t.Fatalf("creating token: %v", err)
 	}
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, tokenRepo)
+	handler := NewAPIHandler(nil, nil, nil, nil, tokenRepo)
 
 	router := chi.NewRouter()
 	router.Delete("/api/tokens/{id}", handler.DeleteToken)

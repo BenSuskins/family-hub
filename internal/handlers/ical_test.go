@@ -17,13 +17,12 @@ func setupICalHandler(t *testing.T) (*ICalHandler, repository.APITokenRepository
 	t.Helper()
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
-	eventRepo := repository.NewEventRepository(database)
 	userRepo := repository.NewUserRepository(database)
 	tokenRepo := repository.NewAPITokenRepository(database)
 	settingsRepo := repository.NewSettingsRepository(database)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 
-	handler := NewICalHandler(choreRepo, eventRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, "")
+	handler := NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, "")
 	return handler, tokenRepo, userRepo
 }
 

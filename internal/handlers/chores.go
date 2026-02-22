@@ -81,7 +81,7 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		historyEntries := buildHistoryEntries(chores, userNameMap)
 
 		if r.Header.Get("HX-Request") == "true" {
-			component := pages.ChoreHistoryContent(historyEntries)
+			component := pages.ChoreHistoryContent(historyEntries, user.Role == models.RoleAdmin)
 			component.Render(ctx, w)
 			return
 		}

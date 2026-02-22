@@ -79,7 +79,8 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 
 	// Active chore count for stat card
 	activeChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+		Statuses:          []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+		OnlyNextPerSeries: true,
 	})
 	if err != nil {
 		slog.Error("finding active chores", "error", err)
@@ -137,7 +138,13 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	for _, u := range users {
 		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
 		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
-		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusPending, u.ID)
+		pendingStatus := models.ChoreStatusPending
+		pendingChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
+			Status:            &pendingStatus,
+			AssignedToUser:    &u.ID,
+			OnlyNextPerSeries: true,
+		})
+		assignedPending := len(pendingChores)
 
 		userStats = append(userStats, UserStat{
 			UserName:        u.Name,
@@ -188,7 +195,13 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 	for _, u := range users {
 		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
 		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
-		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusPending, u.ID)
+		pendingStatus := models.ChoreStatusPending
+		pendingChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
+			Status:            &pendingStatus,
+			AssignedToUser:    &u.ID,
+			OnlyNextPerSeries: true,
+		})
+		assignedPending := len(pendingChores)
 
 		userStats = append(userStats, UserStat{
 			UserName:        u.Name,

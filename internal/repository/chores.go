@@ -17,15 +17,16 @@ const (
 )
 
 type ChoreFilter struct {
-	Status          *models.ChoreStatus
-	Statuses        []models.ChoreStatus
-	RecurrenceTypes []models.RecurrenceType
-	AssignedToUser  *string
-	CategoryID      *string
-	DueBefore       *time.Time
-	DueAfter        *time.Time
-	OrderBy         string
-	Limit           int
+	Status             *models.ChoreStatus
+	Statuses           []models.ChoreStatus
+	RecurrenceTypes    []models.RecurrenceType
+	AssignedToUser     *string
+	CategoryID         *string
+	DueBefore          *time.Time
+	DueAfter           *time.Time
+	OrderBy            string
+	Limit              int
+	OnlyNextPerSeries  bool
 }
 
 type ChoreRepository interface {
@@ -76,19 +77,19 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 	return chore, nil
 }
 
-func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
-	query := `SELECT id, name, description, created_by_user_id, category_id,
+const choreColumns = `id, name, description, created_by_user_id, category_id,
 		assigned_to_user_id, last_assigned_index,
 		due_date, due_time,
 		recurrence_type, recurrence_value, recur_on_complete, series_id,
 		status, completed_at, completed_by_user_id,
-		created_at, updated_at
-	FROM chores WHERE 1=1`
+		created_at, updated_at`
 
+func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
+	where := "WHERE 1=1"
 	var args []interface{}
 
 	if filter.Status != nil {
-		query += " AND status = ?"
+		where += " AND status = ?"
 		args = append(args, *filter.Status)
 	}
 	if len(filter.Statuses) > 0 {
@@ -97,7 +98,7 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 			placeholders[i] = "?"
 			args = append(args, string(s))
 		}
-		query += " AND status IN (" + strings.Join(placeholders, ",") + ")"
+		where += " AND status IN (" + strings.Join(placeholders, ",") + ")"
 	}
 	if len(filter.RecurrenceTypes) > 0 {
 		placeholders := make([]string, len(filter.RecurrenceTypes))
@@ -105,22 +106,22 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 			placeholders[i] = "?"
 			args = append(args, string(rt))
 		}
-		query += " AND recurrence_type IN (" + strings.Join(placeholders, ",") + ")"
+		where += " AND recurrence_type IN (" + strings.Join(placeholders, ",") + ")"
 	}
 	if filter.AssignedToUser != nil {
-		query += " AND assigned_to_user_id = ?"
+		where += " AND assigned_to_user_id = ?"
 		args = append(args, *filter.AssignedToUser)
 	}
 	if filter.CategoryID != nil {
-		query += " AND category_id = ?"
+		where += " AND category_id = ?"
 		args = append(args, *filter.CategoryID)
 	}
 	if filter.DueBefore != nil {
-		query += " AND due_date <= ?"
+		where += " AND due_date <= ?"
 		args = append(args, *filter.DueBefore)
 	}
 	if filter.DueAfter != nil {
-		query += " AND due_date >= ?"
+		where += " AND due_date >= ?"
 		args = append(args, *filter.DueAfter)
 	}
 
@@ -128,7 +129,21 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 	if orderBy == "" {
 		orderBy = OrderByDueDateAsc
 	}
-	query += " ORDER BY " + orderBy
+
+	var query string
+	if filter.OnlyNextPerSeries {
+		query = fmt.Sprintf(
+			`SELECT %s FROM (
+				SELECT %s,
+					ROW_NUMBER() OVER (PARTITION BY COALESCE(series_id, id) ORDER BY due_date ASC NULLS LAST) AS _rn
+				FROM chores %s
+			) WHERE _rn = 1
+			ORDER BY %s`,
+			choreColumns, choreColumns, where, orderBy,
+		)
+	} else {
+		query = fmt.Sprintf("SELECT %s FROM chores %s ORDER BY %s", choreColumns, where, orderBy)
+	}
 
 	if filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", filter.Limit)

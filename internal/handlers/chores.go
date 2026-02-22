@@ -110,6 +110,7 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &s
 	} else {
 		filter.Statuses = []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}
+		filter.OnlyNextPerSeries = true
 	}
 
 	chores, err := handler.choreRepo.FindAll(ctx, filter)

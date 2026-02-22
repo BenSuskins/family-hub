@@ -271,7 +271,7 @@ func (service *AuthService) DevLogin(ctx context.Context) (models.User, error) {
 	if err == nil {
 		return existing, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) && !isNotFound(err) {
+	if !isNotFound(err) {
 		return models.User{}, fmt.Errorf("looking up dev user: %w", err)
 	}
 

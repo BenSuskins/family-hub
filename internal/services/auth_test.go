@@ -38,6 +38,9 @@ func TestDevLogin_CreatesDevAdminUser(t *testing.T) {
 	if user.Role != models.RoleAdmin {
 		t.Errorf("expected role admin, got %q", user.Role)
 	}
+	if user.OIDCSubject != devUserOIDCSubject {
+		t.Errorf("expected OIDCSubject %q, got %q", devUserOIDCSubject, user.OIDCSubject)
+	}
 	if user.ID == "" {
 		t.Error("expected non-empty user ID")
 	}

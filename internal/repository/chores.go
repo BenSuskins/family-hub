@@ -55,7 +55,7 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 		`SELECT id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
 			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete,
+			recurrence_type, recurrence_value, recur_on_complete, series_id,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at
 		FROM chores WHERE id = ?`, id,
@@ -63,7 +63,7 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 		&chore.ID, &chore.Name, &chore.Description, &chore.CreatedByUserID, &chore.CategoryID,
 		&chore.AssignedToUserID, &chore.LastAssignedIndex,
 		&chore.DueDate, &chore.DueTime,
-		&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete,
+		&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
 		&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
 		&chore.CreatedAt, &chore.UpdatedAt,
 	)
@@ -77,7 +77,7 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 	query := `SELECT id, name, description, created_by_user_id, category_id,
 		assigned_to_user_id, last_assigned_index,
 		due_date, due_time,
-		recurrence_type, recurrence_value, recur_on_complete,
+		recurrence_type, recurrence_value, recur_on_complete, series_id,
 		status, completed_at, completed_by_user_id,
 		created_at, updated_at
 	FROM chores WHERE 1=1`
@@ -158,14 +158,14 @@ func (repository *SQLiteChoreRepository) Create(ctx context.Context, chore model
 		`INSERT INTO chores (id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
 			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete,
+			recurrence_type, recurrence_value, recur_on_complete, series_id,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		chore.ID, chore.Name, chore.Description, chore.CreatedByUserID, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
 		chore.DueDate, chore.DueTime,
-		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete,
+		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.CreatedAt, chore.UpdatedAt,
 	)
@@ -181,14 +181,14 @@ func (repository *SQLiteChoreRepository) Update(ctx context.Context, chore model
 		`UPDATE chores SET name = ?, description = ?, category_id = ?,
 			assigned_to_user_id = ?, last_assigned_index = ?,
 			due_date = ?, due_time = ?,
-			recurrence_type = ?, recurrence_value = ?, recur_on_complete = ?,
+			recurrence_type = ?, recurrence_value = ?, recur_on_complete = ?, series_id = ?,
 			status = ?, completed_at = ?, completed_by_user_id = ?,
 			updated_at = ?
 		WHERE id = ?`,
 		chore.Name, chore.Description, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
 		chore.DueDate, chore.DueTime,
-		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete,
+		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.UpdatedAt, chore.ID,
 	)
@@ -215,7 +215,7 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 		`SELECT id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
 			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete,
+			recurrence_type, recurrence_value, recur_on_complete, series_id,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at
 		FROM chores
@@ -250,7 +250,7 @@ func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]mo
 		`SELECT id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
 			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete,
+			recurrence_type, recurrence_value, recur_on_complete, series_id,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at
 		FROM chores
@@ -354,7 +354,7 @@ func scanChores(rows *sql.Rows) ([]models.Chore, error) {
 			&chore.ID, &chore.Name, &chore.Description, &chore.CreatedByUserID, &chore.CategoryID,
 			&chore.AssignedToUserID, &chore.LastAssignedIndex,
 			&chore.DueDate, &chore.DueTime,
-			&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete,
+			&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
 			&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
 			&chore.CreatedAt, &chore.UpdatedAt,
 		); err != nil {

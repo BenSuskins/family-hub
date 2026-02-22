@@ -20,11 +20,12 @@ func setupDashboardHandler(t *testing.T) (*DashboardHandler, models.User, *repos
 	database := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(database)
 	choreRepo := repository.NewChoreRepository(database)
-	eventRepo := repository.NewEventRepository(database)
+	icalSubRepo := repository.NewICalSubscriptionRepository(database)
 	assignmentRepo := repository.NewChoreAssignmentRepository(database)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 	categoryRepo := repository.NewCategoryRepository(database)
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	icalFetcher := services.NewICalFetcher(icalSubRepo)
 
 	user, err := userRepo.Create(context.Background(), models.User{
 		OIDCSubject: "sub-" + time.Now().String(),
@@ -36,7 +37,7 @@ func setupDashboardHandler(t *testing.T) (*DashboardHandler, models.User, *repos
 		t.Fatalf("creating test user: %v", err)
 	}
 
-	handler := NewDashboardHandler(choreRepo, eventRepo, userRepo, assignmentRepo, choreService, mealPlanRepo, categoryRepo)
+	handler := NewDashboardHandler(choreRepo, icalFetcher, userRepo, assignmentRepo, choreService, mealPlanRepo, categoryRepo)
 	return handler, user, choreRepo
 }
 

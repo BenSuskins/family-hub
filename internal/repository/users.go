@@ -17,6 +17,9 @@ type UserRepository interface {
 	Create(ctx context.Context, user models.User) (models.User, error)
 	UpdateRole(ctx context.Context, id string, role models.Role) error
 	UpdateProfile(ctx context.Context, id string, name string, email string, avatarURL string) error
+	FindAvatarData(ctx context.Context, userID string) (string, error)
+	UpdateAvatar(ctx context.Context, userID string, dataURI string) error
+	ClearAvatar(ctx context.Context, userID string) error
 	Count(ctx context.Context) (int, error)
 }
 
@@ -106,6 +109,40 @@ func (repository *SQLiteUserRepository) UpdateProfile(ctx context.Context, id st
 	)
 	if err != nil {
 		return fmt.Errorf("updating user profile: %w", err)
+	}
+	return nil
+}
+
+func (repository *SQLiteUserRepository) FindAvatarData(ctx context.Context, userID string) (string, error) {
+	var avatarData string
+	err := repository.database.QueryRowContext(ctx,
+		"SELECT avatar_data FROM users WHERE id = ?", userID,
+	).Scan(&avatarData)
+	if err != nil {
+		return "", fmt.Errorf("finding avatar data: %w", err)
+	}
+	return avatarData, nil
+}
+
+func (repository *SQLiteUserRepository) UpdateAvatar(ctx context.Context, userID string, dataURI string) error {
+	avatarURL := "/avatar/" + userID
+	_, err := repository.database.ExecContext(ctx,
+		"UPDATE users SET avatar_data = ?, avatar_url = ?, updated_at = ? WHERE id = ?",
+		dataURI, avatarURL, time.Now(), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("updating avatar: %w", err)
+	}
+	return nil
+}
+
+func (repository *SQLiteUserRepository) ClearAvatar(ctx context.Context, userID string) error {
+	_, err := repository.database.ExecContext(ctx,
+		"UPDATE users SET avatar_data = '', avatar_url = '', updated_at = ? WHERE id = ?",
+		time.Now(), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("clearing avatar: %w", err)
 	}
 	return nil
 }

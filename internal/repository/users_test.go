@@ -128,6 +128,82 @@ func TestUserRepository_UpdateProfile(t *testing.T) {
 	}
 }
 
+func TestUserRepository_UpdateAvatar(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	created, _ := repo.Create(ctx, models.User{
+		OIDCSubject: "s1", Email: "a@test.com", Name: "Alice", Role: models.RoleMember,
+	})
+
+	dataURI := "data:image/png;base64,iVBORw0KGgo="
+
+	if err := repo.UpdateAvatar(ctx, created.ID, dataURI); err != nil {
+		t.Fatalf("UpdateAvatar: %v", err)
+	}
+
+	avatarData, err := repo.FindAvatarData(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("FindAvatarData: %v", err)
+	}
+	if avatarData != dataURI {
+		t.Errorf("expected %q, got %q", dataURI, avatarData)
+	}
+
+	found, _ := repo.FindByID(ctx, created.ID)
+	if found.AvatarURL != "/avatar/"+created.ID {
+		t.Errorf("expected avatar_url '/avatar/%s', got %q", created.ID, found.AvatarURL)
+	}
+}
+
+func TestUserRepository_ClearAvatar(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	created, _ := repo.Create(ctx, models.User{
+		OIDCSubject: "s1", Email: "a@test.com", Name: "Alice", Role: models.RoleMember,
+	})
+
+	repo.UpdateAvatar(ctx, created.ID, "data:image/png;base64,abc=")
+
+	if err := repo.ClearAvatar(ctx, created.ID); err != nil {
+		t.Fatalf("ClearAvatar: %v", err)
+	}
+
+	avatarData, err := repo.FindAvatarData(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("FindAvatarData after clear: %v", err)
+	}
+	if avatarData != "" {
+		t.Errorf("expected empty avatar_data after clear, got %q", avatarData)
+	}
+
+	found, _ := repo.FindByID(ctx, created.ID)
+	if found.AvatarURL != "" {
+		t.Errorf("expected empty avatar_url after clear, got %q", found.AvatarURL)
+	}
+}
+
+func TestUserRepository_FindAvatarData_EmptyByDefault(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	created, _ := repo.Create(ctx, models.User{
+		OIDCSubject: "s1", Email: "a@test.com", Name: "Alice", Role: models.RoleMember,
+	})
+
+	avatarData, err := repo.FindAvatarData(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("FindAvatarData: %v", err)
+	}
+	if avatarData != "" {
+		t.Errorf("expected empty avatar_data for new user, got %q", avatarData)
+	}
+}
+
 func TestUserRepository_Count(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	repo := repository.NewUserRepository(db)

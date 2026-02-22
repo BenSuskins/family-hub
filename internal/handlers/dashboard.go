@@ -23,7 +23,7 @@ type UserStat struct {
 
 type DashboardHandler struct {
 	choreRepo      repository.ChoreRepository
-	eventRepo      repository.EventRepository
+	icalFetcher    *services.ICalFetcher
 	userRepo       repository.UserRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	choreService   *services.ChoreService
@@ -33,7 +33,7 @@ type DashboardHandler struct {
 
 func NewDashboardHandler(
 	choreRepo repository.ChoreRepository,
-	eventRepo repository.EventRepository,
+	icalFetcher *services.ICalFetcher,
 	userRepo repository.UserRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	choreService *services.ChoreService,
@@ -42,7 +42,7 @@ func NewDashboardHandler(
 ) *DashboardHandler {
 	return &DashboardHandler{
 		choreRepo:      choreRepo,
-		eventRepo:      eventRepo,
+		icalFetcher:    icalFetcher,
 		userRepo:       userRepo,
 		assignmentRepo: assignmentRepo,
 		choreService:   choreService,
@@ -92,14 +92,11 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Upcoming events (next 7 days)
+	// Upcoming events (next 7 days) from iCal subscriptions
 	weekFromNow := now.AddDate(0, 0, 7)
-	upcomingEvents, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{
-		StartAfter:  &now,
-		StartBefore: &weekFromNow,
-	})
+	upcomingEvents, err := handler.icalFetcher.FetchForRange(ctx, now, weekFromNow)
 	if err != nil {
-		slog.Error("finding upcoming events", "error", err)
+		slog.Error("fetching upcoming ical events", "error", err)
 	}
 
 	// Meals this week (for stat card)

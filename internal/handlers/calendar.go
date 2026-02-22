@@ -16,7 +16,7 @@ import (
 
 type CalendarHandler struct {
 	choreRepo    repository.ChoreRepository
-	eventRepo    repository.EventRepository
+	icalFetcher  *services.ICalFetcher
 	userRepo     repository.UserRepository
 	tokenRepo    repository.APITokenRepository
 	mealPlanRepo repository.MealPlanRepository
@@ -25,7 +25,7 @@ type CalendarHandler struct {
 
 func NewCalendarHandler(
 	choreRepo repository.ChoreRepository,
-	eventRepo repository.EventRepository,
+	icalFetcher *services.ICalFetcher,
 	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
 	mealPlanRepo repository.MealPlanRepository,
@@ -33,7 +33,7 @@ func NewCalendarHandler(
 ) *CalendarHandler {
 	return &CalendarHandler{
 		choreRepo:    choreRepo,
-		eventRepo:    eventRepo,
+		icalFetcher:  icalFetcher,
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
 		mealPlanRepo: mealPlanRepo,
@@ -113,12 +113,9 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		date = start
 	}
 
-	events, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{
-		StartAfter:  &start,
-		StartBefore: &end,
-	})
+	events, err := handler.icalFetcher.FetchForRange(ctx, start, end)
 	if err != nil {
-		slog.Error("finding events for calendar", "error", err)
+		slog.Error("fetching ical events for calendar", "error", err)
 	}
 
 	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
@@ -185,6 +182,30 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		UserAvatarMap: userAvatarMap,
 	})
 	component.Render(ctx, w)
+}
+
+func (handler *CalendarHandler) EventDetail(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	title := q.Get("title")
+	location := q.Get("location")
+	description := q.Get("description")
+	allDay := q.Get("all_day") == "true"
+
+	start, _ := time.Parse(time.RFC3339, q.Get("start"))
+	event := models.Event{
+		Title:       title,
+		Location:    location,
+		Description: description,
+		StartTime:   start,
+		AllDay:      allDay,
+	}
+	if endStr := q.Get("end"); endStr != "" {
+		if end, err := time.Parse(time.RFC3339, endStr); err == nil {
+			event.EndTime = &end
+		}
+	}
+
+	pages.EventDetailFragment(event, "").Render(r.Context(), w)
 }
 
 func (handler *CalendarHandler) ShareInfo(w http.ResponseWriter, r *http.Request) {

@@ -151,3 +151,12 @@ type MealPlan struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
+
+type ICalSubscription struct {
+	ID            string
+	Name          string
+	URL           string
+	CachedData    *string
+	LastFetchedAt *time.Time
+	CreatedAt     time.Time
+}

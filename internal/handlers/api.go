@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -16,7 +15,6 @@ import (
 
 type APIHandler struct {
 	choreRepo      repository.ChoreRepository
-	eventRepo      repository.EventRepository
 	userRepo       repository.UserRepository
 	categoryRepo   repository.CategoryRepository
 	assignmentRepo repository.ChoreAssignmentRepository
@@ -25,7 +23,6 @@ type APIHandler struct {
 
 func NewAPIHandler(
 	choreRepo repository.ChoreRepository,
-	eventRepo repository.EventRepository,
 	userRepo repository.UserRepository,
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
@@ -33,7 +30,6 @@ func NewAPIHandler(
 ) *APIHandler {
 	return &APIHandler{
 		choreRepo:      choreRepo,
-		eventRepo:      eventRepo,
 		userRepo:       userRepo,
 		categoryRepo:   categoryRepo,
 		assignmentRepo: assignmentRepo,
@@ -69,39 +65,6 @@ func (handler *APIHandler) GetChore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, chore)
-}
-
-func (handler *APIHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	filter := repository.EventFilter{}
-
-	if after := r.URL.Query().Get("after"); after != "" {
-		if t, err := time.Parse("2006-01-02", after); err == nil {
-			filter.StartAfter = &t
-		}
-	}
-	if before := r.URL.Query().Get("before"); before != "" {
-		if t, err := time.Parse("2006-01-02", before); err == nil {
-			filter.StartBefore = &t
-		}
-	}
-
-	events, err := handler.eventRepo.FindAll(ctx, filter)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load events"})
-		return
-	}
-	writeJSON(w, http.StatusOK, events)
-}
-
-func (handler *APIHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	event, err := handler.eventRepo.FindByID(ctx, chi.URLParam(r, "id"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
-		return
-	}
-	writeJSON(w, http.StatusOK, event)
 }
 
 func (handler *APIHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
@@ -140,17 +103,9 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
 	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
 
-	now := time.Now()
-	weekFromNow := now.AddDate(0, 0, 7)
-	upcomingEvents, _ := handler.eventRepo.FindAll(ctx, repository.EventFilter{
-		StartAfter:  &now,
-		StartBefore: &weekFromNow,
-	})
-
 	stats := map[string]interface{}{
 		"chores_due_today": len(choresDueToday),
 		"chores_overdue":   len(overdueChores),
-		"upcoming_events":  len(upcomingEvents),
 	}
 	writeJSON(w, http.StatusOK, stats)
 }

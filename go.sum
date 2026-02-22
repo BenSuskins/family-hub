@@ -1,5 +1,7 @@
 github.com/a-h/templ v0.3.977 h1:kiKAPXTZE2Iaf8JbtM21r54A8bCNsncrfnokZZSrSDg=
 github.com/a-h/templ v0.3.977/go.mod h1:oCZcnKRf5jjsGpf2yELzQfodLphd2mwecwG4Crk5HBo=
+github.com/arran4/golang-ical v0.3.2 h1:MGNjcXJFSuCXmYX/RpZhR2HDCYoFuK8vTPFLEdFC3JY=
+github.com/arran4/golang-ical v0.3.2/go.mod h1:xblDGxxIUMWwFZk9dlECUlc1iXNV65LJZOTHLVwu8bo=
 github.com/coreos/go-oidc/v3 v3.17.0 h1:hWBGaQfbi0iVviX4ibC7bk8OKT5qNr4klBaCHVNvehc=
 github.com/coreos/go-oidc/v3 v3.17.0/go.mod h1:wqPbKFrVnE90vty060SB40FCJ8fTHTxSwyXJqZH+sI8=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=

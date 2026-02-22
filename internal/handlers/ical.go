@@ -12,7 +12,6 @@ import (
 
 type ICalHandler struct {
 	choreRepo    repository.ChoreRepository
-	eventRepo    repository.EventRepository
 	userRepo     repository.UserRepository
 	tokenRepo    repository.APITokenRepository
 	settingsRepo repository.SettingsRepository
@@ -22,7 +21,6 @@ type ICalHandler struct {
 
 func NewICalHandler(
 	choreRepo repository.ChoreRepository,
-	eventRepo repository.EventRepository,
 	userRepo repository.UserRepository,
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
@@ -31,7 +29,6 @@ func NewICalHandler(
 ) *ICalHandler {
 	return &ICalHandler{
 		choreRepo:    choreRepo,
-		eventRepo:    eventRepo,
 		userRepo:     userRepo,
 		tokenRepo:    tokenRepo,
 		settingsRepo: settingsRepo,
@@ -62,13 +59,6 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-
-	events, err := handler.eventRepo.FindAll(ctx, repository.EventFilter{})
-	if err != nil {
-		slog.Error("finding events for ical", "error", err)
-		http.Error(w, "Error", http.StatusInternalServerError)
-		return
-	}
 
 	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
 	if err != nil {
@@ -102,29 +92,6 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	builder.WriteString("CALSCALE:GREGORIAN\r\n")
 	builder.WriteString("METHOD:PUBLISH\r\n")
 	builder.WriteString(fmt.Sprintf("X-WR-CALNAME:%s\r\n", hubName))
-
-	for _, event := range events {
-		builder.WriteString("BEGIN:VEVENT\r\n")
-		builder.WriteString(fmt.Sprintf("UID:%s@family-hub\r\n", event.ID))
-		builder.WriteString(fmt.Sprintf("SUMMARY:%s\r\n", escapeICalText(event.Title)))
-		if event.Description != "" {
-			builder.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICalText(event.Description)))
-		}
-		if event.Location != "" {
-			builder.WriteString(fmt.Sprintf("LOCATION:%s\r\n", escapeICalText(event.Location)))
-		}
-		if event.AllDay {
-			builder.WriteString(fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", event.StartTime.Format("20060102")))
-			builder.WriteString(fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", event.StartTime.AddDate(0, 0, 1).Format("20060102")))
-		} else {
-			builder.WriteString(fmt.Sprintf("DTSTART:%s\r\n", event.StartTime.UTC().Format("20060102T150405Z")))
-			if event.EndTime != nil {
-				builder.WriteString(fmt.Sprintf("DTEND:%s\r\n", event.EndTime.UTC().Format("20060102T150405Z")))
-			}
-		}
-		builder.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", event.CreatedAt.UTC().Format("20060102T150405Z")))
-		builder.WriteString("END:VEVENT\r\n")
-	}
 
 	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{})
 	if err != nil {

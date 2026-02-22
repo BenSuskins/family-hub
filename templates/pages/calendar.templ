@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -181,7 +182,7 @@ templ monthView(props CalendarProps) {
 							<div
 								class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
 								title={ event.Title }
-								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-get={ eventDetailURL(event) }
 								hx-target="#detail-modal-content"
 								hx-swap="innerHTML"
 								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
@@ -243,7 +244,7 @@ templ weekView(props CalendarProps) {
 							<div
 								class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
 								title={ event.Title }
-								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-get={ eventDetailURL(event) }
 								hx-target="#detail-modal-content"
 								hx-swap="innerHTML"
 								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
@@ -290,7 +291,7 @@ templ weekView(props CalendarProps) {
 								<div
 									class="text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
 									title={ event.Title }
-									hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+									hx-get={ eventDetailURL(event) }
 									hx-target="#detail-modal-content"
 									hx-swap="innerHTML"
 									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
@@ -316,7 +317,7 @@ templ dayView(props CalendarProps) {
 					<div
 						class="text-sm bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
 						title={ event.Title }
-						hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+						hx-get={ eventDetailURL(event) }
 						hx-target="#detail-modal-content"
 						hx-swap="innerHTML"
 						onclick="document.getElementById('detail-modal').classList.remove('hidden')"
@@ -359,7 +360,7 @@ templ dayView(props CalendarProps) {
 						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
 							<div
 								class="text-sm bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 rounded px-2 py-1 mb-1 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-150"
-								hx-get={ fmt.Sprintf("/events/%s/detail", event.ID) }
+								hx-get={ eventDetailURL(event) }
 								hx-target="#detail-modal-content"
 								hx-swap="innerHTML"
 								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
@@ -654,6 +655,21 @@ func formatHour(hour int) string {
 
 func formatEventTime(event models.Event) string {
 	return event.StartTime.Format("3:04 PM")
+}
+
+func eventDetailURL(event models.Event) string {
+	params := url.Values{}
+	params.Set("title", event.Title)
+	params.Set("location", event.Location)
+	params.Set("description", event.Description)
+	params.Set("start", event.StartTime.Format(time.RFC3339))
+	if event.EndTime != nil {
+		params.Set("end", event.EndTime.Format(time.RFC3339))
+	}
+	if event.AllDay {
+		params.Set("all_day", "true")
+	}
+	return "/calendar/event-detail?" + params.Encode()
 }
 
 func allDayEventsOnDay(events []models.Event, day time.Time) []models.Event {

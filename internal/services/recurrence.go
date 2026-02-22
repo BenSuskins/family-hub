@@ -116,39 +116,6 @@ func CalculateNextDueDate(chore models.Chore, completedAt time.Time) (*time.Time
 
 const maxExpansionIterations = 366
 
-func ExpandChoreOccurrences(chore models.Chore, rangeStart, rangeEnd time.Time) ([]models.Chore, error) {
-	if chore.RecurrenceType == models.RecurrenceNone || chore.DueDate == nil {
-		return nil, nil
-	}
-
-	config, err := parseConfig(chore.RecurrenceValue)
-	if err != nil {
-		return nil, err
-	}
-
-	var occurrences []models.Chore
-	current := *chore.DueDate
-
-	for i := 0; i < maxExpansionIterations; i++ {
-		current = advanceToNextOccurrence(current, chore.RecurrenceType, config)
-
-		if !current.Before(rangeEnd) {
-			break
-		}
-
-		if current.Before(rangeStart) {
-			continue
-		}
-
-		projected := chore
-		projectedDate := current
-		projected.DueDate = &projectedDate
-		occurrences = append(occurrences, projected)
-	}
-
-	return occurrences, nil
-}
-
 func findNextWeekday(from time.Time, targetDays []string) time.Time {
 	dayMap := map[string]time.Weekday{
 		"sunday":    time.Sunday,

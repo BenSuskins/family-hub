@@ -278,45 +278,50 @@ templ weekView(props CalendarProps) {
 			</div>
 		}
 
-		<!-- Time grid -->
-		<div class="overflow-y-auto" style="max-height: 600px;">
-			for _, hour := range hours() {
-				<div class="grid grid-cols-8 border-b border-zinc-200 dark:border-slate-700 divide-x divide-zinc-200 dark:divide-slate-700">
-					<div class="px-2 py-3 text-xs text-stone-500 dark:text-slate-500 text-right pr-3 border-r border-zinc-200 dark:border-slate-700">
-						{ formatHour(hour) }
-					</div>
-					for _, day := range weekDays(props.Date) {
-						<div class={ "px-1 py-1 min-h-12 " + weekDayCellClass(day) }>
-							for _, event := range timedEventsAtHour(props.Events, day, hour) {
-								if isEventStart(event, hour) {
-									<div
-										class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
-										title={ event.Title }
-										hx-get={ eventDetailURL(event) }
-										hx-target="#detail-modal-content"
-										hx-swap="innerHTML"
-										onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-									>
-										{ formatEventTimeRange(event) } { event.Title }
-									</div>
-								} else {
-									<div
-										class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer opacity-75 transition-colors duration-150 " + icalEventColorClasses(event.Color) }
-										title={ event.Title }
-										hx-get={ eventDetailURL(event) }
-										hx-target="#detail-modal-content"
-										hx-swap="innerHTML"
-										onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-									>
-										↕ { event.Title }
-									</div>
-								}
-							}
-						</div>
+		<!-- Time grid: 60px per hour, 1440px total -->
+		<div class="overflow-y-auto" style="max-height: 600px;" id="week-time-grid">
+			<div class="flex" style="height: 1440px;">
+				<!-- Hour labels -->
+				<div class="w-16 flex-shrink-0 relative border-r border-zinc-200 dark:border-slate-700">
+					for _, hour := range hours() {
+						if hour > 0 {
+							<div
+								class="absolute text-xs text-stone-500 dark:text-slate-500 text-right pr-2 w-full -translate-y-2 select-none"
+								style={ fmt.Sprintf("top: %dpx;", hour*60) }
+							>
+								{ formatHour(hour) }
+							</div>
+						}
 					}
 				</div>
-			}
+				<!-- Day columns -->
+				for _, day := range weekDays(props.Date) {
+					<div class={ "flex-1 relative border-r border-zinc-200 dark:border-slate-700 " + weekDayCellClass(day) }>
+						for _, hour := range hours() {
+							<div
+								class="absolute w-full border-t border-zinc-200 dark:border-slate-700 pointer-events-none"
+								style={ fmt.Sprintf("top: %dpx;", hour*60) }
+							></div>
+						}
+						for _, event := range timedEventsForDay(props.Events, day) {
+							<div
+								class={ "absolute left-0.5 right-0.5 rounded px-1 py-0.5 overflow-hidden cursor-pointer text-xs " + icalEventColorClasses(event.Color) }
+								style={ fmt.Sprintf("top: %dpx; height: %dpx;", eventTopPx(event), eventHeightPx(event)) }
+								title={ event.Title }
+								hx-get={ eventDetailURL(event) }
+								hx-target="#detail-modal-content"
+								hx-swap="innerHTML"
+								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+							>
+								<div class="font-semibold leading-tight truncate">{ event.Title }</div>
+								<div class="opacity-80 truncate">{ formatEventTimeRange(event) }</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
 		</div>
+		<script>document.getElementById('week-time-grid').scrollTop = 420;</script>
 	</div>
 }
 
@@ -362,44 +367,51 @@ templ dayView(props CalendarProps) {
 			</div>
 		}
 
-		<!-- Time grid -->
-		<div class="overflow-y-auto" style="max-height: 700px;">
-			for _, hour := range hours() {
-				<div class="flex border-b border-zinc-200 dark:border-slate-700">
-					<div class="w-20 flex-shrink-0 px-2 py-3 text-xs text-stone-500 dark:text-slate-500 text-right pr-3 border-r border-zinc-200 dark:border-slate-700">
-						{ formatHour(hour) }
-					</div>
-					<div class={ "flex-1 px-3 py-1 min-h-14 " + dayTimeCellClass(props.Date, hour) }>
-						for _, event := range timedEventsAtHour(props.Events, props.Date, hour) {
-							if isEventStart(event, hour) {
-								<div
-									class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer transition-colors duration-150 " + icalEventColorClasses(event.Color) }
-									hx-get={ eventDetailURL(event) }
-									hx-target="#detail-modal-content"
-									hx-swap="innerHTML"
-									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-								>
-									<span class="font-medium">{ formatEventTimeRange(event) }</span> { event.Title }
-									if event.Location != "" {
-										<span class="opacity-70"> &middot; { event.Location }</span>
-									}
-								</div>
-							} else {
-								<div
-									class={ "text-sm rounded px-2 py-1 mb-1 cursor-pointer opacity-75 transition-colors duration-150 " + icalEventColorClasses(event.Color) }
-									hx-get={ eventDetailURL(event) }
-									hx-target="#detail-modal-content"
-									hx-swap="innerHTML"
-									onclick="document.getElementById('detail-modal').classList.remove('hidden')"
-								>
-									↕ { event.Title }
-								</div>
-							}
+		<!-- Time grid: 60px per hour, 1440px total -->
+		<div class="overflow-y-auto" style="max-height: 700px;" id="day-time-grid">
+			<div class="flex" style="height: 1440px;">
+				<!-- Hour labels -->
+				<div class="w-20 flex-shrink-0 relative border-r border-zinc-200 dark:border-slate-700">
+					for _, hour := range hours() {
+						if hour > 0 {
+							<div
+								class="absolute text-xs text-stone-500 dark:text-slate-500 text-right pr-3 w-full -translate-y-2 select-none"
+								style={ fmt.Sprintf("top: %dpx;", hour*60) }
+							>
+								{ formatHour(hour) }
+							</div>
 						}
-					</div>
+					}
 				</div>
-			}
+				<!-- Grid lines + events -->
+				<div class="flex-1 relative">
+					for _, hour := range hours() {
+						<div
+							class="absolute w-full border-t border-zinc-200 dark:border-slate-700 pointer-events-none"
+							style={ fmt.Sprintf("top: %dpx;", hour*60) }
+						></div>
+					}
+					for _, event := range timedEventsForDay(props.Events, props.Date) {
+						<div
+							class={ "absolute left-1 right-1 rounded px-2 py-1 overflow-hidden cursor-pointer text-sm " + icalEventColorClasses(event.Color) }
+							style={ fmt.Sprintf("top: %dpx; height: %dpx;", eventTopPx(event), eventHeightPx(event)) }
+							title={ event.Title }
+							hx-get={ eventDetailURL(event) }
+							hx-target="#detail-modal-content"
+							hx-swap="innerHTML"
+							onclick="document.getElementById('detail-modal').classList.remove('hidden')"
+						>
+							<div class="font-semibold leading-tight truncate">{ event.Title }</div>
+							<div class="opacity-80 truncate">{ formatEventTimeRange(event) }</div>
+							if event.Location != "" {
+								<div class="opacity-70 truncate text-xs">{ event.Location }</div>
+							}
+						</div>
+					}
+				</div>
+			</div>
 		</div>
+		<script>document.getElementById('day-time-grid').scrollTop = 420;</script>
 	</div>
 }
 
@@ -645,16 +657,6 @@ func weekDayCellClass(day time.Time) string {
 	return ""
 }
 
-// Day view helpers
-
-func dayTimeCellClass(day time.Time, hour int) string {
-	now := time.Now()
-	if day.Year() == now.Year() && day.Month() == now.Month() && day.Day() == now.Day() && now.Hour() == hour {
-		return "bg-indigo-50 dark:bg-indigo-500/10"
-	}
-	return ""
-}
-
 // Shared time helpers
 
 func hours() []int {
@@ -689,10 +691,6 @@ func formatEventTimeRange(event models.Event) string {
 	return event.StartTime.Format("3:04 PM") + " - " + event.EndTime.Format("3:04 PM")
 }
 
-func isEventStart(event models.Event, hour int) bool {
-	return event.StartTime.Hour() == hour
-}
-
 func eventDetailURL(event models.Event) string {
 	params := url.Values{}
 	params.Set("title", event.Title)
@@ -721,34 +719,36 @@ func allDayEventsOnDay(events []models.Event, day time.Time) []models.Event {
 	return result
 }
 
-func timedEventsAtHour(events []models.Event, day time.Time, hour int) []models.Event {
+func timedEventsForDay(events []models.Event, day time.Time) []models.Event {
 	var result []models.Event
 	for _, event := range events {
 		if event.AllDay {
 			continue
 		}
-		if event.StartTime.Year() != day.Year() ||
-			event.StartTime.Month() != day.Month() ||
-			event.StartTime.Day() != day.Day() {
-			continue
-		}
-		startHour := event.StartTime.Hour()
-		if hour < startHour {
-			continue
-		}
-		if event.EndTime == nil {
-			if hour == startHour {
-				result = append(result, event)
-			}
-			continue
-		}
-		// Include if the hour slot [hour:00, hour+1:00) overlaps the event
-		endMinutes := event.EndTime.Hour()*60 + event.EndTime.Minute()
-		if hour*60 < endMinutes {
+		if event.StartTime.Year() == day.Year() &&
+			event.StartTime.Month() == day.Month() &&
+			event.StartTime.Day() == day.Day() {
 			result = append(result, event)
 		}
 	}
 	return result
+}
+
+func eventTopPx(event models.Event) int {
+	return event.StartTime.Hour()*60 + event.StartTime.Minute()
+}
+
+func eventHeightPx(event models.Event) int {
+	if event.EndTime == nil {
+		return 45
+	}
+	start := event.StartTime.Hour()*60 + event.StartTime.Minute()
+	end := event.EndTime.Hour()*60 + event.EndTime.Minute()
+	duration := end - start
+	if duration < 20 {
+		duration = 20
+	}
+	return duration
 }
 
 func hasAllDayItems(events []models.Event, chores []models.Chore, days []time.Time) bool {
@@ -844,25 +844,25 @@ func choreColor(status models.ChoreStatus) string {
 func icalEventColorClasses(color string) string {
 	switch color {
 	case "violet":
-		return "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/25"
+		return "bg-violet-100 dark:bg-violet-500/30 border-l-2 border-violet-500 text-violet-900 dark:text-violet-100 hover:bg-violet-200 dark:hover:bg-violet-500/40"
 	case "rose":
-		return "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/25"
+		return "bg-rose-100 dark:bg-rose-500/30 border-l-2 border-rose-500 text-rose-900 dark:text-rose-100 hover:bg-rose-200 dark:hover:bg-rose-500/40"
 	case "red":
-		return "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/25"
+		return "bg-red-100 dark:bg-red-500/30 border-l-2 border-red-500 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-500/40"
 	case "orange":
-		return "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/25"
+		return "bg-orange-100 dark:bg-orange-500/30 border-l-2 border-orange-500 text-orange-900 dark:text-orange-100 hover:bg-orange-200 dark:hover:bg-orange-500/40"
 	case "amber":
-		return "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/25"
+		return "bg-amber-100 dark:bg-amber-500/30 border-l-2 border-amber-500 text-amber-900 dark:text-amber-100 hover:bg-amber-200 dark:hover:bg-amber-500/40"
 	case "emerald":
-		return "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/25"
+		return "bg-emerald-100 dark:bg-emerald-500/30 border-l-2 border-emerald-500 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-200 dark:hover:bg-emerald-500/40"
 	case "teal":
-		return "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-500/25"
+		return "bg-teal-100 dark:bg-teal-500/30 border-l-2 border-teal-500 text-teal-900 dark:text-teal-100 hover:bg-teal-200 dark:hover:bg-teal-500/40"
 	case "sky":
-		return "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/25"
+		return "bg-sky-100 dark:bg-sky-500/30 border-l-2 border-sky-500 text-sky-900 dark:text-sky-100 hover:bg-sky-200 dark:hover:bg-sky-500/40"
 	case "blue":
-		return "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/25"
+		return "bg-blue-100 dark:bg-blue-500/30 border-l-2 border-blue-500 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-500/40"
 	default:
-		return "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/25"
+		return "bg-indigo-100 dark:bg-indigo-500/30 border-l-2 border-indigo-500 text-indigo-900 dark:text-indigo-100 hover:bg-indigo-200 dark:hover:bg-indigo-500/40"
 	}
 }
 

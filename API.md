@@ -99,7 +99,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/categories" | jq
 
 #### `GET /api/ha/sensors`
 
-Sensor data for Home Assistant integration. Requires `HA_API_TOKEN` to be configured server-side.
+Sensor data for Home Assistant integration.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/ha/sensors" | jq

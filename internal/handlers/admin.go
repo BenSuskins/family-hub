@@ -12,11 +12,10 @@ import (
 )
 
 type AdminHandler struct {
-	userRepo       repository.UserRepository
-	tokenRepo      repository.APITokenRepository
-	settingsRepo   repository.SettingsRepository
-	categoryRepo   repository.CategoryRepository
-	assignmentRepo repository.ChoreAssignmentRepository
+	userRepo     repository.UserRepository
+	tokenRepo    repository.APITokenRepository
+	settingsRepo repository.SettingsRepository
+	categoryRepo repository.CategoryRepository
 }
 
 func NewAdminHandler(
@@ -24,14 +23,12 @@ func NewAdminHandler(
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
 	categoryRepo repository.CategoryRepository,
-	assignmentRepo repository.ChoreAssignmentRepository,
 ) *AdminHandler {
 	return &AdminHandler{
-		userRepo:       userRepo,
-		tokenRepo:      tokenRepo,
-		settingsRepo:   settingsRepo,
-		categoryRepo:   categoryRepo,
-		assignmentRepo: assignmentRepo,
+		userRepo:     userRepo,
+		tokenRepo:    tokenRepo,
+		settingsRepo: settingsRepo,
+		categoryRepo: categoryRepo,
 	}
 }
 
@@ -130,14 +127,6 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 	pages.AdminTokenCreated(name, rawToken).Render(ctx, w)
 }
 
-func (handler *AdminHandler) DeleteChoreHistory(w http.ResponseWriter, r *http.Request) {
-	if err := handler.assignmentRepo.DeleteCompleted(r.Context()); err != nil {
-		slog.Error("deleting chore history", "error", err)
-		http.Error(w, "failed to delete chore history", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/admin/users", http.StatusFound)
-}
 
 func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

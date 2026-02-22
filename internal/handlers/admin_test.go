@@ -18,7 +18,6 @@ func TestAdminHandler_CreateToken_ReturnsHTML(t *testing.T) {
 	tokenRepo := repository.NewAPITokenRepository(database)
 	settingsRepo := repository.NewSettingsRepository(database)
 	categoryRepo := repository.NewCategoryRepository(database)
-	assignmentRepo := repository.NewChoreAssignmentRepository(database)
 
 	admin := models.User{Name: "Admin", Email: "admin@test.com", Role: models.RoleAdmin}
 	created, err := userRepo.Create(t.Context(), admin)
@@ -27,7 +26,7 @@ func TestAdminHandler_CreateToken_ReturnsHTML(t *testing.T) {
 	}
 	admin = created
 
-	handler := NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo, assignmentRepo)
+	handler := NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
 
 	form := url.Values{"name": {"mytoken"}, "scope": {"api"}}
 	req := httptest.NewRequest(http.MethodPost, "/admin/tokens", strings.NewReader(form.Encode()))

@@ -194,6 +194,92 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 	return nil
 }
 
+// SeedFutureOccurrences creates pending chore instances from the chore's series ahead to `until`.
+// No-op for RecurOnComplete chores (can't predict completion dates) or chores without a DueDate.
+// Idempotent: starts from the last existing future pending instance in the series.
+func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore models.Chore, until time.Time) error {
+	if chore.RecurrenceType == models.RecurrenceNone || chore.RecurOnComplete {
+		return nil
+	}
+	if chore.DueDate == nil {
+		return nil
+	}
+
+	// Ensure series_id is set (handles legacy chores completed for the first time)
+	if chore.SeriesID == nil {
+		chore.SeriesID = &chore.ID
+		if err := service.choreRepo.Update(ctx, chore); err != nil {
+			return fmt.Errorf("setting series_id: %w", err)
+		}
+	}
+
+	// Find the furthest-ahead pending instance — seed from there
+	startChore := chore
+	lastFuture, err := service.choreRepo.FindLastFuturePendingInSeries(ctx, *chore.SeriesID)
+	if err != nil {
+		return fmt.Errorf("finding last future pending: %w", err)
+	}
+	if lastFuture != nil {
+		startChore = *lastFuture
+	}
+
+	config, err := parseConfig(chore.RecurrenceValue)
+	if err != nil {
+		return fmt.Errorf("parsing recurrence config: %w", err)
+	}
+
+	current := *startChore.DueDate
+	currentChore := startChore
+	now := time.Now()
+
+	for i := 0; i < maxExpansionIterations; i++ {
+		nextDate := advanceToNextOccurrence(current, chore.RecurrenceType, config)
+		if !nextDate.Before(until) {
+			break
+		}
+		current = nextDate
+
+		if nextDate.Before(now) {
+			continue // skip dates already in the past
+		}
+
+		newChore := models.Chore{
+			Name:              chore.Name,
+			Description:       chore.Description,
+			CreatedByUserID:   chore.CreatedByUserID,
+			CategoryID:        chore.CategoryID,
+			SeriesID:          chore.SeriesID,
+			LastAssignedIndex: currentChore.LastAssignedIndex,
+			DueDate:           &nextDate,
+			DueTime:           chore.DueTime,
+			RecurrenceType:    chore.RecurrenceType,
+			RecurrenceValue:   chore.RecurrenceValue,
+			RecurOnComplete:   chore.RecurOnComplete,
+			Status:            models.ChoreStatusPending,
+		}
+
+		created, err := service.choreRepo.Create(ctx, newChore)
+		if err != nil {
+			return fmt.Errorf("creating seeded chore instance: %w", err)
+		}
+
+		eligibleIDs, err := service.choreRepo.GetEligibleAssignees(ctx, chore.ID)
+		if err == nil && len(eligibleIDs) > 0 {
+			if err := service.choreRepo.SetEligibleAssignees(ctx, created.ID, eligibleIDs); err != nil {
+				return fmt.Errorf("copying eligible assignees: %w", err)
+			}
+		}
+
+		assigned, err := service.AssignNextUser(ctx, created)
+		if err != nil {
+			return fmt.Errorf("assigning seeded chore: %w", err)
+		}
+		currentChore = assigned
+	}
+
+	return nil
+}
+
 func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 	overdueChores, err := service.choreRepo.FindOverdueChores(ctx)
 	if err != nil {

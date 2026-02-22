@@ -1,0 +1,61 @@
+package pages
+
+import (
+	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/templates/components"
+	"github.com/bensuskins/family-hub/templates/layouts"
+)
+
+type ProfileProps struct {
+	User            models.User
+	HasCustomAvatar bool
+}
+
+templ Profile(props ProfileProps) {
+	@layouts.Base("Profile", props.User, "/profile") {
+		<div class="max-w-lg space-y-6">
+			<h1 class="text-xl font-semibold text-stone-800 dark:text-slate-100">Profile</h1>
+			<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6 space-y-6">
+				<div class="flex items-center gap-4">
+					@components.UserAvatar(props.User.Name, props.User.AvatarURL, "h-20 w-20 text-2xl")
+					<div>
+						<p class="text-sm font-medium text-stone-900 dark:text-slate-100">{ props.User.Name }</p>
+						<p class="text-sm text-stone-500 dark:text-slate-400">{ props.User.Email }</p>
+					</div>
+				</div>
+				<div>
+					<h2 class="text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Upload custom avatar</h2>
+					<p class="text-xs text-stone-500 dark:text-slate-400 mb-3">Any image format, up to 1 MB.</p>
+					<form method="POST" action="/profile/avatar" enctype="multipart/form-data" class="flex gap-3 items-center flex-wrap">
+						<input
+							type="file"
+							name="avatar"
+							accept="image/*"
+							required
+							class="text-sm text-stone-600 dark:text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-zinc-100 file:text-stone-700 dark:file:bg-slate-700 dark:file:text-slate-200"
+						/>
+						<button
+							type="submit"
+							class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors duration-150 hover:-translate-y-px active:translate-y-0"
+						>
+							Upload
+						</button>
+					</form>
+				</div>
+				if props.HasCustomAvatar {
+					<div class="border-t border-zinc-100 dark:border-slate-700 pt-4">
+						<p class="text-xs text-stone-500 dark:text-slate-400 mb-2">Remove your custom avatar to revert to your account provider photo.</p>
+						<form method="POST" action="/profile/avatar/delete">
+							<button
+								type="submit"
+								class="text-sm text-red-600 dark:text-red-400 hover:underline"
+							>
+								Remove custom avatar
+							</button>
+						</form>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}

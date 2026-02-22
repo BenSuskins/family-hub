@@ -338,6 +338,10 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture old recurrence settings before overwriting
+	oldRecurrenceType := chore.RecurrenceType
+	oldRecurrenceValue := chore.RecurrenceValue
+
 	recurrenceType := models.RecurrenceType(r.FormValue("recurrence_type"))
 	recurrenceValue := buildRecurrenceValue(recurrenceType, r)
 
@@ -381,6 +385,16 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	} else {
 		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, nil); err != nil {
 			slog.Error("clearing eligible assignees", "error", err)
+		}
+	}
+
+	// If recurrence changed, delete stale future instances and re-seed
+	recurrenceChanged := recurrenceType != oldRecurrenceType || recurrenceValue != oldRecurrenceValue
+	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
+		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
+			slog.Error("deleting stale future instances", "error", err)
+		} else if err := handler.choreService.SeedFutureOccurrences(ctx, chore, time.Now().AddDate(1, 0, 0)); err != nil {
+			slog.Error("re-seeding after recurrence change", "error", err)
 		}
 	}
 

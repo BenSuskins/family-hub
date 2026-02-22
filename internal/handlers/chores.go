@@ -405,6 +405,19 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	choreID := chi.URLParam(r, "id")
 
+	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Delete future pending siblings before deleting the chore itself
+	if chore.SeriesID != nil {
+		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
+			slog.Error("deleting future pending siblings", "error", err)
+		}
+	}
+
 	if err := handler.choreRepo.Delete(ctx, choreID); err != nil {
 		slog.Error("deleting chore", "error", err)
 		http.Error(w, "Error deleting chore", http.StatusInternalServerError)

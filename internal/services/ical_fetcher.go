@@ -89,7 +89,7 @@ func (f *ICalFetcher) fetchSubscription(ctx context.Context, sub models.ICalSubs
 		return nil, fmt.Errorf("no cached data for subscription %q", sub.Name)
 	}
 
-	return parseICalData(*sub.CachedData, sub.ID)
+	return parseICalData(*sub.CachedData, sub.ID, sub.Color)
 }
 
 func (f *ICalFetcher) fetchURL(url string) (string, error) {
@@ -110,7 +110,7 @@ func (f *ICalFetcher) fetchURL(url string) (string, error) {
 	return string(data), nil
 }
 
-func parseICalData(data string, subscriptionID string) ([]models.Event, error) {
+func parseICalData(data string, subscriptionID string, subscriptionColor string) ([]models.Event, error) {
 	cal, err := ical.ParseCalendar(strings.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("parsing ical: %w", err)
@@ -118,7 +118,7 @@ func parseICalData(data string, subscriptionID string) ([]models.Event, error) {
 
 	var events []models.Event
 	for _, e := range cal.Events() {
-		event, err := convertICalEvent(e, subscriptionID)
+		event, err := convertICalEvent(e, subscriptionID, subscriptionColor)
 		if err != nil {
 			slog.Debug("skipping ical event", "error", err)
 			continue
@@ -128,7 +128,7 @@ func parseICalData(data string, subscriptionID string) ([]models.Event, error) {
 	return events, nil
 }
 
-func convertICalEvent(e *ical.VEvent, subscriptionID string) (models.Event, error) {
+func convertICalEvent(e *ical.VEvent, subscriptionID string, subscriptionColor string) (models.Event, error) {
 	uid := subscriptionID + "-unknown"
 	if prop := e.GetProperty(ical.ComponentPropertyUniqueId); prop != nil {
 		uid = subscriptionID + "-" + prop.Value
@@ -186,6 +186,7 @@ func convertICalEvent(e *ical.VEvent, subscriptionID string) (models.Event, erro
 		StartTime:   startTime,
 		EndTime:     endTime,
 		AllDay:      allDay,
+		Color:       subscriptionColor,
 	}, nil
 }
 

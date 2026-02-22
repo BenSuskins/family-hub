@@ -52,10 +52,16 @@ func (h *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	color := r.FormValue("color")
+	if !isValidSubscriptionColor(color) {
+		color = "indigo"
+	}
+
 	sub := models.ICalSubscription{
-		ID:   uuid.New().String(),
-		Name: name,
-		URL:  url,
+		ID:    uuid.New().String(),
+		Name:  name,
+		URL:   url,
+		Color: color,
 	}
 	if err := h.subRepo.Create(ctx, sub); err != nil {
 		slog.Error("creating ical subscription", "error", err)
@@ -77,6 +83,38 @@ func (h *ICalSubscriptionsHandler) Delete(w http.ResponseWriter, r *http.Request
 	}
 
 	http.Redirect(w, r, "/calendars", http.StatusSeeOther)
+}
+
+func (h *ICalSubscriptionsHandler) UpdateColor(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+
+	color := r.FormValue("color")
+	if !isValidSubscriptionColor(color) {
+		http.Error(w, "Invalid color", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.subRepo.UpdateColor(ctx, id, color); err != nil {
+		slog.Error("updating ical subscription color", "id", id, "error", err)
+		http.Error(w, "Error updating color", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/calendars", http.StatusSeeOther)
+}
+
+func isValidSubscriptionColor(color string) bool {
+	switch color {
+	case "indigo", "violet", "rose", "red", "orange", "amber", "emerald", "teal", "sky", "blue":
+		return true
+	}
+	return false
 }
 
 func (h *ICalSubscriptionsHandler) Refresh(w http.ResponseWriter, r *http.Request) {

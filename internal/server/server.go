@@ -98,6 +98,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/calendars", icalSubHandler.Create)
 			r.Post("/calendars/{id}/delete", icalSubHandler.Delete)
 			r.Post("/calendars/{id}/refresh", icalSubHandler.Refresh)
+			r.Post("/calendars/{id}/color", icalSubHandler.UpdateColor)
 		})
 
 		r.Get("/meals", mealHandler.Planner)

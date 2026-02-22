@@ -88,11 +88,11 @@ templ MealPlanner(props MealPlannerProps) {
 
 templ MealMobileRow(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
 	<div id={ mealMobileCellID(date, mealType) } class="flex items-center gap-3 px-4 py-3 min-h-[52px]">
-		@mealMobileRowContent(date, mealType, meal, recipes)
+		@MealMobileRowContent(date, mealType, meal, recipes)
 	</div>
 }
 
-templ mealMobileRowContent(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
+templ MealMobileRowContent(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
 	<div class="flex-shrink-0 w-24">
 		@components.MealTypeBadge(mealType)
 	</div>
@@ -267,7 +267,7 @@ templ MealMobileCellEdit(date string, mealType models.MealType, meal *models.Mea
 
 // MealMobileCell is returned by the handler for mobile HTMX responses
 templ MealMobileCell(date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe) {
-	@mealMobileRowContent(date, mealType, meal, recipes)
+	@MealMobileRowContent(date, mealType, meal, recipes)
 }
 
 // ── Desktop grid components ───────────────────────────────────────────────────

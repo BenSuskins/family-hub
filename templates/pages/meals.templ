@@ -53,7 +53,7 @@ templ MealPlanner(props MealPlannerProps) {
 						<div class={ "px-4 py-2.5 border-b border-stone-100 dark:border-slate-700 text-sm font-medium " + mealTodayHeaderClass(day) }>
 							{ day.Format("Monday, Jan 2") }
 						</div>
-						<div class="divide-y divide-stone-100 dark:divide-slate-700">
+						<div class="divide-y divide-zinc-100 dark:divide-slate-700">
 							for _, mealType := range mealTypes() {
 								@MealMobileRow(day.Format("2006-01-02"), mealType, lookupMeal(props.MealMap, day.Format("2006-01-02"), mealType), props.Recipes)
 							}
@@ -64,7 +64,7 @@ templ MealPlanner(props MealPlannerProps) {
 
 			<!-- Desktop: 7-column grid -->
 			<div class="hidden md:block overflow-x-auto">
-				<div class="grid grid-cols-7 min-w-[700px] bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl overflow-hidden">
+				<div class="grid grid-cols-7 min-w-[700px] bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl overflow-hidden">
 					<!-- Day Headers -->
 					for _, day := range props.Days {
 						<div class={ "border-r border-b border-stone-100 dark:border-slate-700 px-3 py-2.5 text-center " + mealTodayHeaderClass(day) }>
@@ -171,7 +171,7 @@ templ MealMobileCellEdit(date string, mealType models.MealType, meal *models.Mea
 		<div class="meal-freeform-input">
 			<input
 				type="text"
-				class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
+				class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
 				placeholder="e.g. Spaghetti"
 				oninput="this.form.querySelector('input[name=name]').value = this.value"
 				if meal != nil && meal.RecipeID == nil {
@@ -182,7 +182,7 @@ templ MealMobileCellEdit(date string, mealType models.MealType, meal *models.Mea
 
 		<!-- Recipe select (hidden by default) -->
 		<div class="meal-recipe-select hidden">
-			<select name="recipe_id" class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm text-sm" onchange="updateMealName(this)">
+			<select name="recipe_id" class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm text-sm" onchange="updateMealName(this)">
 				<option value="">Select recipe...</option>
 				for _, recipe := range recipes {
 					<option
@@ -223,7 +223,7 @@ templ MealMobileCellEdit(date string, mealType models.MealType, meal *models.Mea
 				type="text"
 				name="notes"
 				placeholder="Notes (optional)"
-				class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
+				class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
 				if meal != nil {
 					value={ meal.Notes }
 				}
@@ -361,7 +361,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 		<div class="meal-freeform-input">
 			<input
 				type="text"
-				class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
+				class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
 				placeholder="e.g. Spaghetti"
 				oninput="this.form.querySelector('input[name=name]').value = this.value"
 				if meal != nil && meal.RecipeID == nil {
@@ -372,7 +372,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 
 		<!-- Recipe select (hidden by default) -->
 		<div class="meal-recipe-select hidden">
-			<select name="recipe_id" class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm text-sm" onchange="updateMealName(this)">
+			<select name="recipe_id" class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm text-sm" onchange="updateMealName(this)">
 				<option value="">Select recipe...</option>
 				for _, recipe := range recipes {
 					<option
@@ -413,7 +413,7 @@ templ MealCellEdit(date string, mealType models.MealType, meal *models.MealPlan,
 				type="text"
 				name="notes"
 				placeholder="Notes (optional)"
-				class="w-full rounded-lg border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
+				class="w-full rounded-lg border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm text-sm"
 				if meal != nil {
 					value={ meal.Notes }
 				}
@@ -503,7 +503,7 @@ func mealMobileTodayRing(day time.Time) string {
 	if day.Year() == today.Year() && day.Month() == today.Month() && day.Day() == today.Day() {
 		return "ring-indigo-300 dark:ring-indigo-500/50"
 	}
-	return "ring-stone-100 dark:ring-slate-700"
+	return "ring-zinc-200 dark:ring-slate-700"
 }
 
 func lookupMeal(mealMap map[string]models.MealPlan, date string, mealType models.MealType) *models.MealPlan {

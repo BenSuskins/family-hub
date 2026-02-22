@@ -23,7 +23,7 @@ templ AdminUsers(props AdminUsersProps) {
 			<!-- Hub Settings -->
 			<div>
 				<h2 class="text-lg font-medium text-stone-900 dark:text-slate-300 mb-4">Hub Settings</h2>
-				<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6">
+				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
 					<form method="POST" action="/admin/settings" class="flex gap-3 items-end">
 						<div class="flex-1">
 							<label for="family_name" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Family Name</label>
@@ -44,7 +44,7 @@ templ AdminUsers(props AdminUsersProps) {
 			<!-- Categories -->
 			<div>
 				<h2 class="text-lg font-medium text-stone-900 dark:text-slate-300 mb-4">Categories</h2>
-				<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6">
+				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
 					<form
 						hx-post="/categories"
 						hx-target="#category-list"
@@ -57,14 +57,14 @@ templ AdminUsers(props AdminUsersProps) {
 							name="name"
 							placeholder="New category name"
 							required
-							class="flex-1 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							class="flex-1 rounded-xl border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 						/>
 						<button type="submit" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors duration-150">
 							@components.IconPlus("h-4 w-4")
 							Add
 						</button>
 					</form>
-					<ul class="divide-y divide-stone-200 dark:divide-slate-700" id="category-list">
+					<ul class="divide-y divide-zinc-200 dark:divide-slate-700" id="category-list">
 						for _, category := range props.Categories {
 							@CategoryRow(category)
 						}
@@ -78,8 +78,8 @@ templ AdminUsers(props AdminUsersProps) {
 			<!-- Users -->
 			<div>
 				<h2 class="text-lg font-medium text-stone-900 dark:text-slate-300 mb-4">Family Members</h2>
-				<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl overflow-hidden">
-					<table class="min-w-full divide-y divide-stone-200 dark:divide-slate-700">
+				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl overflow-hidden">
+					<table class="min-w-full divide-y divide-zinc-200 dark:divide-slate-700">
 						<thead class="bg-stone-50 dark:bg-slate-700/50">
 							<tr>
 								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-slate-400 uppercase">Name</th>
@@ -88,9 +88,9 @@ templ AdminUsers(props AdminUsersProps) {
 								<th class="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-slate-400 uppercase">Actions</th>
 							</tr>
 						</thead>
-						<tbody class="bg-white dark:bg-slate-800 divide-y divide-stone-200 dark:divide-slate-700">
+						<tbody class="bg-white dark:bg-slate-800 divide-y divide-zinc-200 dark:divide-slate-700">
 							for _, u := range props.AllUsers {
-								<tr class="hover:bg-stone-50 dark:hover:bg-slate-700/50 transition-colors duration-100">
+								<tr class="hover:bg-zinc-50 dark:hover:bg-slate-700/50 transition-colors duration-100">
 									<td class="px-6 py-4 text-sm font-medium text-stone-900 dark:text-slate-100">{ u.Name }</td>
 									<td class="px-6 py-4 text-sm text-stone-500 dark:text-slate-400">{ u.Email }</td>
 									<td class="px-6 py-4 text-sm">
@@ -123,7 +123,7 @@ templ AdminUsers(props AdminUsersProps) {
 			<!-- API Tokens -->
 			<div>
 				<h2 class="text-lg font-medium text-stone-900 dark:text-slate-300 mb-4">API Tokens</h2>
-				<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6">
+				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
 					<p class="text-sm text-stone-500 dark:text-slate-400 mb-4">Create tokens for API access (REST API) or calendar feed access (iCal). Tokens are shown only once on creation.</p>
 
 					<div id="new-token-result" class="mb-4"></div>
@@ -139,11 +139,11 @@ templ AdminUsers(props AdminUsersProps) {
 							name="name"
 							placeholder="Token name"
 							required
-							class="flex-1 min-w-0 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							class="flex-1 min-w-0 rounded-xl border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 						/>
 						<select
 							name="scope"
-							class="w-28 flex-shrink-0 rounded-xl border-stone-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							class="w-28 flex-shrink-0 rounded-xl border-zinc-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 						>
 							<option value="api">API</option>
 							<option value="ical">iCal</option>
@@ -155,7 +155,7 @@ templ AdminUsers(props AdminUsersProps) {
 					</form>
 
 					if len(props.APITokens) > 0 {
-						<table class="min-w-full divide-y divide-stone-200 dark:divide-slate-700">
+						<table class="min-w-full divide-y divide-zinc-200 dark:divide-slate-700">
 							<thead class="bg-stone-50 dark:bg-slate-700/50">
 								<tr>
 									<th class="px-4 py-2 text-left text-xs font-medium text-stone-500 dark:text-slate-400 uppercase">Name</th>
@@ -164,9 +164,9 @@ templ AdminUsers(props AdminUsersProps) {
 									<th class="px-4 py-2 text-left text-xs font-medium text-stone-500 dark:text-slate-400 uppercase">Actions</th>
 								</tr>
 							</thead>
-							<tbody class="divide-y divide-stone-200 dark:divide-slate-700">
+							<tbody class="divide-y divide-zinc-200 dark:divide-slate-700">
 								for _, token := range props.APITokens {
-									<tr class="hover:bg-stone-50 dark:hover:bg-slate-700/50 transition-colors duration-100">
+									<tr class="hover:bg-zinc-50 dark:hover:bg-slate-700/50 transition-colors duration-100">
 										<td class="px-4 py-2 text-sm text-stone-900 dark:text-slate-100">{ token.Name }</td>
 										<td class="px-4 py-2 text-sm text-stone-500 dark:text-slate-400">{ token.Scope }</td>
 										<td class="px-4 py-2 text-sm text-stone-500 dark:text-slate-400">{ token.CreatedAt.Format("Jan 2, 2006") }</td>
@@ -189,7 +189,7 @@ templ AdminUsers(props AdminUsersProps) {
 			<!-- Maintenance -->
 			<div>
 				<h2 class="text-lg font-medium text-stone-900 dark:text-slate-300 mb-4">Maintenance</h2>
-				<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-100 dark:ring-slate-700 shadow-sm rounded-xl p-6">
+				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
 					<p class="text-sm text-stone-500 dark:text-slate-400 mb-4">Permanently delete all completed chore assignments from the history log. Active chores are not affected.</p>
 					<form
 						method="POST"

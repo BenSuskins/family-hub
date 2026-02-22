@@ -47,6 +47,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo)
 	mealHandler := handlers.NewMealHandler(mealPlanRepo, recipeRepo)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
+	profileHandler := handlers.NewProfileHandler(userRepo)
 
 	router := chi.NewRouter()
 
@@ -74,6 +75,11 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 
 		r.Get("/", dashboardHandler.Dashboard)
 		r.Get("/leaderboard", dashboardHandler.Leaderboard)
+
+		r.Get("/profile", profileHandler.Page)
+		r.Post("/profile/avatar", profileHandler.Upload)
+		r.Post("/profile/avatar/delete", profileHandler.Remove)
+		r.Get("/avatar/{userID}", profileHandler.Serve)
 
 		r.Get("/chores", choreHandler.List)
 		r.Get("/chores/{id}/detail", choreHandler.Detail)

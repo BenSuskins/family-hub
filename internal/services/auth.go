@@ -154,12 +154,17 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 func (service *AuthService) provisionUser(ctx context.Context, subject, email, name, avatarURL string) (models.User, error) {
 	existingUser, err := service.userRepo.FindByOIDCSubject(ctx, subject)
 	if err == nil {
-		if err := service.userRepo.UpdateProfile(ctx, existingUser.ID, name, email, avatarURL); err != nil {
+		effectiveAvatarURL := avatarURL
+		avatarData, avatarErr := service.userRepo.FindAvatarData(ctx, existingUser.ID)
+		if avatarErr == nil && avatarData != "" {
+			effectiveAvatarURL = existingUser.AvatarURL
+		}
+		if err := service.userRepo.UpdateProfile(ctx, existingUser.ID, name, email, effectiveAvatarURL); err != nil {
 			slog.Warn("failed to update user profile on login", "error", err)
 		}
 		existingUser.Name = name
 		existingUser.Email = email
-		existingUser.AvatarURL = avatarURL
+		existingUser.AvatarURL = effectiveAvatarURL
 		return existingUser, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) && !isNotFound(err) {

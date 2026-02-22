@@ -21,6 +21,38 @@ func newDevAuthService(t *testing.T) *AuthService {
 	return service
 }
 
+func TestProvisionUser_PreservesCustomAvatarOnLogin(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	service, err := NewAuthService(context.Background(), config.Config{SessionSecret: "test-secret"}, userRepo)
+	if err != nil {
+		t.Fatalf("creating auth service: %v", err)
+	}
+	ctx := context.Background()
+
+	// First login creates the user with an OIDC avatar
+	user, err := service.provisionUser(ctx, "subject-123", "alice@test.com", "Alice", "https://oidc.example.com/pic.png")
+	if err != nil {
+		t.Fatalf("first provisionUser: %v", err)
+	}
+
+	// User uploads a custom avatar
+	if err := userRepo.UpdateAvatar(ctx, user.ID, "data:image/png;base64,abc="); err != nil {
+		t.Fatalf("UpdateAvatar: %v", err)
+	}
+
+	// Second login with a different OIDC avatar URL
+	returned, err := service.provisionUser(ctx, "subject-123", "alice@test.com", "Alice", "https://oidc.example.com/new-pic.png")
+	if err != nil {
+		t.Fatalf("second provisionUser: %v", err)
+	}
+
+	// Custom avatar URL must be preserved
+	if returned.AvatarURL != "/avatar/"+user.ID {
+		t.Errorf("expected custom avatar URL '/avatar/%s', got %q", user.ID, returned.AvatarURL)
+	}
+}
+
 func TestDevLogin_CreatesDevAdminUser(t *testing.T) {
 	service := newDevAuthService(t)
 

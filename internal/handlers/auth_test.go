@@ -50,4 +50,15 @@ func TestLoginPage_DevAutoLogin_WhenOIDCNotConfigured(t *testing.T) {
 	if sessionCookie == "" {
 		t.Error("expected session cookie to be set")
 	}
+
+	// Verify the session cookie is a valid, decodable session for the dev user
+	sessionRequest := httptest.NewRequest(http.MethodGet, "/", nil)
+	sessionRequest.AddCookie(&http.Cookie{Name: "session", Value: sessionCookie})
+	session, err := authService.GetSession(sessionRequest)
+	if err != nil {
+		t.Fatalf("session cookie not decodable: %v", err)
+	}
+	if session.UserID == "" {
+		t.Error("expected non-empty UserID in session")
+	}
 }

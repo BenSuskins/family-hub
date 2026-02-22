@@ -173,7 +173,7 @@ templ monthView(props CalendarProps) {
 		<div class="grid grid-cols-7 divide-x divide-y divide-stone-200 dark:divide-slate-700">
 			for _, day := range calendarDays(props.Year, props.Month) {
 				<div class={ "min-h-24 p-1 " + dayClass(day, props.Year, props.Month) }>
-					if day.Day() > 0 {
+					if !day.IsZero() {
 						<div class={ "text-sm font-medium mb-1 " + todayClass(day) }>
 							{ fmt.Sprintf("%d", day.Day()) }
 						</div>

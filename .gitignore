@@ -47,3 +47,6 @@ family-hub
 
 # Claude local config (may contain secrets)
 .claude/
+
+# Git worktrees
+.worktrees/

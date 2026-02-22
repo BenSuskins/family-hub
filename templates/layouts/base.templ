@@ -30,17 +30,18 @@ func navLinkClass(currentPath, linkPath string) string {
 
 templ Base(title string, user models.User, currentPath string) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-stone-50 dark:bg-slate-900 dark">
+	<html lang="en" class="bg-stone-50 dark:bg-slate-900">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 			<title>{ title } - { GetFamilyName(ctx) }</title>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<script>if(localStorage.getItem('theme')!=='light'){document.documentElement.classList.add('dark')}</script>
 			<script src="/static/js/htmx.min.js"></script>
 			<link href="/static/css/styles.css" rel="stylesheet"/>
 		</head>
-		<body class="h-full dark:bg-slate-900">
+		<body class="dark:bg-slate-900">
 			<!-- Mobile top bar -->
 			<div class="lg:hidden sticky top-0 z-40 flex items-center justify-between bg-white dark:bg-slate-950 border-b border-stone-100 dark:border-slate-800 shadow-sm px-4 h-14">
 				<button onclick="toggleSidebar()" class="text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 transition-colors duration-150">
@@ -103,6 +104,10 @@ templ Base(title string, user models.User, currentPath string) {
 						<div class="flex-1 min-w-0">
 							<p class="text-sm font-medium text-stone-900 dark:text-slate-100 truncate">{ user.Name }</p>
 						</div>
+						<button onclick="toggleTheme()" title="Toggle dark mode" class="text-stone-400 dark:text-slate-500 hover:text-stone-600 dark:hover:text-slate-300 transition-colors duration-150">
+							<span class="hidden dark:block">@components.IconSun("h-5 w-5")</span>
+							<span class="dark:hidden">@components.IconMoon("h-5 w-5")</span>
+						</button>
 						<a href="/logout" class="text-stone-400 dark:text-slate-500 hover:text-stone-600 dark:hover:text-slate-300 transition-colors duration-150" title="Logout">
 							@components.IconArrowRightOnRectangle("h-5 w-5")
 						</a>
@@ -125,6 +130,10 @@ templ Base(title string, user models.User, currentPath string) {
 					var overlay = document.getElementById('sidebar-overlay');
 					sidebar.classList.toggle('-translate-x-full');
 					overlay.classList.toggle('hidden');
+				}
+				function toggleTheme() {
+					var isDark = document.documentElement.classList.toggle('dark');
+					localStorage.setItem('theme', isDark ? 'dark' : 'light');
 				}
 			</script>
 		</body>

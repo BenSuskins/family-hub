@@ -117,8 +117,14 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding saved meal", "error", err)
 	}
 
-	component := pages.MealCell(date, mealType, &saved, recipes)
-	component.Render(ctx, w)
+	mobile := r.FormValue("mobile") == "true"
+	if mobile {
+		component := pages.MealMobileRowContent(date, mealType, &saved, recipes)
+		component.Render(ctx, w)
+	} else {
+		component := pages.MealCell(date, mealType, &saved, recipes)
+		component.Render(ctx, w)
+	}
 }
 
 func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
@@ -143,8 +149,14 @@ func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding recipes", "error", err)
 	}
 
-	component := pages.MealCell(date, mealType, nil, recipes)
-	component.Render(ctx, w)
+	mobile := r.FormValue("mobile") == "true"
+	if mobile {
+		component := pages.MealMobileRowContent(date, mealType, nil, recipes)
+		component.Render(ctx, w)
+	} else {
+		component := pages.MealCell(date, mealType, nil, recipes)
+		component.Render(ctx, w)
+	}
 }
 
 func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +165,7 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	mealType := models.MealType(r.URL.Query().Get("meal_type"))
 	editMode := r.URL.Query().Get("edit") == "true"
+	mobile := r.URL.Query().Get("mobile") == "true"
 
 	recipes, err := handler.recipeRepo.FindAll(ctx)
 	if err != nil {
@@ -165,10 +178,20 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if editMode {
-		component := pages.MealCellEdit(date, mealType, meal, recipes)
-		component.Render(ctx, w)
+		if mobile {
+			component := pages.MealMobileCellEdit(date, mealType, meal, recipes)
+			component.Render(ctx, w)
+		} else {
+			component := pages.MealCellEdit(date, mealType, meal, recipes)
+			component.Render(ctx, w)
+		}
 	} else {
-		component := pages.MealCell(date, mealType, meal, recipes)
-		component.Render(ctx, w)
+		if mobile {
+			component := pages.MealMobileRowContent(date, mealType, meal, recipes)
+			component.Render(ctx, w)
+		} else {
+			component := pages.MealCell(date, mealType, meal, recipes)
+			component.Render(ctx, w)
+		}
 	}
 }

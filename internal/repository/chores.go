@@ -39,6 +39,9 @@ type ChoreRepository interface {
 	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
+	DeleteFuturePendingBySeries(ctx context.Context, seriesID string) error
+	FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error)
+	DeleteCompletedByName(ctx context.Context, name string) error
 }
 
 type SQLiteChoreRepository struct {
@@ -320,6 +323,57 @@ func (repository *SQLiteChoreRepository) GetEligibleAssignees(ctx context.Contex
 		userIDs = append(userIDs, userID)
 	}
 	return userIDs, rows.Err()
+}
+
+func (repository *SQLiteChoreRepository) DeleteFuturePendingBySeries(ctx context.Context, seriesID string) error {
+	_, err := repository.database.ExecContext(ctx,
+		`DELETE FROM chores WHERE series_id = ? AND status = 'pending' AND due_date > CURRENT_TIMESTAMP`,
+		seriesID,
+	)
+	if err != nil {
+		return fmt.Errorf("deleting future pending by series: %w", err)
+	}
+	return nil
+}
+
+func (repository *SQLiteChoreRepository) FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error) {
+	rows, err := repository.database.QueryContext(ctx,
+		`SELECT id, name, description, created_by_user_id, category_id,
+			assigned_to_user_id, last_assigned_index,
+			due_date, due_time,
+			recurrence_type, recurrence_value, recur_on_complete, series_id,
+			status, completed_at, completed_by_user_id,
+			created_at, updated_at
+		FROM chores
+		WHERE series_id = ? AND status = 'pending' AND due_date > CURRENT_TIMESTAMP
+		ORDER BY due_date DESC
+		LIMIT 1`,
+		seriesID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("finding last future pending in series: %w", err)
+	}
+	defer rows.Close()
+
+	chores, err := scanChores(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(chores) == 0 {
+		return nil, nil
+	}
+	return &chores[0], nil
+}
+
+func (repository *SQLiteChoreRepository) DeleteCompletedByName(ctx context.Context, name string) error {
+	_, err := repository.database.ExecContext(ctx,
+		`DELETE FROM chores WHERE name = ? AND status = 'completed'`,
+		name,
+	)
+	if err != nil {
+		return fmt.Errorf("deleting completed chores by name: %w", err)
+	}
+	return nil
 }
 
 func IsOverdue(chore models.Chore, now time.Time) bool {

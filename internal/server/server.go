@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/handlers"
@@ -151,6 +153,14 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Post("/api/tokens", apiHandler.CreateToken)
 		r.Delete("/api/tokens/{id}", apiHandler.DeleteToken)
 	})
+
+	// One-time seed of existing recurring chores that predate series_id tracking
+	go func() {
+		ctx := context.Background()
+		if err := choreService.SeedExistingRecurringChores(ctx, time.Now().AddDate(1, 0, 0)); err != nil {
+			slog.Error("seeding existing recurring chores", "error", err)
+		}
+	}()
 
 	server := &Server{
 		router: router,

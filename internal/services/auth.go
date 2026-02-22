@@ -275,10 +275,14 @@ func (service *AuthService) DevLogin(ctx context.Context) (models.User, error) {
 		return models.User{}, fmt.Errorf("looking up dev user: %w", err)
 	}
 
-	return service.userRepo.Create(ctx, models.User{
+	created, err := service.userRepo.Create(ctx, models.User{
 		OIDCSubject: devUserOIDCSubject,
 		Email:       "dev@localhost",
 		Name:        "Dev Admin",
 		Role:        models.RoleAdmin,
 	})
+	if err != nil {
+		return models.User{}, fmt.Errorf("creating dev user: %w", err)
+	}
+	return created, nil
 }

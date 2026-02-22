@@ -42,7 +42,6 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 | `OIDC_CLIENT_SECRET` | OAuth2 client secret | *required* |
 | `OIDC_REDIRECT_URL` | OAuth2 callback URL | `http://localhost:8080/auth/callback` |
 | `SESSION_SECRET` | Session encryption key | *required* |
-| `HA_API_TOKEN` | Home Assistant API token | *optional* |
 | `LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PORT` | Server port | `8080` |
 

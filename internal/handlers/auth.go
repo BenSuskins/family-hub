@@ -17,7 +17,18 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 
 func (handler *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	if !handler.authService.OIDCConfigured() {
-		http.Error(w, "OIDC not configured", http.StatusServiceUnavailable)
+		user, err := handler.authService.DevLogin(r.Context())
+		if err != nil {
+			slog.Error("dev login", "error", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if err := handler.authService.SetSession(w, user.ID); err != nil {
+			slog.Error("setting session for dev login", "error", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 

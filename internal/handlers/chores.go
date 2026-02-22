@@ -266,8 +266,21 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := handler.choreService.AssignNextUser(ctx, created); err != nil {
+	assigned, err := handler.choreService.AssignNextUser(ctx, created)
+	if err != nil {
 		slog.Error("assigning chore", "error", err)
+	}
+
+	if created.RecurrenceType != models.RecurrenceNone && !created.RecurOnComplete {
+		seriesID := created.ID
+		assigned.SeriesID = &seriesID
+		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
+			slog.Error("setting series_id on new chore", "error", err)
+		} else {
+			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, time.Now().AddDate(1, 0, 0)); err != nil {
+				slog.Error("seeding future occurrences for new chore", "error", err)
+			}
+		}
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)

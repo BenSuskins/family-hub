@@ -43,7 +43,7 @@ templ Dashboard(props DashboardProps) {
 			@components.PageHeader("Overview")
 
 			<!-- Stat Cards -->
-			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+			<div class="hidden sm:grid sm:grid-cols-3 gap-4">
 				@components.StatCard(components.StatCardProps{
 					Label:    "Active Chores",
 					Value:    props.ActiveChoreCount,

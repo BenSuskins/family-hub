@@ -485,3 +485,99 @@ func TestChoreRepository_CountByStatusAndUser(t *testing.T) {
 		t.Errorf("expected 2 pending chores, got %d", count)
 	}
 }
+
+func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
+	ctx := context.Background()
+
+	seriesA := "series-a"
+	seriesB := "series-b"
+
+	day1 := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	day2 := time.Date(2025, 1, 8, 0, 0, 0, 0, time.UTC)
+	day3 := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+	day4 := time.Date(2025, 1, 22, 0, 0, 0, 0, time.UTC)
+
+	mustCreate := func(t *testing.T, repo *repository.SQLiteChoreRepository, chore models.Chore) {
+		t.Helper()
+		if _, err := repo.Create(ctx, chore); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+	}
+
+	tests := []struct {
+		name             string
+		setup            func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string)
+		wantCount        int
+		wantEarliestDate *time.Time
+	}{
+		{
+			name: "multiple occurrences in one series returns only earliest",
+			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
+				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+			},
+			wantCount:        1,
+			wantEarliestDate: &day1,
+		},
+		{
+			name: "two separate series each return one row",
+			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
+				mustCreate(t, repo, models.Chore{Name: "Dishes", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Dishes", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Laundry", CreatedByUserID: userID, SeriesID: &seriesB, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Laundry", CreatedByUserID: userID, SeriesID: &seriesB, DueDate: &day4, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+			},
+			wantCount: 2,
+		},
+		{
+			name: "non-recurring chores each appear independently",
+			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
+				mustCreate(t, repo, models.Chore{Name: "One-off A", CreatedByUserID: userID, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceNone})
+				mustCreate(t, repo, models.Chore{Name: "One-off B", CreatedByUserID: userID, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceNone})
+			},
+			wantCount: 2,
+		},
+		{
+			name: "mixed recurring and non-recurring correct deduplication",
+			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
+				mustCreate(t, repo, models.Chore{Name: "Weekly clean", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Weekly clean", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Take out trash", CreatedByUserID: userID, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceNone})
+			},
+			wantCount: 2,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			db := testutil.NewTestDatabase(t)
+			repo := repository.NewChoreRepository(db)
+			userRepo := repository.NewUserRepository(db)
+			user, err := userRepo.Create(ctx, models.User{
+				OIDCSubject: "sub-" + testCase.name,
+				Email:       "test@example.com",
+				Name:        "Test",
+				Role:        models.RoleMember,
+			})
+			if err != nil {
+				t.Fatalf("creating test user: %v", err)
+			}
+
+			testCase.setup(t, repo, user.ID)
+
+			results, err := repo.FindAll(ctx, repository.ChoreFilter{OnlyNextPerSeries: true})
+			if err != nil {
+				t.Fatalf("FindAll: %v", err)
+			}
+			if len(results) != testCase.wantCount {
+				t.Errorf("want %d chores, got %d", testCase.wantCount, len(results))
+			}
+			if testCase.wantEarliestDate != nil && len(results) >= 1 {
+				if !results[0].DueDate.Equal(*testCase.wantEarliestDate) {
+					t.Errorf("want earliest due date %v, got %v", *testCase.wantEarliestDate, results[0].DueDate)
+				}
+			}
+		})
+	}
+}

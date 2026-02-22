@@ -261,3 +261,24 @@ func isNotFound(err error) bool {
 	return err != nil && (errors.Is(err, sql.ErrNoRows) ||
 		fmt.Sprintf("%v", err) == "finding user by oidc subject: sql: no rows in result set")
 }
+
+const devUserOIDCSubject = "dev-user"
+
+func (service *AuthService) DevLogin(ctx context.Context) (models.User, error) {
+	slog.Warn("dev auto-login, do not use in production")
+
+	existing, err := service.userRepo.FindByOIDCSubject(ctx, devUserOIDCSubject)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) && !isNotFound(err) {
+		return models.User{}, fmt.Errorf("looking up dev user: %w", err)
+	}
+
+	return service.userRepo.Create(ctx, models.User{
+		OIDCSubject: devUserOIDCSubject,
+		Email:       "dev@localhost",
+		Name:        "Dev Admin",
+		Role:        models.RoleAdmin,
+	})
+}

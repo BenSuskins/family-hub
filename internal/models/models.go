@@ -71,6 +71,7 @@ type Chore struct {
 	RecurrenceType  RecurrenceType
 	RecurrenceValue string
 	RecurOnComplete bool
+	SeriesID        *string
 
 	Status          ChoreStatus
 	CompletedAt     *time.Time

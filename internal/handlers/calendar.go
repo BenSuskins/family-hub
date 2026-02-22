@@ -126,29 +126,6 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		slog.Error("finding chores for calendar", "error", err)
 	}
 
-	recurringChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		RecurrenceTypes: []models.RecurrenceType{
-			models.RecurrenceDaily,
-			models.RecurrenceWeekly,
-			models.RecurrenceMonthly,
-			models.RecurrenceCustom,
-			models.RecurrenceCalendar,
-		},
-	})
-	if err != nil {
-		slog.Error("finding recurring chores for calendar", "error", err)
-	}
-
-	for _, chore := range recurringChores {
-		expanded, err := services.ExpandChoreOccurrences(chore, start, end)
-		if err != nil {
-			slog.Error("expanding chore occurrences", "error", err, "chore_id", chore.ID)
-			continue
-		}
-		chores = append(chores, expanded...)
-	}
-
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users for calendar", "error", err)

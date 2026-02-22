@@ -376,6 +376,76 @@ func TestChoreService_SeedFutureOccurrences_Idempotent(t *testing.T) {
 	}
 }
 
+func TestChoreService_CompleteChore_SeedsAhead(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+	users := createUsers(t, userRepo, 2)
+
+	now := time.Now()
+	dueDate := now.AddDate(0, 0, -1) // overdue
+	seriesID := "test-series"
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Weekly",
+		CreatedByUserID:   users[0].ID,
+		RecurrenceType:    models.RecurrenceWeekly,
+		RecurrenceValue:   `{"interval":1}`,
+		DueDate:           &dueDate,
+		Status:            models.ChoreStatusPending,
+		SeriesID:          &seriesID,
+		LastAssignedIndex: -1,
+	})
+	chore, _ = service.AssignNextUser(ctx, chore)
+
+	if err := service.CompleteChore(ctx, chore.ID, users[0].ID); err != nil {
+		t.Fatalf("CompleteChore: %v", err)
+	}
+
+	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
+	})
+	if len(pending) == 0 {
+		t.Error("completing a recurring chore should seed future pending instances")
+	}
+}
+
+func TestChoreService_SeedExistingRecurringChores(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+	users := createUsers(t, userRepo, 1)
+
+	now := time.Now()
+	dueDate := now.AddDate(0, 0, 1)
+	// Create a legacy recurring chore with no series_id
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Legacy Weekly",
+		CreatedByUserID:   users[0].ID,
+		RecurrenceType:    models.RecurrenceWeekly,
+		RecurrenceValue:   `{"interval":1}`,
+		DueDate:           &dueDate,
+		Status:            models.ChoreStatusPending,
+		LastAssignedIndex: -1,
+	})
+	if chore.SeriesID != nil {
+		t.Fatal("freshly created chore should have nil series_id for this test")
+	}
+
+	until := now.AddDate(0, 0, 21) // 3 weeks
+	if err := service.SeedExistingRecurringChores(ctx, until); err != nil {
+		t.Fatalf("SeedExistingRecurringChores: %v", err)
+	}
+
+	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
+	if len(all) < 3 {
+		t.Errorf("want at least 3 pending instances (1 + 2 seeded), got %d", len(all))
+	}
+
+	// Verify series_id was set on the original chore
+	updated, _ := choreRepo.FindByID(ctx, chore.ID)
+	if updated.SeriesID == nil {
+		t.Error("original chore should have series_id set after seeding")
+	}
+}
+
 func TestChoreService_UpdateOverdueChores(t *testing.T) {
 	service, choreRepo, _, userRepo := setupChoreService(t)
 	ctx := context.Background()

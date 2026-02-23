@@ -353,6 +353,30 @@ func (handler *RecipeHandler) RemoveImage(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", recipeID), http.StatusFound)
 }
 
+func (handler *RecipeHandler) CookMode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+	recipeID := chi.URLParam(r, "id")
+
+	recipe, err := handler.recipeRepo.FindByID(ctx, recipeID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	steps := recipe.Steps
+	if len(steps) == 0 && recipe.Instructions != "" {
+		steps = splitIntoSteps(recipe.Instructions)
+	}
+
+	component := pages.RecipeCook(pages.RecipeCookProps{
+		User:   user,
+		Recipe: recipe,
+		Steps:  steps,
+	})
+	component.Render(ctx, w)
+}
+
 func (handler *RecipeHandler) Step(w http.ResponseWriter, r *http.Request) {
 	indexStr := r.URL.Query().Get("index")
 	index, err := strconv.Atoi(indexStr)

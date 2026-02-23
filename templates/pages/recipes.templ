@@ -128,11 +128,6 @@ templ RecipeDetail(props RecipeDetailProps) {
 				</div>
 			</div>
 
-			<!-- Recipe image -->
-			if props.Recipe.HasImage {
-				<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt={ props.Recipe.Title } class="w-full rounded-xl object-cover max-h-72"/>
-			}
-
 			<!-- Metadata -->
 			<div class="flex flex-wrap gap-4 text-sm text-stone-600 dark:text-slate-400">
 				if props.Recipe.Servings != nil {
@@ -198,30 +193,6 @@ templ RecipeDetail(props RecipeDetailProps) {
 				</div>
 			}
 
-			<!-- Image upload / remove -->
-			<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
-				<h2 class="text-base font-medium text-stone-900 dark:text-slate-100 mb-4">Recipe Photo</h2>
-				if props.Recipe.HasImage {
-					<div class="flex items-center gap-4">
-						<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt="Current photo" class="h-20 w-20 rounded-lg object-cover"/>
-						<div class="space-y-2">
-							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } enctype="multipart/form-data" class="flex items-center gap-2">
-								<input type="file" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400"/>
-								<button type="submit" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Replace</button>
-							</form>
-							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image/delete", props.Recipe.ID)) }>
-								<button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline font-medium">Remove photo</button>
-							</form>
-						</div>
-					</div>
-				} else {
-					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } enctype="multipart/form-data" class="flex items-center gap-3">
-						<input type="file" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400"/>
-						<button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors duration-150">Upload Photo</button>
-					</form>
-				}
-			</div>
-
 			<div class="pt-2">
 				<a href="/recipes" class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-slate-100 text-sm transition-colors duration-150">
 					@components.IconChevronLeft("h-4 w-4")
@@ -242,8 +213,8 @@ templ RecipeForm(props RecipeFormProps) {
 					action={ templ.SafeURL(fmt.Sprintf("/recipes/%s", props.Recipe.ID)) }
 				} else {
 					action="/recipes"
-					enctype="multipart/form-data"
 				}
+				enctype="multipart/form-data"
 				method="POST"
 				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6"
 			>
@@ -342,12 +313,13 @@ templ RecipeForm(props RecipeFormProps) {
 					/>
 				</div>
 
-				if !props.IsEdit {
-					<div>
-						<label for="image" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Photo <span class="font-normal text-stone-400 dark:text-slate-500">(optional)</span></label>
-						<input type="file" id="image" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400 mt-1"/>
-					</div>
-				}
+				<div>
+					<label for="image" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Photo <span class="font-normal text-stone-400 dark:text-slate-500">(optional)</span></label>
+					if props.IsEdit && props.Recipe != nil && props.Recipe.HasImage {
+						<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt="Current photo" class="h-20 w-20 rounded-lg object-cover mt-1 mb-2"/>
+					}
+					<input type="file" id="image" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400 mt-1"/>
+				</div>
 
 				<!-- Ingredient Groups -->
 				<div>

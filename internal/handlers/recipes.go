@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -254,6 +256,101 @@ func (handler *RecipeHandler) IngredientGroup(w http.ResponseWriter, r *http.Req
 
 	component := pages.IngredientGroupFields(index, models.IngredientGroup{})
 	component.Render(r.Context(), w)
+}
+
+const maxRecipeImageBytes = 2 * 1024 * 1024 // 2 MB
+
+func (handler *RecipeHandler) ServeImage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipeID := chi.URLParam(r, "id")
+
+	imageData, err := handler.recipeRepo.FindImageData(ctx, recipeID)
+	if err != nil || imageData == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	withoutPrefix, ok := strings.CutPrefix(imageData, "data:")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	parts := strings.SplitN(withoutPrefix, ";base64,", 2)
+	if len(parts) != 2 {
+		http.NotFound(w, r)
+		return
+	}
+
+	imageBytes, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		slog.Error("decoding recipe image", "error", err)
+		http.Error(w, "Corrupted image data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", parts[0])
+	w.WriteHeader(http.StatusOK)
+	w.Write(imageBytes)
+}
+
+func (handler *RecipeHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipeID := chi.URLParam(r, "id")
+
+	if _, err := handler.recipeRepo.FindByID(ctx, recipeID); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	if err := r.ParseMultipartForm(maxRecipeImageBytes + 1024); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		http.Error(w, "Missing image file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
+	if err != nil {
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+	if len(imageBytes) > maxRecipeImageBytes {
+		http.Error(w, "Image exceeds 2 MB limit", http.StatusBadRequest)
+		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(imageBytes)
+	}
+
+	dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+
+	if err := handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI); err != nil {
+		slog.Error("updating recipe image", "error", err)
+		http.Error(w, "Failed to save image", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", recipeID), http.StatusFound)
+}
+
+func (handler *RecipeHandler) RemoveImage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipeID := chi.URLParam(r, "id")
+
+	if err := handler.recipeRepo.ClearImage(ctx, recipeID); err != nil {
+		slog.Error("clearing recipe image", "error", err)
+		http.Error(w, "Failed to remove image", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", recipeID), http.StatusFound)
 }
 
 func (handler *RecipeHandler) Step(w http.ResponseWriter, r *http.Request) {

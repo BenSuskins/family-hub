@@ -9,12 +9,13 @@ import (
 )
 
 type UserStatProps struct {
-	Rank            int
-	UserName        string
-	UserAvatarURL   string
-	CompletedWeek   int
-	CompletedMonth  int
-	AssignedPending int
+	Rank             int
+	UserName         string
+	UserAvatarURL    string
+	CompletedWeek    int
+	CompletedMonth   int
+	CompletedAllTime int
+	AssignedPending  int
 }
 
 type LeaderboardProps struct {
@@ -212,6 +213,15 @@ templ LeaderboardTable(props LeaderboardProps) {
 				>
 					Month
 				</button>
+				<button
+					type="button"
+					class={ leaderboardPeriodClass(props.Period, "alltime") }
+					hx-get="/leaderboard?period=alltime"
+					hx-target="#leaderboard"
+					hx-swap="outerHTML"
+				>
+					All Time
+				</button>
 			</div>
 		</div>
 		if len(props.UserStats) == 0 {
@@ -240,6 +250,8 @@ templ LeaderboardTable(props LeaderboardProps) {
 								<td class="px-3 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
 									if props.Period == "month" {
 										{ fmt.Sprintf("%d", stat.CompletedMonth) }
+									} else if props.Period == "alltime" {
+										{ fmt.Sprintf("%d", stat.CompletedAllTime) }
 									} else {
 										{ fmt.Sprintf("%d", stat.CompletedWeek) }
 									}

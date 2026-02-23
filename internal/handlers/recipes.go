@@ -191,7 +191,7 @@ func (handler *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recipeID := chi.URLParam(r, "id")
 
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseMultipartForm(maxRecipeImageBytes + 1024); err != nil {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
@@ -240,6 +240,20 @@ func (handler *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		slog.Error("updating recipe", "error", err)
 		http.Error(w, "Error updating recipe", http.StatusInternalServerError)
 		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err == nil {
+		defer file.Close()
+		imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
+		if err == nil && len(imageBytes) <= maxRecipeImageBytes {
+			contentType := header.Header.Get("Content-Type")
+			if contentType == "" {
+				contentType = http.DetectContentType(imageBytes)
+			}
+			dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+			handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI)
+		}
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", recipeID), http.StatusFound)

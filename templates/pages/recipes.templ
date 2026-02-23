@@ -180,7 +180,7 @@ templ RecipeDetail(props RecipeDetailProps) {
 					<ol class="space-y-4">
 						for i, step := range props.Recipe.Steps {
 							<li class="flex gap-4">
-								<span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-sm font-semibold flex items-center justify-center">{ strconv.Itoa(i + 1) }</span>
+								<span class="flex-shrink-0 w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-sm font-semibold flex items-center justify-center">{ strconv.Itoa(i + 1) }</span>
 								<span class="text-sm text-stone-700 dark:text-slate-300 pt-1">{ step }</span>
 							</li>
 						}

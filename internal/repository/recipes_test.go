@@ -288,6 +288,61 @@ func TestRecipeRepository_JSONRoundtrip_EmptyIngredients(t *testing.T) {
 	}
 }
 
+func TestRecipeRepository_ImageMethods(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	recipeRepo := repository.NewRecipeRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	created, _ := recipeRepo.Create(ctx, models.Recipe{
+		Title: "Photo Recipe", Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+	})
+
+	// no image initially
+	data, err := recipeRepo.FindImageData(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("FindImageData: %v", err)
+	}
+	if data != "" {
+		t.Errorf("expected empty image data, got %q", data)
+	}
+
+	found, _ := recipeRepo.FindByID(ctx, created.ID)
+	if found.HasImage {
+		t.Error("expected HasImage false before upload")
+	}
+
+	// upload image
+	fakeDataURI := "data:image/png;base64,abc123"
+	if err := recipeRepo.UpdateImage(ctx, created.ID, fakeDataURI); err != nil {
+		t.Fatalf("UpdateImage: %v", err)
+	}
+
+	data, err = recipeRepo.FindImageData(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("FindImageData after upload: %v", err)
+	}
+	if data != fakeDataURI {
+		t.Errorf("expected %q, got %q", fakeDataURI, data)
+	}
+
+	found, _ = recipeRepo.FindByID(ctx, created.ID)
+	if !found.HasImage {
+		t.Error("expected HasImage true after upload")
+	}
+
+	// remove image
+	if err := recipeRepo.ClearImage(ctx, created.ID); err != nil {
+		t.Fatalf("ClearImage: %v", err)
+	}
+
+	data, _ = recipeRepo.FindImageData(ctx, created.ID)
+	if data != "" {
+		t.Errorf("expected empty after clear, got %q", data)
+	}
+}
+
 func TestRecipeRepository_MealTypeAndSteps(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

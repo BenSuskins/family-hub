@@ -414,12 +414,11 @@ func parseMealType(value string) *models.RecipeMealType {
 
 func parseSteps(r *http.Request) []string {
 	var steps []string
-	for i := 0; ; i++ {
-		step := strings.TrimSpace(r.FormValue(fmt.Sprintf("step_%d", i)))
-		if step == "" {
-			break
+	for _, step := range r.Form["step"] {
+		step = strings.TrimSpace(step)
+		if step != "" {
+			steps = append(steps, step)
 		}
-		steps = append(steps, step)
 	}
 	return steps
 }

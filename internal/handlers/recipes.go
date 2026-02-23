@@ -108,8 +108,9 @@ func (handler *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	recipe := models.Recipe{
 		Title:           r.FormValue("title"),
-		Instructions:    r.FormValue("instructions"),
+		Steps:           parseSteps(r),
 		Ingredients:     parseIngredientGroups(r),
+		MealType:        parseMealType(r.FormValue("meal_type")),
 		CreatedByUserID: user.ID,
 	}
 
@@ -151,6 +152,10 @@ func (handler *RecipeHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(recipe.Steps) == 0 && recipe.Instructions != "" {
+		recipe.Steps = splitIntoSteps(recipe.Instructions)
+	}
+
 	categories, err := handler.categoryRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding categories", "error", err)
@@ -181,8 +186,10 @@ func (handler *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recipe.Title = r.FormValue("title")
-	recipe.Instructions = r.FormValue("instructions")
+	recipe.Steps = parseSteps(r)
 	recipe.Ingredients = parseIngredientGroups(r)
+	recipe.MealType = parseMealType(r.FormValue("meal_type"))
+	// Instructions intentionally not updated — preserved from DB
 
 	if categoryID := r.FormValue("category_id"); categoryID != "" {
 		recipe.CategoryID = &categoryID
@@ -247,6 +254,49 @@ func (handler *RecipeHandler) IngredientGroup(w http.ResponseWriter, r *http.Req
 
 	component := pages.IngredientGroupFields(index, models.IngredientGroup{})
 	component.Render(r.Context(), w)
+}
+
+func (handler *RecipeHandler) Step(w http.ResponseWriter, r *http.Request) {
+	indexStr := r.URL.Query().Get("index")
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		index = 0
+	}
+	component := pages.RecipeStepField(index, "")
+	component.Render(r.Context(), w)
+}
+
+func parseMealType(value string) *models.RecipeMealType {
+	switch models.RecipeMealType(value) {
+	case models.RecipeMealTypeBreakfast, models.RecipeMealTypeLunch,
+		models.RecipeMealTypeDinner, models.RecipeMealTypeSide, models.RecipeMealTypeDessert:
+		mt := models.RecipeMealType(value)
+		return &mt
+	}
+	return nil
+}
+
+func parseSteps(r *http.Request) []string {
+	var steps []string
+	for i := 0; ; i++ {
+		step := strings.TrimSpace(r.FormValue(fmt.Sprintf("step_%d", i)))
+		if step == "" {
+			break
+		}
+		steps = append(steps, step)
+	}
+	return steps
+}
+
+func splitIntoSteps(text string) []string {
+	var steps []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			steps = append(steps, line)
+		}
+	}
+	return steps
 }
 
 func parseIngredientGroups(r *http.Request) []models.IngredientGroup {

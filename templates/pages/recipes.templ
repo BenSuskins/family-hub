@@ -67,11 +67,6 @@ templ RecipeList(props RecipeListProps) {
 											{ recipeMealTypeLabel(*recipe.MealType) }
 										</span>
 									}
-									if recipe.CategoryID != nil {
-										<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
-											{ recipeCategory(props.CategoryMap, *recipe.CategoryID) }
-										</span>
-									}
 									if recipe.Servings != nil {
 										<span>{ fmt.Sprintf("%d servings", *recipe.Servings) }</span>
 									}
@@ -102,11 +97,6 @@ templ RecipeDetail(props RecipeDetailProps) {
 						if props.Recipe.MealType != nil {
 							<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
 								{ recipeMealTypeLabel(*props.Recipe.MealType) }
-							</span>
-						}
-						if props.CategoryName != "" {
-							<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
-								{ props.CategoryName }
 							</span>
 						}
 					</div>
@@ -242,21 +232,6 @@ templ RecipeForm(props RecipeFormProps) {
 									selected
 								}
 							>{ option.label }</option>
-						}
-					</select>
-				</div>
-
-				<div>
-					<label for="category_id" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Category</label>
-					<select id="category_id" name="category_id">
-						<option value="">No Category</option>
-						for _, cat := range props.Categories {
-							<option
-								value={ cat.ID }
-								if props.Recipe != nil && props.Recipe.CategoryID != nil && *props.Recipe.CategoryID == cat.ID {
-									selected
-								}
-							>{ cat.Name }</option>
 						}
 					</select>
 				</div>

@@ -14,11 +14,12 @@ import (
 )
 
 type UserStat struct {
-	UserName        string
-	UserAvatarURL   string
-	CompletedWeek   int
-	CompletedMonth  int
-	AssignedPending int
+	UserName         string
+	UserAvatarURL    string
+	CompletedWeek    int
+	CompletedMonth   int
+	CompletedAllTime int
+	AssignedPending  int
 }
 
 type DashboardHandler struct {
@@ -138,6 +139,7 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	for _, u := range users {
 		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
 		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
+		completedAllTime, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, time.Time{})
 		pendingStatus := models.ChoreStatusPending
 		pendingChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
 			Status:            &pendingStatus,
@@ -147,11 +149,12 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		assignedPending := len(pendingChores)
 
 		userStats = append(userStats, UserStat{
-			UserName:        u.Name,
-			UserAvatarURL:   u.AvatarURL,
-			CompletedWeek:   completedWeek,
-			CompletedMonth:  completedMonth,
-			AssignedPending: assignedPending,
+			UserName:         u.Name,
+			UserAvatarURL:    u.AvatarURL,
+			CompletedWeek:    completedWeek,
+			CompletedMonth:   completedMonth,
+			CompletedAllTime: completedAllTime,
+			AssignedPending:  assignedPending,
 		})
 	}
 
@@ -195,6 +198,7 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 	for _, u := range users {
 		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
 		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
+		completedAllTime, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, time.Time{})
 		pendingStatus := models.ChoreStatusPending
 		pendingChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
 			Status:            &pendingStatus,
@@ -204,11 +208,12 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 		assignedPending := len(pendingChores)
 
 		userStats = append(userStats, UserStat{
-			UserName:        u.Name,
-			UserAvatarURL:   u.AvatarURL,
-			CompletedWeek:   completedWeek,
-			CompletedMonth:  completedMonth,
-			AssignedPending: assignedPending,
+			UserName:         u.Name,
+			UserAvatarURL:    u.AvatarURL,
+			CompletedWeek:    completedWeek,
+			CompletedMonth:   completedMonth,
+			CompletedAllTime: completedAllTime,
+			AssignedPending:  assignedPending,
 		})
 	}
 
@@ -221,21 +226,26 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 
 func convertUserStats(stats []UserStat, period string) []pages.UserStatProps {
 	sort.Slice(stats, func(i, j int) bool {
-		if period == "month" {
+		switch period {
+		case "month":
 			return stats[i].CompletedMonth > stats[j].CompletedMonth
+		case "alltime":
+			return stats[i].CompletedAllTime > stats[j].CompletedAllTime
+		default:
+			return stats[i].CompletedWeek > stats[j].CompletedWeek
 		}
-		return stats[i].CompletedWeek > stats[j].CompletedWeek
 	})
 
 	var result []pages.UserStatProps
 	for index, stat := range stats {
 		result = append(result, pages.UserStatProps{
-			Rank:            index + 1,
-			UserName:        stat.UserName,
-			UserAvatarURL:   stat.UserAvatarURL,
-			CompletedWeek:   stat.CompletedWeek,
-			CompletedMonth:  stat.CompletedMonth,
-			AssignedPending: stat.AssignedPending,
+			Rank:             index + 1,
+			UserName:         stat.UserName,
+			UserAvatarURL:    stat.UserAvatarURL,
+			CompletedWeek:    stat.CompletedWeek,
+			CompletedMonth:   stat.CompletedMonth,
+			CompletedAllTime: stat.CompletedAllTime,
+			AssignedPending:  stat.AssignedPending,
 		})
 	}
 	return result

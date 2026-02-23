@@ -170,7 +170,6 @@ func TestRecipeRepository_Update(t *testing.T) {
 	})
 
 	created.Title = "Updated"
-	created.Instructions = "New instructions"
 	created.Ingredients = []models.IngredientGroup{{Name: "New Group", Items: []string{"new item"}}}
 	servings := 6
 	created.Servings = &servings
@@ -183,8 +182,8 @@ func TestRecipeRepository_Update(t *testing.T) {
 	if found.Title != "Updated" {
 		t.Errorf("expected 'Updated', got '%s'", found.Title)
 	}
-	if found.Instructions != "New instructions" {
-		t.Errorf("expected 'New instructions', got '%s'", found.Instructions)
+	if found.Instructions != "Old instructions" {
+		t.Errorf("expected legacy instructions preserved, got '%s'", found.Instructions)
 	}
 	if len(found.Ingredients) != 1 || found.Ingredients[0].Name != "New Group" {
 		t.Errorf("unexpected ingredients: %v", found.Ingredients)
@@ -286,5 +285,103 @@ func TestRecipeRepository_JSONRoundtrip_EmptyIngredients(t *testing.T) {
 	}
 	if len(found.Ingredients) != 0 {
 		t.Errorf("expected 0 ingredient groups, got %d", len(found.Ingredients))
+	}
+}
+
+func TestRecipeRepository_MealTypeAndSteps(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	recipeRepo := repository.NewRecipeRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	mealType := models.RecipeMealTypeDinner
+	created, err := recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Roast Chicken",
+		Steps:           []string{"Preheat oven to 200C.", "Season the chicken.", "Roast for 90 minutes."},
+		MealType:        &mealType,
+		Ingredients:     []models.IngredientGroup{{Name: "Main", Items: []string{"1 whole chicken"}}},
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating recipe: %v", err)
+	}
+
+	found, err := recipeRepo.FindByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("finding recipe: %v", err)
+	}
+	if found.MealType == nil || *found.MealType != models.RecipeMealTypeDinner {
+		t.Errorf("expected meal type dinner, got %v", found.MealType)
+	}
+	if len(found.Steps) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(found.Steps))
+	}
+	if found.Steps[0] != "Preheat oven to 200C." {
+		t.Errorf("unexpected first step: %s", found.Steps[0])
+	}
+}
+
+func TestRecipeRepository_FindAll_IncludesMealTypeAndHasImage(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	recipeRepo := repository.NewRecipeRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	mealType := models.RecipeMealTypeBreakfast
+	recipeRepo.Create(ctx, models.Recipe{
+		Title: "Pancakes", MealType: &mealType,
+		Steps:       []string{"Mix batter.", "Cook on griddle."},
+		Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+	})
+
+	recipes, err := recipeRepo.FindAll(ctx)
+	if err != nil {
+		t.Fatalf("finding recipes: %v", err)
+	}
+	if len(recipes) == 0 {
+		t.Fatal("expected at least 1 recipe")
+	}
+	if recipes[0].MealType == nil || *recipes[0].MealType != models.RecipeMealTypeBreakfast {
+		t.Errorf("expected breakfast, got %v", recipes[0].MealType)
+	}
+	if recipes[0].HasImage {
+		t.Error("expected HasImage false for recipe without image")
+	}
+}
+
+func TestRecipeRepository_Update_PreservesInstructionsUpdatesSteps(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	recipeRepo := repository.NewRecipeRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	created, _ := recipeRepo.Create(ctx, models.Recipe{
+		Title: "Legacy Recipe", Instructions: "Old free text instructions.",
+		Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+	})
+
+	created.Steps = []string{"Step one.", "Step two."}
+	mealType := models.RecipeMealTypeLunch
+	created.MealType = &mealType
+
+	if err := recipeRepo.Update(ctx, created); err != nil {
+		t.Fatalf("updating: %v", err)
+	}
+
+	found, _ := recipeRepo.FindByID(ctx, created.ID)
+	if found.Instructions != "Old free text instructions." {
+		t.Errorf("expected legacy instructions preserved, got: %s", found.Instructions)
+	}
+	if len(found.Steps) != 2 {
+		t.Errorf("expected 2 steps, got %d", len(found.Steps))
+	}
+	if found.MealType == nil || *found.MealType != models.RecipeMealTypeLunch {
+		t.Errorf("expected lunch, got %v", found.MealType)
 	}
 }

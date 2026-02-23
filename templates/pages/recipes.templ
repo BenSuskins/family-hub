@@ -242,6 +242,7 @@ templ RecipeForm(props RecipeFormProps) {
 					action={ templ.SafeURL(fmt.Sprintf("/recipes/%s", props.Recipe.ID)) }
 				} else {
 					action="/recipes"
+					enctype="multipart/form-data"
 				}
 				method="POST"
 				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6"
@@ -340,6 +341,13 @@ templ RecipeForm(props RecipeFormProps) {
 						}
 					/>
 				</div>
+
+				if !props.IsEdit {
+					<div>
+						<label for="image" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Photo <span class="font-normal text-stone-400 dark:text-slate-500">(optional)</span></label>
+						<input type="file" id="image" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400 mt-1"/>
+					</div>
+				}
 
 				<!-- Ingredient Groups -->
 				<div>
@@ -494,13 +502,21 @@ templ RecipeCook(props RecipeCookProps) {
 						<svg class="h-4 w-4 text-stone-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
 					</summary>
 					<div class="px-6 pb-6 pt-2">
-						for _, group := range props.Recipe.Ingredients {
+						for gi, group := range props.Recipe.Ingredients {
 							if group.Name != "" && group.Name != "Main" {
 								<h3 class="text-sm font-medium text-stone-700 dark:text-slate-300 mt-3 mb-1">{ group.Name }</h3>
 							}
-							<ul class="list-disc list-inside space-y-1 text-sm text-stone-700 dark:text-slate-300">
-								for _, item := range group.Items {
-									<li>{ item }</li>
+							<ul class="space-y-2 text-sm text-stone-700 dark:text-slate-300">
+								for j, item := range group.Items {
+									<li class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											id={ fmt.Sprintf("ing-%d-%d", gi, j) }
+											class="h-4 w-4 rounded border-zinc-300 dark:border-slate-600 text-indigo-600 cursor-pointer flex-shrink-0"
+											onchange="this.nextElementSibling.classList.toggle('line-through', this.checked); this.nextElementSibling.classList.toggle('text-stone-400', this.checked); this.nextElementSibling.classList.toggle('dark:text-slate-500', this.checked)"
+										/>
+										<label for={ fmt.Sprintf("ing-%d-%d", gi, j) } class="cursor-pointer select-none">{ item }</label>
+									</li>
 								}
 							</ul>
 						}

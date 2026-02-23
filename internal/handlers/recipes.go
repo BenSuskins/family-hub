@@ -103,7 +103,7 @@ func (handler *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseMultipartForm(maxRecipeImageBytes + 1024); err != nil {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
@@ -134,13 +134,28 @@ func (handler *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		recipe.SourceURL = &sourceURL
 	}
 
-	if _, err := handler.recipeRepo.Create(ctx, recipe); err != nil {
+	created, err := handler.recipeRepo.Create(ctx, recipe)
+	if err != nil {
 		slog.Error("creating recipe", "error", err)
 		http.Error(w, "Error creating recipe", http.StatusInternalServerError)
 		return
 	}
 
-	http.Redirect(w, r, "/recipes", http.StatusFound)
+	file, header, err := r.FormFile("image")
+	if err == nil {
+		defer file.Close()
+		imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
+		if err == nil && len(imageBytes) <= maxRecipeImageBytes {
+			contentType := header.Header.Get("Content-Type")
+			if contentType == "" {
+				contentType = http.DetectContentType(imageBytes)
+			}
+			dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+			handler.recipeRepo.UpdateImage(ctx, created.ID, dataURI)
+		}
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", created.ID), http.StatusFound)
 }
 
 func (handler *RecipeHandler) EditForm(w http.ResponseWriter, r *http.Request) {

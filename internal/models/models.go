@@ -121,19 +121,32 @@ type IngredientGroup struct {
 }
 
 type Recipe struct {
-	ID              string
-	Title           string
-	Instructions    string
-	Ingredients     []IngredientGroup
-	Servings        *int
-	PrepTime        *string
-	CookTime        *string
-	SourceURL       *string
-	CategoryID      *string
+	ID           string
+	Title        string
+	Instructions string // legacy read-only; prefer Steps
+	Steps        []string
+	Ingredients  []IngredientGroup
+	MealType     *RecipeMealType
+	Servings     *int
+	PrepTime     *string
+	CookTime     *string
+	SourceURL    *string
+	CategoryID   *string
+	HasImage     bool // computed: image_data != ''
 	CreatedByUserID string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
+
+type RecipeMealType string
+
+const (
+	RecipeMealTypeBreakfast RecipeMealType = "breakfast"
+	RecipeMealTypeLunch     RecipeMealType = "lunch"
+	RecipeMealTypeDinner    RecipeMealType = "dinner"
+	RecipeMealTypeSide      RecipeMealType = "side"
+	RecipeMealTypeDessert   RecipeMealType = "dessert"
+)
 
 type MealType string
 

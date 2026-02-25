@@ -105,11 +105,18 @@ type ChoreAssignment struct {
 	Status      AssignmentStatus
 }
 
+type TokenScope string
+
+const (
+	TokenScopeAPI  TokenScope = "api"
+	TokenScopeICal TokenScope = "ical"
+)
+
 type APIToken struct {
 	ID              string
 	Name            string
 	TokenHash       string
-	Scope           string // "api" or "ical"
+	Scope           TokenScope
 	CreatedByUserID string
 	ExpiresAt       *time.Time
 	CreatedAt       time.Time

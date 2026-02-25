@@ -22,11 +22,11 @@ func NewICalSubscriptionsHandler(subRepo repository.ICalSubscriptionRepository, 
 	return &ICalSubscriptionsHandler{subRepo: subRepo, fetcher: fetcher}
 }
 
-func (h *ICalSubscriptionsHandler) List(w http.ResponseWriter, r *http.Request) {
+func (handler *ICalSubscriptionsHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	subs, err := h.subRepo.FindAll(ctx)
+	subs, err := handler.subRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding ical subscriptions", "error", err)
 	}
@@ -37,7 +37,7 @@ func (h *ICalSubscriptionsHandler) List(w http.ResponseWriter, r *http.Request) 
 	}).Render(ctx, w)
 }
 
-func (h *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (handler *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := r.ParseForm(); err != nil {
@@ -63,7 +63,7 @@ func (h *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.Request
 		URL:   url,
 		Color: color,
 	}
-	if err := h.subRepo.Create(ctx, sub); err != nil {
+	if err := handler.subRepo.Create(ctx, sub); err != nil {
 		slog.Error("creating ical subscription", "error", err)
 		http.Error(w, "Error creating subscription", http.StatusInternalServerError)
 		return
@@ -72,11 +72,11 @@ func (h *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, "/calendars", http.StatusSeeOther)
 }
 
-func (h *ICalSubscriptionsHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (handler *ICalSubscriptionsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
-	if err := h.subRepo.Delete(ctx, id); err != nil {
+	if err := handler.subRepo.Delete(ctx, id); err != nil {
 		slog.Error("deleting ical subscription", "error", err)
 		http.Error(w, "Error deleting subscription", http.StatusInternalServerError)
 		return
@@ -85,7 +85,7 @@ func (h *ICalSubscriptionsHandler) Delete(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, "/calendars", http.StatusSeeOther)
 }
 
-func (h *ICalSubscriptionsHandler) UpdateColor(w http.ResponseWriter, r *http.Request) {
+func (handler *ICalSubscriptionsHandler) UpdateColor(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
@@ -100,7 +100,7 @@ func (h *ICalSubscriptionsHandler) UpdateColor(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.subRepo.UpdateColor(ctx, id, color); err != nil {
+	if err := handler.subRepo.UpdateColor(ctx, id, color); err != nil {
 		slog.Error("updating ical subscription color", "id", id, "error", err)
 		http.Error(w, "Error updating color", http.StatusInternalServerError)
 		return
@@ -117,11 +117,11 @@ func isValidSubscriptionColor(color string) bool {
 	return false
 }
 
-func (h *ICalSubscriptionsHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+func (handler *ICalSubscriptionsHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
-	if err := h.fetcher.ForceRefreshByID(ctx, id); err != nil {
+	if err := handler.fetcher.ForceRefreshByID(ctx, id); err != nil {
 		slog.Warn("refreshing ical subscription", "id", id, "error", err)
 	}
 

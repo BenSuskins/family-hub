@@ -31,11 +31,13 @@ func NewUserRepository(database *sql.DB) *SQLiteUserRepository {
 	return &SQLiteUserRepository{database: database}
 }
 
+const userColumns = "id, oidc_subject, email, name, avatar_url, role, created_at, updated_at"
+
 func (repository *SQLiteUserRepository) FindByID(ctx context.Context, id string) (models.User, error) {
 	var user models.User
 	err := repository.database.QueryRowContext(ctx,
-		"SELECT id, oidc_subject, email, name, avatar_url, role, created_at, updated_at FROM users WHERE id = ?", id,
-	).Scan(&user.ID, &user.OIDCSubject, &user.Email, &user.Name, &user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+		fmt.Sprintf("SELECT %s FROM users WHERE id = ?", userColumns), id,
+	).Scan(scanUserFields(&user)...)
 	if err != nil {
 		return models.User{}, fmt.Errorf("finding user by id: %w", err)
 	}
@@ -45,8 +47,8 @@ func (repository *SQLiteUserRepository) FindByID(ctx context.Context, id string)
 func (repository *SQLiteUserRepository) FindByOIDCSubject(ctx context.Context, subject string) (models.User, error) {
 	var user models.User
 	err := repository.database.QueryRowContext(ctx,
-		"SELECT id, oidc_subject, email, name, avatar_url, role, created_at, updated_at FROM users WHERE oidc_subject = ?", subject,
-	).Scan(&user.ID, &user.OIDCSubject, &user.Email, &user.Name, &user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+		fmt.Sprintf("SELECT %s FROM users WHERE oidc_subject = ?", userColumns), subject,
+	).Scan(scanUserFields(&user)...)
 	if err != nil {
 		return models.User{}, fmt.Errorf("finding user by oidc subject: %w", err)
 	}
@@ -55,7 +57,7 @@ func (repository *SQLiteUserRepository) FindByOIDCSubject(ctx context.Context, s
 
 func (repository *SQLiteUserRepository) FindAll(ctx context.Context) ([]models.User, error) {
 	rows, err := repository.database.QueryContext(ctx,
-		"SELECT id, oidc_subject, email, name, avatar_url, role, created_at, updated_at FROM users ORDER BY name",
+		fmt.Sprintf("SELECT %s FROM users ORDER BY name", userColumns),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("finding all users: %w", err)
@@ -65,12 +67,19 @@ func (repository *SQLiteUserRepository) FindAll(ctx context.Context) ([]models.U
 	var users []models.User
 	for rows.Next() {
 		var user models.User
-		if err := rows.Scan(&user.ID, &user.OIDCSubject, &user.Email, &user.Name, &user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err := rows.Scan(scanUserFields(&user)...); err != nil {
 			return nil, fmt.Errorf("scanning user: %w", err)
 		}
 		users = append(users, user)
 	}
 	return users, rows.Err()
+}
+
+func scanUserFields(user *models.User) []any {
+	return []any{
+		&user.ID, &user.OIDCSubject, &user.Email, &user.Name,
+		&user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+	}
 }
 
 func (repository *SQLiteUserRepository) Create(ctx context.Context, user models.User) (models.User, error) {

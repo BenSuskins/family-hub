@@ -26,30 +26,27 @@ func parseConfig(recurrenceValue string) (RecurrenceConfig, error) {
 	return config, nil
 }
 
+func intervalOrDefault(interval int) int {
+	if interval <= 0 {
+		return 1
+	}
+	return interval
+}
+
 func advanceToNextOccurrence(from time.Time, recurrenceType models.RecurrenceType, config RecurrenceConfig) time.Time {
+	interval := intervalOrDefault(config.Interval)
+
 	switch recurrenceType {
 	case models.RecurrenceDaily:
-		interval := config.Interval
-		if interval <= 0 {
-			interval = 1
-		}
 		return from.AddDate(0, 0, interval)
 
 	case models.RecurrenceWeekly:
-		interval := config.Interval
-		if interval <= 0 {
-			interval = 1
-		}
 		if len(config.Days) > 0 {
 			return findNextWeekday(from, config.Days)
 		}
 		return from.AddDate(0, 0, 7*interval)
 
 	case models.RecurrenceMonthly:
-		interval := config.Interval
-		if interval <= 0 {
-			interval = 1
-		}
 		next := from.AddDate(0, interval, 0)
 		if config.DayOfMonth > 0 {
 			next = time.Date(next.Year(), next.Month(), config.DayOfMonth,
@@ -58,10 +55,6 @@ func advanceToNextOccurrence(from time.Time, recurrenceType models.RecurrenceTyp
 		return next
 
 	case models.RecurrenceCustom:
-		interval := config.Interval
-		if interval <= 0 {
-			interval = 1
-		}
 		switch config.Unit {
 		case "days":
 			return from.AddDate(0, 0, interval)
@@ -86,15 +79,9 @@ func CalculateNextDueDate(chore models.Chore, completedAt time.Time) (*time.Time
 		return nil, nil
 	}
 
-	var baseDate time.Time
-	if chore.RecurOnComplete {
-		baseDate = completedAt
-	} else {
-		if chore.DueDate != nil {
-			baseDate = *chore.DueDate
-		} else {
-			baseDate = completedAt
-		}
+	baseDate := completedAt
+	if !chore.RecurOnComplete && chore.DueDate != nil {
+		baseDate = *chore.DueDate
 	}
 
 	config, err := parseConfig(chore.RecurrenceValue)

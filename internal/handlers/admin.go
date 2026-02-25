@@ -105,9 +105,9 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	scope := r.FormValue("scope")
-	if scope != "api" && scope != "ical" {
-		scope = "api"
+	scope := models.TokenScope(r.FormValue("scope"))
+	if scope != models.TokenScopeAPI && scope != models.TokenScopeICal {
+		scope = models.TokenScopeAPI
 	}
 
 	rawToken := generateToken()
@@ -126,7 +126,6 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 
 	pages.AdminTokenCreated(name, rawToken).Render(ctx, w)
 }
-
 
 func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

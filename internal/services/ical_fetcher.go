@@ -29,33 +29,34 @@ func NewICalFetcher(subRepo repository.ICalSubscriptionRepository) *ICalFetcher 
 	}
 }
 
-func (f *ICalFetcher) ForceRefreshByID(ctx context.Context, id string) error {
-	sub, err := f.subRepo.FindByID(ctx, id)
+func (fetcher *ICalFetcher) ForceRefreshByID(ctx context.Context, id string) error {
+	sub, err := fetcher.subRepo.FindByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("finding subscription: %w", err)
 	}
-	data, err := f.fetchURL(sub.URL)
+	data, err := fetcher.fetchURL(sub.URL)
 	if err != nil {
 		return fmt.Errorf("fetching url: %w", err)
 	}
-	return f.subRepo.UpdateCache(ctx, sub.ID, data, time.Now())
+	return fetcher.subRepo.UpdateCache(ctx, sub.ID, data, time.Now())
 }
 
-func (f *ICalFetcher) FetchForRange(ctx context.Context, start, end time.Time) ([]models.Event, error) {
-	subs, err := f.subRepo.FindAll(ctx)
+func (fetcher *ICalFetcher) FetchForRange(ctx context.Context, start, end time.Time) ([]models.Event, error) {
+	subs, err := fetcher.subRepo.FindAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loading subscriptions: %w", err)
 	}
 
 	var events []models.Event
 	for _, sub := range subs {
-		subEvents, err := f.fetchSubscription(ctx, sub)
+		subEvents, err := fetcher.fetchSubscription(ctx, sub)
 		if err != nil {
 			slog.Warn("skipping ical subscription", "name", sub.Name, "error", err)
 			continue
 		}
 		for _, event := range subEvents {
-			if !event.StartTime.Before(start) && event.StartTime.Before(end) {
+			inRange := (event.StartTime.Equal(start) || event.StartTime.After(start)) && event.StartTime.Before(end)
+			if inRange {
 				events = append(events, event)
 			}
 		}
@@ -68,16 +69,16 @@ func (f *ICalFetcher) FetchForRange(ctx context.Context, start, end time.Time) (
 	return events, nil
 }
 
-func (f *ICalFetcher) fetchSubscription(ctx context.Context, sub models.ICalSubscription) ([]models.Event, error) {
-	needsFetch := sub.LastFetchedAt == nil || time.Since(*sub.LastFetchedAt) > f.cacheTTL
+func (fetcher *ICalFetcher) fetchSubscription(ctx context.Context, sub models.ICalSubscription) ([]models.Event, error) {
+	needsFetch := sub.LastFetchedAt == nil || time.Since(*sub.LastFetchedAt) > fetcher.cacheTTL
 
 	if needsFetch {
-		data, err := f.fetchURL(sub.URL)
+		data, err := fetcher.fetchURL(sub.URL)
 		if err != nil {
 			slog.Warn("fetching ical url", "url", sub.URL, "error", err)
 		} else {
 			now := time.Now()
-			if updateErr := f.subRepo.UpdateCache(ctx, sub.ID, data, now); updateErr != nil {
+			if updateErr := fetcher.subRepo.UpdateCache(ctx, sub.ID, data, now); updateErr != nil {
 				slog.Error("updating ical cache", "error", updateErr)
 			}
 			sub.CachedData = &data
@@ -92,8 +93,8 @@ func (f *ICalFetcher) fetchSubscription(ctx context.Context, sub models.ICalSubs
 	return parseICalData(*sub.CachedData, sub.ID, sub.Color)
 }
 
-func (f *ICalFetcher) fetchURL(url string) (string, error) {
-	resp, err := f.client.Get(url)
+func (fetcher *ICalFetcher) fetchURL(url string) (string, error) {
+	resp, err := fetcher.client.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("http get: %w", err)
 	}
@@ -128,26 +129,18 @@ func parseICalData(data string, subscriptionID string, subscriptionColor string)
 	return events, nil
 }
 
+func eventPropertyValue(event *ical.VEvent, property ical.ComponentProperty, fallback string) string {
+	if prop := event.GetProperty(property); prop != nil {
+		return prop.Value
+	}
+	return fallback
+}
+
 func convertICalEvent(e *ical.VEvent, subscriptionID string, subscriptionColor string) (models.Event, error) {
-	uid := subscriptionID + "-unknown"
-	if prop := e.GetProperty(ical.ComponentPropertyUniqueId); prop != nil {
-		uid = subscriptionID + "-" + prop.Value
-	}
-
-	title := "(No title)"
-	if prop := e.GetProperty(ical.ComponentPropertySummary); prop != nil {
-		title = prop.Value
-	}
-
-	description := ""
-	if prop := e.GetProperty(ical.ComponentPropertyDescription); prop != nil {
-		description = prop.Value
-	}
-
-	location := ""
-	if prop := e.GetProperty(ical.ComponentPropertyLocation); prop != nil {
-		location = prop.Value
-	}
+	uid := subscriptionID + "-" + eventPropertyValue(e, ical.ComponentPropertyUniqueId, "unknown")
+	title := eventPropertyValue(e, ical.ComponentPropertySummary, "(No title)")
+	description := eventPropertyValue(e, ical.ComponentPropertyDescription, "")
+	location := eventPropertyValue(e, ical.ComponentPropertyLocation, "")
 
 	dtStartProp := e.GetProperty(ical.ComponentPropertyDtStart)
 	if dtStartProp == nil {

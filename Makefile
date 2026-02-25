@@ -1,7 +1,9 @@
-.PHONY: build run test templ css dev docker-dev docker-prod clean
+.PHONY: build run test templ css dev docker-dev docker-prod clean env
 
-build: templ css
-	export PATH="$PATH:$(go env GOPATH)/bin"
+env:
+	$(eval export PATH := $(shell go env GOPATH)/bin:$(PATH))
+
+build: env templ css
 	go mod download
 	go build -o bin/family-hub .
 

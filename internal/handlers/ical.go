@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
 
@@ -44,16 +45,7 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authorized := handler.haToken != "" && token == handler.haToken
-	if !authorized {
-		tokenHash := repository.HashToken(token)
-		if found, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash); err == nil &&
-			found.Scope == "ical" &&
-			(found.ExpiresAt == nil || found.ExpiresAt.After(time.Now())) {
-			authorized = true
-		}
-	}
-	if !authorized {
+	if !handler.isAuthorizedICalToken(r, token) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -107,7 +99,6 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 			builder.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICalText(meal.Notes)))
 		}
 		builder.WriteString(fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", strings.ReplaceAll(meal.Date, "-", "")))
-		// End date is the next day for all-day events per iCal spec
 		if parsedDate, err := time.Parse("2006-01-02", meal.Date); err == nil {
 			builder.WriteString(fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", parsedDate.AddDate(0, 0, 1).Format("20060102")))
 		}
@@ -156,6 +147,20 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(builder.String()))
 }
 
+func (handler *ICalHandler) isAuthorizedICalToken(r *http.Request, token string) bool {
+	if handler.haToken != "" && token == handler.haToken {
+		return true
+	}
+
+	tokenHash := repository.HashToken(token)
+	found, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash)
+	if err != nil {
+		return false
+	}
+
+	return found.Scope == models.TokenScopeICal && (found.ExpiresAt == nil || found.ExpiresAt.After(time.Now()))
+}
+
 func capitalizeFirst(s string) string {
 	if s == "" {
 		return s
@@ -171,7 +176,6 @@ func escapeICalText(text string) string {
 	return text
 }
 
-// Home Assistant sensor endpoint
 type HASensorHandler struct {
 	choreRepo repository.ChoreRepository
 	userRepo  repository.UserRepository
@@ -207,9 +211,9 @@ func (handler *HASensorHandler) Sensors(w http.ResponseWriter, r *http.Request) 
 	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
 	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
 	users, _ := handler.userRepo.FindAll(ctx)
+	allChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
 
-	now := time.Now()
-	weekAgo := now.AddDate(0, 0, -7)
+	weekAgo := time.Now().AddDate(0, 0, -7)
 
 	sensors := map[string]interface{}{
 		"chores_due_today": len(choresDueToday),
@@ -222,7 +226,6 @@ func (handler *HASensorHandler) Sensors(w http.ResponseWriter, r *http.Request) 
 		overdueCount, _ := handler.choreRepo.CountByStatusAndUser(ctx, "overdue", user.ID)
 
 		var completedCount int
-		allChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
 		for _, chore := range allChores {
 			if chore.CompletedByUserID != nil && *chore.CompletedByUserID == user.ID &&
 				chore.CompletedAt != nil && chore.CompletedAt.After(weekAgo) {

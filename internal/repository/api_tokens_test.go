@@ -166,11 +166,11 @@ func TestAPITokenRepository_ScopeRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding all tokens: %v", err)
 	}
-	scopesByName := make(map[string]string)
+	scopesByName := make(map[string]models.TokenScope)
 	for _, tok := range all {
 		scopesByName[tok.Name] = tok.Scope
 	}
-	if scopesByName["iCal Feed"] != "ical" {
+	if scopesByName["iCal Feed"] != models.TokenScopeICal {
 		t.Errorf("expected FindAll to return ical scope, got '%s'", scopesByName["iCal Feed"])
 	}
 }

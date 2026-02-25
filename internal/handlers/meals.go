@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -118,13 +119,7 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mobile := r.FormValue("mobile") == "true"
-	if mobile {
-		component := pages.MealMobileRowContent(date, mealType, &saved, recipes)
-		component.Render(ctx, w)
-	} else {
-		component := pages.MealCell(date, mealType, &saved, recipes)
-		component.Render(ctx, w)
-	}
+	renderMealResponse(ctx, w, date, mealType, &saved, recipes, mobile)
 }
 
 func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
@@ -150,13 +145,7 @@ func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mobile := r.FormValue("mobile") == "true"
-	if mobile {
-		component := pages.MealMobileRowContent(date, mealType, nil, recipes)
-		component.Render(ctx, w)
-	} else {
-		component := pages.MealCell(date, mealType, nil, recipes)
-		component.Render(ctx, w)
-	}
+	renderMealResponse(ctx, w, date, mealType, nil, recipes, mobile)
 }
 
 func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
@@ -178,20 +167,24 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if editMode {
-		if mobile {
-			component := pages.MealMobileCellEdit(date, mealType, meal, recipes)
-			component.Render(ctx, w)
-		} else {
-			component := pages.MealCellEdit(date, mealType, meal, recipes)
-			component.Render(ctx, w)
-		}
+		renderMealEditResponse(ctx, w, date, mealType, meal, recipes, mobile)
 	} else {
-		if mobile {
-			component := pages.MealMobileRowContent(date, mealType, meal, recipes)
-			component.Render(ctx, w)
-		} else {
-			component := pages.MealCell(date, mealType, meal, recipes)
-			component.Render(ctx, w)
-		}
+		renderMealResponse(ctx, w, date, mealType, meal, recipes, mobile)
+	}
+}
+
+func renderMealResponse(ctx context.Context, w http.ResponseWriter, date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe, mobile bool) {
+	if mobile {
+		pages.MealMobileRowContent(date, mealType, meal, recipes).Render(ctx, w)
+	} else {
+		pages.MealCell(date, mealType, meal, recipes).Render(ctx, w)
+	}
+}
+
+func renderMealEditResponse(ctx context.Context, w http.ResponseWriter, date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe, mobile bool) {
+	if mobile {
+		pages.MealMobileCellEdit(date, mealType, meal, recipes).Render(ctx, w)
+	} else {
+		pages.MealCellEdit(date, mealType, meal, recipes).Render(ctx, w)
 	}
 }

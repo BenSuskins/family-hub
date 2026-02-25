@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -141,19 +142,7 @@ func (handler *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("image")
-	if err == nil {
-		defer file.Close()
-		imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
-		if err == nil && len(imageBytes) <= maxRecipeImageBytes {
-			contentType := header.Header.Get("Content-Type")
-			if contentType == "" {
-				contentType = http.DetectContentType(imageBytes)
-			}
-			dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
-			handler.recipeRepo.UpdateImage(ctx, created.ID, dataURI)
-		}
-	}
+	handler.saveFormImage(ctx, r, created.ID)
 
 	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", created.ID), http.StatusFound)
 }
@@ -242,19 +231,7 @@ func (handler *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("image")
-	if err == nil {
-		defer file.Close()
-		imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
-		if err == nil && len(imageBytes) <= maxRecipeImageBytes {
-			contentType := header.Header.Get("Content-Type")
-			if contentType == "" {
-				contentType = http.DetectContentType(imageBytes)
-			}
-			dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
-			handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI)
-		}
-	}
+	handler.saveFormImage(ctx, r, recipeID)
 
 	http.Redirect(w, r, fmt.Sprintf("/recipes/%s", recipeID), http.StatusFound)
 }
@@ -414,6 +391,27 @@ func (handler *RecipeHandler) Step(w http.ResponseWriter, r *http.Request) {
 	}
 	component := pages.RecipeStepField(index, "")
 	component.Render(r.Context(), w)
+}
+
+func (handler *RecipeHandler) saveFormImage(ctx context.Context, r *http.Request, recipeID string) {
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
+	if err != nil || len(imageBytes) > maxRecipeImageBytes {
+		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(imageBytes)
+	}
+
+	dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+	handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI)
 }
 
 func parseMealType(value string) *models.RecipeMealType {

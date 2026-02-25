@@ -339,7 +339,6 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Capture old recurrence settings before overwriting
 	oldRecurrenceType := chore.RecurrenceType
 	oldRecurrenceValue := chore.RecurrenceValue
 
@@ -389,7 +388,6 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If recurrence changed, delete stale future instances and re-seed
 	recurrenceChanged := recurrenceType != oldRecurrenceType || recurrenceValue != oldRecurrenceValue
 	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
@@ -412,7 +410,6 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete future pending siblings before deleting the chore itself
 	if chore.SeriesID != nil {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting future pending siblings", "error", err)

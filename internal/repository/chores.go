@@ -56,13 +56,7 @@ func NewChoreRepository(database *sql.DB) *SQLiteChoreRepository {
 func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string) (models.Chore, error) {
 	var chore models.Chore
 	err := repository.database.QueryRowContext(ctx,
-		`SELECT id, name, description, created_by_user_id, category_id,
-			assigned_to_user_id, last_assigned_index,
-			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete, series_id,
-			status, completed_at, completed_by_user_id,
-			created_at, updated_at
-		FROM chores WHERE id = ?`, id,
+		fmt.Sprintf("SELECT %s FROM chores WHERE id = ?", choreColumns), id,
 	).Scan(
 		&chore.ID, &chore.Name, &chore.Description, &chore.CreatedByUserID, &chore.CategoryID,
 		&chore.AssignedToUserID, &chore.LastAssignedIndex,
@@ -226,19 +220,12 @@ func (repository *SQLiteChoreRepository) Delete(ctx context.Context, id string) 
 
 func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) ([]models.Chore, error) {
 	now := time.Now()
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endOfToday := startOfToday.Add(24 * time.Hour)
+	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(24 * time.Hour)
 
 	rows, err := repository.database.QueryContext(ctx,
-		`SELECT id, name, description, created_by_user_id, category_id,
-			assigned_to_user_id, last_assigned_index,
-			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete, series_id,
-			status, completed_at, completed_by_user_id,
-			created_at, updated_at
-		FROM chores
+		fmt.Sprintf(`SELECT %s FROM chores
 		WHERE status IN ('pending', 'overdue') AND due_date IS NOT NULL AND due_date < ?
-		ORDER BY due_date ASC`,
+		ORDER BY due_date ASC`, choreColumns),
 		endOfToday,
 	)
 	if err != nil {
@@ -265,15 +252,9 @@ func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]mo
 	tomorrow := today.Add(24 * time.Hour)
 
 	rows, err := repository.database.QueryContext(ctx,
-		`SELECT id, name, description, created_by_user_id, category_id,
-			assigned_to_user_id, last_assigned_index,
-			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete, series_id,
-			status, completed_at, completed_by_user_id,
-			created_at, updated_at
-		FROM chores
+		fmt.Sprintf(`SELECT %s FROM chores
 		WHERE due_date >= ? AND due_date < ? AND status = 'pending'
-		ORDER BY due_date ASC`,
+		ORDER BY due_date ASC`, choreColumns),
 		today, tomorrow,
 	)
 	if err != nil {
@@ -353,16 +334,10 @@ func (repository *SQLiteChoreRepository) DeleteFuturePendingBySeries(ctx context
 
 func (repository *SQLiteChoreRepository) FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error) {
 	rows, err := repository.database.QueryContext(ctx,
-		`SELECT id, name, description, created_by_user_id, category_id,
-			assigned_to_user_id, last_assigned_index,
-			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete, series_id,
-			status, completed_at, completed_by_user_id,
-			created_at, updated_at
-		FROM chores
+		fmt.Sprintf(`SELECT %s FROM chores
 		WHERE series_id = ? AND status = 'pending' AND due_date > CURRENT_TIMESTAMP
 		ORDER BY due_date DESC
-		LIMIT 1`,
+		LIMIT 1`, choreColumns),
 		seriesID,
 	)
 	if err != nil {

@@ -113,33 +113,16 @@ func (repository *SQLiteRecipeRepository) Create(ctx context.Context, recipe mod
 	recipe.CreatedAt = now
 	recipe.UpdatedAt = now
 
-	if recipe.Ingredients == nil {
-		recipe.Ingredients = []models.IngredientGroup{}
-	}
-	if recipe.Steps == nil {
-		recipe.Steps = []string{}
-	}
-
-	ingredientsJSON, err := json.Marshal(recipe.Ingredients)
+	ingredientsJSON, stepsJSON, mealTypeStr, err := marshalRecipeFields(recipe)
 	if err != nil {
-		return models.Recipe{}, fmt.Errorf("marshalling ingredients: %w", err)
-	}
-	stepsJSON, err := json.Marshal(recipe.Steps)
-	if err != nil {
-		return models.Recipe{}, fmt.Errorf("marshalling steps: %w", err)
-	}
-
-	var mealTypeStr *string
-	if recipe.MealType != nil {
-		s := string(*recipe.MealType)
-		mealTypeStr = &s
+		return models.Recipe{}, err
 	}
 
 	_, err = repository.database.ExecContext(ctx,
 		`INSERT INTO recipes (id, title, ingredients, instructions, steps, servings, prep_time, cook_time,
 			source_url, category_id, meal_type, created_by_user_id, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		recipe.ID, recipe.Title, string(ingredientsJSON), recipe.Instructions, string(stepsJSON),
+		recipe.ID, recipe.Title, ingredientsJSON, recipe.Instructions, stepsJSON,
 		recipe.Servings, recipe.PrepTime, recipe.CookTime,
 		recipe.SourceURL, recipe.CategoryID, mealTypeStr,
 		recipe.CreatedByUserID, recipe.CreatedAt, recipe.UpdatedAt,
@@ -153,33 +136,16 @@ func (repository *SQLiteRecipeRepository) Create(ctx context.Context, recipe mod
 func (repository *SQLiteRecipeRepository) Update(ctx context.Context, recipe models.Recipe) error {
 	recipe.UpdatedAt = time.Now()
 
-	if recipe.Ingredients == nil {
-		recipe.Ingredients = []models.IngredientGroup{}
-	}
-	if recipe.Steps == nil {
-		recipe.Steps = []string{}
-	}
-
-	ingredientsJSON, err := json.Marshal(recipe.Ingredients)
+	ingredientsJSON, stepsJSON, mealTypeStr, err := marshalRecipeFields(recipe)
 	if err != nil {
-		return fmt.Errorf("marshalling ingredients: %w", err)
-	}
-	stepsJSON, err := json.Marshal(recipe.Steps)
-	if err != nil {
-		return fmt.Errorf("marshalling steps: %w", err)
-	}
-
-	var mealTypeStr *string
-	if recipe.MealType != nil {
-		s := string(*recipe.MealType)
-		mealTypeStr = &s
+		return err
 	}
 
 	_, err = repository.database.ExecContext(ctx,
 		`UPDATE recipes SET title = ?, ingredients = ?, steps = ?, servings = ?,
 			prep_time = ?, cook_time = ?, source_url = ?, category_id = ?, meal_type = ?, updated_at = ?
 		WHERE id = ?`,
-		recipe.Title, string(ingredientsJSON), string(stepsJSON), recipe.Servings,
+		recipe.Title, ingredientsJSON, stepsJSON, recipe.Servings,
 		recipe.PrepTime, recipe.CookTime, recipe.SourceURL, recipe.CategoryID,
 		mealTypeStr, recipe.UpdatedAt, recipe.ID,
 	)
@@ -228,4 +194,39 @@ func (repository *SQLiteRecipeRepository) ClearImage(ctx context.Context, id str
 		return fmt.Errorf("clearing recipe image: %w", err)
 	}
 	return nil
+}
+
+func marshalRecipeFields(recipe models.Recipe) (ingredientsJSON string, stepsJSON string, mealTypeStr *string, err error) {
+	ingredients := recipe.Ingredients
+	if ingredients == nil {
+		ingredients = []models.IngredientGroup{}
+	}
+	steps := recipe.Steps
+	if steps == nil {
+		steps = []string{}
+	}
+
+	ingredientsBytes, err := json.Marshal(ingredients)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("marshalling ingredients: %w", err)
+	}
+	stepsBytes, err := json.Marshal(steps)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("marshalling steps: %w", err)
+	}
+
+	if recipe.MealType != nil {
+		s := string(*recipe.MealType)
+		mealTypeStr = &s
+	}
+
+	return string(ingredientsBytes), string(stepsBytes), mealTypeStr, nil
+}
+
+func unmarshalRecipeMealType(raw *string) *models.RecipeMealType {
+	if raw == nil {
+		return nil
+	}
+	mealType := models.RecipeMealType(*raw)
+	return &mealType
 }

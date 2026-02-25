@@ -27,8 +27,8 @@ func NewICalSubscriptionRepository(database *sql.DB) *SQLiteICalSubscriptionRepo
 	return &SQLiteICalSubscriptionRepository{database: database}
 }
 
-func (r *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]models.ICalSubscription, error) {
-	rows, err := r.database.QueryContext(ctx,
+func (repository *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]models.ICalSubscription, error) {
+	rows, err := repository.database.QueryContext(ctx,
 		`SELECT id, name, url, color, cached_data, last_fetched_at, created_at
 		FROM ical_subscriptions ORDER BY created_at ASC`,
 	)
@@ -48,9 +48,9 @@ func (r *SQLiteICalSubscriptionRepository) FindAll(ctx context.Context) ([]model
 	return subs, rows.Err()
 }
 
-func (r *SQLiteICalSubscriptionRepository) FindByID(ctx context.Context, id string) (models.ICalSubscription, error) {
+func (repository *SQLiteICalSubscriptionRepository) FindByID(ctx context.Context, id string) (models.ICalSubscription, error) {
 	var sub models.ICalSubscription
-	err := r.database.QueryRowContext(ctx,
+	err := repository.database.QueryRowContext(ctx,
 		`SELECT id, name, url, color, cached_data, last_fetched_at, created_at
 		FROM ical_subscriptions WHERE id = ?`, id,
 	).Scan(&sub.ID, &sub.Name, &sub.URL, &sub.Color, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt)
@@ -60,17 +60,16 @@ func (r *SQLiteICalSubscriptionRepository) FindByID(ctx context.Context, id stri
 	return sub, nil
 }
 
-func (r *SQLiteICalSubscriptionRepository) Create(ctx context.Context, sub models.ICalSubscription) error {
+func (repository *SQLiteICalSubscriptionRepository) Create(ctx context.Context, sub models.ICalSubscription) error {
 	if sub.ID == "" {
 		sub.ID = uuid.New().String()
 	}
-	color := sub.Color
-	if color == "" {
-		color = "indigo"
+	if sub.Color == "" {
+		sub.Color = "indigo"
 	}
-	_, err := r.database.ExecContext(ctx,
+	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO ical_subscriptions (id, name, url, color, created_at) VALUES (?, ?, ?, ?, ?)`,
-		sub.ID, sub.Name, sub.URL, color, time.Now(),
+		sub.ID, sub.Name, sub.URL, sub.Color, time.Now(),
 	)
 	if err != nil {
 		return fmt.Errorf("inserting ical subscription: %w", err)
@@ -78,8 +77,8 @@ func (r *SQLiteICalSubscriptionRepository) Create(ctx context.Context, sub model
 	return nil
 }
 
-func (r *SQLiteICalSubscriptionRepository) UpdateColor(ctx context.Context, id string, color string) error {
-	_, err := r.database.ExecContext(ctx,
+func (repository *SQLiteICalSubscriptionRepository) UpdateColor(ctx context.Context, id string, color string) error {
+	_, err := repository.database.ExecContext(ctx,
 		`UPDATE ical_subscriptions SET color = ? WHERE id = ?`,
 		color, id,
 	)
@@ -89,8 +88,8 @@ func (r *SQLiteICalSubscriptionRepository) UpdateColor(ctx context.Context, id s
 	return nil
 }
 
-func (r *SQLiteICalSubscriptionRepository) UpdateCache(ctx context.Context, id string, data string, fetchedAt time.Time) error {
-	_, err := r.database.ExecContext(ctx,
+func (repository *SQLiteICalSubscriptionRepository) UpdateCache(ctx context.Context, id string, data string, fetchedAt time.Time) error {
+	_, err := repository.database.ExecContext(ctx,
 		`UPDATE ical_subscriptions SET cached_data = ?, last_fetched_at = ? WHERE id = ?`,
 		data, fetchedAt, id,
 	)
@@ -100,8 +99,8 @@ func (r *SQLiteICalSubscriptionRepository) UpdateCache(ctx context.Context, id s
 	return nil
 }
 
-func (r *SQLiteICalSubscriptionRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.database.ExecContext(ctx,
+func (repository *SQLiteICalSubscriptionRepository) Delete(ctx context.Context, id string) error {
+	_, err := repository.database.ExecContext(ctx,
 		`DELETE FROM ical_subscriptions WHERE id = ?`, id,
 	)
 	if err != nil {

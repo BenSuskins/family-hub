@@ -52,26 +52,33 @@ func Migrate(database *sql.DB) error {
 			return fmt.Errorf("reading migration %s: %w", filename, err)
 		}
 
-		transaction, err := database.Begin()
-		if err != nil {
-			return fmt.Errorf("beginning transaction for migration %d: %w", version, err)
-		}
-
-		if _, err := transaction.Exec(string(content)); err != nil {
-			transaction.Rollback()
-			return fmt.Errorf("executing migration %s: %w", filename, err)
-		}
-
-		if _, err := transaction.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
-			transaction.Rollback()
-			return fmt.Errorf("recording migration %d: %w", version, err)
-		}
-
-		if err := transaction.Commit(); err != nil {
-			return fmt.Errorf("committing migration %d: %w", version, err)
+		if err := applyMigration(database, version, filename, content); err != nil {
+			return err
 		}
 
 		slog.Info("applied migration", "version", version, "file", filename)
+	}
+
+	return nil
+}
+
+func applyMigration(database *sql.DB, version int, filename string, content []byte) error {
+	transaction, err := database.Begin()
+	if err != nil {
+		return fmt.Errorf("beginning transaction for migration %d: %w", version, err)
+	}
+	defer transaction.Rollback()
+
+	if _, err := transaction.Exec(string(content)); err != nil {
+		return fmt.Errorf("executing migration %s: %w", filename, err)
+	}
+
+	if _, err := transaction.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
+		return fmt.Errorf("recording migration %d: %w", version, err)
+	}
+
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("committing migration %d: %w", version, err)
 	}
 
 	return nil

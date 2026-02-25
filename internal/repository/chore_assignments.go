@@ -59,16 +59,7 @@ func (repository *SQLiteChoreAssignmentRepository) FindByChoreID(ctx context.Con
 	}
 	defer rows.Close()
 
-	var assignments []models.ChoreAssignment
-	for rows.Next() {
-		var assignment models.ChoreAssignment
-		if err := rows.Scan(&assignment.ID, &assignment.ChoreID, &assignment.UserID,
-			&assignment.AssignedAt, &assignment.CompletedAt, &assignment.Status); err != nil {
-			return nil, fmt.Errorf("scanning assignment: %w", err)
-		}
-		assignments = append(assignments, assignment)
-	}
-	return assignments, rows.Err()
+	return scanChoreAssignments(rows)
 }
 
 func (repository *SQLiteChoreAssignmentRepository) MarkCompleted(ctx context.Context, choreID string, userID string) error {
@@ -129,11 +120,17 @@ func (repository *SQLiteChoreAssignmentRepository) RecentCompleted(ctx context.C
 	}
 	defer rows.Close()
 
+	return scanChoreAssignments(rows)
+}
+
+func scanChoreAssignments(rows *sql.Rows) ([]models.ChoreAssignment, error) {
 	var assignments []models.ChoreAssignment
 	for rows.Next() {
 		var assignment models.ChoreAssignment
-		if err := rows.Scan(&assignment.ID, &assignment.ChoreID, &assignment.UserID,
-			&assignment.AssignedAt, &assignment.CompletedAt, &assignment.Status); err != nil {
+		if err := rows.Scan(
+			&assignment.ID, &assignment.ChoreID, &assignment.UserID,
+			&assignment.AssignedAt, &assignment.CompletedAt, &assignment.Status,
+		); err != nil {
 			return nil, fmt.Errorf("scanning assignment: %w", err)
 		}
 		assignments = append(assignments, assignment)

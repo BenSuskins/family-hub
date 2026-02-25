@@ -73,15 +73,7 @@ func (repository *SQLiteAPITokenRepository) FindByUserIDAndName(ctx context.Cont
 	}
 	defer rows.Close()
 
-	var tokens []models.APIToken
-	for rows.Next() {
-		var token models.APIToken
-		if err := rows.Scan(&token.ID, &token.Name, &token.TokenHash, &token.Scope, &token.CreatedByUserID, &token.ExpiresAt, &token.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scanning token: %w", err)
-		}
-		tokens = append(tokens, token)
-	}
-	return tokens, rows.Err()
+	return scanAPITokens(rows)
 }
 
 func (repository *SQLiteAPITokenRepository) FindAll(ctx context.Context) ([]models.APIToken, error) {
@@ -94,15 +86,7 @@ func (repository *SQLiteAPITokenRepository) FindAll(ctx context.Context) ([]mode
 	}
 	defer rows.Close()
 
-	var tokens []models.APIToken
-	for rows.Next() {
-		var token models.APIToken
-		if err := rows.Scan(&token.ID, &token.Name, &token.TokenHash, &token.Scope, &token.CreatedByUserID, &token.ExpiresAt, &token.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scanning token: %w", err)
-		}
-		tokens = append(tokens, token)
-	}
-	return tokens, rows.Err()
+	return scanAPITokens(rows)
 }
 
 func (repository *SQLiteAPITokenRepository) Delete(ctx context.Context, id string) error {
@@ -111,4 +95,19 @@ func (repository *SQLiteAPITokenRepository) Delete(ctx context.Context, id strin
 		return fmt.Errorf("deleting token: %w", err)
 	}
 	return nil
+}
+
+func scanAPITokens(rows *sql.Rows) ([]models.APIToken, error) {
+	var tokens []models.APIToken
+	for rows.Next() {
+		var token models.APIToken
+		if err := rows.Scan(
+			&token.ID, &token.Name, &token.TokenHash, &token.Scope,
+			&token.CreatedByUserID, &token.ExpiresAt, &token.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning token: %w", err)
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens, rows.Err()
 }

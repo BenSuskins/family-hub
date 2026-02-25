@@ -61,7 +61,7 @@ func APITokenAuth(tokenRepo repository.APITokenRepository, userRepo repository.U
 				return
 			}
 
-			if token.Scope != "api" {
+			if token.Scope != models.TokenScopeAPI {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}

@@ -105,7 +105,6 @@ func (handler *ProfileHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse "data:<mime>;base64,<payload>"
 	withoutPrefix, ok := strings.CutPrefix(avatarData, "data:")
 	if !ok {
 		http.NotFound(w, r)
@@ -127,6 +126,5 @@ func (handler *ProfileHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimeType)
-	w.WriteHeader(http.StatusOK)
 	w.Write(imageBytes)
 }

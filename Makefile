@@ -1,7 +1,8 @@
+GOPATH_BIN := $(shell go env GOPATH)/bin
+
 .PHONY: build run test templ css dev docker-dev docker-prod clean
 
 build: templ css
-	export PATH="$PATH:$(go env GOPATH)/bin"
 	go mod download
 	go build -o bin/family-hub .
 
@@ -9,7 +10,7 @@ run: build
 	./bin/family-hub
 
 templ:
-	templ generate
+	$(GOPATH_BIN)/templ generate
 
 css:
 	npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify

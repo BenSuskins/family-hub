@@ -31,6 +31,14 @@ type SessionData struct {
 	UserID string `json:"user_id"`
 }
 
+type oidcClaims struct {
+	Subject           string `json:"sub"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
+	Picture           string `json:"picture"`
+}
+
 func NewAuthService(ctx context.Context, cfg config.Config, userRepo repository.UserRepository) (*AuthService, error) {
 	if cfg.OIDCIssuer == "" {
 		slog.Warn("OIDC not configured, auth will be disabled")
@@ -103,14 +111,6 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 		return models.User{}, fmt.Errorf("verifying id token: %w", err)
 	}
 
-	type oidcClaims struct {
-		Subject          string `json:"sub"`
-		Email            string `json:"email"`
-		Name             string `json:"name"`
-		PreferredUsername string `json:"preferred_username"`
-		Picture          string `json:"picture"`
-	}
-
 	var idTokenClaims oidcClaims
 	if err := idToken.Claims(&idTokenClaims); err != nil {
 		return models.User{}, fmt.Errorf("parsing id token claims: %w", err)
@@ -126,27 +126,9 @@ func (service *AuthService) HandleCallback(ctx context.Context, code string) (mo
 		}
 	}
 
-	merged := idTokenClaims
-	if userInfoClaims.Email != "" {
-		merged.Email = userInfoClaims.Email
-	}
-	if userInfoClaims.Name != "" {
-		merged.Name = userInfoClaims.Name
-	}
-	if userInfoClaims.PreferredUsername != "" {
-		merged.PreferredUsername = userInfoClaims.PreferredUsername
-	}
-	if userInfoClaims.Picture != "" {
-		merged.Picture = userInfoClaims.Picture
-	}
+	merged := mergeClaims(idTokenClaims, userInfoClaims)
 
-	displayName := merged.Name
-	if displayName == "" {
-		displayName = merged.PreferredUsername
-	}
-	if displayName == "" {
-		displayName = merged.Email
-	}
+	displayName := firstNonEmpty(merged.Name, merged.PreferredUsername, merged.Email)
 
 	return service.provisionUser(ctx, merged.Subject, merged.Email, displayName, merged.Picture)
 }
@@ -167,7 +149,7 @@ func (service *AuthService) provisionUser(ctx context.Context, subject, email, n
 		existingUser.AvatarURL = effectiveAvatarURL
 		return existingUser, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) && !isNotFound(err) {
+	if !isNotFound(err) {
 		return models.User{}, fmt.Errorf("looking up user: %w", err)
 	}
 
@@ -262,9 +244,34 @@ func (service *AuthService) GetCurrentUser(r *http.Request) (models.User, error)
 	return user, nil
 }
 
+func mergeClaims(base, override oidcClaims) oidcClaims {
+	merged := base
+	if override.Email != "" {
+		merged.Email = override.Email
+	}
+	if override.Name != "" {
+		merged.Name = override.Name
+	}
+	if override.PreferredUsername != "" {
+		merged.PreferredUsername = override.PreferredUsername
+	}
+	if override.Picture != "" {
+		merged.Picture = override.Picture
+	}
+	return merged
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func isNotFound(err error) bool {
-	return err != nil && (errors.Is(err, sql.ErrNoRows) ||
-		fmt.Sprintf("%v", err) == "finding user by oidc subject: sql: no rows in result set")
+	return err != nil && errors.Is(err, sql.ErrNoRows)
 }
 
 const devUserOIDCSubject = "dev-user"

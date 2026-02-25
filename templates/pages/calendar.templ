@@ -251,13 +251,16 @@ templ weekView(props CalendarProps) {
 						}
 						for _, chore := range choresOnDay(props.Chores, day) {
 							<div
-								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate cursor-pointer transition-colors duration-150 " + choreColor(chore.Status) }
+								class={ "text-xs rounded px-1 py-0.5 mb-0.5 truncate flex items-center gap-1 cursor-pointer transition-colors duration-150 " + choreColor(chore.Status) }
 								title={ chore.Name }
 								hx-get={ fmt.Sprintf("/chores/%s/detail", chore.ID) }
 								hx-target="#detail-modal-content"
 								hx-swap="innerHTML"
 								onclick="document.getElementById('detail-modal').classList.remove('hidden')"
 							>
+								if chore.AssignedToUserID != nil {
+									@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-4 w-4 text-[0.5rem]")
+								}
 								{ chore.Name }
 							</div>
 						}

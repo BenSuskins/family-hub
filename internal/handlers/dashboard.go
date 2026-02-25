@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -57,7 +58,6 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	user := middleware.GetUser(ctx)
 	now := time.Now()
 
-	// Chores due today + overdue (merged, deduplicated)
 	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
 	if err != nil {
 		slog.Error("finding chores due today", "error", err)
@@ -78,7 +78,6 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Active chore count for stat card
 	activeChores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
 		Statuses:          []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
 		OnlyNextPerSeries: true,
@@ -94,14 +93,12 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Upcoming events (next 7 days) from iCal subscriptions
 	weekFromNow := now.AddDate(0, 0, 7)
 	upcomingEvents, err := handler.icalFetcher.FetchForRange(ctx, now, weekFromNow)
 	if err != nil {
 		slog.Error("fetching upcoming ical events", "error", err)
 	}
 
-	// Meals this week (for stat card)
 	weekStart := now.Truncate(24 * time.Hour)
 	weekEnd := weekStart.AddDate(0, 0, 7)
 	mealsThisWeek, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
@@ -112,13 +109,11 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		slog.Error("finding meals this week", "error", err)
 	}
 
-	// Today's meals (for widget)
 	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
 	if err != nil {
 		slog.Error("finding today's meals", "error", err)
 	}
 
-	// Users + maps
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users", "error", err)
@@ -131,32 +126,7 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		userAvatarMap[u.ID] = u.AvatarURL
 	}
 
-	// Per-user stats for leaderboard
-	weekAgo := now.AddDate(0, 0, -7)
-	monthAgo := now.AddDate(0, -1, 0)
-
-	var userStats []UserStat
-	for _, u := range users {
-		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
-		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
-		completedAllTime, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, time.Time{})
-		pendingStatus := models.ChoreStatusPending
-		pendingChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-			Status:            &pendingStatus,
-			AssignedToUser:    &u.ID,
-			OnlyNextPerSeries: true,
-		})
-		assignedPending := len(pendingChores)
-
-		userStats = append(userStats, UserStat{
-			UserName:         u.Name,
-			UserAvatarURL:    u.AvatarURL,
-			CompletedWeek:    completedWeek,
-			CompletedMonth:   completedMonth,
-			CompletedAllTime: completedAllTime,
-			AssignedPending:  assignedPending,
-		})
-	}
+	userStats := handler.collectUserStats(ctx, users)
 
 	component := pages.Dashboard(pages.DashboardProps{
 		User:               user,
@@ -190,11 +160,21 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	userStats := handler.collectUserStats(ctx, users)
+
+	component := pages.LeaderboardTable(pages.LeaderboardProps{
+		UserStats: convertUserStats(userStats, period),
+		Period:    period,
+	})
+	component.Render(ctx, w)
+}
+
+func (handler *DashboardHandler) collectUserStats(ctx context.Context, users []models.User) []UserStat {
 	now := time.Now()
 	weekAgo := now.AddDate(0, 0, -7)
 	monthAgo := now.AddDate(0, -1, 0)
 
-	var userStats []UserStat
+	userStats := make([]UserStat, 0, len(users))
 	for _, u := range users {
 		completedWeek, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, weekAgo)
 		completedMonth, _ := handler.assignmentRepo.CompletedCountByUser(ctx, u.ID, monthAgo)
@@ -205,7 +185,6 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 			AssignedToUser:    &u.ID,
 			OnlyNextPerSeries: true,
 		})
-		assignedPending := len(pendingChores)
 
 		userStats = append(userStats, UserStat{
 			UserName:         u.Name,
@@ -213,15 +192,10 @@ func (handler *DashboardHandler) Leaderboard(w http.ResponseWriter, r *http.Requ
 			CompletedWeek:    completedWeek,
 			CompletedMonth:   completedMonth,
 			CompletedAllTime: completedAllTime,
-			AssignedPending:  assignedPending,
+			AssignedPending:  len(pendingChores),
 		})
 	}
-
-	component := pages.LeaderboardTable(pages.LeaderboardProps{
-		UserStats: convertUserStats(userStats, period),
-		Period:    period,
-	})
-	component.Render(ctx, w)
+	return userStats
 }
 
 func convertUserStats(stats []UserStat, period string) []pages.UserStatProps {

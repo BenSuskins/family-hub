@@ -48,6 +48,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	mealHandler := handlers.NewMealHandler(mealPlanRepo, recipeRepo)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
 	profileHandler := handlers.NewProfileHandler(userRepo)
+	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 
 	router := chi.NewRouter()
 
@@ -144,6 +145,9 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/admin/users/{id}/demote", adminHandler.DemoteUser)
 			r.Post("/admin/settings", adminHandler.UpdateSettings)
 			r.Post("/admin/tokens", adminHandler.CreateToken)
+
+			r.Get("/admin/backup", backupHandler.Backup)
+			r.Post("/admin/restore", backupHandler.Restore)
 		})
 	})
 

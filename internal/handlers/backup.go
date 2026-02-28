@@ -130,11 +130,6 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove stale WAL/SHM files so SQLite doesn't try to apply the old
-	// write-ahead log against the freshly restored database.
-	os.Remove(handler.databasePath + "-wal")
-	os.Remove(handler.databasePath + "-shm")
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Database restored successfully. Server is restarting..."))
 
@@ -144,6 +139,11 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		time.Sleep(100 * time.Millisecond)
+		// Remove stale WAL/SHM files after the response is sent so that the
+		// restarted process doesn't try to apply the old write-ahead log
+		// against the freshly restored database.
+		os.Remove(handler.databasePath + "-wal")
+		os.Remove(handler.databasePath + "-shm")
 		handler.exitFunc(0)
 	}()
 }

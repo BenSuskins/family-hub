@@ -1,9 +1,8 @@
 GOPATH_BIN := $(shell go env GOPATH)/bin
 
-.PHONY: build run test templ css dev docker-dev docker-prod clean
+.PHONY: build run test test-coverage templ css dev docker-dev docker-prod clean
 
 build: templ css
-	go mod download
 	go build -o bin/family-hub .
 
 run: build
@@ -36,4 +35,4 @@ test-coverage:
 	go tool cover -html=coverage.out
 
 clean:
-	rm -rf bin/ tmp/ static/css/styles.css
+	rm -rf bin/ tmp/ static/css/styles.css coverage.out

@@ -83,7 +83,7 @@ make dev
 
 | Command | Description |
 |---|---|
-| `make build` | Generate templates, build CSS, compile Go binary |
+| `make build` | Regenerate templates, rebuild CSS, compile Go binary |
 | `make run` | Build and run the application |
 | `make dev` | Run with Air hot reload |
 | `make templ` | Regenerate Templ templates |

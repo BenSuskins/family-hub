@@ -22,6 +22,7 @@ func Migrate(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("creating migration source: %w", err)
 	}
+	defer source.Close()
 
 	driver, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
 	if err != nil {
@@ -63,18 +64,28 @@ func convertLegacyMigrationsTable(db *sql.DB) error {
 		return nil
 	}
 
-	if _, err := db.Exec("DROP TABLE schema_migrations"); err != nil {
+	transaction, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("beginning legacy migration transaction: %w", err)
+	}
+	defer transaction.Rollback()
+
+	if _, err := transaction.Exec("DROP TABLE schema_migrations"); err != nil {
 		return fmt.Errorf("dropping legacy migrations table: %w", err)
 	}
 
-	if _, err := db.Exec(`
+	if _, err := transaction.Exec(`
 		CREATE TABLE schema_migrations (version bigint not null primary key, dirty boolean not null)
 	`); err != nil {
 		return fmt.Errorf("creating schema_migrations table: %w", err)
 	}
 
-	if _, err := db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (?, false)", maxVersion.Int64); err != nil {
+	if _, err := transaction.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (?, false)", maxVersion.Int64); err != nil {
 		return fmt.Errorf("inserting current version: %w", err)
+	}
+
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("committing legacy migration: %w", err)
 	}
 
 	return nil

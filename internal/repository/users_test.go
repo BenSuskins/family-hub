@@ -204,6 +204,39 @@ func TestUserRepository_FindAvatarData_EmptyByDefault(t *testing.T) {
 	}
 }
 
+func TestUserRepository_MarkOnboarded(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	repo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, err := repo.Create(ctx, models.User{
+		OIDCSubject: "sub-onboard-test",
+		Email:       "onboard@example.com",
+		Name:        "Onboard User",
+		Role:        models.RoleMember,
+	})
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	if user.OnboardedAt != nil {
+		t.Fatal("expected OnboardedAt to be nil before onboarding")
+	}
+
+	if err := repo.MarkOnboarded(ctx, user.ID); err != nil {
+		t.Fatalf("marking user as onboarded: %v", err)
+	}
+
+	updated, err := repo.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("finding user after onboarding: %v", err)
+	}
+
+	if updated.OnboardedAt == nil {
+		t.Fatal("expected OnboardedAt to be set after onboarding")
+	}
+}
+
 func TestUserRepository_Count(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	repo := repository.NewUserRepository(db)

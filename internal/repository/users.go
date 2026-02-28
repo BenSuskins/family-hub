@@ -21,6 +21,7 @@ type UserRepository interface {
 	UpdateAvatar(ctx context.Context, userID string, dataURI string) error
 	ClearAvatar(ctx context.Context, userID string) error
 	Count(ctx context.Context) (int, error)
+	MarkOnboarded(ctx context.Context, id string) error
 }
 
 type SQLiteUserRepository struct {
@@ -31,7 +32,7 @@ func NewUserRepository(database *sql.DB) *SQLiteUserRepository {
 	return &SQLiteUserRepository{database: database}
 }
 
-const userColumns = "id, oidc_subject, email, name, avatar_url, role, created_at, updated_at"
+const userColumns = "id, oidc_subject, email, name, avatar_url, role, created_at, updated_at, onboarded_at"
 
 func (repository *SQLiteUserRepository) FindByID(ctx context.Context, id string) (models.User, error) {
 	var user models.User
@@ -79,6 +80,7 @@ func scanUserFields(user *models.User) []any {
 	return []any{
 		&user.ID, &user.OIDCSubject, &user.Email, &user.Name,
 		&user.AvatarURL, &user.Role, &user.CreatedAt, &user.UpdatedAt,
+		&user.OnboardedAt,
 	}
 }
 
@@ -152,6 +154,17 @@ func (repository *SQLiteUserRepository) ClearAvatar(ctx context.Context, userID 
 	)
 	if err != nil {
 		return fmt.Errorf("clearing avatar: %w", err)
+	}
+	return nil
+}
+
+func (repository *SQLiteUserRepository) MarkOnboarded(ctx context.Context, id string) error {
+	_, err := repository.database.ExecContext(ctx,
+		"UPDATE users SET onboarded_at = ?, updated_at = ? WHERE id = ?",
+		time.Now(), time.Now(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("marking user as onboarded: %w", err)
 	}
 	return nil
 }

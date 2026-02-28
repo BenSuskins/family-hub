@@ -8,7 +8,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/bensuskins/family-hub/internal/database"
 )
 
 type BackupHandler struct {
@@ -68,4 +72,93 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 		// Headers already sent; cannot change status code. Client will receive a truncated archive.
 		slog.Error("streaming backup", "error", err)
 	}
+}
+
+func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("backup")
+	if err != nil {
+		http.Error(w, "backup file required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	if !strings.HasSuffix(fileHeader.Filename, ".db.gz") {
+		http.Error(w, "file must be a .db.gz archive", http.StatusBadRequest)
+		return
+	}
+
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		http.Error(w, "invalid gzip archive", http.StatusBadRequest)
+		return
+	}
+	defer gzReader.Close()
+
+	tempFile, err := os.CreateTemp("", "family-hub-restore-*.db")
+	if err != nil {
+		slog.Error("creating temp restore file", "error", err)
+		http.Error(w, "restore failed", http.StatusInternalServerError)
+		return
+	}
+	tempPath := tempFile.Name()
+
+	if _, err := io.Copy(tempFile, gzReader); err != nil {
+		tempFile.Close()
+		os.Remove(tempPath)
+		http.Error(w, "invalid backup file", http.StatusBadRequest)
+		return
+	}
+	tempFile.Close()
+
+	validationDB, err := database.Open(tempPath)
+	if err != nil {
+		os.Remove(tempPath)
+		http.Error(w, "uploaded file is not a valid SQLite database", http.StatusBadRequest)
+		return
+	}
+	validationDB.Close()
+
+	if err := replaceFile(tempPath, handler.databasePath); err != nil {
+		os.Remove(tempPath)
+		slog.Error("replacing database file", "error", err)
+		http.Error(w, "restore failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Database restored successfully. Server is restarting..."))
+	handler.exitFunc(0)
+}
+
+func replaceFile(source, destination string) error {
+	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+		return fmt.Errorf("creating destination directory: %w", err)
+	}
+
+	if err := os.Rename(source, destination); err == nil {
+		return nil
+	}
+
+	sourceFile, err := os.Open(source)
+	if err != nil {
+		return fmt.Errorf("opening source: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destinationFile, err := os.Create(destination)
+	if err != nil {
+		return fmt.Errorf("creating destination: %w", err)
+	}
+	defer destinationFile.Close()
+
+	if _, err := io.Copy(destinationFile, sourceFile); err != nil {
+		return fmt.Errorf("copying file: %w", err)
+	}
+
+	return os.Remove(source)
 }

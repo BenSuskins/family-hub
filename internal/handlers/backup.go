@@ -154,11 +154,13 @@ func replaceFile(source, destination string) error {
 	if err != nil {
 		return fmt.Errorf("creating destination: %w", err)
 	}
-	defer destinationFile.Close()
 
 	if _, err := io.Copy(destinationFile, sourceFile); err != nil {
+		destinationFile.Close()
+		os.Remove(destination)
 		return fmt.Errorf("copying file: %w", err)
 	}
+	destinationFile.Close()
 
 	return os.Remove(source)
 }

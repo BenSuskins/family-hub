@@ -4,8 +4,10 @@ go 1.25.5
 
 require (
 	github.com/a-h/templ v0.3.977
+	github.com/arran4/golang-ical v0.3.2
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-chi/chi/v5 v5.2.5
+	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.2
 	golang.org/x/oauth2 v0.35.0
@@ -13,10 +15,8 @@ require (
 )
 
 require (
-	github.com/arran4/golang-ical v0.3.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
-	github.com/golang-migrate/migrate/v4 v4.19.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

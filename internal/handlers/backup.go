@@ -130,9 +130,22 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Remove stale WAL/SHM files so SQLite doesn't try to apply the old
+	// write-ahead log against the freshly restored database.
+	os.Remove(handler.databasePath + "-wal")
+	os.Remove(handler.databasePath + "-shm")
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Database restored successfully. Server is restarting..."))
-	handler.exitFunc(0)
+
+	// Flush response before exiting so the client sees the message.
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		handler.exitFunc(0)
+	}()
 }
 
 func replaceFile(source, destination string) error {

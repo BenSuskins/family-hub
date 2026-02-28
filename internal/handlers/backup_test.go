@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
@@ -66,11 +67,11 @@ func TestBackupHandler_Restore_ValidBackup_RestartsServer(t *testing.T) {
 
 	backupGz := createTestBackupGz(t, sourceDB)
 
-	exitCalled := false
+	exitCalled := make(chan struct{})
 	handler := &BackupHandler{
 		db:           sourceDB,
 		databasePath: dbPath,
-		exitFunc:     func(code int) { exitCalled = true },
+		exitFunc:     func(code int) { close(exitCalled) },
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/admin/restore", backupGz.body)
@@ -84,7 +85,11 @@ func TestBackupHandler_Restore_ValidBackup_RestartsServer(t *testing.T) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		t.Error("expected restored database file to exist at dbPath")
 	}
-	if !exitCalled {
+
+	select {
+	case <-exitCalled:
+		// expected
+	case <-time.After(500 * time.Millisecond):
 		t.Error("expected exitFunc to be called after successful restore")
 	}
 }

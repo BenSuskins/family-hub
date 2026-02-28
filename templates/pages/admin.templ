@@ -211,6 +211,7 @@ templ AdminUsers(props AdminUsersProps) {
 						hx-target="#restore-result"
 						hx-swap="innerHTML"
 						hx-encoding="multipart/form-data"
+						hx-on::response-error="var d=document.getElementById('restore-result');d.textContent='';var p=document.createElement('p');p.className='text-sm font-medium text-red-700 dark:text-red-400';p.textContent=event.detail.xhr.responseText.trim();d.appendChild(p)"
 						class="flex gap-3 items-center"
 					>
 						<input

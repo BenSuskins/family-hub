@@ -11,7 +11,8 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 - **Family Events** — Schedule one-time or all-day events for the whole family.
 - **Meal Planning** — Weekly meal planner organised by meal type (breakfast, lunch, dinner, snack), with entries linked to the recipe library.
 - **Recipes** — Manage a family recipe library with ingredient groups and cooking times, used to populate the meal plan.
-- **Admin Panel** — Manage users (promote/demote roles), chore categories, and API tokens.
+- **User Profiles** — Per-user avatar upload and profile management.
+- **Admin Panel** — Manage users (promote/demote roles), chore categories, and API tokens. Includes database backup (download) and restore (upload).
 - **REST API** — Token-authenticated API for third-party integrations, including Home Assistant sensor support.
 
 ## Tech Stack
@@ -40,8 +41,10 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 | `OIDC_ISSUER` | OpenID Connect issuer URL | *required* |
 | `OIDC_CLIENT_ID` | OAuth2 client ID | *required* |
 | `OIDC_CLIENT_SECRET` | OAuth2 client secret | *required* |
-| `OIDC_REDIRECT_URL` | OAuth2 callback URL | `http://localhost:8080/auth/callback` |
+| `OIDC_REDIRECT_URL` | OAuth2 callback URL | *required* |
 | `SESSION_SECRET` | Session encryption key | *required* |
+| `BASE_URL` | Public base URL of the app | `http://localhost:8080` |
+| `HA_API_TOKEN` | Home Assistant API token (for sensor endpoint) | — |
 | `LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PORT` | Server port | `8080` |
 

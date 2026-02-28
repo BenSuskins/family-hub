@@ -16,7 +16,7 @@ css:
 	npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
 dev:
-	air
+	$(GOPATH_BIN)/air
 
 docker-dev:
 	docker compose up --build

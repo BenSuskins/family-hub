@@ -98,6 +98,9 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		slog.Error("fetching upcoming ical events", "error", err)
 	}
+	if len(upcomingEvents) > 7 {
+		upcomingEvents = upcomingEvents[:7]
+	}
 
 	weekStart := now.Truncate(24 * time.Hour)
 	weekEnd := weekStart.AddDate(0, 0, 7)

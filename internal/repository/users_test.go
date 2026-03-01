@@ -235,6 +235,19 @@ func TestUserRepository_MarkOnboarded(t *testing.T) {
 	if updated.OnboardedAt == nil {
 		t.Fatal("expected OnboardedAt to be set after onboarding")
 	}
+
+	// Assert idempotency — second call must not overwrite onboarded_at
+	firstOnboardedAt := *updated.OnboardedAt
+	if err := repo.MarkOnboarded(ctx, user.ID); err != nil {
+		t.Fatalf("second MarkOnboarded call: %v", err)
+	}
+	reread, err := repo.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("finding user after second MarkOnboarded: %v", err)
+	}
+	if reread.OnboardedAt == nil || !reread.OnboardedAt.Equal(firstOnboardedAt) {
+		t.Errorf("expected OnboardedAt to be stable on second call, got %v (want %v)", reread.OnboardedAt, firstOnboardedAt)
+	}
 }
 
 func TestUserRepository_Count(t *testing.T) {

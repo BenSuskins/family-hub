@@ -159,9 +159,10 @@ func (repository *SQLiteUserRepository) ClearAvatar(ctx context.Context, userID 
 }
 
 func (repository *SQLiteUserRepository) MarkOnboarded(ctx context.Context, id string) error {
+	now := time.Now()
 	_, err := repository.database.ExecContext(ctx,
-		"UPDATE users SET onboarded_at = ?, updated_at = ? WHERE id = ?",
-		time.Now(), time.Now(), id,
+		"UPDATE users SET onboarded_at = COALESCE(onboarded_at, ?), updated_at = ? WHERE id = ?",
+		now, now, id,
 	)
 	if err != nil {
 		return fmt.Errorf("marking user as onboarded: %w", err)

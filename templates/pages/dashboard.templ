@@ -155,25 +155,23 @@ templ Dashboard(props DashboardProps) {
 					if len(props.TodayMeals) == 0 {
 						<p class="text-stone-400 dark:text-slate-500 text-sm">No meals planned yet — what's cooking?</p>
 					} else {
-						<ul class="divide-y divide-zinc-100 dark:divide-slate-700">
+						<div class="space-y-2">
 							for _, meal := range props.TodayMeals {
-								<li class="py-3">
-									@components.MealTypeBadge(meal.MealType)
-									<p class="text-sm font-medium text-stone-900 dark:text-slate-100">
+								<div class="flex items-baseline gap-2">
+									<span class="text-sm font-medium text-stone-400 dark:text-slate-500 w-16 shrink-0 capitalize">{ string(meal.MealType) }</span>
+									<div class="flex-1 text-base">
 										if meal.RecipeID != nil {
-											<a href={ templ.SafeURL(fmt.Sprintf("/recipes/%s", *meal.RecipeID)) } class="text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 underline">
-												{ meal.Name }
-											</a>
+											<span class="inline-flex items-center gap-1">
+												<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
+												@components.IconBookOpen("h-3.5 w-3.5 text-indigo-400 dark:text-indigo-300 shrink-0")
+											</span>
 										} else {
-											{ meal.Name }
+											<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
 										}
-									</p>
-									if meal.Notes != "" {
-										<p class="text-xs text-stone-500 dark:text-slate-400">{ meal.Notes }</p>
-									}
-								</li>
+									</div>
+								</div>
 							}
-						</ul>
+						</div>
 					}
 				</div>
 

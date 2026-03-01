@@ -20,54 +20,56 @@ type MealPlannerProps struct {
 
 templ MealPlanner(props MealPlannerProps) {
 	@layouts.Base("Meal Planner", props.User, "/meals") {
-		<div class="max-w-2xl mx-auto lg:max-w-none lg:grid lg:grid-cols-[1fr_280px] lg:gap-8">
-			<!-- Left: day list -->
-			<div class="space-y-4">
-				@components.PageHeader("Meal Planner")
+		<div class="max-w-2xl mx-auto space-y-4">
+			@components.PageHeader("Meal Planner")
 
-				<!-- Week Navigation -->
-				<div class="flex items-center justify-center space-x-4">
-					<a
-						href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, -7).Format("2006-01-02"))) }
-						class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 px-3 py-1 rounded-xl ring-1 ring-stone-200 dark:ring-slate-700 transition-colors duration-150"
-					>
-						@components.IconChevronLeft("h-4 w-4")
-						Prev
-					</a>
-					<span class="text-base font-medium text-stone-900 dark:text-slate-100">
-						{ mealWeekTitle(props.WeekStart) }
-					</span>
-					<a
-						href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, 7).Format("2006-01-02"))) }
-						class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 px-3 py-1 rounded-xl ring-1 ring-stone-200 dark:ring-slate-700 transition-colors duration-150"
-					>
-						Next
-						@components.IconChevronRight("h-4 w-4")
-					</a>
-					<a
-						href="/meals"
-						class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 px-3 py-1 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-sm font-medium transition-colors duration-150"
-					>This week</a>
-				</div>
-
-				<!-- Day list -->
-				<div class="space-y-2">
-					for _, day := range props.Days {
-						if mealIsToday(day) {
-							@MealTodayHero(day, props.MealMap)
-						} else {
-							@MealDayRow(day, props.MealMap)
-						}
-					}
-				</div>
-
-				<!-- Edit drawer (shared, populated by HTMX) -->
-				<div id="meal-drawer" class="mt-2"></div>
+			<!-- Week Navigation -->
+			<div class="flex items-center justify-center space-x-4">
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, -7).Format("2006-01-02"))) }
+					class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 px-3 py-1 rounded-xl ring-1 ring-stone-200 dark:ring-slate-700 transition-colors duration-150"
+				>
+					@components.IconChevronLeft("h-4 w-4")
+					Prev
+				</a>
+				<span class="text-base font-medium text-stone-900 dark:text-slate-100">
+					{ mealWeekTitle(props.WeekStart) }
+				</span>
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/meals?week_start=%s", props.WeekStart.AddDate(0, 0, 7).Format("2006-01-02"))) }
+					class="inline-flex items-center gap-1 text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 px-3 py-1 rounded-xl ring-1 ring-stone-200 dark:ring-slate-700 transition-colors duration-150"
+				>
+					Next
+					@components.IconChevronRight("h-4 w-4")
+				</a>
+				<a
+					href="/meals"
+					class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 px-3 py-1 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-sm font-medium transition-colors duration-150"
+				>This week</a>
 			</div>
 
-			<!-- Right: Recipe Ideas (desktop sidebar / bottom on mobile) -->
-			<div class="mt-6 lg:mt-0">
-				@MealIdeasSection(props.Recipes)
+			<!-- Day list -->
+			<div class="space-y-3">
+				for _, day := range props.Days {
+					if mealIsToday(day) {
+						@MealTodayHero(day, props.MealMap)
+					} else {
+						@MealDayRow(day, props.MealMap)
+					}
+				}
+			</div>
+
+			@MealIdeasSection(props.Recipes)
+
+			<!-- Edit modal overlay -->
+			<div
+				id="meal-modal"
+				class="hidden fixed inset-0 bg-stone-900/50 flex items-center justify-center z-50"
+				onclick="if(event.target===this) this.classList.add('hidden')"
+			>
+				<div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-sm w-full mx-4">
+					<div id="meal-drawer"></div>
+				</div>
 			</div>
 		</div>
 	}
@@ -117,6 +119,7 @@ templ MealSlotContent(date string, mealType models.MealType, meal *models.MealPl
 		hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
 		hx-target="#meal-drawer"
 		hx-swap="innerHTML"
+		onclick="document.getElementById('meal-modal').classList.remove('hidden')"
 		class="flex-1 text-left text-sm"
 	>
 		if meal != nil {
@@ -142,12 +145,7 @@ templ MealSlotOOB(date string, mealType models.MealType, meal *models.MealPlan) 
 // ── Edit drawer ──────────────────────────────────────────────────────────────
 
 templ MealEditDrawer(date string, mealType models.MealType, meal *models.MealPlan) {
-	<div class="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 border-t border-stone-200 dark:border-slate-700 shadow-2xl rounded-t-2xl p-4 space-y-4 lg:static lg:rounded-xl lg:border lg:shadow-md">
-		<!-- Drag handle (mobile only) -->
-		<div class="flex justify-center lg:hidden">
-			<div class="w-10 h-1 rounded-full bg-stone-300 dark:bg-slate-600"></div>
-		</div>
-
+	<div class="p-4 space-y-4">
 		<div class="flex items-center justify-between">
 			<div class="text-sm font-semibold text-stone-700 dark:text-slate-200">
 				{ mealDrawerTitle(date, mealType) }
@@ -157,6 +155,7 @@ templ MealEditDrawer(date string, mealType models.MealType, meal *models.MealPla
 				hx-get="/meals/dismiss"
 				hx-target="#meal-drawer"
 				hx-swap="innerHTML"
+				onclick="document.getElementById('meal-modal').classList.add('hidden')"
 				class="text-stone-400 dark:text-slate-500 hover:text-stone-600 dark:hover:text-slate-300 text-lg leading-none"
 				aria-label="Close"
 			>✕</button>
@@ -203,11 +202,13 @@ templ MealEditDrawer(date string, mealType models.MealType, meal *models.MealPla
 						hx-vals={ fmt.Sprintf(`{"date":"%s","meal_type":"%s"}`, date, string(mealType)) }
 						hx-target="#meal-drawer"
 						hx-swap="innerHTML"
+						onclick="document.getElementById('meal-modal').classList.add('hidden')"
 						class="text-sm text-stone-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-150"
 					>✕ Clear</button>
 
 					<button
 						type="submit"
+						onclick="document.getElementById('meal-modal').classList.add('hidden')"
 						class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors duration-150"
 					>✓ Save</button>
 				</div>
@@ -219,12 +220,7 @@ templ MealEditDrawer(date string, mealType models.MealType, meal *models.MealPla
 // ── Recipe picker ────────────────────────────────────────────────────────────
 
 templ MealRecipePicker(date string, mealType models.MealType, query string, recipes []models.Recipe) {
-	<div class="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 border-t border-stone-200 dark:border-slate-700 shadow-2xl rounded-t-2xl p-4 space-y-3 lg:static lg:rounded-xl lg:border lg:shadow-md">
-		<!-- Drag handle (mobile only) -->
-		<div class="flex justify-center lg:hidden">
-			<div class="w-10 h-1 rounded-full bg-stone-300 dark:bg-slate-600"></div>
-		</div>
-
+	<div class="p-4 space-y-3">
 		<div class="flex items-center gap-2">
 			<button
 				type="button"

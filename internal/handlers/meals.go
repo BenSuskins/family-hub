@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -25,15 +25,11 @@ func (handler *MealHandler) Planner(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	now := time.Now()
-	weekStart := now
+	weekStart := lastFriday(time.Now())
 	if weekStartStr := r.URL.Query().Get("week_start"); weekStartStr != "" {
 		if parsed, err := time.Parse("2006-01-02", weekStartStr); err == nil {
 			weekStart = parsed
 		}
-	} else {
-		offset := (int(weekStart.Weekday()) + 6) % 7
-		weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day()-offset, 0, 0, 0, 0, time.Local)
 	}
 
 	weekEnd := weekStart.AddDate(0, 0, 6)
@@ -61,14 +57,13 @@ func (handler *MealHandler) Planner(w http.ResponseWriter, r *http.Request) {
 		days = append(days, weekStart.AddDate(0, 0, i))
 	}
 
-	component := pages.MealPlanner(pages.MealPlannerProps{
+	pages.MealPlanner(pages.MealPlannerProps{
 		User:      user,
 		WeekStart: weekStart,
 		Days:      days,
 		MealMap:   mealMap,
 		Recipes:   recipes,
-	})
-	component.Render(ctx, w)
+	}).Render(ctx, w)
 }
 
 func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +78,6 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 	date := r.FormValue("date")
 	mealType := models.MealType(r.FormValue("meal_type"))
 	name := r.FormValue("name")
-	notes := r.FormValue("notes")
 	recipeID := r.FormValue("recipe_id")
 
 	if name == "" {
@@ -95,7 +89,6 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		Date:            date,
 		MealType:        mealType,
 		Name:            name,
-		Notes:           notes,
 		CreatedByUserID: user.ID,
 	}
 	if recipeID != "" {
@@ -108,18 +101,12 @@ func (handler *MealHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recipes, err := handler.recipeRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding recipes", "error", err)
-	}
-
 	saved, err := handler.mealPlanRepo.FindByDateAndType(ctx, date, mealType)
 	if err != nil {
 		slog.Error("finding saved meal", "error", err)
 	}
 
-	mobile := r.FormValue("mobile") == "true"
-	renderMealResponse(ctx, w, date, mealType, &saved, recipes, mobile)
+	pages.MealSlotOOB(date, mealType, &saved).Render(ctx, w)
 }
 
 func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
@@ -139,13 +126,11 @@ func (handler *MealHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recipes, err := handler.recipeRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding recipes", "error", err)
-	}
+	pages.MealSlotOOB(date, mealType, nil).Render(ctx, w)
+}
 
-	mobile := r.FormValue("mobile") == "true"
-	renderMealResponse(ctx, w, date, mealType, nil, recipes, mobile)
+func (handler *MealHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
@@ -154,12 +139,6 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	mealType := models.MealType(r.URL.Query().Get("meal_type"))
 	editMode := r.URL.Query().Get("edit") == "true"
-	mobile := r.URL.Query().Get("mobile") == "true"
-
-	recipes, err := handler.recipeRepo.FindAll(ctx)
-	if err != nil {
-		slog.Error("finding recipes", "error", err)
-	}
 
 	var meal *models.MealPlan
 	if found, err := handler.mealPlanRepo.FindByDateAndType(ctx, date, mealType); err == nil {
@@ -167,24 +146,57 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if editMode {
-		renderMealEditResponse(ctx, w, date, mealType, meal, recipes, mobile)
+		pages.MealEditDrawer(date, mealType, meal).Render(ctx, w)
 	} else {
-		renderMealResponse(ctx, w, date, mealType, meal, recipes, mobile)
+		pages.MealSlotContent(date, mealType, meal).Render(ctx, w)
 	}
 }
 
-func renderMealResponse(ctx context.Context, w http.ResponseWriter, date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe, mobile bool) {
-	if mobile {
-		pages.MealMobileRowContent(date, mealType, meal, recipes).Render(ctx, w)
-	} else {
-		pages.MealCell(date, mealType, meal, recipes).Render(ctx, w)
+func (handler *MealHandler) RecipePicker(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	date := r.URL.Query().Get("date")
+	mealType := models.MealType(r.URL.Query().Get("meal_type"))
+	query := r.URL.Query().Get("q")
+	selectID := r.URL.Query().Get("select")
+
+	recipes, err := handler.recipeRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("finding recipes for picker", "error", err)
 	}
+
+	// If a recipe was selected, return to drawer state with that recipe pre-filled
+	if selectID != "" {
+		for _, recipe := range recipes {
+			if recipe.ID == selectID {
+				pages.MealEditDrawer(date, mealType, &models.MealPlan{
+					Date:     date,
+					MealType: mealType,
+					Name:     recipe.Title,
+					RecipeID: &recipe.ID,
+				}).Render(ctx, w)
+				return
+			}
+		}
+	}
+
+	// Filter by query if provided
+	if query != "" {
+		lower := strings.ToLower(query)
+		var filtered []models.Recipe
+		for _, recipe := range recipes {
+			if strings.Contains(strings.ToLower(recipe.Title), lower) {
+				filtered = append(filtered, recipe)
+			}
+		}
+		recipes = filtered
+	}
+
+	pages.MealRecipePicker(date, mealType, query, recipes).Render(ctx, w)
 }
 
-func renderMealEditResponse(ctx context.Context, w http.ResponseWriter, date string, mealType models.MealType, meal *models.MealPlan, recipes []models.Recipe, mobile bool) {
-	if mobile {
-		pages.MealMobileCellEdit(date, mealType, meal, recipes).Render(ctx, w)
-	} else {
-		pages.MealCellEdit(date, mealType, meal, recipes).Render(ctx, w)
-	}
+// lastFriday returns the most recent Friday at midnight local time (or today if already Friday).
+func lastFriday(t time.Time) time.Time {
+	offset := (int(t.Weekday()) - int(time.Friday) + 7) % 7
+	return time.Date(t.Year(), t.Month(), t.Day()-offset, 0, 0, 0, 0, t.Location())
 }

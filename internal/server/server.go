@@ -127,6 +127,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/meals", mealHandler.SaveMeal)
 			r.Post("/meals/delete", mealHandler.DeleteMeal)
 			r.Get("/meals/cell", mealHandler.Cell)
+			r.Get("/meals/recipes", mealHandler.RecipePicker)
+			r.Get("/meals/dismiss", mealHandler.Dismiss)
 
 			r.Get("/recipes", recipeHandler.List)
 			r.Get("/recipes/new", recipeHandler.CreateForm)

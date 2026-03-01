@@ -59,7 +59,9 @@ templ MealPlanner(props MealPlannerProps) {
 				}
 			</div>
 
-			@MealIdeasSection(props.Recipes)
+			<hr class="border-stone-200 dark:border-slate-700"/>
+
+		@MealIdeasSection(props.Recipes)
 
 			<!-- Edit modal overlay -->
 			<div
@@ -78,11 +80,12 @@ templ MealPlanner(props MealPlannerProps) {
 // ── Today hero card ─────────────────────────────────────────────────────────
 
 templ MealTodayHero(day time.Time, mealMap map[string]models.MealPlan) {
-	<div class="bg-indigo-50 dark:bg-indigo-500/10 ring-2 ring-indigo-300 dark:ring-indigo-500/50 rounded-xl p-4 shadow-sm">
-		<div class="text-xs font-semibold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-2">
+	<div class="bg-indigo-50 dark:bg-indigo-500/10 ring-2 ring-indigo-300 dark:ring-indigo-500/50 rounded-xl p-4 shadow-card">
+		<div class="text-sm font-semibold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-2">
 			Today · { day.Format("Monday Jan 2") }
 		</div>
 		<div class="space-y-2">
+			@MealSlot(day.Format("2006-01-02"), models.MealTypeBreakfast, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeBreakfast))
 			@MealSlot(day.Format("2006-01-02"), models.MealTypeLunch, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeLunch))
 			@MealSlot(day.Format("2006-01-02"), models.MealTypeDinner, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeDinner))
 		</div>
@@ -92,11 +95,12 @@ templ MealTodayHero(day time.Time, mealMap map[string]models.MealPlan) {
 // ── Compact day row ──────────────────────────────────────────────────────────
 
 templ MealDayRow(day time.Time, mealMap map[string]models.MealPlan) {
-	<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-200 dark:ring-slate-700 rounded-xl px-4 py-3 shadow-sm">
-		<div class="text-sm font-medium text-stone-500 dark:text-slate-400 mb-1.5">
+	<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 rounded-xl px-4 py-3 shadow-card hover:dark:ring-slate-600 transition-[ring-color] duration-200">
+		<div class="text-base font-semibold text-stone-800 dark:text-slate-100 mb-1.5">
 			{ day.Format("Monday Jan 2") }
 		</div>
 		<div class="space-y-1.5">
+			@MealSlot(day.Format("2006-01-02"), models.MealTypeBreakfast, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeBreakfast))
 			@MealSlot(day.Format("2006-01-02"), models.MealTypeLunch, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeLunch))
 			@MealSlot(day.Format("2006-01-02"), models.MealTypeDinner, lookupMeal(mealMap, day.Format("2006-01-02"), models.MealTypeDinner))
 		</div>
@@ -113,18 +117,21 @@ templ MealSlot(date string, mealType models.MealType, meal *models.MealPlan) {
 
 // MealSlotContent is also returned standalone as an OOB swap after save/delete.
 templ MealSlotContent(date string, mealType models.MealType, meal *models.MealPlan) {
-	<span class="text-xs font-medium text-stone-400 dark:text-slate-500 w-14 shrink-0 capitalize">{ string(mealType) }</span>
+	<span class="text-sm font-medium text-stone-400 dark:text-slate-500 w-16 shrink-0 capitalize">{ string(mealType) }</span>
 	<button
 		type="button"
 		hx-get={ fmt.Sprintf("/meals/cell?date=%s&meal_type=%s&edit=true", date, string(mealType)) }
 		hx-target="#meal-drawer"
 		hx-swap="innerHTML"
 		onclick="document.getElementById('meal-modal').classList.remove('hidden')"
-		class="flex-1 text-left text-sm"
+		class="flex-1 text-left text-base"
 	>
 		if meal != nil {
 			if meal.RecipeID != nil {
-				<span class="text-indigo-600 dark:text-indigo-400 underline underline-offset-2">{ meal.Name }</span>
+				<span class="inline-flex items-center gap-1">
+					<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
+					@components.IconBookOpen("h-3.5 w-3.5 text-indigo-400 dark:text-indigo-300 shrink-0")
+				</span>
 			} else {
 				<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
 			}
@@ -269,9 +276,10 @@ templ MealRecipePicker(date string, mealType models.MealType, query string, reci
 // ── Recipe ideas section ─────────────────────────────────────────────────────
 
 templ MealIdeasSection(recipes []models.Recipe) {
-	<div class="bg-white dark:bg-slate-800 ring-1 ring-stone-200 dark:ring-slate-700 rounded-xl p-4 shadow-sm">
-		<div class="text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-slate-500 mb-3">
-			✦ Recipe ideas
+	<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 rounded-xl p-4 shadow-card hover:dark:ring-slate-600 transition-[ring-color] duration-200">
+		<div class="flex items-center gap-2 mb-4">
+			@components.IconBookOpen("h-5 w-5 text-amber-500 dark:text-amber-400")
+			<span class="text-base font-semibold text-stone-800 dark:text-slate-100">Recipe Ideas</span>
 		</div>
 		if len(recipes) == 0 {
 			<p class="text-sm text-stone-400 dark:text-slate-500">No recipes yet.</p>

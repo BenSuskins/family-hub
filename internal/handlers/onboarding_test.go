@@ -30,7 +30,7 @@ func setupOnboardingHandler(t *testing.T) (*OnboardingHandler, models.User, *rep
 		t.Fatalf("creating test user: %v", err)
 	}
 
-	handler := NewOnboardingHandler(settingsRepo, userRepo, categoryRepo)
+	handler := NewOnboardingHandler(settingsRepo, userRepo, categoryRepo, "")
 	return handler, user, settingsRepo, categoryRepo
 }
 
@@ -171,7 +171,7 @@ func TestOnboarding_CompleteWelcome(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewOnboardingHandler(settingsRepo, userRepo, categoryRepo)
+	handler := NewOnboardingHandler(settingsRepo, userRepo, categoryRepo, "")
 
 	form := url.Values{"name": {"New Name"}}
 	req := httptest.NewRequest(http.MethodPost, "/welcome/profile", strings.NewReader(form.Encode()))

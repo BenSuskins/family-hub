@@ -18,17 +18,20 @@ type OnboardingHandler struct {
 	settingsRepo repository.SettingsRepository
 	userRepo     repository.UserRepository
 	categoryRepo repository.CategoryRepository
+	baseURL      string
 }
 
 func NewOnboardingHandler(
 	settingsRepo repository.SettingsRepository,
 	userRepo repository.UserRepository,
 	categoryRepo repository.CategoryRepository,
+	baseURL string,
 ) *OnboardingHandler {
 	return &OnboardingHandler{
 		settingsRepo: settingsRepo,
 		userRepo:     userRepo,
 		categoryRepo: categoryRepo,
+		baseURL:      baseURL,
 	}
 }
 
@@ -71,7 +74,7 @@ func (handler *OnboardingHandler) SaveFamilyName(w http.ResponseWriter, r *http.
 		allUsers = []models.User{user}
 	}
 
-	component := components.SetupStepUsers(components.SetupStepUsersProps{Users: allUsers})
+	component := components.SetupStepUsers(components.SetupStepUsersProps{Users: allUsers, LoginURL: handler.baseURL + "/login"})
 	component.Render(ctx, w)
 }
 

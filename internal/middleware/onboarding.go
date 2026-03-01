@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -9,7 +10,10 @@ import (
 func RequireOnboarding(settingsRepo repository.SettingsRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			complete, _ := settingsRepo.Get(r.Context(), "onboarding_complete")
+			complete, err := settingsRepo.Get(r.Context(), "onboarding_complete")
+			if err != nil {
+				slog.Debug("loading onboarding_complete setting", "error", err)
+			}
 			if complete != "true" {
 				http.Redirect(w, r, "/setup", http.StatusFound)
 				return

@@ -145,7 +145,14 @@ func (handler *OnboardingHandler) CompleteWelcome(w http.ResponseWriter, r *http
 		name = user.Name
 	}
 
-	if err := handler.userRepo.UpdateProfile(ctx, user.ID, name, user.Email, user.AvatarURL); err != nil {
+	currentUser, err := handler.userRepo.FindByID(ctx, user.ID)
+	if err != nil {
+		slog.Error("fetching current user during welcome", "error", err)
+		http.Error(w, "Error saving profile", http.StatusInternalServerError)
+		return
+	}
+
+	if err := handler.userRepo.UpdateProfile(ctx, user.ID, name, currentUser.Email, currentUser.AvatarURL); err != nil {
 		slog.Error("updating profile during welcome", "error", err)
 		http.Error(w, "Error saving profile", http.StatusInternalServerError)
 		return
@@ -154,8 +161,12 @@ func (handler *OnboardingHandler) CompleteWelcome(w http.ResponseWriter, r *http
 	if file, header, err := r.FormFile("avatar"); err == nil {
 		defer file.Close()
 		const maxBytes = 1 * 1024 * 1024
-		imageBytes, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
-		if err == nil && len(imageBytes) <= maxBytes {
+		imageBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
+		if readErr != nil {
+			slog.Warn("reading avatar during welcome", "error", readErr)
+		} else if len(imageBytes) > maxBytes {
+			slog.Warn("avatar upload during welcome exceeds size limit, skipping", "size", len(imageBytes))
+		} else {
 			contentType := header.Header.Get("Content-Type")
 			if contentType == "" {
 				contentType = http.DetectContentType(imageBytes)

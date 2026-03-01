@@ -49,7 +49,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
 	profileHandler := handlers.NewProfileHandler(userRepo)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
-	onboardingHandler := handlers.NewOnboardingHandler(settingsRepo, userRepo, categoryRepo)
+	onboardingHandler := handlers.NewOnboardingHandler(settingsRepo, userRepo, categoryRepo, cfg.BaseURL)
 
 	router := chi.NewRouter()
 

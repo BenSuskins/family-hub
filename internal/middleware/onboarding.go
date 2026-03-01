@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"database/sql"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -11,8 +13,10 @@ func RequireOnboarding(settingsRepo repository.SettingsRepository) func(http.Han
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			complete, err := settingsRepo.Get(r.Context(), "onboarding_complete")
-			if err != nil {
-				slog.Debug("loading onboarding_complete setting", "error", err)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				slog.Error("loading onboarding_complete setting", "error", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
 			}
 			if complete != "true" {
 				http.Redirect(w, r, "/setup", http.StatusFound)

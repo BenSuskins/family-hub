@@ -487,6 +487,120 @@ func TestGetRecipe_API_NotFound(t *testing.T) {
 	}
 }
 
+func TestListCalendar_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-calendar",
+		Email:       "calendar@example.com",
+		Name:        "Calendar User",
+		Role:        models.RoleMember,
+	})
+
+	dueDate, _ := time.Parse("2006-01-02", "2026-03-15")
+	_, _ = choreRepo.Create(ctx, models.Chore{
+		Name:            "March chore",
+		CreatedByUserID: user.ID,
+		DueDate:         &dueDate,
+		Status:          models.ChoreStatusPending,
+	})
+
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/calendar", handler.ListCalendar)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/calendar?month=2026-03", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var body map[string]interface{}
+	json.NewDecoder(recorder.Body).Decode(&body)
+
+	chores, ok := body["chores"]
+	if !ok {
+		t.Fatal("expected chores key in response")
+	}
+	if len(chores.([]interface{})) != 1 {
+		t.Errorf("expected 1 chore, got %d", len(chores.([]interface{})))
+	}
+}
+
+func TestListCalendar_API_InvalidMonthParam(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/calendar", handler.ListCalendar)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/calendar?month=not-a-month", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", recorder.Code)
+	}
+}
+
+func TestListCalendar_API_DefaultsToCurrentMonth(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/calendar", handler.ListCalendar)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/calendar", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", recorder.Code)
+	}
+}
+
+func TestListCalendar_API_EmptyResult(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/calendar", handler.ListCalendar)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/calendar?month=2020-01", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var body map[string]interface{}
+	json.NewDecoder(recorder.Body).Decode(&body)
+
+	chores, ok := body["chores"]
+	if !ok {
+		t.Fatal("expected chores key in response")
+	}
+	if chores == nil {
+		t.Error("expected chores to be [] not null")
+	}
+	if len(chores.([]interface{})) != 0 {
+		t.Errorf("expected 0 chores, got %d", len(chores.([]interface{})))
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

@@ -231,6 +231,40 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, meals)
 }
 
+func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	monthParam := r.URL.Query().Get("month")
+	if monthParam == "" {
+		monthParam = time.Now().Format("2006-01")
+	}
+
+	monthStart, err := time.Parse("2006-01", monthParam)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid month format, use YYYY-MM"})
+		return
+	}
+
+	monthEnd := monthStart.AddDate(0, 1, -1)
+
+	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
+		DueAfter:  &monthStart,
+		DueBefore: &monthEnd,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores"})
+		return
+	}
+
+	if chores == nil {
+		chores = []models.Chore{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"chores": chores,
+	})
+}
+
 func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recipes, err := handler.recipeRepo.FindAll(ctx)

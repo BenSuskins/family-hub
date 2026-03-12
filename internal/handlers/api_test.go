@@ -346,6 +346,100 @@ func TestListMeals_API_DefaultsToCurrentWeek(t *testing.T) {
 	}
 }
 
+func TestListRecipes_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-recipes",
+		Email:       "recipes@example.com",
+		Name:        "Recipe User",
+		Role:        models.RoleMember,
+	})
+
+	_, _ = recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Pasta Bake",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo)
+
+	router := chi.NewRouter()
+	router.Get("/api/recipes", handler.ListRecipes)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var recipes []models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipes)
+	if len(recipes) != 1 {
+		t.Errorf("expected 1 recipe, got %d", len(recipes))
+	}
+}
+
+func TestGetRecipe_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-recipe-detail",
+		Email:       "detail@example.com",
+		Name:        "Detail User",
+		Role:        models.RoleMember,
+	})
+
+	created, _ := recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Fish Pie",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo)
+
+	router := chi.NewRouter()
+	router.Get("/api/recipes/{id}", handler.GetRecipe)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes/"+created.ID, nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var recipe models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if recipe.Title != "Fish Pie" {
+		t.Errorf("expected title Fish Pie, got %s", recipe.Title)
+	}
+}
+
+func TestGetRecipe_API_NotFound(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo)
+
+	router := chi.NewRouter()
+	router.Get("/api/recipes/{id}", handler.GetRecipe)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes/nonexistent-id", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

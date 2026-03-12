@@ -228,6 +228,30 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, meals)
 }
 
+func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipes, err := handler.recipeRepo.FindAll(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipes"})
+		return
+	}
+	writeJSON(w, http.StatusOK, recipes)
+}
+
+func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipe, err := handler.recipeRepo.FindByID(ctx, chi.URLParam(r, "id"))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, recipe)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

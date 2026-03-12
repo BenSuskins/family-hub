@@ -11,6 +11,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 	"github.com/go-chi/chi/v5"
 )
@@ -104,6 +105,52 @@ func TestDeleteToken(t *testing.T) {
 	}
 	if len(tokens) != 0 {
 		t.Errorf("expected 0 tokens after revoke, got %d", len(tokens))
+	}
+}
+
+func TestCompleteChore_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	assignmentRepo := repository.NewChoreAssignmentRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-complete",
+		Email:       "complete@example.com",
+		Name:        "Complete User",
+		Role:        models.RoleMember,
+	})
+
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:            "Chore to complete",
+		CreatedByUserID: user.ID,
+		Status:          models.ChoreStatusPending,
+	})
+
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil)
+
+	router := chi.NewRouter()
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+	router.Post("/api/chores/{id}/complete", handler.CompleteChore)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/chores/"+chore.ID+"/complete", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	updated, _ := choreRepo.FindByID(ctx, chore.ID)
+	if updated.Status != models.ChoreStatusCompleted {
+		t.Errorf("expected chore to be completed, got %s", updated.Status)
 	}
 }
 

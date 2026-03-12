@@ -174,6 +174,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 
 		r.Get("/api/chores", apiHandler.ListChores)
 		r.Get("/api/chores/{id}", apiHandler.GetChore)
+		r.Post("/api/chores/{id}/complete", apiHandler.CompleteChore)
 		r.Get("/api/users", apiHandler.ListUsers)
 		r.Get("/api/users/{id}", apiHandler.GetUser)
 		r.Get("/api/categories", apiHandler.ListCategories)

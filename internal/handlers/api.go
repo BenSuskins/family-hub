@@ -174,6 +174,19 @@ func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+	choreID := chi.URLParam(r, "id")
+
+	if err := handler.choreService.CompleteChore(ctx, choreID, user.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to complete chore"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

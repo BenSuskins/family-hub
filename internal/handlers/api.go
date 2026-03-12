@@ -224,6 +224,9 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load meals"})
 		return
 	}
+	if meals == nil {
+		meals = []models.MealPlan{}
+	}
 
 	writeJSON(w, http.StatusOK, meals)
 }
@@ -234,6 +237,9 @@ func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipes"})
 		return
+	}
+	if recipes == nil {
+		recipes = []models.Recipe{}
 	}
 	writeJSON(w, http.StatusOK, recipes)
 }

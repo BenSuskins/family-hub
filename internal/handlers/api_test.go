@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -419,6 +420,52 @@ func TestGetRecipe_API(t *testing.T) {
 	json.NewDecoder(recorder.Body).Decode(&recipe)
 	if recipe.Title != "Fish Pie" {
 		t.Errorf("expected title Fish Pie, got %s", recipe.Title)
+	}
+}
+
+func TestListRecipes_API_Empty(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo)
+
+	router := chi.NewRouter()
+	router.Get("/api/recipes", handler.ListRecipes)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	body := strings.TrimSpace(recorder.Body.String())
+	if body != "[]" {
+		t.Errorf("expected empty JSON array [], got %s", body)
+	}
+}
+
+func TestListMeals_API_Empty(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	mealPlanRepo := repository.NewMealPlanRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/meals", handler.ListMeals)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=2026-03-09", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	body := strings.TrimSpace(recorder.Body.String())
+	if body != "[]" {
+		t.Errorf("expected empty JSON array [], got %s", body)
 	}
 }
 

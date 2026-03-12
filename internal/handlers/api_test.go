@@ -270,6 +270,46 @@ func TestListMeals_API(t *testing.T) {
 	}
 }
 
+func TestListMeals_API_SnapsWeekParamToMonday(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	mealPlanRepo := repository.NewMealPlanRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-meals-snap",
+		Email:       "meals-snap@example.com",
+		Name:        "Meals Snap User",
+		Role:        models.RoleMember,
+	})
+
+	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+		Date:            "2026-03-09",
+		MealType:        models.MealTypeDinner,
+		Name:            "Pasta",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/meals", handler.ListMeals)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=2026-03-11", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var meals []models.MealPlan
+	json.NewDecoder(recorder.Body).Decode(&meals)
+	if len(meals) != 1 {
+		t.Errorf("expected 1 meal (Monday 2026-03-09 snapped from Wednesday 2026-03-11), got %d", len(meals))
+	}
+}
+
 func TestListMeals_API_InvalidWeekParam(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	mealPlanRepo := repository.NewMealPlanRepository(database)

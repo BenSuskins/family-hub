@@ -110,8 +110,16 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
-	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
+	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores due today"})
+		return
+	}
+	overdueChores, err := handler.choreRepo.FindOverdueChores(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load overdue chores"})
+		return
+	}
 
 	stats := map[string]interface{}{
 		"chores_due_today":      len(choresDueToday),

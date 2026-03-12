@@ -167,4 +167,16 @@ func TestDashboardStats_IncludesChores(t *testing.T) {
 	if len(overdueList.([]interface{})) != 1 {
 		t.Errorf("expected 1 overdue chore, got %d", len(overdueList.([]interface{})))
 	}
+
+	if count, ok := body["chores_due_today"]; !ok {
+		t.Fatal("expected chores_due_today count in response")
+	} else if int(count.(float64)) != 1 {
+		t.Errorf("expected chores_due_today count 1, got %v", count)
+	}
+
+	if count, ok := body["chores_overdue"]; !ok {
+		t.Fatal("expected chores_overdue count in response")
+	} else if int(count.(float64)) != 1 {
+		t.Errorf("expected chores_overdue count 1, got %v", count)
+	}
 }

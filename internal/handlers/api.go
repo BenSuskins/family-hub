@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -180,7 +182,14 @@ func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request)
 	choreID := chi.URLParam(r, "id")
 
 	if err := handler.choreService.CompleteChore(ctx, choreID, user.ID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to complete chore"})
+		switch {
+		case errors.Is(err, services.ErrChoreAlreadyComplete):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "chore is already complete"})
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to complete chore"})
+		}
 		return
 	}
 

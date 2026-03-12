@@ -154,6 +154,82 @@ func TestCompleteChore_API(t *testing.T) {
 	}
 }
 
+func TestCompleteChore_API_NotFound(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	assignmentRepo := repository.NewChoreAssignmentRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-notfound",
+		Email:       "notfound@example.com",
+		Name:        "Not Found User",
+		Role:        models.RoleMember,
+	})
+
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil)
+
+	router := chi.NewRouter()
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+	router.Post("/api/chores/{id}/complete", handler.CompleteChore)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/chores/nonexistent-id/complete", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestCompleteChore_API_AlreadyComplete(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	assignmentRepo := repository.NewChoreAssignmentRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-alreadycomplete",
+		Email:       "alreadycomplete@example.com",
+		Name:        "Already Complete User",
+		Role:        models.RoleMember,
+	})
+
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:            "Already completed chore",
+		CreatedByUserID: user.ID,
+		Status:          models.ChoreStatusCompleted,
+	})
+
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil)
+
+	router := chi.NewRouter()
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+	router.Post("/api/chores/{id}/complete", handler.CompleteChore)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/chores/"+chore.ID+"/complete", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,7 +42,7 @@ func TestAPITokenAuth_RejectsICalScopedToken(t *testing.T) {
 		t.Fatalf("creating ical token: %v", err)
 	}
 
-	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo)
+	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil)
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -84,7 +85,7 @@ func TestDeleteToken(t *testing.T) {
 		t.Fatalf("creating token: %v", err)
 	}
 
-	handler := NewAPIHandler(nil, nil, nil, nil, tokenRepo)
+	handler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil)
 
 	router := chi.NewRouter()
 	router.Delete("/api/tokens/{id}", handler.DeleteToken)
@@ -103,5 +104,67 @@ func TestDeleteToken(t *testing.T) {
 	}
 	if len(tokens) != 0 {
 		t.Errorf("expected 0 tokens after revoke, got %d", len(tokens))
+	}
+}
+
+func TestDashboardStats_IncludesChores(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-dashboard",
+		Email:       "dashboard@example.com",
+		Name:        "Dashboard User",
+		Role:        models.RoleMember,
+	})
+
+	today := time.Now().Truncate(24 * time.Hour)
+	_, _ = choreRepo.Create(ctx, models.Chore{
+		Name:            "Due today chore",
+		CreatedByUserID: user.ID,
+		DueDate:         &today,
+		Status:          models.ChoreStatusPending,
+	})
+
+	yesterday := today.AddDate(0, 0, -1)
+	_, _ = choreRepo.Create(ctx, models.Chore{
+		Name:            "Overdue chore",
+		CreatedByUserID: user.ID,
+		DueDate:         &yesterday,
+		Status:          models.ChoreStatusOverdue,
+	})
+
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/dashboard", handler.DashboardStats)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/dashboard", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var body map[string]interface{}
+	json.NewDecoder(recorder.Body).Decode(&body)
+
+	dueTodayList, ok := body["chores_due_today_list"]
+	if !ok {
+		t.Fatal("expected chores_due_today_list in response")
+	}
+	if len(dueTodayList.([]interface{})) != 1 {
+		t.Errorf("expected 1 chore due today, got %d", len(dueTodayList.([]interface{})))
+	}
+
+	overdueList, ok := body["chores_overdue_list"]
+	if !ok {
+		t.Fatal("expected chores_overdue_list in response")
+	}
+	if len(overdueList.([]interface{})) != 1 {
+		t.Errorf("expected 1 overdue chore, got %d", len(overdueList.([]interface{})))
 	}
 }

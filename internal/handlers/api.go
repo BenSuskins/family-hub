@@ -10,6 +10,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -19,6 +20,9 @@ type APIHandler struct {
 	categoryRepo   repository.CategoryRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	tokenRepo      repository.APITokenRepository
+	choreService   *services.ChoreService
+	mealPlanRepo   repository.MealPlanRepository
+	recipeRepo     repository.RecipeRepository
 }
 
 func NewAPIHandler(
@@ -27,6 +31,9 @@ func NewAPIHandler(
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	tokenRepo repository.APITokenRepository,
+	choreService *services.ChoreService,
+	mealPlanRepo repository.MealPlanRepository,
+	recipeRepo repository.RecipeRepository,
 ) *APIHandler {
 	return &APIHandler{
 		choreRepo:      choreRepo,
@@ -34,6 +41,9 @@ func NewAPIHandler(
 		categoryRepo:   categoryRepo,
 		assignmentRepo: assignmentRepo,
 		tokenRepo:      tokenRepo,
+		choreService:   choreService,
+		mealPlanRepo:   mealPlanRepo,
+		recipeRepo:     recipeRepo,
 	}
 }
 
@@ -104,8 +114,10 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
 
 	stats := map[string]interface{}{
-		"chores_due_today": len(choresDueToday),
-		"chores_overdue":   len(overdueChores),
+		"chores_due_today":      len(choresDueToday),
+		"chores_overdue":        len(overdueChores),
+		"chores_due_today_list": choresDueToday,
+		"chores_overdue_list":   overdueChores,
 	}
 	writeJSON(w, http.StatusOK, stats)
 }

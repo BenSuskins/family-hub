@@ -270,6 +270,42 @@ func TestListMeals_API(t *testing.T) {
 	}
 }
 
+func TestListMeals_API_InvalidWeekParam(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	mealPlanRepo := repository.NewMealPlanRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/meals", handler.ListMeals)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=not-a-date", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", recorder.Code)
+	}
+}
+
+func TestListMeals_API_DefaultsToCurrentWeek(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	mealPlanRepo := repository.NewMealPlanRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/meals", handler.ListMeals)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/meals", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", recorder.Code)
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

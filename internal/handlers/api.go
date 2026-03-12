@@ -211,6 +211,9 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Snap to Monday (weekday 0=Sunday, 1=Monday, ..., 6=Saturday)
+	offset := (int(weekStart.Weekday()) - int(time.Monday) + 7) % 7
+	weekStart = weekStart.AddDate(0, 0, -offset)
 	weekEnd := weekStart.AddDate(0, 0, 6)
 
 	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{

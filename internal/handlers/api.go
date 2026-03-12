@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -194,6 +195,34 @@ func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	weekParam := r.URL.Query().Get("week")
+	if weekParam == "" {
+		weekParam = time.Now().Format("2006-01-02")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", weekParam)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid week format, use YYYY-MM-DD"})
+		return
+	}
+
+	weekEnd := weekStart.AddDate(0, 0, 6)
+
+	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		DateFrom: weekStart.Format("2006-01-02"),
+		DateTo:   weekEnd.Format("2006-01-02"),
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load meals"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, meals)
 }
 
 func generateToken() string {

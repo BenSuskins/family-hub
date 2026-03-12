@@ -179,6 +179,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Get("/api/users/{id}", apiHandler.GetUser)
 		r.Get("/api/categories", apiHandler.ListCategories)
 		r.Get("/api/dashboard", apiHandler.DashboardStats)
+		r.Get("/api/meals", apiHandler.ListMeals)
 	})
 
 	router.Group(func(r chi.Router) {

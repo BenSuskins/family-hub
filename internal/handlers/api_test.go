@@ -230,6 +230,46 @@ func TestCompleteChore_API_AlreadyComplete(t *testing.T) {
 	}
 }
 
+func TestListMeals_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	mealPlanRepo := repository.NewMealPlanRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-meals",
+		Email:       "meals@example.com",
+		Name:        "Meals User",
+		Role:        models.RoleMember,
+	})
+
+	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+		Date:            "2026-03-09",
+		MealType:        models.MealTypeDinner,
+		Name:            "Pasta",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil)
+
+	router := chi.NewRouter()
+	router.Get("/api/meals", handler.ListMeals)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=2026-03-09", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var meals []models.MealPlan
+	json.NewDecoder(recorder.Body).Decode(&meals)
+	if len(meals) != 1 {
+		t.Errorf("expected 1 meal, got %d", len(meals))
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

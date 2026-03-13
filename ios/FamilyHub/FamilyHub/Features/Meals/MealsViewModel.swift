@@ -6,7 +6,10 @@ import Observation
 @MainActor
 final class MealsViewModel {
     var state: ViewState<[MealPlan]> = .idle
-    var currentWeek: Date = Self.startOfCurrentWeek()
+    var currentWeek: Date = {
+        let calendar = Calendar(identifier: .iso8601)
+        return calendar.dateInterval(of: .weekOfYear, for: Date())!.start
+    }()
 
     private let apiClient: any APIClientProtocol
 
@@ -36,8 +39,4 @@ final class MealsViewModel {
         Task { await load() }
     }
 
-    private static func startOfCurrentWeek() -> Date {
-        let calendar = Calendar(identifier: .iso8601)
-        return calendar.dateInterval(of: .weekOfYear, for: Date())!.start
-    }
 }

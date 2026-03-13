@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -18,14 +19,15 @@ import (
 )
 
 type APIHandler struct {
-	choreRepo      repository.ChoreRepository
-	userRepo       repository.UserRepository
-	categoryRepo   repository.CategoryRepository
-	assignmentRepo repository.ChoreAssignmentRepository
-	tokenRepo      repository.APITokenRepository
-	choreService   *services.ChoreService
-	mealPlanRepo   repository.MealPlanRepository
-	recipeRepo     repository.RecipeRepository
+	choreRepo       repository.ChoreRepository
+	userRepo        repository.UserRepository
+	categoryRepo    repository.CategoryRepository
+	assignmentRepo  repository.ChoreAssignmentRepository
+	tokenRepo       repository.APITokenRepository
+	choreService    *services.ChoreService
+	mealPlanRepo    repository.MealPlanRepository
+	recipeRepo      repository.RecipeRepository
+	oidcUserInfoURL string
 }
 
 func NewAPIHandler(
@@ -37,17 +39,84 @@ func NewAPIHandler(
 	choreService *services.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
+	oidcUserInfoURL string,
 ) *APIHandler {
 	return &APIHandler{
-		choreRepo:      choreRepo,
-		userRepo:       userRepo,
-		categoryRepo:   categoryRepo,
-		assignmentRepo: assignmentRepo,
-		tokenRepo:      tokenRepo,
-		choreService:   choreService,
-		mealPlanRepo:   mealPlanRepo,
-		recipeRepo:     recipeRepo,
+		choreRepo:       choreRepo,
+		userRepo:        userRepo,
+		categoryRepo:    categoryRepo,
+		assignmentRepo:  assignmentRepo,
+		tokenRepo:       tokenRepo,
+		choreService:    choreService,
+		mealPlanRepo:    mealPlanRepo,
+		recipeRepo:      recipeRepo,
+		oidcUserInfoURL: oidcUserInfoURL,
 	}
+}
+
+func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing bearer token"})
+		return
+	}
+	oidcToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+	req, err := http.NewRequestWithContext(ctx, "GET", handler.oidcUserInfoURL, nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+oidcToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var userInfo struct {
+		Sub string `json:"sub"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil || userInfo.Sub == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid userinfo response"})
+		return
+	}
+
+	user, err := handler.userRepo.FindByOIDCSubject(ctx, userInfo.Sub)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user not found — log in via web first"})
+		return
+	}
+
+	// Replace any existing iOS tokens for this user
+	existing, _ := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, "iOS App")
+	for _, t := range existing {
+		_ = handler.tokenRepo.Delete(ctx, t.ID)
+	}
+
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to generate token"})
+		return
+	}
+	plainToken := hex.EncodeToString(tokenBytes)
+
+	if _, err := handler.tokenRepo.Create(ctx, models.APIToken{
+		Name:            "iOS App",
+		TokenHash:       repository.HashToken(plainToken),
+		Scope:           models.TokenScopeAPI,
+		CreatedByUserID: user.ID,
+	}); err != nil {
+		slog.Error("creating iOS API token", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create token"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"token": plainToken})
 }
 
 func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {

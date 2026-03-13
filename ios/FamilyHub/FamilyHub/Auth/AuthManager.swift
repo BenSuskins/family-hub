@@ -14,7 +14,7 @@ final class AuthManager: NSObject {
         self.keychain = keychain
         self.config = config
         super.init()
-        self.isAuthenticated = keychain.accessToken != nil
+        self.isAuthenticated = keychain.apiToken != nil
     }
 
     // MARK: - Login (OIDC/PKCE)
@@ -61,13 +61,12 @@ final class AuthManager: NSObject {
 
     // MARK: - Token management
 
-    func validAccessToken() async throws -> String {
-        guard let token = keychain.accessToken else {
+    func validAPIToken() async throws -> String {
+        guard let token = keychain.apiToken else {
             isAuthenticated = false
             throw APIError.unauthorized
         }
         return token
-        // TODO: check expiry and refresh — implement in v2
     }
 
     func logout() {
@@ -95,6 +94,24 @@ final class AuthManager: NSObject {
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(TokenResponse.self, from: data)
         keychain.save(accessToken: response.accessToken, refreshToken: response.refreshToken ?? "")
+
+        try await exchangeForAPIToken(oidcAccessToken: response.accessToken)
+    }
+
+    private func exchangeForAPIToken(oidcAccessToken: String) async throws {
+        let exchangeURL = config.baseURL.appendingPathComponent("api/auth/exchange")
+        var request = URLRequest(url: exchangeURL)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(oidcAccessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.unauthorized
+        }
+
+        struct ExchangeResponse: Decodable { let token: String }
+        let exchangeResponse = try JSONDecoder().decode(ExchangeResponse.self, from: data)
+        keychain.saveAPIToken(exchangeResponse.token)
         isAuthenticated = true
     }
 

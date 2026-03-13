@@ -41,7 +41,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	calendarHandler := handlers.NewCalendarHandler(choreRepo, icalFetcher, userRepo, tokenRepo, mealPlanRepo, cfg.BaseURL)
 	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
-	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo)
+	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo, cfg.OIDCUserInfoURL)
 	icalHandler := handlers.NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, cfg.HAAPIToken)
 	haHandler := handlers.NewHASensorHandler(choreRepo, userRepo, cfg.HAAPIToken)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo)
@@ -168,6 +168,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			})
 		})
 	})
+
+	router.Post("/api/auth/exchange", apiHandler.ExchangeToken)
 
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.APITokenAuth(tokenRepo, userRepo))

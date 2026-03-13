@@ -27,7 +27,7 @@ final class APIClient: APIClientProtocol {
 
     private func buildRequest(path: String, method: String, queryItems: [URLQueryItem] = []) async throws -> URLRequest {
         guard let authManager else { throw APIError.unauthorized }
-        let token = try await authManager.validAccessToken()
+        let token = try await authManager.validAPIToken()
 
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !queryItems.isEmpty { components.queryItems = queryItems }

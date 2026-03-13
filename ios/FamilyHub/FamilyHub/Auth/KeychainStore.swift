@@ -13,19 +13,26 @@ final class KeychainStore {
     private enum Key: String {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
+        case apiToken = "api_token"
     }
 
     var accessToken: String? { read(.accessToken) }
     var refreshToken: String? { read(.refreshToken) }
+    var apiToken: String? { read(.apiToken) }
 
     func save(accessToken: String, refreshToken: String) {
         write(accessToken, for: .accessToken)
         write(refreshToken, for: .refreshToken)
     }
 
+    func saveAPIToken(_ token: String) {
+        write(token, for: .apiToken)
+    }
+
     func clear() {
         delete(.accessToken)
         delete(.refreshToken)
+        delete(.apiToken)
     }
 
     private func read(_ key: Key) -> String? {

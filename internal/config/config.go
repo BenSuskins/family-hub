@@ -11,6 +11,7 @@ type Config struct {
 	OIDCClientID     string
 	OIDCClientSecret string
 	OIDCRedirectURL  string
+	OIDCUserInfoURL  string
 	SessionSecret    string
 	HAAPIToken       string
 	BaseURL          string
@@ -25,6 +26,7 @@ func Load() (Config, error) {
 		OIDCClientID:    os.Getenv("OIDC_CLIENT_ID"),
 		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
 		OIDCRedirectURL: os.Getenv("OIDC_REDIRECT_URL"),
+		OIDCUserInfoURL: envOrDefault("OIDC_USERINFO_URL", os.Getenv("OIDC_ISSUER")+"/api/oidc/userinfo"),
 		SessionSecret:   os.Getenv("SESSION_SECRET"),
 		HAAPIToken:      os.Getenv("HA_API_TOKEN"),
 		BaseURL:         envOrDefault("BASE_URL", "http://localhost:8080"),

@@ -19,8 +19,3 @@ struct FamilyHubApp: App {
     }
 }
 
-// Temporary — replaced in Task 18
-struct ContentView: View {
-    let apiClient: any APIClientProtocol
-    var body: some View { Text("Loading...") }
-}

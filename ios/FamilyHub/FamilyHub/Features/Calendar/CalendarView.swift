@@ -50,14 +50,19 @@ struct CalendarView: View {
             }
             // Day cells
             LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(daysInMonth, id: \.self) { day in
-                    DayCell(
-                        date: day,
-                        isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
-                        hasChores: !viewModel.chores(for: day).isEmpty
-                    )
-                    .onTapGesture {
-                        viewModel.selectedDay = day
+                ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, day in
+                    if let day {
+                        DayCell(
+                            date: day,
+                            isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
+                            hasChores: !viewModel.chores(for: day).isEmpty
+                        )
+                        .onTapGesture {
+                            viewModel.selectedDay = day
+                        }
+                    } else {
+                        Color.clear
+                            .frame(height: 39)
                     }
                 }
             }
@@ -84,15 +89,14 @@ struct CalendarView: View {
         }
     }
 
-    private var daysInMonth: [Date] {
+    private var daysInMonth: [Date?] {
         let calendar = Calendar(identifier: .iso8601)
         guard let range = calendar.range(of: .day, in: .month, for: viewModel.currentMonth),
               let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: viewModel.currentMonth))
         else { return [] }
 
-        // Pad with leading empty days (offset from Monday)
         let weekdayOffset = (calendar.component(.weekday, from: firstDay) + 5) % 7
-        var days: [Date] = Array(repeating: Date.distantPast, count: weekdayOffset)
+        var days: [Date?] = Array(repeating: nil, count: weekdayOffset)
         days += range.compactMap { day in
             calendar.date(byAdding: .day, value: day - 1, to: firstDay)
         }
@@ -106,9 +110,8 @@ private struct DayCell: View {
     let hasChores: Bool
 
     var body: some View {
-        let isPlaceholder = date == .distantPast
         VStack(spacing: 2) {
-            Text(isPlaceholder ? "" : dayNumber)
+            Text(dayNumber)
                 .font(.callout)
                 .foregroundStyle(isSelected ? .white : .primary)
                 .frame(width: 32, height: 32)
@@ -116,14 +119,19 @@ private struct DayCell: View {
                 .clipShape(Circle())
 
             Circle()
-                .fill(hasChores && !isPlaceholder ? Color.blue : Color.clear)
+                .fill(hasChores ? Color.blue : Color.clear)
                 .frame(width: 5, height: 5)
         }
     }
 
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     private var dayNumber: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
+        Self.dayFormatter.string(from: date)
     }
 }

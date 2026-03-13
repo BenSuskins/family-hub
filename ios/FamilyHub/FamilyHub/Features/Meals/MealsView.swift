@@ -40,12 +40,30 @@ struct MealsView: View {
         .task { await viewModel.load() }
     }
 
+    private static let dayLabelFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static let dateStringFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static let weekTitleFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
     private var weekTitle: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
         let start = viewModel.currentWeek
         let end = Calendar.current.date(byAdding: .day, value: 6, to: start)!
-        return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+        return "\(Self.weekTitleFormatter.string(from: start)) – \(Self.weekTitleFormatter.string(from: end))"
     }
 
     private func mealsTable(_ meals: [MealPlan]) -> some View {
@@ -72,14 +90,10 @@ struct MealsView: View {
     }
 
     private func dateLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
+        Self.dayLabelFormatter.string(from: date)
     }
 
     private func dateString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        Self.dateStringFormatter.string(from: date)
     }
 }

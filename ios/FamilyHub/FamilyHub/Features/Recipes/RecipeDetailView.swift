@@ -8,6 +8,7 @@ struct RecipeDetailView: View {
     @State private var cookMode = false
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
+    @State private var fetchError: Bool = false
 
     var body: some View {
         let displayed = fullRecipe ?? recipe
@@ -62,14 +63,27 @@ struct RecipeDetailView: View {
             }
         }
         .task {
-            // Fetch full recipe details (list endpoint may omit steps/ingredients)
-            if let full = try? await apiClient.fetchRecipe(id: recipe.id) {
-                fullRecipe = full
+            do {
+                fullRecipe = try await apiClient.fetchRecipe(id: recipe.id)
+            } catch {
+                fetchError = true
             }
             isLoading = false
         }
+        .onDisappear {
+            if cookMode {
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
+        }
         .overlay {
-            if isLoading { ProgressView() }
+            if isLoading {
+                ProgressView()
+            } else if fetchError && fullRecipe == nil {
+                ContentUnavailableView(
+                    "Failed to load details",
+                    systemImage: "exclamationmark.triangle"
+                )
+            }
         }
     }
 }

@@ -28,7 +28,7 @@ final class AuthManager: NSObject {
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id",     value: config.clientID),
             URLQueryItem(name: "redirect_uri",  value: "familyhub://callback"),
-            URLQueryItem(name: "scope",         value: "openid profile email offline_access"),
+            URLQueryItem(name: "scope",         value: "openid profile email"),
             URLQueryItem(name: "state",         value: state),
             URLQueryItem(name: "code_challenge", value: codeChallenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
@@ -94,7 +94,7 @@ final class AuthManager: NSObject {
 
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(TokenResponse.self, from: data)
-        keychain.save(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        keychain.save(accessToken: response.accessToken, refreshToken: response.refreshToken ?? "")
         isAuthenticated = true
     }
 
@@ -132,7 +132,7 @@ enum AuthError: Error {
 
 private struct TokenResponse: Decodable {
     let accessToken: String
-    let refreshToken: String
+    let refreshToken: String?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"

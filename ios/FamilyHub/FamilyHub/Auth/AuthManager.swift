@@ -27,7 +27,7 @@ final class AuthManager: NSObject {
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id",     value: config.clientID),
-            URLQueryItem(name: "redirect_uri",  value: "familyhub://auth/callback"),
+            URLQueryItem(name: "redirect_uri",  value: "familyhub://callback"),
             URLQueryItem(name: "scope",         value: "openid profile email offline_access"),
             URLQueryItem(name: "state",         value: state),
             URLQueryItem(name: "code_challenge", value: codeChallenge),
@@ -87,7 +87,7 @@ final class AuthManager: NSObject {
             URLQueryItem(name: "grant_type",    value: "authorization_code"),
             URLQueryItem(name: "client_id",     value: config.clientID),
             URLQueryItem(name: "code",          value: code),
-            URLQueryItem(name: "redirect_uri",  value: "familyhub://auth/callback"),
+            URLQueryItem(name: "redirect_uri",  value: "familyhub://callback"),
             URLQueryItem(name: "code_verifier", value: codeVerifier),
         ]
         request.httpBody = params.query?.data(using: .utf8)

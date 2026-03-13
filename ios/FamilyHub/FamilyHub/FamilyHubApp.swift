@@ -1,17 +1,26 @@
-//
-//  FamilyHubApp.swift
-//  FamilyHub
-//
-//  Created by Ben Suskins on 12/03/2026.
-//
-
 import SwiftUI
 
 @main
 struct FamilyHubApp: App {
+    @State private var authManager = AuthManager()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if authManager.isAuthenticated {
+                let config = authManager.config
+                let client = APIClient(baseURL: config.baseURL, authManager: authManager)
+                ContentView(apiClient: client)
+                    .environment(authManager)
+            } else {
+                LoginView()
+                    .environment(authManager)
+            }
         }
     }
+}
+
+// Temporary — replaced in Task 18
+struct ContentView: View {
+    let apiClient: any APIClientProtocol
+    var body: some View { Text("Loading...") }
 }

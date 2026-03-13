@@ -53,11 +53,6 @@
 			path = FamilyHubTests;
 			sourceTree = "<group>";
 		};
-		545AC8E32F6361A9009E96B7 /* FamilyHubUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FamilyHubUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,7 +85,6 @@
 			children = (
 				545AC8CB2F6361A9009E96B7 /* FamilyHub */,
 				545AC8D92F6361A9009E96B7 /* FamilyHubTests */,
-				545AC8E32F6361A9009E96B7 /* FamilyHubUITests */,
 				545AC8CA2F6361A9009E96B7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -165,9 +159,6 @@
 			);
 			dependencies = (
 				545AC8E22F6361A9009E96B7 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				545AC8E32F6361A9009E96B7 /* FamilyHubUITests */,
 			);
 			name = FamilyHubUITests;
 			packageProductDependencies = (

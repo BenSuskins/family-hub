@@ -79,7 +79,11 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 	defer resp.Body.Close()
 
 	var userInfo struct {
-		Sub string `json:"sub"`
+		Sub               string `json:"sub"`
+		Email             string `json:"email"`
+		Name              string `json:"name"`
+		PreferredUsername string `json:"preferred_username"`
+		Picture           string `json:"picture"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil || userInfo.Sub == "" {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid userinfo response"})
@@ -87,8 +91,34 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	user, err := handler.userRepo.FindByOIDCSubject(ctx, userInfo.Sub)
-	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user not found — log in via web first"})
+	if errors.Is(err, sql.ErrNoRows) {
+		name := userInfo.Name
+		if name == "" {
+			name = userInfo.PreferredUsername
+		}
+		if name == "" {
+			name = userInfo.Email
+		}
+
+		count, _ := handler.userRepo.Count(ctx)
+		role := models.RoleMember
+		if count == 0 {
+			role = models.RoleAdmin
+		}
+
+		user, err = handler.userRepo.Create(ctx, models.User{
+			OIDCSubject: userInfo.Sub,
+			Email:       userInfo.Email,
+			Name:        name,
+			AvatarURL:   userInfo.Picture,
+			Role:        role,
+		})
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
+			return
+		}
+	} else if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user lookup failed"})
 		return
 	}
 

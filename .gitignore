@@ -50,3 +50,12 @@ family-hub
 
 # Git worktrees
 .worktrees/
+
+# iOS build artefacts
+.DS_Store
+ios/build/
+ios/DerivedData/
+ios/**/*.xcodeproj/xcuserdata/
+ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/**/*.xcworkspace/xcuserdata/
+ios/**/Config.plist

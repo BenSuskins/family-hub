@@ -2,14 +2,18 @@ package handlers
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -19,6 +23,9 @@ type APIHandler struct {
 	categoryRepo   repository.CategoryRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	tokenRepo      repository.APITokenRepository
+	choreService   *services.ChoreService
+	mealPlanRepo   repository.MealPlanRepository
+	recipeRepo     repository.RecipeRepository
 }
 
 func NewAPIHandler(
@@ -27,6 +34,9 @@ func NewAPIHandler(
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	tokenRepo repository.APITokenRepository,
+	choreService *services.ChoreService,
+	mealPlanRepo repository.MealPlanRepository,
+	recipeRepo repository.RecipeRepository,
 ) *APIHandler {
 	return &APIHandler{
 		choreRepo:      choreRepo,
@@ -34,6 +44,9 @@ func NewAPIHandler(
 		categoryRepo:   categoryRepo,
 		assignmentRepo: assignmentRepo,
 		tokenRepo:      tokenRepo,
+		choreService:   choreService,
+		mealPlanRepo:   mealPlanRepo,
+		recipeRepo:     recipeRepo,
 	}
 }
 
@@ -100,12 +113,22 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
-	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
+	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores due today"})
+		return
+	}
+	overdueChores, err := handler.choreRepo.FindOverdueChores(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load overdue chores"})
+		return
+	}
 
 	stats := map[string]interface{}{
-		"chores_due_today": len(choresDueToday),
-		"chores_overdue":   len(overdueChores),
+		"chores_due_today":      len(choresDueToday),
+		"chores_overdue":        len(overdueChores),
+		"chores_due_today_list": choresDueToday,
+		"chores_overdue_list":   overdueChores,
 	}
 	writeJSON(w, http.StatusOK, stats)
 }
@@ -152,6 +175,121 @@ func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+	choreID := chi.URLParam(r, "id")
+
+	if err := handler.choreService.CompleteChore(ctx, choreID, user.ID); err != nil {
+		switch {
+		case errors.Is(err, services.ErrChoreAlreadyComplete):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "chore is already complete"})
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to complete chore"})
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	weekParam := r.URL.Query().Get("week")
+	if weekParam == "" {
+		weekParam = time.Now().Format("2006-01-02")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", weekParam)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid week format, use YYYY-MM-DD"})
+		return
+	}
+
+	// Snap to Monday (weekday 0=Sunday, 1=Monday, ..., 6=Saturday)
+	offset := (int(weekStart.Weekday()) - int(time.Monday) + 7) % 7
+	weekStart = weekStart.AddDate(0, 0, -offset)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+
+	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		DateFrom: weekStart.Format("2006-01-02"),
+		DateTo:   weekEnd.Format("2006-01-02"),
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load meals"})
+		return
+	}
+	if meals == nil {
+		meals = []models.MealPlan{}
+	}
+
+	writeJSON(w, http.StatusOK, meals)
+}
+
+func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	monthParam := r.URL.Query().Get("month")
+	if monthParam == "" {
+		monthParam = time.Now().Format("2006-01")
+	}
+
+	monthStart, err := time.Parse("2006-01", monthParam)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid month format, use YYYY-MM"})
+		return
+	}
+
+	monthEnd := monthStart.AddDate(0, 1, -1)
+
+	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
+		DueAfter:  &monthStart,
+		DueBefore: &monthEnd,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores"})
+		return
+	}
+
+	if chores == nil {
+		chores = []models.Chore{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"chores": chores,
+	})
+}
+
+func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipes, err := handler.recipeRepo.FindAll(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipes"})
+		return
+	}
+	if recipes == nil {
+		recipes = []models.Recipe{}
+	}
+	writeJSON(w, http.StatusOK, recipes)
+}
+
+func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipe, err := handler.recipeRepo.FindByID(ctx, chi.URLParam(r, "id"))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, recipe)
 }
 
 func generateToken() string {

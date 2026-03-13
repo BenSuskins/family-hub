@@ -31,10 +31,15 @@ struct CalendarView: View {
         .task { await viewModel.load() }
     }
 
+    private static let monthTitleFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     private var monthTitle: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: viewModel.currentMonth)
+        Self.monthTitleFormatter.string(from: viewModel.currentMonth)
     }
 
     private var calendarGrid: some View {

@@ -57,6 +57,7 @@ struct MealsView: View {
     private static let weekTitleFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "d MMM"
+        f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
 

@@ -37,11 +37,11 @@ final class ChoresViewModel {
         }
     }
 
-    func complete(choreID: String) async {
+    func complete(choreID: String) async -> Bool {
         do {
             try await apiClient.completeChore(id: choreID)
             // Update local state immediately without re-fetching
-            guard case .loaded(var chores) = state else { return }
+            guard case .loaded(var chores) = state else { return true }
             if let index = chores.firstIndex(where: { $0.id == choreID }) {
                 chores[index] = Chore(
                     id: chores[index].id,
@@ -53,10 +53,13 @@ final class ChoresViewModel {
                 )
                 state = .loaded(chores)
             }
+            return true
         } catch let error as APIError {
             errorMessage = error.localizedDescription
+            return false
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 }

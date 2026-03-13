@@ -28,9 +28,9 @@ struct ChoreDetailView: View {
                     Button {
                         Task {
                             isCompleting = true
-                            await viewModel.complete(choreID: chore.id)
+                            let success = await viewModel.complete(choreID: chore.id)
                             isCompleting = false
-                            dismiss()
+                            if success { dismiss() }
                         }
                     } label: {
                         HStack {

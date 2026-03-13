@@ -30,13 +30,20 @@ struct ChoresView: View {
                     Button("Refresh") { Task { await viewModel.load() } }
                 }
             }
-            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+            .alert("Error", isPresented: showError) {
                 Button("OK") { viewModel.errorMessage = nil }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
         }
         .task { await viewModel.load() }
+    }
+
+    private var showError: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )
     }
 
     private var choresList: some View {

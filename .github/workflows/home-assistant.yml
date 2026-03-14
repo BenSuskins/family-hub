@@ -29,32 +29,3 @@ jobs:
           cd home-assistant
           pytest || true   # pass until tests are added
 
-  release:
-    if: github.ref == 'refs/heads/main'
-    needs: lint-and-test
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Generate tag
-        id: tag
-        run: |
-          TAG="v$(date +'%Y.%m.%d').${{ github.run_number }}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Create zip
-        run: |
-          cd home-assistant
-          zip -r ../family_hub.zip custom_components/family_hub/
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: ${{ steps.tag.outputs.tag }}
-          files: family_hub.zip
-          generate_release_notes: true

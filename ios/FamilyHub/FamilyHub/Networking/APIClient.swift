@@ -104,4 +104,8 @@ final class APIClient: APIClientProtocol {
         ])
         return response.chores
     }
+
+    func fetchUsers() async throws -> [User] {
+        try await get("/api/users")
+    }
 }

@@ -15,4 +15,5 @@ protocol APIClientProtocol: AnyObject {
     func fetchRecipes() async throws -> [Recipe]
     func fetchRecipe(id: String) async throws -> Recipe
     func fetchCalendar(month: Date) async throws -> [Chore]
+    func fetchUsers() async throws -> [User]
 }

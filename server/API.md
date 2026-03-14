@@ -118,3 +118,4 @@ Create a new API token. Returns the token value (shown once only).
 #### `DELETE /api/tokens/{id}`
 
 Revoke an API token by ID.
+

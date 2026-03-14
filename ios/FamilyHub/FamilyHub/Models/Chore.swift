@@ -23,3 +23,19 @@ struct Chore: Codable, Identifiable {
         case assignedToUserID = "AssignedToUserID"
     }
 }
+
+extension Chore {
+    var formattedDueDate: String? {
+        guard let dueDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let iso = ISO8601DateFormatter()
+        guard let date = iso.date(from: dueDate) ?? formatter.date(from: String(dueDate.prefix(10))) else {
+            return nil
+        }
+        let display = DateFormatter()
+        display.dateFormat = "MMM d"
+        return display.string(from: date)
+    }
+}

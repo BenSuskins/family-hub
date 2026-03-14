@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import FamilyHubCoordinator, FamilyHubData
+from .coordinator import FamilyHubCoordinator
 
 
 async def async_setup_entry(

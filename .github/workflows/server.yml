@@ -39,7 +39,7 @@ jobs:
         run: go test ./...
 
   docker:
-    if: github.ref == "refs/heads/main"
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: test
     runs-on: ubuntu-latest
 

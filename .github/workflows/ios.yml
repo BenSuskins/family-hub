@@ -1,0 +1,24 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**']
+  pull_request:
+    paths: ['ios/**']
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project ios/FamilyHub/FamilyHub.xcodeproj \
+            -scheme FamilyHub \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -resultBundlePath ios-test-results \
+            CODE_SIGNING_ALLOWED=NO

@@ -16,7 +16,7 @@ services:
       - LOG_LEVEL=debug
     volumes:
       - .:/app
-      - ./data:/data
+      - ../data:/data
       - go-cache:/root/go
     restart: unless-stopped
 

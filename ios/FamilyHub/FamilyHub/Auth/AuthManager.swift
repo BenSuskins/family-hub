@@ -7,6 +7,9 @@ import AuthenticationServices
 final class AuthManager: NSObject {
     private(set) var isAuthenticated = false
 
+    var displayName: String { "Family Member" }
+    var email: String { "" }
+
     private let keychain: KeychainStore
     let config: OIDCConfig
 

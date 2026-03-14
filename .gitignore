@@ -35,7 +35,7 @@ go.work.sum
 data/
 bin/
 tmp/
-static/css/styles.css
+**/static/css/styles.css
 node_modules/
 
 # Generated templ files

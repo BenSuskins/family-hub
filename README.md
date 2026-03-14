@@ -15,6 +15,14 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 - **Admin Panel** — Manage users (promote/demote roles), chore categories, and API tokens. Includes database backup (download) and restore (upload).
 - **REST API** — Token-authenticated API for third-party integrations, including Home Assistant sensor support.
 
+## Monorepo Layout
+
+| Component | Directory | Description |
+|-----------|-----------|-------------|
+| Go backend | [`server/`](server/) | HTTP server, templates, REST API |
+| iOS app | [`ios/`](ios/) | SwiftUI native client |
+| Home Assistant | [`home-assistant/`](home-assistant/) | Custom HACS integration |
+
 ## Tech Stack
 
 - **Backend:** Go with [Chi](https://github.com/go-chi/chi) router
@@ -22,6 +30,7 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 - **Database:** SQLite
 - **Frontend:** Tailwind CSS + HTMX
 - **Auth:** OAuth2 / OpenID Connect
+- **iOS:** SwiftUI, MVVM
 - **Dev tooling:** Air (hot reload), Docker, Make
 
 ## Getting Started
@@ -50,21 +59,25 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 
 ### Run with Docker (recommended)
 
+Run from the `server/` directory:
+
 **Development** (with hot reload and source mounting):
 
 ```bash
-docker compose up --build
+cd server && docker compose up --build
 ```
 
 **Production:**
 
 ```bash
-docker compose -f docker-compose.prod.yml up --build
+cd server && docker compose -f docker-compose.prod.yml up --build
 ```
 
 ### Run Locally
 
 ```bash
+cd server
+
 # Install dependencies
 go mod download
 npm install
@@ -76,10 +89,12 @@ make run
 For development with hot reload:
 
 ```bash
-make dev
+cd server && make dev
 ```
 
 ## Make Targets
+
+Run from `server/`:
 
 | Command | Description |
 |---|---|
@@ -97,32 +112,36 @@ make dev
 ## Project Structure
 
 ```
-├── main.go                  # Entry point
-├── internal/
-│   ├── config/              # Environment configuration
-│   ├── database/            # SQLite setup and migrations
-│   ├── models/              # Data models
-│   ├── repository/          # Data access layer
-│   ├── services/            # Business logic
-│   ├── handlers/            # HTTP handlers
-│   ├── middleware/           # Auth middleware
-│   └── server/              # Router and server setup
-├── templates/               # Templ page and layout templates
-├── static/                  # CSS and JS assets
-├── Dockerfile               # Production image
-├── Dockerfile.dev           # Development image
-├── docker-compose.yml       # Dev compose config
-└── docker-compose.prod.yml  # Production compose config
+├── server/                  # Go backend
+│   ├── main.go              # Entry point
+│   ├── internal/
+│   │   ├── config/          # Environment configuration
+│   │   ├── database/        # SQLite setup and migrations
+│   │   ├── models/          # Data models
+│   │   ├── repository/      # Data access layer
+│   │   ├── services/        # Business logic
+│   │   ├── handlers/        # HTTP handlers
+│   │   ├── middleware/      # Auth middleware
+│   │   └── server/          # Router and server setup
+│   ├── templates/           # Templ page and layout templates
+│   ├── static/              # CSS and JS assets
+│   ├── Dockerfile           # Production image
+│   ├── Dockerfile.dev       # Development image
+│   ├── docker-compose.yml   # Dev compose config
+│   └── docker-compose.prod.yml  # Production compose config
+├── ios/                     # SwiftUI iOS app
+├── home-assistant/          # Home Assistant HACS integration
+└── data/                    # Runtime data (SQLite DB, gitignored)
 ```
 
 ## Testing
 
 ```bash
-make test
+cd server && make test
 ```
 
 Generate a coverage report:
 
 ```bash
-make test-coverage
+cd server && make test-coverage
 ```

@@ -5,8 +5,9 @@ import Observation
 @MainActor
 final class DashboardViewModel {
     var state: ViewState<DashboardStats> = .idle
+    var users: [String: User] = [:]
 
-    private let apiClient: any APIClientProtocol
+    let apiClient: any APIClientProtocol
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
@@ -14,8 +15,11 @@ final class DashboardViewModel {
 
     func load() async {
         state = .loading
+        async let statsTask = apiClient.fetchDashboardStats()
+        async let usersTask = apiClient.fetchUsers()
         do {
-            let stats = try await apiClient.fetchDashboardStats()
+            let (stats, userList) = try await (statsTask, usersTask)
+            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
             state = .loaded(stats)
         } catch let error as APIError {
             state = .failed(error)

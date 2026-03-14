@@ -48,4 +48,17 @@ final class DashboardViewModelTests: XCTestCase {
             return
         }
     }
+
+    func testLoadFetchesUsersAlongWithStats() async {
+        let fake = FakeAPIClient()
+        fake.dashboardResult = .success(
+            DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [])
+        )
+        fake.usersResult = .success([User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "")])
+        let viewModel = DashboardViewModel(apiClient: fake)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.users["u1"]?.name, "Ben Suskins")
+    }
 }

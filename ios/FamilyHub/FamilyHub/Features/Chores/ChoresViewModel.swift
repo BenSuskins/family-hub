@@ -7,11 +7,22 @@ import Observation
 final class ChoresViewModel {
     var state: ViewState<[Chore]> = .idle
     var errorMessage: String?
+    var users: [String: User] = [:]
 
     // Derived from loaded chores
     var pendingChores: [Chore] {
         guard case .loaded(let chores) = state else { return [] }
         return chores.filter { $0.status == .pending || $0.status == .overdue }
+    }
+
+    var overdueChores: [Chore] {
+        guard case .loaded(let chores) = state else { return [] }
+        return chores.filter { $0.status == .overdue }
+    }
+
+    var dueSoonChores: [Chore] {
+        guard case .loaded(let chores) = state else { return [] }
+        return chores.filter { $0.status == .pending }
     }
 
     var completedChores: [Chore] {
@@ -27,8 +38,11 @@ final class ChoresViewModel {
 
     func load() async {
         state = .loading
+        async let choresTask = apiClient.fetchChores()
+        async let usersTask = apiClient.fetchUsers()
         do {
-            let chores = try await apiClient.fetchChores()
+            let (chores, userList) = try await (choresTask, usersTask)
+            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
             state = .loaded(chores)
         } catch let error as APIError {
             state = .failed(error)

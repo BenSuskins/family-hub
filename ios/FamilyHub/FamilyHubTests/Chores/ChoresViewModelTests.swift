@@ -47,4 +47,30 @@ final class ChoresViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.pendingChores.count, 1)
         XCTAssertNotNil(viewModel.errorMessage)
     }
+
+    func testOverdueChoresAreGroupedSeparately() async {
+        let fake = FakeAPIClient()
+        fake.choresResult = .success([
+            makeChore(id: "1", status: .overdue),
+            makeChore(id: "2", status: .pending),
+        ])
+        let viewModel = ChoresViewModel(apiClient: fake)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.overdueChores.count, 1)
+        XCTAssertEqual(viewModel.dueSoonChores.count, 1)
+    }
+
+    func testCompletedChoreDoesNotAppearInOverdueOrDueSoon() async {
+        let fake = FakeAPIClient()
+        fake.choresResult = .success([makeChore(id: "1", status: .completed)])
+        let viewModel = ChoresViewModel(apiClient: fake)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.overdueChores.count, 0)
+        XCTAssertEqual(viewModel.dueSoonChores.count, 0)
+        XCTAssertEqual(viewModel.completedChores.count, 1)
+    }
 }

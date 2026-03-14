@@ -1,0 +1,61 @@
+name: Server CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["server/**"]
+  pull_request:
+    paths: ["server/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: server/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          go mod download
+          npm install
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
+          npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
+
+      - name: Test
+        run: go test ./...
+
+  docker:
+    if: github.ref == "refs/heads/main"
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          COMMIT_SHA=${GITHUB_SHA::7}
+          IMAGE_NAME=ghcr.io/bensuskins/family-hub
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$COMMIT_SHA server/
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:$COMMIT_SHA

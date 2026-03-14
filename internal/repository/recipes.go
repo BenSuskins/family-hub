@@ -54,6 +54,11 @@ func (repository *SQLiteRecipeRepository) FindByID(ctx context.Context, id strin
 	if err := json.Unmarshal([]byte(ingredientsJSON), &recipe.Ingredients); err != nil {
 		return models.Recipe{}, fmt.Errorf("unmarshalling ingredients: %w", err)
 	}
+	for i := range recipe.Ingredients {
+		if recipe.Ingredients[i].Items == nil {
+			recipe.Ingredients[i].Items = []string{}
+		}
+	}
 	if err := json.Unmarshal([]byte(stepsJSON), &recipe.Steps); err != nil {
 		return models.Recipe{}, fmt.Errorf("unmarshalling steps: %w", err)
 	}
@@ -94,6 +99,11 @@ func (repository *SQLiteRecipeRepository) FindAll(ctx context.Context) ([]models
 		}
 		if err := json.Unmarshal([]byte(ingredientsJSON), &recipe.Ingredients); err != nil {
 			return nil, fmt.Errorf("unmarshalling ingredients: %w", err)
+		}
+		for i := range recipe.Ingredients {
+			if recipe.Ingredients[i].Items == nil {
+				recipe.Ingredients[i].Items = []string{}
+			}
 		}
 		if mealTypeRaw != nil {
 			mt := models.RecipeMealType(*mealTypeRaw)
@@ -200,6 +210,11 @@ func marshalRecipeFields(recipe models.Recipe) (ingredientsJSON string, stepsJSO
 	ingredients := recipe.Ingredients
 	if ingredients == nil {
 		ingredients = []models.IngredientGroup{}
+	}
+	for i := range ingredients {
+		if ingredients[i].Items == nil {
+			ingredients[i].Items = []string{}
+		}
 	}
 	steps := recipe.Steps
 	if steps == nil {

@@ -223,6 +223,13 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if choresDueToday == nil {
+		choresDueToday = []models.Chore{}
+	}
+	if overdueChores == nil {
+		overdueChores = []models.Chore{}
+	}
+
 	stats := map[string]interface{}{
 		"chores_due_today":      len(choresDueToday),
 		"chores_overdue":        len(overdueChores),

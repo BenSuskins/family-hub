@@ -601,6 +601,75 @@ func TestListCalendar_API_EmptyResult(t *testing.T) {
 	}
 }
 
+func TestDashboardStats_EmptyListsAreNotNull(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, "")
+
+	router := chi.NewRouter()
+	router.Get("/api/dashboard", handler.DashboardStats)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/dashboard", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var body map[string]json.RawMessage
+	json.NewDecoder(recorder.Body).Decode(&body)
+
+	if string(body["chores_due_today_list"]) == "null" {
+		t.Error("chores_due_today_list must be [] not null — iOS non-optional [Chore] cannot decode null")
+	}
+	if string(body["chores_overdue_list"]) == "null" {
+		t.Error("chores_overdue_list must be [] not null — iOS non-optional [Chore] cannot decode null")
+	}
+}
+
+func TestListRecipes_NilIngredientItemsAreEmptyArray(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-recipe-items",
+		Email:       "items@example.com",
+		Name:        "Items User",
+		Role:        models.RoleMember,
+	})
+
+	_, _ = recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Recipe With Group",
+		CreatedByUserID: user.ID,
+		Ingredients: []models.IngredientGroup{
+			{Name: "Main", Items: nil},
+		},
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, "")
+
+	router := chi.NewRouter()
+	router.Get("/api/recipes", handler.ListRecipes)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	body := recorder.Body.String()
+	if strings.Contains(body, `"items":null`) {
+		t.Error(`ingredient items must be [] not null — iOS non-optional [String] cannot decode null`)
+	}
+}
+
 func TestDashboardStats_IncludesChores(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)

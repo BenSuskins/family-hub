@@ -26,17 +26,25 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Setup
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Install Node modules
+        run: npm install
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Generate templ files
         run: |
           export PATH="$PATH:$(go env GOPATH)/bin"
-          go mod download
-          npm install
-          go install github.com/a-h/templ/cmd/templ@latest
           templ generate
-          npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
+
+      - name: Build CSS
+        run: npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
       - name: Test
-        run: go test ./...
+        run: go test -v ./...
 
   docker:
     if: ${{ github.ref == 'refs/heads/main' }}

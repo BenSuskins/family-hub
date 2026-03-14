@@ -39,9 +39,9 @@ struct DashboardView: View {
     private func dashboardContent(_ stats: DashboardStats) -> some View {
         List {
             Section {
-                HStack(spacing: 16) {
-                    StatCard(title: "Due Today", value: stats.choresDueToday, color: .blue)
-                    StatCard(title: "Overdue", value: stats.choresOverdue, color: .red)
+                HStack(spacing: 8) {
+                    StatCard(label: "Due Today", value: stats.choresDueToday, subtitle: "\(stats.choresDueToday) tasks")
+                    StatCard(label: "Overdue", value: stats.choresOverdue, subtitle: "\(stats.choresOverdue) overdue", subtitleColor: Theme.statusRed)
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -64,26 +64,5 @@ struct DashboardView: View {
                 }
             }
         }
-    }
-}
-
-private struct StatCard: View {
-    let title: String
-    let value: Int
-    let color: Color
-
-    var body: some View {
-        VStack {
-            Text("\(value)")
-                .font(.largeTitle.bold())
-                .foregroundStyle(color)
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(color.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

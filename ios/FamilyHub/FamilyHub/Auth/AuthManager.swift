@@ -6,23 +6,58 @@ import AuthenticationServices
 @MainActor
 final class AuthManager: NSObject {
     private(set) var isAuthenticated = false
+    var loginError: String?
 
     var displayName: String { "Family Member" }
     var email: String { "" }
 
     private let keychain: KeychainStore
-    let config: OIDCConfig
+    private var cachedConfig: OIDCConfig?
 
-    init(keychain: KeychainStore = .shared, config: OIDCConfig = .fromPlist()) {
+    init(keychain: KeychainStore = .shared) {
         self.keychain = keychain
-        self.config = config
         super.init()
         self.isAuthenticated = keychain.apiToken != nil
     }
 
     // MARK: - Login (OIDC/PKCE)
 
-    func login() async throws {
+    func login(configStore: ConfigStore) async {
+        loginError = nil
+        let oidcConfig: OIDCConfig
+        do {
+            oidcConfig = try OIDCConfig.from(configStore: configStore)
+        } catch {
+            loginError = error.localizedDescription
+            return
+        }
+        cachedConfig = oidcConfig
+
+        do {
+            try await performLogin(config: oidcConfig)
+        } catch {
+            loginError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Token management
+
+    func validAPIToken() async throws -> String {
+        guard let token = keychain.apiToken else {
+            isAuthenticated = false
+            throw APIError.unauthorized
+        }
+        return token
+    }
+
+    func signOut() {
+        keychain.clear()
+        isAuthenticated = false
+    }
+
+    // MARK: - Private helpers
+
+    private func performLogin(config: OIDCConfig) async throws {
         let (codeVerifier, codeChallenge) = generatePKCE()
         let state = UUID().uuidString
 
@@ -59,27 +94,10 @@ final class AuthManager: NSObject {
             throw AuthError.invalidCallback
         }
 
-        try await exchangeCode(code, codeVerifier: codeVerifier)
+        try await exchangeCode(code, codeVerifier: codeVerifier, config: config)
     }
 
-    // MARK: - Token management
-
-    func validAPIToken() async throws -> String {
-        guard let token = keychain.apiToken else {
-            isAuthenticated = false
-            throw APIError.unauthorized
-        }
-        return token
-    }
-
-    func logout() {
-        keychain.clear()
-        isAuthenticated = false
-    }
-
-    // MARK: - Private helpers
-
-    private func exchangeCode(_ code: String, codeVerifier: String) async throws {
+    private func exchangeCode(_ code: String, codeVerifier: String, config: OIDCConfig) async throws {
         var request = URLRequest(url: config.tokenEndpoint)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -98,10 +116,10 @@ final class AuthManager: NSObject {
         let response = try JSONDecoder().decode(TokenResponse.self, from: data)
         keychain.save(accessToken: response.accessToken, refreshToken: response.refreshToken ?? "")
 
-        try await exchangeForAPIToken(oidcAccessToken: response.accessToken)
+        try await exchangeForAPIToken(oidcAccessToken: response.accessToken, config: config)
     }
 
-    private func exchangeForAPIToken(oidcAccessToken: String) async throws {
+    private func exchangeForAPIToken(oidcAccessToken: String, config: OIDCConfig) async throws {
         let exchangeURL = config.baseURL.appendingPathComponent("api/auth/exchange")
         var request = URLRequest(url: exchangeURL)
         request.httpMethod = "POST"

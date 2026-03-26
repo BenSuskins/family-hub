@@ -2,8 +2,8 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(AuthManager.self) private var authManager
+    @Environment(ConfigStore.self) private var configStore
     @State private var isLoading = false
-    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -17,21 +17,18 @@ struct LoginView: View {
 
             Spacer()
 
-            if let errorMessage {
-                Text(errorMessage)
+            if let error = authManager.loginError {
+                Text(error)
                     .foregroundStyle(.red)
                     .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
 
             Button {
                 Task {
                     isLoading = true
-                    errorMessage = nil
-                    do {
-                        try await authManager.login()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
+                    await authManager.login(configStore: configStore)
                     isLoading = false
                 }
             } label: {

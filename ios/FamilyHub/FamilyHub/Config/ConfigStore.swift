@@ -22,6 +22,12 @@ final class ConfigStore {
         self.tokenEndpoint = defaults.string(forKey: "tokenEndpoint") ?? ""
     }
 
+    func applyDiscovery(_ result: OIDCDiscoveryResult) {
+        clientID = result.clientID
+        authorizationEndpoint = result.authorizationEndpoint.absoluteString
+        tokenEndpoint = result.tokenEndpoint.absoluteString
+    }
+
     func save() {
         defaults.set(baseURL, forKey: "baseURL")
         defaults.set(clientID, forKey: "clientID")

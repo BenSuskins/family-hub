@@ -48,6 +48,41 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.tokenEndpoint, "https://auth.example.com/token")
     }
 
+    func testApplyDiscoveryPopulatesFields() {
+        let store = makeStore()
+        store.baseURL = "https://hub.example.com"
+
+        let result = OIDCDiscoveryResult(
+            clientID: "familyhub-ios",
+            authorizationEndpoint: URL(string: "https://auth.example.com/authorize")!,
+            tokenEndpoint: URL(string: "https://auth.example.com/token")!
+        )
+        store.applyDiscovery(result)
+
+        XCTAssertEqual(store.clientID, "familyhub-ios")
+        XCTAssertEqual(store.authorizationEndpoint, "https://auth.example.com/authorize")
+        XCTAssertEqual(store.tokenEndpoint, "https://auth.example.com/token")
+        XCTAssertTrue(store.isConfigured)
+    }
+
+    func testApplyDiscoveryAndSaveRoundTrips() {
+        let suiteName = "test.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+
+        let store = ConfigStore(defaults: defaults)
+        store.baseURL = "https://hub.example.com"
+        store.applyDiscovery(OIDCDiscoveryResult(
+            clientID: "familyhub-ios",
+            authorizationEndpoint: URL(string: "https://auth.example.com/authorize")!,
+            tokenEndpoint: URL(string: "https://auth.example.com/token")!
+        ))
+        store.save()
+
+        let reloaded = ConfigStore(defaults: defaults)
+        XCTAssertEqual(reloaded.clientID, "familyhub-ios")
+        XCTAssertTrue(reloaded.isConfigured)
+    }
+
     func testSaveDoesNotMutateProperties() {
         let store = makeStore()
         store.baseURL = "https://hub.example.com"

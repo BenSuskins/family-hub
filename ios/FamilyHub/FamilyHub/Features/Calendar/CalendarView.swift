@@ -15,37 +15,32 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Theme.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: 0) {
-                        if case .failed(let error) = viewModel.state {
-                            Text(error.localizedDescription)
-                                .font(.system(size: 13))
-                                .foregroundStyle(Theme.statusRed)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                        }
-                        calendarGrid
-                            .padding(.horizontal, 14)
-                        Rectangle().fill(Theme.borderDivider).frame(height: 1)
-                        agendaSection
+            ScrollView {
+                VStack(spacing: 0) {
+                    if case .failed(let error) = viewModel.state {
+                        Text(error.localizedDescription)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding()
                     }
+                    calendarGrid
+                        .padding(.horizontal)
+                    Divider()
+                    agendaSection
                 }
-                .refreshable { await viewModel.load() }
             }
+            .refreshable { await viewModel.load() }
             .navigationTitle(Self.monthFormatter.string(from: viewModel.currentMonth))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { viewModel.previousMonth() } label: {
-                        Image(systemName: "chevron.left").foregroundStyle(Theme.accent)
+                        Image(systemName: "chevron.left")
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { viewModel.nextMonth() } label: {
-                        Image(systemName: "chevron.right").foregroundStyle(Theme.accent)
+                        Image(systemName: "chevron.right")
                     }
                 }
             }
@@ -58,8 +53,8 @@ struct CalendarView: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.textMuted)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -69,6 +64,7 @@ struct CalendarView: View {
                         DayCell(
                             date: day,
                             isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
+                            isToday: Calendar.current.isDateInToday(day),
                             hasChores: !viewModel.chores(for: day).isEmpty
                         )
                         .onTapGesture { viewModel.selectedDay = day }
@@ -91,30 +87,28 @@ struct CalendarView: View {
                         systemImage: "calendar",
                         description: Text("All clear!")
                     )
-                    .frame(maxHeight: .infinity)
                 } else {
                     List(chores) { chore in
                         HStack(spacing: 10) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(chore.status == .overdue ? .red : Color.accentColor)
+                                .frame(width: 4, height: 32)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(chore.name)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(Theme.textPrimary)
-                                if let badge = chore.badgeVariant {
-                                    StatusBadge(variant: badge)
+                                    .font(.body)
+                                if let badge = chore.badge {
+                                    Text(badge.label)
+                                        .font(.caption)
+                                        .foregroundStyle(badge.color)
                                 }
                             }
                             Spacer()
                         }
-                        .padding(.vertical, 4)
-                        .listRowBackground(Theme.surface)
-                        .listRowSeparatorTint(Theme.borderDivider)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+                    .listStyle(.insetGrouped)
                 }
             } else {
                 ContentUnavailableView("Select a day", systemImage: "calendar")
-                    .frame(maxHeight: .infinity)
             }
         }
     }
@@ -136,6 +130,7 @@ struct CalendarView: View {
 private struct DayCell: View {
     let date: Date
     let isSelected: Bool
+    let isToday: Bool
     let hasChores: Bool
 
     private static let dayFormatter: DateFormatter = {
@@ -145,13 +140,13 @@ private struct DayCell: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(Self.dayFormatter.string(from: date))
-                .font(.system(size: 14))
-                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
+                .font(.subheadline)
+                .foregroundStyle(isSelected ? .white : .primary)
                 .frame(width: 30, height: 30)
-                .background(isSelected ? Theme.accent : Color.clear)
+                .background(isSelected ? Color.accentColor : (isToday ? Color.accentColor.opacity(0.15) : Color.clear))
                 .clipShape(Circle())
             Circle()
-                .fill(hasChores ? Theme.statusAmber : Color.clear)
+                .fill(hasChores ? .orange : Color.clear)
                 .frame(width: 4, height: 4)
         }
     }

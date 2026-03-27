@@ -5,21 +5,15 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            DashboardView(apiClient: apiClient)
-                .tabItem { Label("Home", systemImage: "house.fill") }
-
-            ChoresView(apiClient: apiClient)
-                .tabItem { Label("Chores", systemImage: "checkmark.circle") }
-
-            MealsView(apiClient: apiClient)
-                .tabItem { Label("Meals", systemImage: "fork.knife") }
-
-            RecipesView(apiClient: apiClient)
-                .tabItem { Label("Recipes", systemImage: "book.closed") }
-
-            CalendarView(apiClient: apiClient)
-                .tabItem { Label("Calendar", systemImage: "calendar") }
+            Tab("Home", systemImage: "house") {
+                DashboardView(apiClient: apiClient)
+            }
+            Tab("Meals", systemImage: "fork.knife") {
+                MealsView(apiClient: apiClient)
+            }
+            Tab("Calendar", systemImage: "calendar") {
+                CalendarView(apiClient: apiClient)
+            }
         }
-        .tint(Theme.accent)
     }
 }

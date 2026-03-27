@@ -1,0 +1,150 @@
+<h2>Bottom Tab Bar Style</h2>
+<p class="subtitle">Which style fits best for the mobile web experience?</p>
+
+<div class="cards">
+
+  <!-- Option A: Frosted / Blurred -->
+  <div class="card" data-choice="frosted" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; overflow:hidden; height:220px; position:relative;">
+      <!-- Page content -->
+      <div style="padding:12px 14px 70px; color:#f1f5f9; font-family:system-ui,sans-serif;">
+        <div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">CHORES DUE</div>
+        <div style="background:#1e293b; border-radius:10px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0;">B</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Take out trash</div>
+            <div style="font-size:11px;color:#f59e0b;">Due today</div>
+          </div>
+        </div>
+        <div style="background:#1e293b; border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0;">S</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Vacuum living room</div>
+            <div style="font-size:11px;color:#ef4444;">2 days overdue</div>
+          </div>
+        </div>
+      </div>
+      <!-- Frosted bottom bar -->
+      <div style="position:absolute;bottom:0;left:0;right:0;height:64px;background:rgba(15,23,42,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-around;padding:0 8px 4px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#60a5fa;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span style="font-size:10px;font-weight:600;">Home</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span style="font-size:10px;">Chores</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          <span style="font-size:10px;">Meals</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span style="font-size:10px;">Recipes</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span style="font-size:10px;">Calendar</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Frosted Glass</h3>
+      <p>Semi-transparent with backdrop blur. Floats above content, blends into the dark theme. iOS-native feel.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Solid Dark -->
+  <div class="card" data-choice="solid" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; overflow:hidden; height:220px; position:relative;">
+      <div style="padding:12px 14px 70px; color:#f1f5f9; font-family:system-ui,sans-serif;">
+        <div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">CHORES DUE</div>
+        <div style="background:#1e293b; border-radius:10px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0;">B</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Take out trash</div>
+            <div style="font-size:11px;color:#f59e0b;">Due today</div>
+          </div>
+        </div>
+        <div style="background:#1e293b; border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0;">S</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Vacuum living room</div>
+            <div style="font-size:11px;color:#ef4444;">2 days overdue</div>
+          </div>
+        </div>
+      </div>
+      <!-- Solid bottom bar -->
+      <div style="position:absolute;bottom:0;left:0;right:0;height:64px;background:#020617;border-top:1px solid #1e293b;display:flex;align-items:center;justify-content:space-around;padding:0 8px 4px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#60a5fa;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span style="font-size:10px;font-weight:600;">Home</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span style="font-size:10px;">Chores</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          <span style="font-size:10px;">Meals</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span style="font-size:10px;">Recipes</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span style="font-size:10px;">Calendar</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Solid Dark</h3>
+      <p>Opaque navy bar matching the sidebar. Clean separation, simpler, no blur. Consistent with the desktop theme.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Floating Pill -->
+  <div class="card" data-choice="pill" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; overflow:hidden; height:220px; position:relative;">
+      <div style="padding:12px 14px 80px; color:#f1f5f9; font-family:system-ui,sans-serif;">
+        <div style="font-size:11px; color:#94a3b8; margin-bottom:10px;">CHORES DUE</div>
+        <div style="background:#1e293b; border-radius:10px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:11px;color:white;flex-shrink:0;">B</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Take out trash</div>
+            <div style="font-size:11px;color:#f59e0b;">Due today</div>
+          </div>
+        </div>
+      </div>
+      <!-- Floating pill bar -->
+      <div style="position:absolute;bottom:14px;left:16px;right:16px;height:54px;background:#1e293b;border-radius:28px;border:1px solid #334155;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:space-around;padding:0 12px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#60a5fa;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span style="font-size:9px;font-weight:600;">Home</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#475569;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span style="font-size:9px;">Chores</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#475569;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          <span style="font-size:9px;">Meals</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#475569;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span style="font-size:9px;">Recipes</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#475569;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span style="font-size:9px;">Calendar</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Floating Pill</h3>
+      <p>Rounded pill hovering above the content with a drop shadow. Distinctive and modern, but takes more vertical space.</p>
+    </div>
+  </div>
+
+</div>

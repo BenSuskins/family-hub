@@ -1,0 +1,59 @@
+<h2>Tab Structure Options</h2>
+<p class="subtitle">iOS 26's floating tab bar works best with 3–5 focused tabs. Here are three ways to organize your features.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>4 Tabs — Merge Meals + Recipes</h3>
+      <p>Recipes become a section within Meals (or vice versa). These are tightly coupled — you pick a recipe to plan a meal.</p>
+      <div style="margin-top: 12px; display: flex; gap: 24px; font-size: 14px; color: #888;">
+        <div style="text-align: center;">🏠<br>Home</div>
+        <div style="text-align: center;">✓<br>Chores</div>
+        <div style="text-align: center;">🍽<br>Meals</div>
+        <div style="text-align: center;">📅<br>Calendar</div>
+      </div>
+      <div style="margin-top: 10px; font-size: 13px; color: #999;">
+        <strong>Meals tab</strong> contains weekly planner + recipe browser. Tap a meal slot to search/pick a recipe. Tap a recipe card to see full detail.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>3 Tabs — Dashboard absorbs Calendar</h3>
+      <p>The Dashboard already shows today's chores and meals. Calendar becomes a view within Home (toggle between "Today" and "Month" views).</p>
+      <div style="margin-top: 12px; display: flex; gap: 32px; font-size: 14px; color: #888;">
+        <div style="text-align: center;">🏠<br>Home</div>
+        <div style="text-align: center;">✓<br>Chores</div>
+        <div style="text-align: center;">🍽<br>Meals</div>
+      </div>
+      <div style="margin-top: 10px; font-size: 13px; color: #999;">
+        <strong>Home tab</strong> has a segmented control or scope bar: "Today" (dashboard) / "Calendar" (month view). Fewer tabs = cleaner bar, but Home does more.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>4 Tabs — Merge Dashboard + Calendar, keep Recipes separate</h3>
+      <p>Home becomes a unified timeline/calendar view with today's summary at top. Recipes stays its own tab since browsing recipes is a distinct activity.</p>
+      <div style="margin-top: 12px; display: flex; gap: 24px; font-size: 14px; color: #888;">
+        <div style="text-align: center;">🏠<br>Home</div>
+        <div style="text-align: center;">✓<br>Chores</div>
+        <div style="text-align: center;">🍽<br>Meals</div>
+        <div style="text-align: center;">📖<br>Recipes</div>
+      </div>
+      <div style="margin-top: 10px; font-size: 13px; color: #999;">
+        <strong>Home tab</strong> shows today's stats at top, scrolls into a calendar/agenda below. Recipes tab is a standalone browsable collection.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Context</h3>
+  <p class="subtitle">In all options, Profile/Settings moves to a toolbar button or a settings gear — it doesn't need a tab. iOS 26's tab bar is floating and translucent, so fewer tabs = more elegant.</p>
+</div>

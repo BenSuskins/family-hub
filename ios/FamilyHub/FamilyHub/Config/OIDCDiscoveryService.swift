@@ -81,12 +81,16 @@ final class URLSessionOIDCDiscoveryService: OIDCDiscoveryService {
             throw OIDCDiscoveryError.discoveryDocumentFetchFailed(statusCode)
         }
 
-        let json = try JSONDecoder().decode([String: String].self, from: data)
+        struct DiscoveryDocument: Decodable {
+            let authorization_endpoint: String?
+            let token_endpoint: String?
+        }
+        let document = try JSONDecoder().decode(DiscoveryDocument.self, from: data)
 
-        guard let authString = json["authorization_endpoint"], !authString.isEmpty else {
+        guard let authString = document.authorization_endpoint, !authString.isEmpty else {
             throw OIDCDiscoveryError.missingField("authorization_endpoint")
         }
-        guard let tokenString = json["token_endpoint"], !tokenString.isEmpty else {
+        guard let tokenString = document.token_endpoint, !tokenString.isEmpty else {
             throw OIDCDiscoveryError.missingField("token_endpoint")
         }
         guard let authURL = URL(string: authString) else {

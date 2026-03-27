@@ -6,7 +6,7 @@ struct OIDCConfig {
     let tokenEndpoint: URL
     let baseURL: URL
 
-    static func from(configStore: ConfigStore) throws -> OIDCConfig {
+    @MainActor static func from(configStore: ConfigStore) throws -> OIDCConfig {
         guard !configStore.clientID.isEmpty else { throw ConfigurationError.emptyField("Client ID") }
         guard !configStore.authorizationEndpoint.isEmpty else { throw ConfigurationError.emptyField("Authorization Endpoint") }
         guard !configStore.tokenEndpoint.isEmpty else { throw ConfigurationError.emptyField("Token Endpoint") }

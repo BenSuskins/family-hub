@@ -41,7 +41,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	calendarHandler := handlers.NewCalendarHandler(choreRepo, icalFetcher, userRepo, tokenRepo, mealPlanRepo, cfg.BaseURL)
 	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
-	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo, cfg.OIDCUserInfoURL)
+	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
 	icalHandler := handlers.NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, cfg.HAAPIToken)
 	haHandler := handlers.NewHASensorHandler(choreRepo, userRepo, cfg.HAAPIToken)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo)
@@ -71,6 +71,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 
 	router.Get("/ical", icalHandler.Feed)
 	router.Get("/api/ha/sensors", haHandler.Sensors)
+	router.Get("/api/client-config", apiHandler.ClientConfig)
 
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth(authService))

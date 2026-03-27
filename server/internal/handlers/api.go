@@ -28,6 +28,8 @@ type APIHandler struct {
 	mealPlanRepo    repository.MealPlanRepository
 	recipeRepo      repository.RecipeRepository
 	oidcUserInfoURL string
+	clientID        string
+	oidcIssuer      string
 }
 
 func NewAPIHandler(
@@ -40,6 +42,8 @@ func NewAPIHandler(
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
 	oidcUserInfoURL string,
+	clientID string,
+	oidcIssuer string,
 ) *APIHandler {
 	return &APIHandler{
 		choreRepo:       choreRepo,
@@ -51,7 +55,17 @@ func NewAPIHandler(
 		mealPlanRepo:    mealPlanRepo,
 		recipeRepo:      recipeRepo,
 		oidcUserInfoURL: oidcUserInfoURL,
+		clientID:        clientID,
+		oidcIssuer:      oidcIssuer,
 	}
+}
+
+func (handler *APIHandler) ClientConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"clientID": handler.clientID,
+		"issuer":   handler.oidcIssuer,
+	})
 }
 
 func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request) {

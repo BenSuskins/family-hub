@@ -61,8 +61,7 @@ func NewAPIHandler(
 }
 
 func (handler *APIHandler) ClientConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"clientID": handler.clientID,
 		"issuer":   handler.oidcIssuer,
 	})

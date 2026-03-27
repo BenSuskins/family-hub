@@ -6,7 +6,7 @@ struct ContentView: View {
     var body: some View {
         TabView {
             Tab("Home", systemImage: "house") {
-                DashboardView(apiClient: apiClient)
+                HomeView(apiClient: apiClient)
             }
             Tab("Meals", systemImage: "fork.knife") {
                 MealsView(apiClient: apiClient)

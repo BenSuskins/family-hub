@@ -65,6 +65,7 @@ struct ConfigurationFormView: View {
         }
     }
 
+    @MainActor
     private func connect() async {
         discoveryError = nil
         isDiscovering = true
@@ -81,8 +82,8 @@ struct ConfigurationFormView: View {
             configStore.baseURL = url.absoluteString
             configStore.applyDiscovery(result)
             configStore.save()
-            onSave()
             dismiss()
+            onSave()
         } catch {
             discoveryError = error.localizedDescription
         }

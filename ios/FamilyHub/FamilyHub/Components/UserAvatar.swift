@@ -11,7 +11,7 @@ struct UserAvatar: View {
 
     var body: some View {
         Circle()
-            .fill(Theme.avatarFallback)
+            .fill(Color(.tertiarySystemFill))
             .frame(width: size, height: size)
             .overlay {
                 if let user, !user.avatarURL.isEmpty, let url = URL(string: user.avatarURL) {
@@ -46,5 +46,5 @@ struct UserAvatar: View {
         UserAvatar(user: User(id: "1", name: "Ben Suskins", email: "", avatarURL: ""), size: 24)
     }
     .padding()
-    .background(Theme.background)
+    .background(Color(.systemBackground))
 }

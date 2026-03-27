@@ -24,10 +24,9 @@ struct ConfigurationFormView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Base URL")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(.secondary)
                     TextField("https://hub.example.com", text: $baseURL)
                         .font(.system(size: 14))
-                        .foregroundStyle(Theme.textPrimary)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -40,27 +39,21 @@ struct ConfigurationFormView: View {
                         .foregroundStyle(.red)
                 }
             }
-            .listRowBackground(Theme.surface)
         }
-        .scrollContentBackground(.hidden)
         .listStyle(.insetGrouped)
-        .background(Theme.background)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if isDiscovering {
                     ProgressView()
-                        .tint(Theme.accent)
                 } else {
                     Button("Connect") {
                         Task { await connect() }
                     }
-                    .foregroundStyle(Theme.accent)
                     .disabled(baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
-                    .foregroundStyle(Theme.accent)
             }
         }
     }

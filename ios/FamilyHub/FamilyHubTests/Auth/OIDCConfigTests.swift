@@ -17,7 +17,7 @@ final class OIDCConfigTests: XCTestCase {
         return store
     }
 
-    func testValidHTTPURLsSucceeds() throws {
+    func testValidHTTPURLsSucceeds() async throws {
         let store = makeStore(
             baseURL: "http://192.168.1.10:8080",
             authorizationEndpoint: "http://auth.local/authorize",
@@ -28,7 +28,7 @@ final class OIDCConfigTests: XCTestCase {
         XCTAssertEqual(config.baseURL.scheme, "http")
     }
 
-    func testValidHTTPSURLsSucceeds() throws {
+    func testValidHTTPSURLsSucceeds() async throws {
         let store = makeStore()
         let config = try OIDCConfig.from(configStore: store)
         XCTAssertEqual(config.baseURL.absoluteString, "https://hub.example.com")
@@ -36,7 +36,7 @@ final class OIDCConfigTests: XCTestCase {
         XCTAssertEqual(config.tokenEndpoint.absoluteString, "https://auth.example.com/token")
     }
 
-    func testEmptyBaseURLThrowsEmptyField() {
+    func testEmptyBaseURLThrowsEmptyField() async {
         let store = makeStore(baseURL: "")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -47,7 +47,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testEmptyClientIDThrowsEmptyField() {
+    func testEmptyClientIDThrowsEmptyField() async {
         let store = makeStore(clientID: "")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -58,7 +58,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testEmptyAuthorizationEndpointThrowsEmptyField() {
+    func testEmptyAuthorizationEndpointThrowsEmptyField() async {
         let store = makeStore(authorizationEndpoint: "")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -69,7 +69,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testEmptyTokenEndpointThrowsEmptyField() {
+    func testEmptyTokenEndpointThrowsEmptyField() async {
         let store = makeStore(tokenEndpoint: "")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -80,7 +80,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testNonURLStringThrowsInvalidURL() {
+    func testNonURLStringThrowsInvalidURL() async {
         let store = makeStore(baseURL: "not a url at all")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -91,7 +91,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testFileURLThrowsInvalidURL() {
+    func testFileURLThrowsInvalidURL() async {
         let store = makeStore(baseURL: "file:///etc/hosts")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,
@@ -101,7 +101,7 @@ final class OIDCConfigTests: XCTestCase {
         }
     }
 
-    func testRelativePathThrowsInvalidURL() {
+    func testRelativePathThrowsInvalidURL() async {
         let store = makeStore(baseURL: "relative/path")
         XCTAssertThrowsError(try OIDCConfig.from(configStore: store)) { error in
             guard let configError = error as? ConfigurationError,

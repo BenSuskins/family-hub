@@ -6,23 +6,23 @@ struct OIDCConfig {
     let tokenEndpoint: URL
     let baseURL: URL
 
-    static func from(configStore: ConfigStore) throws(ConfigurationError) -> OIDCConfig {
-        guard !configStore.clientID.isEmpty else { throw .emptyField("Client ID") }
-        guard !configStore.authorizationEndpoint.isEmpty else { throw .emptyField("Authorization Endpoint") }
-        guard !configStore.tokenEndpoint.isEmpty else { throw .emptyField("Token Endpoint") }
-        guard !configStore.baseURL.isEmpty else { throw .emptyField("Server URL") }
+    static func from(configStore: ConfigStore) throws -> OIDCConfig {
+        guard !configStore.clientID.isEmpty else { throw ConfigurationError.emptyField("Client ID") }
+        guard !configStore.authorizationEndpoint.isEmpty else { throw ConfigurationError.emptyField("Authorization Endpoint") }
+        guard !configStore.tokenEndpoint.isEmpty else { throw ConfigurationError.emptyField("Token Endpoint") }
+        guard !configStore.baseURL.isEmpty else { throw ConfigurationError.emptyField("Server URL") }
 
         guard let baseURL = URL(string: configStore.baseURL),
               baseURL.scheme == "http" || baseURL.scheme == "https"
-        else { throw .invalidURL("Server URL", configStore.baseURL) }
+        else { throw ConfigurationError.invalidURL("Server URL", configStore.baseURL) }
 
         guard let authEndpoint = URL(string: configStore.authorizationEndpoint),
               authEndpoint.scheme == "http" || authEndpoint.scheme == "https"
-        else { throw .invalidURL("Authorization Endpoint", configStore.authorizationEndpoint) }
+        else { throw ConfigurationError.invalidURL("Authorization Endpoint", configStore.authorizationEndpoint) }
 
         guard let tokenEndpoint = URL(string: configStore.tokenEndpoint),
               tokenEndpoint.scheme == "http" || tokenEndpoint.scheme == "https"
-        else { throw .invalidURL("Token Endpoint", configStore.tokenEndpoint) }
+        else { throw ConfigurationError.invalidURL("Token Endpoint", configStore.tokenEndpoint) }
 
         return OIDCConfig(
             clientID: configStore.clientID,

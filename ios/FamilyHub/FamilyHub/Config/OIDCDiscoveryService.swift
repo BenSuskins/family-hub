@@ -30,11 +30,7 @@ protocol URLSessionProtocol {
     func data(from url: URL) async throws -> (Data, URLResponse)
 }
 
-extension URLSession: URLSessionProtocol {
-    func data(from url: URL) async throws -> (Data, URLResponse) {
-        try await data(from: url, delegate: nil)
-    }
-}
+extension URLSession: URLSessionProtocol {}
 
 protocol OIDCDiscoveryService {
     func discover(baseURL: URL) async throws -> OIDCDiscoveryResult
@@ -56,9 +52,8 @@ final class URLSessionOIDCDiscoveryService: OIDCDiscoveryService {
         let configURL = baseURL.appending(path: "api/client-config")
         let (data, response) = try await session.data(from: configURL)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard statusCode == 200 else {
             throw OIDCDiscoveryError.clientConfigFetchFailed(statusCode)
         }
 
@@ -81,9 +76,8 @@ final class URLSessionOIDCDiscoveryService: OIDCDiscoveryService {
         let discoveryURL = clientConfig.issuer.appending(path: ".well-known/openid-configuration")
         let (data, response) = try await session.data(from: discoveryURL)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard statusCode == 200 else {
             throw OIDCDiscoveryError.discoveryDocumentFetchFailed(statusCode)
         }
 

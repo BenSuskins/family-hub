@@ -2,35 +2,43 @@ import SwiftUI
 
 struct ConfigurationFormView: View {
     let configStore: ConfigStore
+    let discoveryService: OIDCDiscoveryService
     let onSave: () -> Void
 
     @State private var baseURL: String
-    @State private var clientID: String
-    @State private var authorizationEndpoint: String
-    @State private var tokenEndpoint: String
+    @State private var isDiscovering = false
+    @State private var discoveryError: String?
 
     @Environment(\.dismiss) private var dismiss
 
-    init(configStore: ConfigStore, onSave: @escaping () -> Void) {
+    init(configStore: ConfigStore, discoveryService: OIDCDiscoveryService, onSave: @escaping () -> Void) {
         self.configStore = configStore
+        self.discoveryService = discoveryService
         self.onSave = onSave
         _baseURL = State(initialValue: configStore.baseURL)
-        _clientID = State(initialValue: configStore.clientID)
-        _authorizationEndpoint = State(initialValue: configStore.authorizationEndpoint)
-        _tokenEndpoint = State(initialValue: configStore.tokenEndpoint)
     }
 
     var body: some View {
         List {
             Section("Server") {
-                configField(label: "Base URL", placeholder: "https://hub.example.com", text: $baseURL, isURL: true)
-            }
-            .listRowBackground(Theme.surface)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Base URL")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+                    TextField("https://hub.example.com", text: $baseURL)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.textPrimary)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                .padding(.vertical, 2)
 
-            Section("OIDC") {
-                configField(label: "Client ID", placeholder: "familyhub-ios", text: $clientID, isURL: false)
-                configField(label: "Authorization Endpoint", placeholder: "https://auth.example.com/…/authorize", text: $authorizationEndpoint, isURL: true)
-                configField(label: "Token Endpoint", placeholder: "https://auth.example.com/…/token", text: $tokenEndpoint, isURL: true)
+                if let error = discoveryError {
+                    Text(error)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                }
             }
             .listRowBackground(Theme.surface)
         }
@@ -39,15 +47,16 @@ struct ConfigurationFormView: View {
         .background(Theme.background)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    configStore.baseURL = baseURL
-                    configStore.clientID = clientID
-                    configStore.authorizationEndpoint = authorizationEndpoint
-                    configStore.tokenEndpoint = tokenEndpoint
-                    onSave()
-                    dismiss()
+                if isDiscovering {
+                    ProgressView()
+                        .tint(Theme.accent)
+                } else {
+                    Button("Connect") {
+                        Task { await connect() }
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .disabled(baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .foregroundStyle(Theme.accent)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
@@ -56,27 +65,26 @@ struct ConfigurationFormView: View {
         }
     }
 
-    @ViewBuilder
-    private func configField(label: String, placeholder: String, text: Binding<String>, isURL: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.textSecondary)
-            if isURL {
-                TextField(placeholder, text: text)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.textPrimary)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            } else {
-                TextField(placeholder, text: text)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.textPrimary)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            }
+    private func connect() async {
+        discoveryError = nil
+        isDiscovering = true
+        defer { isDiscovering = false }
+
+        guard let url = URL(string: baseURL.trimmingCharacters(in: .whitespaces)),
+              url.scheme == "http" || url.scheme == "https" else {
+            discoveryError = "Enter a valid http or https URL"
+            return
         }
-        .padding(.vertical, 2)
+
+        do {
+            let result = try await discoveryService.discover(baseURL: url)
+            configStore.baseURL = url.absoluteString
+            configStore.applyDiscovery(result)
+            configStore.save()
+            onSave()
+            dismiss()
+        } catch {
+            discoveryError = error.localizedDescription
+        }
     }
 }

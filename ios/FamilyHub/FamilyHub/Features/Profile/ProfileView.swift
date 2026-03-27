@@ -78,10 +78,11 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingEditConfig) {
                 NavigationStack {
-                    ConfigurationFormView(configStore: configStore) {
-                        configStore.save()
-                        authManager.signOut()
-                    }
+                    ConfigurationFormView(
+                        configStore: configStore,
+                        discoveryService: URLSessionOIDCDiscoveryService(),
+                        onSave: { authManager.signOut() }
+                    )
                     .navigationTitle("Edit Configuration")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(Theme.background, for: .navigationBar)

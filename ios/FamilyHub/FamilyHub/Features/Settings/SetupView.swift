@@ -12,7 +12,7 @@ struct SetupView: View {
                         Text("Welcome to Family Hub")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("Enter your server details to get started.")
+                        Text("Enter your server URL to get started.")
                             .font(.system(size: 15))
                             .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
@@ -20,9 +20,11 @@ struct SetupView: View {
                     .padding(.top, 48)
                     .padding(.horizontal)
 
-                    ConfigurationFormView(configStore: configStore) {
-                        configStore.save()
-                    }
+                    ConfigurationFormView(
+                        configStore: configStore,
+                        discoveryService: URLSessionOIDCDiscoveryService(),
+                        onSave: {}
+                    )
                 }
             }
             .navigationTitle("Setup")

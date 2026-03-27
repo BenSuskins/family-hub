@@ -7,12 +7,12 @@ final class ConfigStoreTests: XCTestCase {
         ConfigStore(defaults: UserDefaults(suiteName: "test.\(UUID().uuidString)")!)
     }
 
-    func testIsConfiguredFalseWhenAllFieldsEmpty() {
+    func testIsConfiguredFalseWhenAllFieldsEmpty() async {
         let store = makeStore()
         XCTAssertFalse(store.isConfigured)
     }
 
-    func testIsConfiguredFalseWhenAnyFieldEmpty() {
+    func testIsConfiguredFalseWhenAnyFieldEmpty() async {
         let store = makeStore()
         store.baseURL = "https://hub.example.com"
         store.clientID = "client"
@@ -21,7 +21,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertFalse(store.isConfigured)
     }
 
-    func testIsConfiguredTrueWhenAllFieldsNonEmpty() {
+    func testIsConfiguredTrueWhenAllFieldsNonEmpty() async {
         let store = makeStore()
         store.baseURL = "https://hub.example.com"
         store.clientID = "client"
@@ -30,7 +30,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertTrue(store.isConfigured)
     }
 
-    func testSaveAndInitRoundTrip() {
+    func testSaveAndInitRoundTrip() async {
         let suiteName = "test.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
 
@@ -48,7 +48,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.tokenEndpoint, "https://auth.example.com/token")
     }
 
-    func testApplyDiscoveryPopulatesFields() {
+    func testApplyDiscoveryPopulatesFields() async {
         let store = makeStore()
         store.baseURL = "https://hub.example.com"
 
@@ -65,7 +65,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertTrue(store.isConfigured)
     }
 
-    func testApplyDiscoveryAndSaveRoundTrips() {
+    func testApplyDiscoveryAndSaveRoundTrips() async {
         let suiteName = "test.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
 
@@ -83,7 +83,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertTrue(reloaded.isConfigured)
     }
 
-    func testSaveDoesNotMutateProperties() {
+    func testSaveDoesNotMutateProperties() async {
         let store = makeStore()
         store.baseURL = "https://hub.example.com"
         store.clientID = "my-client"

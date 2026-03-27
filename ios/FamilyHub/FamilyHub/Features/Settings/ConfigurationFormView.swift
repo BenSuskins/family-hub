@@ -82,8 +82,8 @@ struct ConfigurationFormView: View {
             configStore.baseURL = url.absoluteString
             configStore.applyDiscovery(result)
             configStore.save()
-            dismiss()
             onSave()
+            dismiss()
         } catch {
             discoveryError = error.localizedDescription
         }

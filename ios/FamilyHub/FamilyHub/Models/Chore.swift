@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum ChoreStatus: String, Codable {
     case pending = "pending"
@@ -21,6 +22,49 @@ struct Chore: Codable, Identifiable {
         case status = "Status"
         case dueDate = "DueDate"
         case assignedToUserID = "AssignedToUserID"
+    }
+}
+
+enum ChoreBadge: Equatable {
+    case overdue
+    case dueToday
+    case dueSoon
+
+    var label: String {
+        switch self {
+        case .overdue:  return "Overdue"
+        case .dueToday: return "Today"
+        case .dueSoon:  return "Due Soon"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .overdue:            return .red
+        case .dueToday, .dueSoon: return .orange
+        }
+    }
+}
+
+extension Chore {
+    var badge: ChoreBadge? {
+        switch status {
+        case .overdue:   return .overdue
+        case .completed: return nil
+        case .pending:
+            guard let dueDate else { return .dueSoon }
+            let date = ISO8601DateFormatter().date(from: dueDate)
+                ?? parseShortDate(dueDate)
+            guard let date else { return .dueSoon }
+            return Calendar.current.isDateInToday(date) ? .dueToday : .dueSoon
+        }
+    }
+
+    private func parseShortDate(_ string: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.date(from: String(string.prefix(10)))
     }
 }
 

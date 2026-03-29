@@ -919,3 +919,123 @@ func TestCreateRecipe_API_WithImage(t *testing.T) {
 		t.Errorf("expected stored image data URI, got %q", imageData)
 	}
 }
+
+func TestUpdateRecipe_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-update-recipe",
+		Email:       "update@example.com",
+		Name:        "Updater",
+		Role:        models.RoleMember,
+	})
+
+	created, _ := recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Old Title",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
+
+	body := `{"title":"New Title","steps":["step 1"],"servings":2,"prepTime":"5 min"}`
+	request := httptest.NewRequest(http.MethodPut, "/api/recipes/"+created.ID, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var recipe models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if recipe.Title != "New Title" {
+		t.Errorf("expected title New Title, got %s", recipe.Title)
+	}
+	if recipe.Servings == nil || *recipe.Servings != 2 {
+		t.Errorf("expected servings 2, got %v", recipe.Servings)
+	}
+}
+
+func TestUpdateRecipe_API_NotFound(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
+
+	body := `{"title":"Nope"}`
+	request := httptest.NewRequest(http.MethodPut, "/api/recipes/nonexistent", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", recorder.Code)
+	}
+}
+
+func TestUpdateRecipe_API_ImageHandling(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-update-recipe-img",
+		Email:       "updimg@example.com",
+		Name:        "Img Updater",
+		Role:        models.RoleMember,
+	})
+
+	created, _ := recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Img Recipe",
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
+
+	// Add image
+	body := `{"title":"Img Recipe","imageData":"data:image/png;base64,iVBORw0KGgo="}`
+	request := httptest.NewRequest(http.MethodPut, "/api/recipes/"+created.ID, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var recipe models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if !recipe.HasImage {
+		t.Error("expected HasImage true after setting image")
+	}
+
+	// Clear image with empty string
+	body = `{"title":"Img Recipe","imageData":""}`
+	request = httptest.NewRequest(http.MethodPut, "/api/recipes/"+created.ID, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if recipe.HasImage {
+		t.Error("expected HasImage false after clearing image")
+	}
+}

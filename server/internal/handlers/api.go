@@ -607,6 +607,77 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusCreated, created)
 }
 
+func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipeID := chi.URLParam(r, "id")
+
+	existing, err := handler.recipeRepo.FindByID(ctx, recipeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+		}
+		return
+	}
+
+	var body struct {
+		Title       string                   `json:"title"`
+		Steps       []string                 `json:"steps"`
+		Ingredients []models.IngredientGroup `json:"ingredients"`
+		MealType    string                   `json:"mealType,omitempty"`
+		Servings    *int                     `json:"servings,omitempty"`
+		PrepTime    *string                  `json:"prepTime,omitempty"`
+		CookTime    *string                  `json:"cookTime,omitempty"`
+		SourceURL   *string                  `json:"sourceURL,omitempty"`
+		ImageData   *string                  `json:"imageData,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	if body.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
+		return
+	}
+
+	existing.Title = body.Title
+	existing.Steps = body.Steps
+	existing.Ingredients = body.Ingredients
+	existing.Servings = body.Servings
+	existing.PrepTime = body.PrepTime
+	existing.CookTime = body.CookTime
+	existing.SourceURL = body.SourceURL
+	if body.MealType != "" {
+		mt := models.RecipeMealType(body.MealType)
+		existing.MealType = &mt
+	} else {
+		existing.MealType = nil
+	}
+
+	if err := handler.recipeRepo.Update(ctx, existing); err != nil {
+		slog.Error("updating recipe via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update recipe"})
+		return
+	}
+
+	if body.ImageData != nil {
+		if *body.ImageData == "" {
+			handler.recipeRepo.ClearImage(ctx, recipeID)
+		} else {
+			handler.recipeRepo.UpdateImage(ctx, recipeID, *body.ImageData)
+		}
+	}
+
+	updated, err := handler.recipeRepo.FindByID(ctx, recipeID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, existing)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

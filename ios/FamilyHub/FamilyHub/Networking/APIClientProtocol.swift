@@ -18,4 +18,5 @@ protocol APIClientProtocol: AnyObject {
     func fetchUsers() async throws -> [User]
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
     func deleteMeal(date: String, mealType: String) async throws
+    func fetchMe() async throws -> User
 }

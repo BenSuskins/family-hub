@@ -14,6 +14,7 @@ final class FakeAPIClient: APIClientProtocol {
     var usersResult: Result<[User], Error> = .success([])
     var saveMealResult: Result<MealPlan, Error> = .success(MealPlan(date: "", mealType: "", name: "", notes: "", recipeID: nil))
     var deleteMealResult: Result<Void, Error> = .success(())
+    var meResult: Result<User, Error> = .success(User(id: "1", name: "Test User", email: "test@example.com", avatarURL: ""))
 
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
@@ -25,4 +26,5 @@ final class FakeAPIClient: APIClientProtocol {
     func fetchUsers() async throws -> [User] { try usersResult.get() }
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan { try saveMealResult.get() }
     func deleteMeal(date: String, mealType: String) async throws { try deleteMealResult.get() }
+    func fetchMe() async throws -> User { try meResult.get() }
 }

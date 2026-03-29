@@ -152,4 +152,8 @@ final class APIClient: APIClientProtocol {
             URLQueryItem(name: "mealType", value: mealType)
         ])
     }
+
+    func fetchMe() async throws -> User {
+        try await get("api/me")
+    }
 }

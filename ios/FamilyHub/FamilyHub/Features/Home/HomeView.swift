@@ -38,7 +38,7 @@ struct HomeView: View {
                     Button {
                         showProfile = true
                     } label: {
-                        UserAvatar(user: nil, size: 32)
+                        UserAvatar(user: viewModel.currentUser, size: 32)
                     }
                 }
             }

@@ -162,7 +162,16 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"token": plainToken})
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"token": plainToken,
+		"user":  user,
+	})
+}
+
+func (handler *APIHandler) Me(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {

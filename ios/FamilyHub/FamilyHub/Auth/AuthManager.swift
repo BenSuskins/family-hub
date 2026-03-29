@@ -7,9 +7,9 @@ import AuthenticationServices
 final class AuthManager: NSObject {
     private(set) var isAuthenticated = false
     var loginError: String?
-
-    var displayName: String { "Family Member" }
-    var email: String { "" }
+    private(set) var displayName: String = ""
+    private(set) var email: String = ""
+    private(set) var avatarURL: String = ""
 
     private let keychain: KeychainStore
     private var cachedConfig: OIDCConfig?
@@ -130,9 +130,22 @@ final class AuthManager: NSObject {
             throw APIError.unauthorized
         }
 
-        struct ExchangeResponse: Decodable { let token: String }
+        struct ExchangeUser: Decodable {
+            let Name: String
+            let Email: String
+            let AvatarURL: String
+        }
+        struct ExchangeResponse: Decodable {
+            let token: String
+            let user: ExchangeUser?
+        }
         let exchangeResponse = try JSONDecoder().decode(ExchangeResponse.self, from: data)
         keychain.saveAPIToken(exchangeResponse.token)
+        if let user = exchangeResponse.user {
+            displayName = user.Name
+            email = user.Email
+            avatarURL = user.AvatarURL
+        }
         isAuthenticated = true
     }
 

@@ -175,6 +175,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.APITokenAuth(tokenRepo, userRepo))
 
+		r.Get("/api/me", apiHandler.Me)
 		r.Get("/api/chores", apiHandler.ListChores)
 		r.Get("/api/chores/{id}", apiHandler.GetChore)
 		r.Post("/api/chores/{id}/complete", apiHandler.CompleteChore)

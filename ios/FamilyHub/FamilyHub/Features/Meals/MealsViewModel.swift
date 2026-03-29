@@ -6,10 +6,7 @@ import Observation
 @MainActor
 final class MealsViewModel {
     var state: ViewState<[MealPlan]> = .idle
-    var currentWeek: Date = {
-        let calendar = Calendar(identifier: .iso8601)
-        return calendar.dateInterval(of: .weekOfYear, for: Date())!.start
-    }()
+    var currentWeek: Date = MealsViewModel.fridayStartOfWeek(for: Date())
 
     private let apiClient: any APIClientProtocol
 
@@ -40,9 +37,17 @@ final class MealsViewModel {
     }
 
     func goToCurrentWeek() {
-        let calendar = Calendar(identifier: .iso8601)
-        currentWeek = calendar.dateInterval(of: .weekOfYear, for: Date())!.start
+        currentWeek = MealsViewModel.fridayStartOfWeek(for: Date())
         Task { await load() }
+    }
+
+    private static func fridayStartOfWeek(for date: Date) -> Date {
+        let calendar = Calendar(identifier: .gregorian)
+        let weekday = calendar.component(.weekday, from: date)
+        // weekday: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+        let daysSinceFriday = (weekday - 6 + 7) % 7
+        let startOfDay = calendar.startOfDay(for: date)
+        return calendar.date(byAdding: .day, value: -daysSinceFriday, to: startOfDay)!
     }
 
     func saveMeal(date: String, mealType: String, name: String, recipeID: String? = nil) async -> Bool {

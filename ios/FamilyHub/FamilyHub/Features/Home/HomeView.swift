@@ -26,7 +26,7 @@ struct HomeView: View {
                     }
                 case .loaded(let stats):
                     statsSection(stats)
-                    mealsSection
+                    mealsSection(stats)
                     choreSection(stats)
                 }
             }
@@ -109,10 +109,12 @@ struct HomeView: View {
         }
     }
 
-    private var mealsSection: some View {
-        Section {
-            mealRow(label: "Lunch", name: nil)
-            mealRow(label: "Dinner", name: nil)
+    private func mealsSection(_ stats: DashboardStats) -> some View {
+        let meals = stats.todayMeals
+        return Section {
+            ForEach(["breakfast", "lunch", "dinner"], id: \.self) { type in
+                mealRow(label: type.capitalized, name: meals.first(where: { $0.mealType == type })?.name)
+            }
         } header: {
             Text("Today's Meals")
         }
@@ -133,9 +135,7 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 statItem(value: stats.choresDueToday + stats.choresOverdue, label: "Chores due")
                 Divider()
-                statItem(value: 0, label: "Meals planned")
-                Divider()
-                statItem(value: 0, label: "Events")
+                statItem(value: stats.mealsThisWeek, label: "Meals planned")
             }
             .padding(.vertical, 4)
         } header: {

@@ -236,6 +236,7 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	now := time.Now()
 
 	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
 	if err != nil {
@@ -255,11 +256,28 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 		overdueChores = []models.Chore{}
 	}
 
+	weekStart := now.Truncate(24 * time.Hour)
+	weekEnd := weekStart.AddDate(0, 0, 7)
+	mealsThisWeek, _ := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		DateFrom: weekStart.Format("2006-01-02"),
+		DateTo:   weekEnd.Format("2006-01-02"),
+	})
+	todayMeals, _ := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
+
+	if mealsThisWeek == nil {
+		mealsThisWeek = []models.MealPlan{}
+	}
+	if todayMeals == nil {
+		todayMeals = []models.MealPlan{}
+	}
+
 	stats := map[string]interface{}{
 		"chores_due_today":      len(choresDueToday),
 		"chores_overdue":        len(overdueChores),
 		"chores_due_today_list": choresDueToday,
 		"chores_overdue_list":   overdueChores,
+		"meals_this_week":       len(mealsThisWeek),
+		"today_meals":           todayMeals,
 	}
 	writeJSON(w, http.StatusOK, stats)
 }

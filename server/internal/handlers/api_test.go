@@ -797,3 +797,113 @@ func TestDashboardStats_IncludesChores(t *testing.T) {
 		t.Errorf("expected chores_overdue count 1, got %v", count)
 	}
 }
+
+func TestCreateRecipe_API(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-create-recipe",
+		Email:       "create@example.com",
+		Name:        "Creator",
+		Role:        models.RoleMember,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+		handler.CreateRecipe(w, r.WithContext(ctx))
+	})
+
+	body := `{"title":"Pasta Carbonara","steps":["Boil pasta","Mix eggs"],"ingredients":[{"name":"Main","items":["pasta","eggs"]}],"mealType":"dinner","servings":4,"prepTime":"10 min","cookTime":"20 min","sourceURL":"https://example.com"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/recipes", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var recipe models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if recipe.Title != "Pasta Carbonara" {
+		t.Errorf("expected title Pasta Carbonara, got %s", recipe.Title)
+	}
+	if recipe.MealType == nil || string(*recipe.MealType) != "dinner" {
+		t.Errorf("expected mealType dinner, got %v", recipe.MealType)
+	}
+	if recipe.Servings == nil || *recipe.Servings != 4 {
+		t.Errorf("expected servings 4, got %v", recipe.Servings)
+	}
+	if len(recipe.Steps) != 2 {
+		t.Errorf("expected 2 steps, got %d", len(recipe.Steps))
+	}
+}
+
+func TestCreateRecipe_API_MissingTitle(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Post("/api/recipes", handler.CreateRecipe)
+
+	body := `{"steps":["step 1"]}`
+	request := httptest.NewRequest(http.MethodPost, "/api/recipes", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing title, got %d", recorder.Code)
+	}
+}
+
+func TestCreateRecipe_API_WithImage(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-create-recipe-img",
+		Email:       "img@example.com",
+		Name:        "Img User",
+		Role:        models.RoleMember,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+		handler.CreateRecipe(w, r.WithContext(ctx))
+	})
+
+	body := `{"title":"Photo Recipe","imageData":"data:image/png;base64,iVBORw0KGgo="}`
+	request := httptest.NewRequest(http.MethodPost, "/api/recipes", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var recipe models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipe)
+	if !recipe.HasImage {
+		t.Error("expected HasImage to be true after uploading image data")
+	}
+
+	imageData, _ := recipeRepo.FindImageData(ctx, recipe.ID)
+	if imageData != "data:image/png;base64,iVBORw0KGgo=" {
+		t.Errorf("expected stored image data URI, got %q", imageData)
+	}
+}

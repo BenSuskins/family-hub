@@ -188,6 +188,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Delete("/api/meals", apiHandler.DeleteMeal)
 		r.Get("/api/recipes", apiHandler.ListRecipes)
 		r.Get("/api/recipes/{id}", apiHandler.GetRecipe)
+		r.Post("/api/recipes", apiHandler.CreateRecipe)
+		r.Get("/api/recipes/{id}/image", recipeHandler.ServeImage)
 		r.Get("/api/calendar", apiHandler.ListCalendar)
 	})
 

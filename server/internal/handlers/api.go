@@ -549,6 +549,63 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	var body struct {
+		Title       string                  `json:"title"`
+		Steps       []string                `json:"steps"`
+		Ingredients []models.IngredientGroup `json:"ingredients"`
+		MealType    string                  `json:"mealType,omitempty"`
+		Servings    *int                    `json:"servings,omitempty"`
+		PrepTime    *string                 `json:"prepTime,omitempty"`
+		CookTime    *string                 `json:"cookTime,omitempty"`
+		SourceURL   *string                 `json:"sourceURL,omitempty"`
+		ImageData   *string                 `json:"imageData,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	if body.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
+		return
+	}
+
+	recipe := models.Recipe{
+		Title:           body.Title,
+		Steps:           body.Steps,
+		Ingredients:     body.Ingredients,
+		Servings:        body.Servings,
+		PrepTime:        body.PrepTime,
+		CookTime:        body.CookTime,
+		SourceURL:       body.SourceURL,
+		CreatedByUserID: user.ID,
+	}
+	if body.MealType != "" {
+		mt := models.RecipeMealType(body.MealType)
+		recipe.MealType = &mt
+	}
+
+	created, err := handler.recipeRepo.Create(ctx, recipe)
+	if err != nil {
+		slog.Error("creating recipe via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create recipe"})
+		return
+	}
+
+	if body.ImageData != nil && *body.ImageData != "" {
+		if err := handler.recipeRepo.UpdateImage(ctx, created.ID, *body.ImageData); err != nil {
+			slog.Error("saving recipe image via API", "error", err)
+		}
+		created.HasImage = true
+	}
+
+	writeJSON(w, http.StatusCreated, created)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

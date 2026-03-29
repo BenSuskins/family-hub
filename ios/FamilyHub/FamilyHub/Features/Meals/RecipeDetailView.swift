@@ -1,14 +1,15 @@
 import SwiftUI
-import UIKit
 
 struct RecipeDetailView: View {
     let recipe: Recipe
     let apiClient: any APIClientProtocol
 
-    @State private var cookModeActive = false
+    @State private var showCookMode = false
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
     @State private var fetchError = false
+
+    private var displayRecipe: Recipe { fullRecipe ?? recipe }
 
     var body: some View {
         Group {
@@ -18,7 +19,7 @@ struct RecipeDetailView: View {
             } else if fetchError && fullRecipe == nil {
                 ContentUnavailableView("Failed to load", systemImage: "exclamationmark.triangle")
             } else {
-                recipeContent(fullRecipe ?? recipe)
+                recipeContent(displayRecipe)
             }
         }
         .navigationTitle(recipe.title)
@@ -26,19 +27,15 @@ struct RecipeDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    cookModeActive.toggle()
+                    showCookMode = true
                 } label: {
-                    Label(cookModeActive ? "Exit Cook Mode" : "Cook Mode",
-                          systemImage: cookModeActive ? "flame.fill" : "flame")
-                        .foregroundStyle(cookModeActive ? .orange : .accentColor)
+                    Label("Cook", systemImage: "flame")
                 }
+                .disabled(isLoading)
             }
         }
-        .onDisappear {
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
-        .onChange(of: cookModeActive) { _, active in
-            UIApplication.shared.isIdleTimerDisabled = active
+        .fullScreenCover(isPresented: $showCookMode) {
+            CookModeView(recipe: displayRecipe)
         }
         .task {
             do {
@@ -90,6 +87,17 @@ struct RecipeDetailView: View {
                         }
                     }
                 }
+            }
+
+            Section {
+                Button {
+                    showCookMode = true
+                } label: {
+                    Label("Start Cooking", systemImage: "flame.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(isLoading)
             }
         }
         .listStyle(.insetGrouped)

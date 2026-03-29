@@ -27,6 +27,7 @@ type APIHandler struct {
 	choreService    *services.ChoreService
 	mealPlanRepo    repository.MealPlanRepository
 	recipeRepo      repository.RecipeRepository
+	icalFetcher     *services.ICalFetcher
 	oidcUserInfoURL string
 	clientID        string
 	oidcIssuer      string
@@ -41,6 +42,7 @@ func NewAPIHandler(
 	choreService *services.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
+	icalFetcher *services.ICalFetcher,
 	oidcUserInfoURL string,
 	clientID string,
 	oidcIssuer string,
@@ -54,6 +56,7 @@ func NewAPIHandler(
 		choreService:    choreService,
 		mealPlanRepo:    mealPlanRepo,
 		recipeRepo:      recipeRepo,
+		icalFetcher:     icalFetcher,
 		oidcUserInfoURL: oidcUserInfoURL,
 		clientID:        clientID,
 		oidcIssuer:      oidcIssuer,
@@ -352,35 +355,95 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 
 func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	now := time.Now()
 
-	monthParam := r.URL.Query().Get("month")
-	if monthParam == "" {
-		monthParam = time.Now().Format("2006-01")
+	view := r.URL.Query().Get("view")
+	if view == "" {
+		view = "month"
 	}
 
-	monthStart, err := time.Parse("2006-01", monthParam)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid month format, use YYYY-MM"})
-		return
-	}
+	var start, end time.Time
+	switch view {
+	case "week":
+		date := now
+		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
+			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+				date = d
+			}
+		}
+		offset := (int(date.Weekday()) + 6) % 7
+		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.Local)
+		end = start.AddDate(0, 0, 7)
 
-	monthEnd := monthStart.AddDate(0, 1, -1)
+	case "day":
+		date := now
+		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
+			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+				date = d
+			}
+		}
+		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+		end = start.AddDate(0, 0, 1)
+
+	default: // "month"
+		monthParam := r.URL.Query().Get("month")
+		if monthParam == "" {
+			monthParam = now.Format("2006-01")
+		}
+		monthStart, err := time.Parse("2006-01", monthParam)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid month format, use YYYY-MM"})
+			return
+		}
+		start = monthStart
+		end = monthStart.AddDate(0, 1, -1)
+	}
 
 	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		DueAfter:  &monthStart,
-		DueBefore: &monthEnd,
+		DueAfter:  &start,
+		DueBefore: &end,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores"})
 		return
 	}
-
 	if chores == nil {
 		chores = []models.Chore{}
 	}
 
+	var events []models.Event
+	if handler.icalFetcher != nil {
+		fetchedEvents, err := handler.icalFetcher.FetchForRange(ctx, start, end)
+		if err != nil {
+			slog.Error("fetching ical events for calendar API", "error", err)
+		} else {
+			events = fetchedEvents
+		}
+	}
+	if events == nil {
+		events = []models.Event{}
+	}
+
+	var meals []models.MealPlan
+	if handler.mealPlanRepo != nil {
+		fetchedMeals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+			DateFrom: start.Format("2006-01-02"),
+			DateTo:   end.Format("2006-01-02"),
+		})
+		if err != nil {
+			slog.Error("fetching meals for calendar API", "error", err)
+		} else {
+			meals = fetchedMeals
+		}
+	}
+	if meals == nil {
+		meals = []models.MealPlan{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"chores": chores,
+		"events": events,
+		"meals":  meals,
 	})
 }
 
@@ -409,6 +472,72 @@ func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, recipe)
+}
+
+func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	var body struct {
+		Date     string `json:"date"`
+		MealType string `json:"mealType"`
+		Name     string `json:"name"`
+		RecipeID string `json:"recipeID,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	if body.Date == "" || body.MealType == "" || body.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "date, mealType, and name are required"})
+		return
+	}
+
+	meal := models.MealPlan{
+		Date:            body.Date,
+		MealType:        models.MealType(body.MealType),
+		Name:            body.Name,
+		CreatedByUserID: user.ID,
+	}
+	if body.RecipeID != "" {
+		meal.RecipeID = &body.RecipeID
+	}
+
+	if err := handler.mealPlanRepo.Upsert(ctx, meal); err != nil {
+		slog.Error("saving meal via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save meal"})
+		return
+	}
+
+	saved, err := handler.mealPlanRepo.FindByDateAndType(ctx, body.Date, models.MealType(body.MealType))
+	if err != nil {
+		slog.Error("finding saved meal via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to retrieve saved meal"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, saved)
+}
+
+func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	date := r.URL.Query().Get("date")
+	mealType := r.URL.Query().Get("mealType")
+
+	if date == "" || mealType == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "date and mealType query params are required"})
+		return
+	}
+
+	if err := handler.mealPlanRepo.Delete(ctx, date, models.MealType(mealType)); err != nil {
+		slog.Error("deleting meal via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete meal"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func generateToken() string {

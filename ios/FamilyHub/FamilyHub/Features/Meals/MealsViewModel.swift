@@ -39,4 +39,30 @@ final class MealsViewModel {
         Task { await load() }
     }
 
+    func goToCurrentWeek() {
+        let calendar = Calendar(identifier: .iso8601)
+        currentWeek = calendar.dateInterval(of: .weekOfYear, for: Date())!.start
+        Task { await load() }
+    }
+
+    func saveMeal(date: String, mealType: String, name: String, recipeID: String? = nil) async -> Bool {
+        do {
+            _ = try await apiClient.saveMeal(date: date, mealType: mealType, name: name, recipeID: recipeID)
+            await load()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func deleteMeal(date: String, mealType: String) async -> Bool {
+        do {
+            try await apiClient.deleteMeal(date: date, mealType: mealType)
+            await load()
+            return true
+        } catch {
+            return false
+        }
+    }
+
 }

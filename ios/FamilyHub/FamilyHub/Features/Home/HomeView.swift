@@ -25,9 +25,9 @@ struct HomeView: View {
                             .foregroundStyle(.red)
                     }
                 case .loaded(let stats):
-                    choreSection(stats)
-                    mealsSection
                     statsSection(stats)
+                    mealsSection
+                    choreSection(stats)
                 }
             }
             .listStyle(.insetGrouped)

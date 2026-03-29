@@ -599,8 +599,9 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 	if body.ImageData != nil && *body.ImageData != "" {
 		if err := handler.recipeRepo.UpdateImage(ctx, created.ID, *body.ImageData); err != nil {
 			slog.Error("saving recipe image via API", "error", err)
+		} else {
+			created.HasImage = true
 		}
-		created.HasImage = true
 	}
 
 	writeJSON(w, http.StatusCreated, created)

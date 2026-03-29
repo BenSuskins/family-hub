@@ -848,11 +848,23 @@ func TestCreateRecipe_API(t *testing.T) {
 func TestCreateRecipe_API_MissingTitle(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-create-recipe-notitle",
+		Email:       "notitle@example.com",
+		Name:        "No Title",
+		Role:        models.RoleMember,
+	})
 
 	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, "", "", "")
 
 	router := chi.NewRouter()
-	router.Post("/api/recipes", handler.CreateRecipe)
+	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+		handler.CreateRecipe(w, r.WithContext(ctx))
+	})
 
 	body := `{"steps":["step 1"]}`
 	request := httptest.NewRequest(http.MethodPost, "/api/recipes", strings.NewReader(body))

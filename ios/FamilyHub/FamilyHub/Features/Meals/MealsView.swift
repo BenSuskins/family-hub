@@ -134,8 +134,9 @@ private struct MealEditSheet: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        guard !recipeSearchQuery.isEmpty else { return recipes }
-        return recipes.filter { $0.title.localizedCaseInsensitiveContains(recipeSearchQuery) }
+        let slotFiltered = recipes.filter { $0.mealType == nil || $0.mealType == meal.mealType }
+        guard !recipeSearchQuery.isEmpty else { return slotFiltered }
+        return slotFiltered.filter { $0.title.localizedCaseInsensitiveContains(recipeSearchQuery) }
     }
 
     var body: some View {

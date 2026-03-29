@@ -118,6 +118,10 @@ templ RecipeDetail(props RecipeDetailProps) {
 				</div>
 			</div>
 
+			if props.Recipe.HasImage {
+				<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt={ props.Recipe.Title } class="w-full rounded-xl object-cover max-h-80"/>
+			}
+
 			<!-- Metadata -->
 			<div class="flex flex-wrap gap-4 text-sm text-stone-600 dark:text-slate-400">
 				if props.Recipe.Servings != nil {

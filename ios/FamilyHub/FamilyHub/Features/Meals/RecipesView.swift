@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RecipesView: View {
     @State private var viewModel: RecipesViewModel
@@ -22,7 +23,7 @@ struct RecipesView: View {
                                 NavigationLink {
                                     RecipeDetailView(recipe: recipe, apiClient: apiClient)
                                 } label: {
-                                    RecipeCardView(recipe: recipe)
+                                    RecipeCardView(recipe: recipe, apiClient: apiClient)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -43,17 +44,34 @@ struct RecipesView: View {
 
 private struct RecipeCardView: View {
     let recipe: Recipe
+    let apiClient: any APIClientProtocol
+
+    @State private var imageData: Data?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.tertiarySystemFill))
-                .aspectRatio(4/3, contentMode: .fit)
-                .overlay {
-                    Image(systemName: "fork.knife")
-                        .foregroundStyle(.tertiary)
-                        .font(.title2)
+            Group {
+                if let imageData, let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(4/3, contentMode: .fill)
+                        .clipped()
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.tertiarySystemFill))
+                        .aspectRatio(4/3, contentMode: .fit)
+                        .overlay {
+                            Image(systemName: "fork.knife")
+                                .foregroundStyle(.tertiary)
+                                .font(.title2)
+                        }
                 }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .task {
+                guard recipe.hasImage else { return }
+                imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
                     .font(.subheadline.weight(.semibold))

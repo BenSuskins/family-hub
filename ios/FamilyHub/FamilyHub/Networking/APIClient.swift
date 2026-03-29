@@ -110,6 +110,13 @@ final class APIClient: APIClientProtocol {
         try await get("api/recipes/\(id)")
     }
 
+    func fetchRecipeImage(id: String) async throws -> Data {
+        let request = try await buildRequest(path: "api/recipes/\(id)/image", method: "GET")
+        let (data, response) = try await perform(request)
+        try validate(response: response)
+        return data
+    }
+
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RecipeDetailView: View {
     let recipe: Recipe
@@ -8,6 +9,7 @@ struct RecipeDetailView: View {
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
     @State private var fetchError = false
+    @State private var imageData: Data?
 
     private var displayRecipe: Recipe { fullRecipe ?? recipe }
 
@@ -44,11 +46,25 @@ struct RecipeDetailView: View {
                 fetchError = true
             }
             isLoading = false
+            if displayRecipe.hasImage {
+                imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
+            }
         }
     }
 
     private func recipeContent(_ r: Recipe) -> some View {
         List {
+            if let imageData, let uiImage = UIImage(data: imageData) {
+                Section {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxHeight: 250)
+                        .clipped()
+                        .listRowInsets(EdgeInsets())
+                }
+            }
+
             Section {
                 HStack(spacing: 16) {
                     if let prep = r.prepTime {

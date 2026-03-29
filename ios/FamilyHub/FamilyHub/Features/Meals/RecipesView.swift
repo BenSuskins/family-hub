@@ -18,18 +18,34 @@ struct RecipesView: View {
                     ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error.localizedDescription))
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 10) {
-                            ForEach(viewModel.filteredRecipes) { recipe in
-                                NavigationLink {
-                                    RecipeDetailView(recipe: recipe, apiClient: apiClient)
-                                } label: {
-                                    RecipeCardView(recipe: recipe, apiClient: apiClient)
+                        VStack(spacing: 0) {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    FilterChip(label: "All", isSelected: viewModel.selectedMealType == nil) {
+                                        viewModel.selectedMealType = nil
+                                    }
+                                    ForEach(RecipesViewModel.mealTypeOptions, id: \.self) { mealType in
+                                        FilterChip(label: mealType.capitalized, isSelected: viewModel.selectedMealType == mealType) {
+                                            viewModel.selectedMealType = viewModel.selectedMealType == mealType ? nil : mealType
+                                        }
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
                             }
+                            LazyVGrid(columns: columns, spacing: 10) {
+                                ForEach(viewModel.filteredRecipes) { recipe in
+                                    NavigationLink {
+                                        RecipeDetailView(recipe: recipe, apiClient: apiClient)
+                                    } label: {
+                                        RecipeCardView(recipe: recipe, apiClient: apiClient)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 8)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.top, 8)
                     }
                     .refreshable { await viewModel.load() }
                 }
@@ -39,6 +55,25 @@ struct RecipesView: View {
             .searchable(text: $viewModel.searchQuery, prompt: "Search recipes")
         }
         .task { await viewModel.load() }
+    }
+}
+
+private struct FilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor : Color(.secondarySystemFill))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

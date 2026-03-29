@@ -7,11 +7,20 @@ import Observation
 final class RecipesViewModel {
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
+    var selectedMealType: String? = nil
+
+    static let mealTypeOptions: [String] = ["breakfast", "lunch", "dinner", "side", "dessert"]
 
     var filteredRecipes: [Recipe] {
         guard case .loaded(let recipes) = state else { return [] }
-        guard !searchQuery.isEmpty else { return recipes }
-        return recipes.filter { $0.title.localizedCaseInsensitiveContains(searchQuery) }
+        var result = recipes
+        if let mealType = selectedMealType {
+            result = result.filter { $0.mealType == mealType }
+        }
+        if !searchQuery.isEmpty {
+            result = result.filter { $0.title.localizedCaseInsensitiveContains(searchQuery) }
+        }
+        return result
     }
 
     private let apiClient: any APIClientProtocol

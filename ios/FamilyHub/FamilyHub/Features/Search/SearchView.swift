@@ -40,18 +40,28 @@ struct SearchView: View {
     }
 
     private func recipeRow(_ recipe: Recipe) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(.tertiarySystemFill))
                 .frame(width: 44, height: 44)
                 .overlay {
                     Image(systemName: "fork.knife")
+                        .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(recipe.title)
                     .font(.body)
                 HStack(spacing: 8) {
+                    if let mealType = recipe.mealType {
+                        Text(mealType.capitalized)
+                            .font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.15))
+                            .foregroundStyle(Color.accentColor)
+                            .clipShape(Capsule())
+                    }
                     if let prep = recipe.prepTime {
                         Label(prep, systemImage: "clock")
                             .font(.caption)

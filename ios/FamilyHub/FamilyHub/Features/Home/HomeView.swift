@@ -58,15 +58,18 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(allDue) { chore in
-                    choreRow(chore)
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                Task { await viewModel.completeChore(id: chore.id) }
-                            } label: {
-                                Label("Done", systemImage: "checkmark")
-                            }
-                            .tint(.green)
+                    HStack {
+                        choreRow(chore)
+                        Spacer()
+                        Button {
+                            Task { await viewModel.completeChore(id: chore.id) }
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                                .font(.title2)
+                                .foregroundStyle(.green)
                         }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             NavigationLink {

@@ -256,19 +256,20 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 		overdueChores = []models.Chore{}
 	}
 
-	weekStart := now.Truncate(24 * time.Hour)
-	weekEnd := weekStart.AddDate(0, 0, 7)
-	mealsThisWeek, _ := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-		DateFrom: weekStart.Format("2006-01-02"),
-		DateTo:   weekEnd.Format("2006-01-02"),
-	})
-	todayMeals, _ := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
-
-	if mealsThisWeek == nil {
-		mealsThisWeek = []models.MealPlan{}
-	}
-	if todayMeals == nil {
-		todayMeals = []models.MealPlan{}
+	mealsThisWeek := []models.MealPlan{}
+	todayMeals := []models.MealPlan{}
+	if handler.mealPlanRepo != nil {
+		weekStart := now.Truncate(24 * time.Hour)
+		weekEnd := weekStart.AddDate(0, 0, 7)
+		if meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+			DateFrom: weekStart.Format("2006-01-02"),
+			DateTo:   weekEnd.Format("2006-01-02"),
+		}); err == nil && meals != nil {
+			mealsThisWeek = meals
+		}
+		if meals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02")); err == nil && meals != nil {
+			todayMeals = meals
+		}
 	}
 
 	stats := map[string]interface{}{

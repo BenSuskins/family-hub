@@ -24,7 +24,7 @@ struct SearchView: View {
                     } else {
                         List(viewModel.filteredRecipes) { recipe in
                             NavigationLink {
-                                RecipeDetailView(recipe: recipe, apiClient: apiClient)
+                                RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                             } label: {
                                 recipeRow(recipe)
                             }

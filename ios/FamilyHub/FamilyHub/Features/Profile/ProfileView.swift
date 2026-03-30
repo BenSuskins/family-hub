@@ -19,11 +19,11 @@ struct ProfileView: View {
                         UserAvatar(user: currentUser, size: 52, apiClient: apiClient)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(currentUser?.name ?? authManager.displayName)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.body.weight(.semibold))
                             let email = currentUser?.email ?? authManager.email
                             if !email.isEmpty {
                                 Text(email)
-                                    .font(.system(size: 13))
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -36,7 +36,7 @@ struct ProfileView: View {
                         showingEditConfigConfirmation = true
                     } label: {
                         Text("Edit Configuration")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.body.weight(.medium))
                     }
                 }
 
@@ -46,7 +46,7 @@ struct ProfileView: View {
                         dismiss()
                     } label: {
                         Text("Sign Out")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.body.weight(.medium))
                     }
                 }
             }

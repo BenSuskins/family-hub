@@ -8,9 +8,9 @@ struct SetupView: View {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
                     Text("Welcome to Family Hub")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.title2.bold())
                     Text("Enter your server URL to get started.")
-                        .font(.system(size: 15))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }

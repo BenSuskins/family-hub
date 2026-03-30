@@ -40,6 +40,7 @@ struct ChoresListView: View {
                 completedContent
             }
         }
+        .animation(.spring(duration: 0.3), value: selectedTab)
         .listStyle(.insetGrouped)
         .refreshable { await viewModel.load() }
         .navigationTitle("Chores")
@@ -137,5 +138,6 @@ struct ChoresListView: View {
                 .tint(.green)
             }
         }
+        .sensoryFeedback(.success, trigger: viewModel.completedChores.count)
     }
 }

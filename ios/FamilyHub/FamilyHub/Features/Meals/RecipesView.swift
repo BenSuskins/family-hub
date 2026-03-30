@@ -45,7 +45,7 @@ struct RecipesView: View {
                                     } label: {
                                         RecipeCardView(recipe: recipe, apiClient: apiClient)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(ScaleButtonStyle())
                                 }
                             }
                             .padding(.horizontal, 14)
@@ -83,14 +83,16 @@ private struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.subheadline)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.accentColor : Color(.secondarySystemFill))
                 .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .clipShape(Capsule())
+                .background {
+                    Capsule().fill(isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.ultraThinMaterial))
+                }
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: isSelected)
     }
 }
 
@@ -109,8 +111,8 @@ private struct RecipeCardView: View {
                         .aspectRatio(4/3, contentMode: .fill)
                         .clipped()
                 } else {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.tertiarySystemFill))
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
                         .aspectRatio(4/3, contentMode: .fit)
                         .overlay {
                             Image(systemName: "fork.knife")
@@ -119,7 +121,7 @@ private struct RecipeCardView: View {
                         }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
                     .font(.subheadline.weight(.semibold))
@@ -143,11 +145,18 @@ private struct RecipeCardView: View {
             .padding(.horizontal, 6)
             .padding(.bottom, 8)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
         .task(id: recipe.id) {
             guard recipe.hasImage else { return }
             imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
         }
+    }
+}
+
+private struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }
 }

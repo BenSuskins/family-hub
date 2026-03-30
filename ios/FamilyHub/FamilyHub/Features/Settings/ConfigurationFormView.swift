@@ -23,10 +23,10 @@ struct ConfigurationFormView: View {
             Section("Server") {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Base URL")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                     TextField("https://hub.example.com", text: $baseURL)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -35,7 +35,7 @@ struct ConfigurationFormView: View {
 
                 if let error = discoveryError {
                     Text(error)
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(.red)
                 }
             }

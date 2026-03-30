@@ -69,6 +69,7 @@ struct HomeView: View {
                                 .foregroundStyle(.green)
                         }
                         .buttonStyle(.plain)
+                        .sensoryFeedback(.success, trigger: chore.status == .completed)
                     }
                 }
             }

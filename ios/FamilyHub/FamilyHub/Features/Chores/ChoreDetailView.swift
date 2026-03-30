@@ -93,6 +93,9 @@ struct ChoreDetailView: View {
         .sheet(isPresented: $showEditForm) {
             ChoreFormView(mode: .edit(chore), viewModel: viewModel)
         }
+        .sensoryFeedback(.success, trigger: isCompleting) { oldValue, newValue in
+            oldValue && !newValue
+        }
         .confirmationDialog("Delete Chore?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {

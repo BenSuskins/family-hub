@@ -28,9 +28,13 @@ struct CookModeView: View {
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.paging)
+            .scrollPosition(id: Binding(
+                get: { currentPage },
+                set: { if let newValue = $0 { currentPage = newValue } }
+            ))
             .scrollIndicators(.hidden)
         }
-        .background(Color(.systemBackground))
+        .background(.regularMaterial)
         .overlay(alignment: .topTrailing) {
             Button {
                 dismiss()
@@ -48,6 +52,11 @@ struct CookModeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 16)
         }
+        .overlay(alignment: .bottom) {
+            pageIndicator
+                .padding(.bottom, 28)
+        }
+        .sensoryFeedback(.selection, trigger: currentPage)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
         }
@@ -55,6 +64,20 @@ struct CookModeView: View {
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .statusBarHidden()
+    }
+
+    private var pageIndicator: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<totalPages, id: \.self) { index in
+                Circle()
+                    .fill(index == currentPage ? Color.accentColor : Color.secondary.opacity(0.3))
+                    .frame(width: index == currentPage ? 8 : 6, height: index == currentPage ? 8 : 6)
+                    .animation(.spring(duration: 0.25), value: currentPage)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
     }
 
     // MARK: - Ingredients Page
@@ -83,10 +106,12 @@ struct CookModeView: View {
                         ForEach(group.items, id: \.self) { item in
                             let itemKey = "\(group.name)-\(item)"
                             Button {
-                                if checkedIngredients.contains(itemKey) {
-                                    checkedIngredients.remove(itemKey)
-                                } else {
-                                    checkedIngredients.insert(itemKey)
+                                withAnimation(.spring(duration: 0.25)) {
+                                    if checkedIngredients.contains(itemKey) {
+                                        checkedIngredients.remove(itemKey)
+                                    } else {
+                                        checkedIngredients.insert(itemKey)
+                                    }
                                 }
                             } label: {
                                 HStack(spacing: 14) {
@@ -105,6 +130,7 @@ struct CookModeView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .sensoryFeedback(.selection, trigger: checkedIngredients.contains(itemKey))
                         }
                     }
                 } else {
@@ -136,21 +162,15 @@ struct CookModeView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 20) {
-                Text("Step \(index + 1)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
+            VStack(spacing: 24) {
+                Text("\(index + 1)")
+                    .font(.system(.largeTitle, design: .rounded).bold())
+                    .foregroundStyle(.tint)
 
                 Text(step)
-                    .font(.title2)
+                    .font(.title3)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-
-                Text("\(index + 1) of \(total)")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
 
             Spacer()
@@ -166,7 +186,7 @@ struct CookModeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .padding(.horizontal, 32)
-                .padding(.bottom, 40)
+                .padding(.bottom, 60)
             }
         }
     }

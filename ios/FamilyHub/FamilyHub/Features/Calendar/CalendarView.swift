@@ -43,7 +43,7 @@ struct CalendarView: View {
                         dayView
                     }
                 }
-                .animation(.easeInOut(duration: 0.2), value: viewModel.viewMode)
+                .animation(.spring(duration: 0.3), value: viewModel.viewMode)
             }
             .refreshable { await viewModel.load() }
             .navigationTitle(navigationTitle)

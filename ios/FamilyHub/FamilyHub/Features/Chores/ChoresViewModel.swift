@@ -51,6 +51,59 @@ final class ChoresViewModel {
         }
     }
 
+    func createChore(_ request: ChoreRequest) async -> Chore? {
+        do {
+            let created = try await apiClient.createChore(request)
+            if case .loaded(var chores) = state {
+                chores.append(created)
+                state = .loaded(chores)
+            }
+            return created
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
+            return nil
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func updateChore(id: String, _ request: ChoreRequest) async -> Chore? {
+        do {
+            let updated = try await apiClient.updateChore(id: id, request)
+            if case .loaded(var chores) = state {
+                if let i = chores.firstIndex(where: { $0.id == id }) {
+                    chores[i] = updated
+                }
+                state = .loaded(chores)
+            }
+            return updated
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
+            return nil
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func deleteChore(id: String) async -> Bool {
+        do {
+            try await apiClient.deleteChore(id: id)
+            if case .loaded(var chores) = state {
+                chores.removeAll { $0.id == id }
+                state = .loaded(chores)
+            }
+            return true
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
+            return false
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func complete(choreID: String) async -> Bool {
         do {
             try await apiClient.completeChore(id: choreID)

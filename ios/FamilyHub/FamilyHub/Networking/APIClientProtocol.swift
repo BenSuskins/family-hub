@@ -11,11 +11,14 @@ protocol APIClientProtocol: AnyObject {
     func fetchDashboardStats() async throws -> DashboardStats
     func fetchChores() async throws -> [Chore]
     func completeChore(id: String) async throws
+    func createChore(_ request: ChoreRequest) async throws -> Chore
+    func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore
+    func deleteChore(id: String) async throws
+    func fetchUserAvatar(id: String) async throws -> Data
     func fetchMeals(week: Date) async throws -> [MealPlan]
     func fetchRecipes() async throws -> [Recipe]
     func fetchRecipe(id: String) async throws -> Recipe
     func fetchRecipeImage(id: String) async throws -> Data
-    func fetchUserAvatar(id: String) async throws -> Data
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe
     func deleteRecipe(id: String) async throws

@@ -4,6 +4,7 @@ struct ChoresListView: View {
     @State private var viewModel: ChoresViewModel
     @State private var selectedTab: Tab = .pending
     private let apiClient: any APIClientProtocol
+    @State private var showCreateForm = false
 
     enum Tab: String, CaseIterable {
         case pending = "Pending"
@@ -42,6 +43,16 @@ struct ChoresListView: View {
         .listStyle(.insetGrouped)
         .refreshable { await viewModel.load() }
         .navigationTitle("Chores")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { showCreateForm = true } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showCreateForm) {
+            ChoreFormView(mode: .create, viewModel: viewModel)
+        }
         .task { await viewModel.load() }
     }
 

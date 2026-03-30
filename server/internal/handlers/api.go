@@ -568,6 +568,192 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	var body struct {
+		Name           string   `json:"name"`
+		Description    string   `json:"description"`
+		Assignees      []string `json:"assignees,omitempty"`
+		DueDate        *string  `json:"dueDate,omitempty"`
+		RecurrenceType string   `json:"recurrenceType,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	if body.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+
+	recurrenceType := models.RecurrenceNone
+	if body.RecurrenceType != "" {
+		recurrenceType = models.RecurrenceType(body.RecurrenceType)
+	}
+
+	chore := models.Chore{
+		Name:            body.Name,
+		Description:     body.Description,
+		RecurrenceType:  recurrenceType,
+		CreatedByUserID: user.ID,
+	}
+
+	if body.DueDate != nil && *body.DueDate != "" {
+		dueDate, err := time.Parse("2006-01-02", *body.DueDate)
+		if err == nil {
+			chore.DueDate = &dueDate
+		}
+	}
+
+	created, err := handler.choreRepo.Create(ctx, chore)
+	if err != nil {
+		slog.Error("creating chore via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create chore"})
+		return
+	}
+
+	if len(body.Assignees) > 0 {
+		if err := handler.choreRepo.SetEligibleAssignees(ctx, created.ID, body.Assignees); err != nil {
+			slog.Error("setting eligible assignees via API", "error", err)
+		}
+	}
+
+	assigned, err := handler.choreService.AssignNextUser(ctx, created)
+	if err != nil {
+		slog.Error("assigning chore via API", "error", err)
+		assigned = created
+	}
+
+	if created.RecurrenceType != models.RecurrenceNone && !created.RecurOnComplete {
+		seriesID := created.ID
+		assigned.SeriesID = &seriesID
+		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
+			slog.Error("setting series_id on new chore via API", "error", err)
+		} else {
+			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, time.Now().AddDate(1, 0, 0)); err != nil {
+				slog.Error("seeding future occurrences via API", "error", err)
+			}
+		}
+	}
+
+	final, err := handler.choreRepo.FindByID(ctx, assigned.ID)
+	if err != nil {
+		writeJSON(w, http.StatusCreated, assigned)
+		return
+	}
+	writeJSON(w, http.StatusCreated, final)
+}
+
+func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	choreID := chi.URLParam(r, "id")
+
+	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chore"})
+		}
+		return
+	}
+
+	var body struct {
+		Name           string   `json:"name"`
+		Description    string   `json:"description"`
+		Assignees      []string `json:"assignees,omitempty"`
+		DueDate        *string  `json:"dueDate,omitempty"`
+		RecurrenceType string   `json:"recurrenceType,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	if body.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+
+	oldRecurrenceType := chore.RecurrenceType
+
+	chore.Name = body.Name
+	chore.Description = body.Description
+	if body.RecurrenceType != "" {
+		chore.RecurrenceType = models.RecurrenceType(body.RecurrenceType)
+	} else {
+		chore.RecurrenceType = models.RecurrenceNone
+	}
+	chore.RecurrenceValue = ""
+
+	if body.DueDate != nil && *body.DueDate != "" {
+		dueDate, err := time.Parse("2006-01-02", *body.DueDate)
+		if err == nil {
+			chore.DueDate = &dueDate
+		}
+	} else {
+		chore.DueDate = nil
+	}
+
+	if err := handler.choreRepo.Update(ctx, chore); err != nil {
+		slog.Error("updating chore via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update chore"})
+		return
+	}
+
+	if body.Assignees != nil {
+		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, body.Assignees); err != nil {
+			slog.Error("setting eligible assignees via API", "error", err)
+		}
+	}
+
+	recurrenceChanged := chore.RecurrenceType != oldRecurrenceType
+	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
+		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
+			slog.Error("deleting stale future instances via API", "error", err)
+		} else if err := handler.choreService.SeedFutureOccurrences(ctx, chore, time.Now().AddDate(1, 0, 0)); err != nil {
+			slog.Error("re-seeding after recurrence change via API", "error", err)
+		}
+	}
+
+	updated, err := handler.choreRepo.FindByID(ctx, choreID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, chore)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	choreID := chi.URLParam(r, "id")
+
+	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chore"})
+		}
+		return
+	}
+
+	if chore.SeriesID != nil {
+		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
+			slog.Error("deleting future pending siblings via API", "error", err)
+		}
+	}
+
+	if err := handler.choreRepo.Delete(ctx, choreID); err != nil {
+		slog.Error("deleting chore via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete chore"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)

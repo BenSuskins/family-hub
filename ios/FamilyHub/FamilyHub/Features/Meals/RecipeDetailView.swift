@@ -16,8 +16,15 @@ struct RecipeDetailView: View {
     @State private var showDeleteConfirm = false
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(ConfigStore.self) private var configStore
 
     private var displayRecipe: Recipe { fullRecipe ?? recipe }
+
+    private var recipeURL: URL? {
+        URL(string: configStore.baseURL)?
+            .appendingPathComponent("recipes")
+            .appendingPathComponent(recipe.id)
+    }
 
     var body: some View {
         Group {
@@ -35,6 +42,16 @@ struct RecipeDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 4) {
+                    if let recipeURL {
+                        ShareLink(
+                            item: recipeURL,
+                            subject: Text(recipe.title),
+                            message: Text("Check out this recipe: \(recipe.title)")
+                        ) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
+
                     Button {
                         showCookMode = true
                     } label: {

@@ -4,7 +4,10 @@ import UIKit
 struct RecipesView: View {
     @State private var viewModel: RecipesViewModel
     private let apiClient: any APIClientProtocol
-    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    private let columns = [
+        GridItem(.flexible(), alignment: .top),
+        GridItem(.flexible(), alignment: .top)
+    ]
 
     @State private var showCreateForm = false
 
@@ -117,24 +120,23 @@ private struct RecipeCardView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            .task {
-                guard recipe.hasImage else { return }
-                imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
-            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
-                HStack(spacing: 8) {
-                    if let prep = recipe.prepTime {
-                        Label("\(prep) prep", systemImage: "clock")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let servings = recipe.servings {
-                        Label("\(servings)", systemImage: "person.2")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if recipe.prepTime != nil || recipe.servings != nil {
+                    HStack(spacing: 8) {
+                        if let prep = recipe.prepTime {
+                            Label("\(prep) prep", systemImage: "clock")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let servings = recipe.servings {
+                            Label("\(servings)", systemImage: "person.2")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -143,5 +145,9 @@ private struct RecipeCardView: View {
         }
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .task(id: recipe.id) {
+            guard recipe.hasImage else { return }
+            imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
+        }
     }
 }

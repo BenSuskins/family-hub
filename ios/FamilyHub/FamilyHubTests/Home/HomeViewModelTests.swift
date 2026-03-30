@@ -9,7 +9,9 @@ final class HomeViewModelTests: XCTestCase {
             choresDueToday: 2,
             choresOverdue: 1,
             choresDueTodayList: [],
-            choresOverdueList: []
+            choresOverdueList: [],
+            mealsThisWeek: 0,
+            todayMeals: []
         ))
         let viewModel = HomeViewModel(apiClient: fake)
 
@@ -52,7 +54,7 @@ final class HomeViewModelTests: XCTestCase {
     func testLoadFetchesUsers() async {
         let fake = FakeAPIClient()
         fake.dashboardResult = .success(
-            DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [])
+            DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
         )
         fake.usersResult = .success([User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "")])
         let viewModel = HomeViewModel(apiClient: fake)
@@ -65,7 +67,7 @@ final class HomeViewModelTests: XCTestCase {
     func testCompleteChoreSuccess() async {
         let fake = FakeAPIClient()
         fake.dashboardResult = .success(
-            DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [])
+            DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
         )
         fake.completeChoreResult = .success(())
         let viewModel = HomeViewModel(apiClient: fake)
@@ -79,7 +81,7 @@ final class HomeViewModelTests: XCTestCase {
     func testCompleteChoreFailure() async {
         let fake = FakeAPIClient()
         fake.dashboardResult = .success(
-            DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [])
+            DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
         )
         fake.completeChoreResult = .failure(APIError.server(500))
         let viewModel = HomeViewModel(apiClient: fake)

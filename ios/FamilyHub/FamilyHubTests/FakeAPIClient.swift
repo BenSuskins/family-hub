@@ -3,7 +3,7 @@ import Foundation
 
 final class FakeAPIClient: APIClientProtocol {
     var dashboardResult: Result<DashboardStats, Error> = .success(
-        DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [])
+        DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
     )
     var choresResult: Result<[Chore], Error> = .success([])
     var completeChoreResult: Result<Void, Error> = .success(())

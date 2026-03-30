@@ -7,6 +7,8 @@ struct ChoreDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isCompleting = false
     @State private var completionError: String?
+    @State private var showEditForm = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         List {
@@ -74,5 +76,32 @@ struct ChoreDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(chore.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button { showEditForm = true } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showEditForm) {
+            ChoreFormView(mode: .edit(chore), viewModel: viewModel)
+        }
+        .confirmationDialog("Delete Chore?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    let ok = await viewModel.deleteChore(id: chore.id)
+                    if ok { dismiss() }
+                }
+            }
+        } message: {
+            Text("This will permanently delete \"\(chore.name)\".")
+        }
     }
 }

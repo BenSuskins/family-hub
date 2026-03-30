@@ -110,6 +110,25 @@ final class APIClient: APIClientProtocol {
         ])
     }
 
+    func createChore(_ request: ChoreRequest) async throws -> Chore {
+        try await post("api/chores", body: request)
+    }
+
+    func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore {
+        try await put("api/chores/\(id)", body: request)
+    }
+
+    func deleteChore(id: String) async throws {
+        try await delete("api/chores/\(id)")
+    }
+
+    func fetchUserAvatar(id: String) async throws -> Data {
+        let request = try await buildRequest(path: "avatar/\(id)", method: "GET")
+        let (data, response) = try await perform(request)
+        try validate(response: response)
+        return data
+    }
+
     func fetchRecipes() async throws -> [Recipe] {
         try await get("api/recipes")
     }

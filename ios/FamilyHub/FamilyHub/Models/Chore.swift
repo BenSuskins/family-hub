@@ -46,6 +46,14 @@ enum ChoreBadge: Equatable {
     }
 }
 
+struct ChoreRequest: Encodable {
+    var name: String
+    var description: String
+    var assignees: [String]
+    var dueDate: String?
+    var recurrenceType: String?
+}
+
 extension Chore {
     var badge: ChoreBadge? {
         switch status {

@@ -79,9 +79,9 @@ struct ProfileView: View {
                     .navigationBarTitleDisplayMode(.inline)
                 }
             }
-        }
-        .task {
-            currentUser = try? await apiClient.fetchMe()
+            .task {
+                currentUser = try? await apiClient.fetchMe()
+            }
         }
     }
 }

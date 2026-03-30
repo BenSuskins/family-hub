@@ -7,11 +7,14 @@ final class FakeAPIClient: APIClientProtocol {
     )
     var choresResult: Result<[Chore], Error> = .success([])
     var completeChoreResult: Result<Void, Error> = .success(())
+    var createChoreResult: Result<Chore, Error> = .failure(APIError.notFound)
+    var updateChoreResult: Result<Chore, Error> = .failure(APIError.notFound)
+    var deleteChoreResult: Result<Void, Error> = .success(())
+    var fetchUserAvatarResult: Result<Data, Error> = .success(Data())
     var mealsResult: Result<[MealPlan], Error> = .success([])
     var recipesResult: Result<[Recipe], Error> = .success([])
     var recipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var recipeImageResult: Result<Data, Error> = .success(Data())
-    var userAvatarResult: Result<Data, Error> = .success(Data())
     var createRecipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var updateRecipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var deleteRecipeResult: Result<Void, Error> = .success(())
@@ -24,11 +27,14 @@ final class FakeAPIClient: APIClientProtocol {
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
     func completeChore(id: String) async throws { try completeChoreResult.get() }
+    func createChore(_ request: ChoreRequest) async throws -> Chore { try createChoreResult.get() }
+    func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore { try updateChoreResult.get() }
+    func deleteChore(id: String) async throws { try deleteChoreResult.get() }
+    func fetchUserAvatar(id: String) async throws -> Data { try fetchUserAvatarResult.get() }
     func fetchMeals(week: Date) async throws -> [MealPlan] { try mealsResult.get() }
     func fetchRecipes() async throws -> [Recipe] { try recipesResult.get() }
     func fetchRecipe(id: String) async throws -> Recipe { try recipeResult.get() }
     func fetchRecipeImage(id: String) async throws -> Data { try recipeImageResult.get() }
-    func fetchUserAvatar(id: String) async throws -> Data { try userAvatarResult.get() }
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe { try createRecipeResult.get() }
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe { try updateRecipeResult.get() }
     func deleteRecipe(id: String) async throws { try deleteRecipeResult.get() }

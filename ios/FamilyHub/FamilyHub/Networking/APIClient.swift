@@ -125,6 +125,13 @@ final class APIClient: APIClientProtocol {
         return data
     }
 
+    func fetchUserAvatar(id: String) async throws -> Data {
+        let request = try await buildRequest(path: "avatar/\(id)", method: "GET")
+        let (data, response) = try await perform(request)
+        try validate(response: response)
+        return data
+    }
+
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
         try await post("api/recipes", body: request)
     }

@@ -1,10 +1,13 @@
 import SwiftUI
 
 struct ProfileView: View {
+    let apiClient: any APIClientProtocol
+
     @Environment(AuthManager.self) private var authManager
     @Environment(ConfigStore.self) private var configStore
     @Environment(\.dismiss) private var dismiss
 
+    @State private var currentUser: User?
     @State private var showingEditConfigConfirmation = false
     @State private var showingEditConfig = false
 
@@ -13,12 +16,13 @@ struct ProfileView: View {
             List {
                 Section {
                     HStack(spacing: 14) {
-                        UserAvatar(user: nil, size: 52)
+                        UserAvatar(user: currentUser, size: 52, apiClient: apiClient)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(authManager.displayName)
+                            Text(currentUser?.name ?? authManager.displayName)
                                 .font(.system(size: 16, weight: .semibold))
-                            if !authManager.email.isEmpty {
-                                Text(authManager.email)
+                            let email = currentUser?.email ?? authManager.email
+                            if !email.isEmpty {
+                                Text(email)
                                     .font(.system(size: 13))
                                     .foregroundStyle(.secondary)
                             }
@@ -75,6 +79,9 @@ struct ProfileView: View {
                     .navigationBarTitleDisplayMode(.inline)
                 }
             }
+        }
+        .task {
+            currentUser = try? await apiClient.fetchMe()
         }
     }
 }

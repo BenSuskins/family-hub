@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CalendarView: View {
     @State private var viewModel: CalendarViewModel
+    private let apiClient: any APIClientProtocol
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     private let weekdaySymbols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -16,6 +17,7 @@ struct CalendarView: View {
     }()
 
     init(apiClient: any APIClientProtocol) {
+        self.apiClient = apiClient
         _viewModel = State(wrappedValue: CalendarViewModel(apiClient: apiClient))
     }
 
@@ -253,7 +255,7 @@ struct CalendarView: View {
             }
             Spacer()
             if let userId = chore.assignedToUserID {
-                UserAvatar(user: viewModel.users[userId], size: 24)
+                UserAvatar(user: viewModel.users[userId], size: 24, apiClient: apiClient)
             }
         }
     }

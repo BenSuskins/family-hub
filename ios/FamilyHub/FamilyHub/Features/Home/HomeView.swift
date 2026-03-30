@@ -38,12 +38,12 @@ struct HomeView: View {
                     Button {
                         showProfile = true
                     } label: {
-                        UserAvatar(user: viewModel.currentUser, size: 32)
+                        UserAvatar(user: viewModel.currentUser, size: 32, apiClient: apiClient)
                     }
                 }
             }
             .sheet(isPresented: $showProfile) {
-                ProfileView()
+                ProfileView(apiClient: apiClient)
             }
         }
         .task { await viewModel.load() }
@@ -84,7 +84,7 @@ struct HomeView: View {
 
     private func choreRow(_ chore: Chore) -> some View {
         HStack(spacing: 10) {
-            UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32)
+            UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
             VStack(alignment: .leading, spacing: 2) {
                 Text(chore.name)
                     .font(.body)

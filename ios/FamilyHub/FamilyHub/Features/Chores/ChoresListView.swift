@@ -3,6 +3,7 @@ import SwiftUI
 struct ChoresListView: View {
     @State private var viewModel: ChoresViewModel
     @State private var selectedTab: Tab = .pending
+    private let apiClient: any APIClientProtocol
 
     enum Tab: String, CaseIterable {
         case pending = "Pending"
@@ -10,6 +11,7 @@ struct ChoresListView: View {
     }
 
     init(apiClient: any APIClientProtocol) {
+        self.apiClient = apiClient
         _viewModel = State(wrappedValue: ChoresViewModel(apiClient: apiClient))
     }
 
@@ -93,7 +95,7 @@ struct ChoresListView: View {
                         .foregroundStyle(.green)
                         .font(.title2)
                 } else {
-                    UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32)
+                    UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chore.name)

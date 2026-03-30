@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class RecipesViewModelTests: XCTestCase {
     private func makeRecipe(id: String, title: String) -> Recipe {
-        Recipe(id: id, title: title, steps: [], ingredients: [], servings: nil, prepTime: nil, cookTime: nil, hasImage: false)
+        Recipe(id: id, title: title, steps: [], ingredients: [], mealType: nil, servings: nil, prepTime: nil, cookTime: nil, hasImage: false)
     }
 
     func testLoadSuccess() async {

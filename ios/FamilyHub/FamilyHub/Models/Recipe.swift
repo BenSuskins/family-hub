@@ -14,6 +14,8 @@ struct Recipe: Codable, Identifiable {
     let servings: Int?
     let prepTime: String?
     let cookTime: String?
+    let sourceURL: String?
+    let categoryID: String?
     let hasImage: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -25,6 +27,21 @@ struct Recipe: Codable, Identifiable {
         case servings = "Servings"
         case prepTime = "PrepTime"
         case cookTime = "CookTime"
+        case sourceURL = "SourceURL"
+        case categoryID = "CategoryID"
         case hasImage = "HasImage"
     }
+}
+
+struct RecipeRequest: Encodable {
+    var title: String
+    var steps: [String]
+    var ingredients: [IngredientGroup]
+    var mealType: String?
+    var servings: Int?
+    var prepTime: String?
+    var cookTime: String?
+    var sourceURL: String?
+    // nil = leave image unchanged (update), "" = clear image, "data:..." = new image
+    var imageData: String?
 }

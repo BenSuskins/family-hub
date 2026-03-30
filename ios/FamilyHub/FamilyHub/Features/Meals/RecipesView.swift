@@ -6,6 +6,8 @@ struct RecipesView: View {
     private let apiClient: any APIClientProtocol
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
+    @State private var showCreateForm = false
+
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
         _viewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
@@ -36,7 +38,7 @@ struct RecipesView: View {
                             LazyVGrid(columns: columns, spacing: 10) {
                                 ForEach(viewModel.filteredRecipes) { recipe in
                                     NavigationLink {
-                                        RecipeDetailView(recipe: recipe, apiClient: apiClient)
+                                        RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                                     } label: {
                                         RecipeCardView(recipe: recipe, apiClient: apiClient)
                                     }
@@ -53,6 +55,18 @@ struct RecipesView: View {
             .navigationTitle("Recipes")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $viewModel.searchQuery, prompt: "Search recipes")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showCreateForm = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showCreateForm) {
+                RecipeFormView(mode: .create, viewModel: viewModel, apiClient: apiClient)
+            }
         }
         .task { await viewModel.load() }
     }

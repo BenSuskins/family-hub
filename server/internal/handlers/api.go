@@ -697,6 +697,32 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, updated)
 }
 
+func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	recipeID := chi.URLParam(r, "id")
+
+	if _, err := handler.recipeRepo.FindByID(ctx, recipeID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+		}
+		return
+	}
+
+	if err := handler.mealPlanRepo.ClearRecipeID(ctx, recipeID); err != nil {
+		slog.Error("clearing recipe from meal plans via API", "error", err)
+	}
+
+	if err := handler.recipeRepo.Delete(ctx, recipeID); err != nil {
+		slog.Error("deleting recipe via API", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete recipe"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func generateToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)

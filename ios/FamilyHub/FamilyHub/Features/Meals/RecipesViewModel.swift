@@ -8,6 +8,7 @@ final class RecipesViewModel {
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
     var selectedMealType: String? = nil
+    var errorMessage: String?
 
     static let mealTypeOptions: [String] = ["breakfast", "lunch", "dinner", "side", "dessert"]
 
@@ -38,6 +39,50 @@ final class RecipesViewModel {
             state = .failed(error)
         } catch {
             state = .failed(.network(error))
+        }
+    }
+
+    func createRecipe(_ request: RecipeRequest) async -> Recipe? {
+        do {
+            let created = try await apiClient.createRecipe(request)
+            if case .loaded(var recipes) = state {
+                recipes.append(created)
+                state = .loaded(recipes)
+            }
+            return created
+        } catch {
+            errorMessage = "Failed to create recipe"
+            return nil
+        }
+    }
+
+    func updateRecipe(id: String, _ request: RecipeRequest) async -> Recipe? {
+        do {
+            let updated = try await apiClient.updateRecipe(id: id, request)
+            if case .loaded(var recipes) = state {
+                if let index = recipes.firstIndex(where: { $0.id == id }) {
+                    recipes[index] = updated
+                }
+                state = .loaded(recipes)
+            }
+            return updated
+        } catch {
+            errorMessage = "Failed to update recipe"
+            return nil
+        }
+    }
+
+    func deleteRecipe(id: String) async -> Bool {
+        do {
+            try await apiClient.deleteRecipe(id: id)
+            if case .loaded(var recipes) = state {
+                recipes.removeAll { $0.id == id }
+                state = .loaded(recipes)
+            }
+            return true
+        } catch {
+            errorMessage = "Failed to delete recipe"
+            return false
         }
     }
 }

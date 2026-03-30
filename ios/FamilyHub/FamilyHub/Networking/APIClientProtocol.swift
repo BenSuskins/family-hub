@@ -15,6 +15,7 @@ protocol APIClientProtocol: AnyObject {
     func fetchRecipes() async throws -> [Recipe]
     func fetchRecipe(id: String) async throws -> Recipe
     func fetchRecipeImage(id: String) async throws -> Data
+    func fetchUserAvatar(id: String) async throws -> Data
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe
     func deleteRecipe(id: String) async throws

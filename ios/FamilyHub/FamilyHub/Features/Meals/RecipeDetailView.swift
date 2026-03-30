@@ -4,12 +4,18 @@ import UIKit
 struct RecipeDetailView: View {
     let recipe: Recipe
     let apiClient: any APIClientProtocol
+    let viewModel: RecipesViewModel
 
     @State private var showCookMode = false
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
     @State private var fetchError = false
     @State private var imageData: Data?
+
+    @State private var showEditForm = false
+    @State private var showDeleteConfirm = false
+
+    @Environment(\.dismiss) private var dismiss
 
     private var displayRecipe: Recipe { fullRecipe ?? recipe }
 
@@ -28,16 +34,61 @@ struct RecipeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showCookMode = true
-                } label: {
-                    Label("Cook", systemImage: "flame")
+                HStack(spacing: 4) {
+                    Button {
+                        showCookMode = true
+                    } label: {
+                        Label("Cook", systemImage: "flame")
+                    }
+                    .disabled(isLoading)
+
+                    Menu {
+                        Button {
+                            showEditForm = true
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .disabled(isLoading)
+
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                 }
-                .disabled(isLoading)
             }
         }
         .fullScreenCover(isPresented: $showCookMode) {
             CookModeView(recipe: displayRecipe)
+        }
+        .sheet(isPresented: $showEditForm) {
+            if let r = fullRecipe {
+                RecipeFormView(mode: .edit(r), viewModel: viewModel, apiClient: apiClient) { updated in
+                    fullRecipe = updated
+                    if updated.hasImage {
+                        Task { imageData = try? await apiClient.fetchRecipeImage(id: updated.id) }
+                    } else {
+                        imageData = nil
+                    }
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete \"\(recipe.title)\"?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    let ok = await viewModel.deleteRecipe(id: recipe.id)
+                    if ok { dismiss() }
+                }
+            }
+        } message: {
+            Text("This recipe will be permanently deleted.")
         }
         .task {
             do {
@@ -79,9 +130,17 @@ struct RecipeDetailView: View {
                 }
             }
 
+            if let sourceURL = r.sourceURL, !sourceURL.isEmpty, let url = URL(string: sourceURL) {
+                Section("Source") {
+                    Link(sourceURL, destination: url)
+                        .font(.subheadline)
+                        .lineLimit(1)
+                }
+            }
+
             if let ingredients = r.ingredients, !ingredients.isEmpty {
                 ForEach(ingredients, id: \.name) { group in
-                    Section(group.name.isEmpty ? "Ingredients" : group.name) {
+                    Section(group.name.isEmpty || group.name == "Main" ? "Ingredients" : group.name) {
                         ForEach(group.items, id: \.self) { item in
                             Text(item)
                                 .font(.subheadline)

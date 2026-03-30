@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SearchView: View {
     @State private var viewModel: RecipesViewModel
@@ -26,7 +27,7 @@ struct SearchView: View {
                             NavigationLink {
                                 RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                             } label: {
-                                recipeRow(recipe)
+                                RecipeRowView(recipe: recipe, apiClient: apiClient)
                             }
                         }
                         .listStyle(.insetGrouped)
@@ -38,17 +39,38 @@ struct SearchView: View {
         }
         .task { await viewModel.load() }
     }
+}
 
-    private func recipeRow(_ recipe: Recipe) -> some View {
+private struct RecipeRowView: View {
+    let recipe: Recipe
+    let apiClient: any APIClientProtocol
+
+    @State private var imageData: Data?
+
+    var body: some View {
         HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(.tertiarySystemFill))
-                .frame(width: 44, height: 44)
-                .overlay {
-                    Image(systemName: "fork.knife")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
+            Group {
+                if let imageData, let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(.tertiarySystemFill))
+                        .overlay {
+                            Image(systemName: "fork.knife")
+                                .font(.subheadline)
+                                .foregroundStyle(.tertiary)
+                        }
                 }
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .task(id: recipe.id) {
+                guard recipe.hasImage else { return }
+                imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
+            }
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(recipe.title)
                     .font(.body)

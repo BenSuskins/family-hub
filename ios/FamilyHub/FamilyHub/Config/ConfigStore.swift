@@ -14,7 +14,7 @@ final class ConfigStore {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = UserDefaults(suiteName: "uk.co.suskins.familyhub.config")!) {
+    init(defaults: UserDefaults = UserDefaults(suiteName: "group.uk.co.suskins.familyhub")!) {
         self.defaults = defaults
         self.baseURL = defaults.string(forKey: "baseURL") ?? ""
         self.clientID = defaults.string(forKey: "clientID") ?? ""

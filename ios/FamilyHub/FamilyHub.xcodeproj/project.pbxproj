@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A100000D000000000000001A /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1000001000000000000001A /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		545AC8D72F6361A9009E96B7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,6 +33,20 @@
 			remoteInfo = ShareExtension;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A100000E000000000000001A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A100000D000000000000001A /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		545AC8C92F6361A9009E96B7 /* FamilyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +161,7 @@
 				545AC8C52F6361A8009E96B7 /* Sources */,
 				545AC8C62F6361A8009E96B7 /* Frameworks */,
 				545AC8C72F6361A8009E96B7 /* Resources */,
+				A100000E000000000000001A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);

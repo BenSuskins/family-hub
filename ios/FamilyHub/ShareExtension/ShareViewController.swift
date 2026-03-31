@@ -79,7 +79,7 @@ final class ShareViewController: UIViewController {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Dismiss") { complete() }
+            Button("Dismiss") { self.complete() }
                 .buttonStyle(.borderedProminent)
         }
         .padding()
@@ -97,7 +97,7 @@ final class ShareViewController: UIViewController {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Dismiss") { complete() }
+            Button("Dismiss") { self.complete() }
                 .buttonStyle(.borderedProminent)
         }
         .padding()

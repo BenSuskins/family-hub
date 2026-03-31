@@ -27,12 +27,14 @@ final class KeychainStore {
 
     func saveAPIToken(_ token: String) {
         write(token, for: .apiToken)
+        UserDefaults(suiteName: "group.uk.co.suskins.familyhub")?.set(token, forKey: "api_token")
     }
 
     func clear() {
         delete(.accessToken)
         delete(.refreshToken)
         delete(.apiToken)
+        UserDefaults(suiteName: "group.uk.co.suskins.familyhub")?.removeObject(forKey: "api_token")
     }
 
     private func read(_ key: Key) -> String? {

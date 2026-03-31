@@ -1,10 +1,23 @@
 import SwiftUI
 
 // Duplicated here since the extension cannot import the main app module
+private enum ShareMealType: String, CaseIterable {
+    case breakfast
+    case lunch
+    case dinner
+    case side
+    case dessert
+
+    var displayName: String {
+        rawValue.capitalized
+    }
+}
+
 private struct ShareRecipeRequest: Encodable {
     var title: String
     var steps: [String]
     var ingredients: [ShareIngredientGroup]
+    var mealType: String?
     var sourceURL: String?
 }
 
@@ -20,6 +33,7 @@ struct ShareView: View {
     var onDismiss: () -> Void
 
     @State private var title = ""
+    @State private var selectedMealType: ShareMealType?
     @State private var isLoadingOG = true
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -41,6 +55,16 @@ struct ShareView: View {
 
                 Section("Recipe Title") {
                     TextField("Title", text: $title)
+                }
+
+                Section("Meal Type") {
+                    Picker("Type", selection: $selectedMealType) {
+                        Text("None").tag(ShareMealType?.none)
+                        ForEach(ShareMealType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(ShareMealType?.some(type))
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
 
                 Section("Source") {
@@ -93,6 +117,7 @@ struct ShareView: View {
             title: title.trimmingCharacters(in: .whitespaces),
             steps: [],
             ingredients: [],
+            mealType: selectedMealType?.rawValue,
             sourceURL: sharedURL.absoluteString
         )
 

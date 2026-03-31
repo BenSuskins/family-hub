@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2630"
-   version = "1.7">
+   wasCreatedForAppExtension = "YES"
+   version = "2.2">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -13,13 +14,8 @@
             buildForProfiling = "YES"
             buildForArchiving = "YES"
             buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "545AC8C82F6361A8009E96B7"
-               BuildableName = "FamilyHub.app"
-               BlueprintName = "FamilyHub"
-               ReferencedContainer = "container:FamilyHub.xcodeproj">
-            </BuildableReference>
+            <AutocreatedTestPlanReference>
+            </AutocreatedTestPlanReference>
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -35,6 +31,20 @@
                ReferencedContainer = "container:FamilyHub.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "545AC8C82F6361A8009E96B7"
+               BuildableName = "FamilyHub.app"
+               BlueprintName = "FamilyHub"
+               ReferencedContainer = "container:FamilyHub.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -43,41 +53,19 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "545AC8D52F6361A9009E96B7"
-               BuildableName = "FamilyHubTests.xctest"
-               BlueprintName = "FamilyHubTests"
-               ReferencedContainer = "container:FamilyHub.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "545AC8DF2F6361A9009E96B7"
-               BuildableName = "FamilyHubUITests.xctest"
-               BlueprintName = "FamilyHubUITests"
-               ReferencedContainer = "container:FamilyHub.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
-      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      selectedDebuggerIdentifier = ""
+      selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
       launchStyle = "0"
+      askForAppToLaunch = "Yes"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "YES"
+      launchAutomaticallySubstyle = "2">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
@@ -94,7 +82,9 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
-      debugDocumentVersioning = "YES">
+      debugDocumentVersioning = "YES"
+      askForAppToLaunch = "Yes"
+      launchAutomaticallySubstyle = "2">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference

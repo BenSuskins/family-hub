@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Duplicated here since the extension cannot import the main app module
 private enum ShareMealType: String, CaseIterable {
@@ -18,7 +19,11 @@ private struct ShareRecipeRequest: Encodable {
     var steps: [String]
     var ingredients: [ShareIngredientGroup]
     var mealType: String?
+    var servings: Int?
+    var prepTime: String?
+    var cookTime: String?
     var sourceURL: String?
+    var imageData: String?
 }
 
 private struct ShareIngredientGroup: Encodable {
@@ -34,6 +39,12 @@ struct ShareView: View {
 
     @State private var title = ""
     @State private var selectedMealType: ShareMealType?
+    @State private var ogImageDataURI: String?
+    @State private var ingredients: [String] = []
+    @State private var steps: [String] = []
+    @State private var prepTime: String?
+    @State private var cookTime: String?
+    @State private var servings: Int?
     @State private var isLoadingOG = true
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -65,6 +76,60 @@ struct ShareView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                }
+
+                if !ingredients.isEmpty {
+                    Section("Ingredients (\(ingredients.count))") {
+                        ForEach(ingredients, id: \.self) { ingredient in
+                            Text(ingredient)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+
+                if !steps.isEmpty {
+                    Section("Steps (\(steps.count))") {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("\(index + 1).")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 24, alignment: .trailing)
+                                Text(step)
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
+                }
+
+                if prepTime != nil || cookTime != nil || servings != nil {
+                    Section("Details") {
+                        if let prepTime {
+                            LabeledContent("Prep Time", value: prepTime)
+                                .font(.subheadline)
+                        }
+                        if let cookTime {
+                            LabeledContent("Cook Time", value: cookTime)
+                                .font(.subheadline)
+                        }
+                        if let servings {
+                            LabeledContent("Servings", value: "\(servings)")
+                                .font(.subheadline)
+                        }
+                    }
+                }
+
+                if let ogImageDataURI,
+                   let dataRange = ogImageDataURI.range(of: "base64,"),
+                   let imageData = Data(base64Encoded: String(ogImageDataURI[dataRange.upperBound...])),
+                   let uiImage = UIImage(data: imageData) {
+                    Section("Image") {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 200)
+                            .cornerRadius(8)
+                    }
                 }
 
                 Section("Source") {
@@ -103,6 +168,14 @@ struct ShareView: View {
                 if let ogTitle = meta.title, !ogTitle.isEmpty {
                     title = ogTitle
                 }
+                ingredients = meta.ingredients ?? []
+                steps = meta.steps ?? []
+                prepTime = meta.prepTime
+                cookTime = meta.cookTime
+                servings = meta.servings
+                if let imageURL = meta.imageURL {
+                    ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL)
+                }
                 isLoadingOG = false
             }
         }
@@ -113,12 +186,17 @@ struct ShareView: View {
         defer { isSaving = false }
         errorMessage = nil
 
+        let ingredientGroups = ingredients.isEmpty ? [] : [ShareIngredientGroup(name: "", items: ingredients)]
         let request = ShareRecipeRequest(
             title: title.trimmingCharacters(in: .whitespaces),
-            steps: [],
-            ingredients: [],
+            steps: steps,
+            ingredients: ingredientGroups,
             mealType: selectedMealType?.rawValue,
-            sourceURL: sharedURL.absoluteString
+            servings: servings,
+            prepTime: prepTime,
+            cookTime: cookTime,
+            sourceURL: sharedURL.absoluteString,
+            imageData: ogImageDataURI
         )
 
         guard let url = URL(string: baseURL.hasSuffix("/") ? baseURL + "api/recipes" : baseURL + "/api/recipes"),

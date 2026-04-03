@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 final class KeychainStore {
-    static let shared = KeychainStore()
+    nonisolated(unsafe) static let shared = KeychainStore()
 
     private let service: String
 

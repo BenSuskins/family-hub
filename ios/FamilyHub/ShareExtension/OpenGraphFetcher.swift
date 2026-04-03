@@ -120,7 +120,7 @@ enum OpenGraphFetcher {
     /// Downloads an image URL and returns a base64 data URI, or nil on failure.
     static func fetchImageAsDataURI(from urlString: String) async -> String? {
         guard let url = URL(string: urlString) else { return nil }
-        var config = URLSessionConfiguration.ephemeral
+        let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 15
         let session = URLSession(configuration: config)
 

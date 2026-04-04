@@ -56,7 +56,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	router.Use(chimiddleware.Recoverer)
 	router.Use(chimiddleware.Compress(5))
 	router.Use(middleware.SecurityHeaders)
-	router.Use(httprate.LimitByIP(100, time.Minute))
+	router.Use(httprate.LimitByIP(600, time.Minute))
 	router.Use(middleware.InjectFamilyName(settingsRepo))
 
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))

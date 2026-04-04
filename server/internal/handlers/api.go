@@ -27,8 +27,9 @@ type APIHandler struct {
 	choreService    *services.ChoreService
 	mealPlanRepo    repository.MealPlanRepository
 	recipeRepo      repository.RecipeRepository
-	icalFetcher     *services.ICalFetcher
-	oidcUserInfoURL string
+	icalFetcher      *services.ICalFetcher
+	recipeExtractor  *services.RecipeExtractor
+	oidcUserInfoURL  string
 	clientID        string
 	oidcIssuer      string
 }
@@ -43,6 +44,7 @@ func NewAPIHandler(
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
 	icalFetcher *services.ICalFetcher,
+	recipeExtractor *services.RecipeExtractor,
 	oidcUserInfoURL string,
 	clientID string,
 	oidcIssuer string,
@@ -56,8 +58,9 @@ func NewAPIHandler(
 		choreService:    choreService,
 		mealPlanRepo:    mealPlanRepo,
 		recipeRepo:      recipeRepo,
-		icalFetcher:     icalFetcher,
-		oidcUserInfoURL: oidcUserInfoURL,
+		icalFetcher:      icalFetcher,
+		recipeExtractor:  recipeExtractor,
+		oidcUserInfoURL:  oidcUserInfoURL,
 		clientID:        clientID,
 		oidcIssuer:      oidcIssuer,
 	}
@@ -810,6 +813,29 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusCreated, created)
+}
+
+func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	if body.URL == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url is required"})
+		return
+	}
+
+	recipe, err := handler.recipeExtractor.Extract(r.Context(), body.URL)
+	if err != nil {
+		slog.Error("extracting recipe", "url", body.URL, "error", err)
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "failed to extract recipe from URL"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, recipe)
 }
 
 func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) {

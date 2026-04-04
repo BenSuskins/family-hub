@@ -31,6 +31,16 @@ private struct ShareIngredientGroup: Encodable {
     var items: [String]
 }
 
+private struct ExtractedRecipeResponse: Decodable {
+    var title: String?
+    var ingredients: [String]?
+    var steps: [String]?
+    var prepTime: String?
+    var cookTime: String?
+    var servings: Int?
+    var imageURL: String?
+}
+
 struct ShareView: View {
     let sharedURL: URL
     let baseURL: String
@@ -164,20 +174,39 @@ struct ShareView: View {
                 }
             }
             .task {
-                let meta = await OpenGraphFetcher.fetch(url: sharedURL)
-                if let ogTitle = meta.title, !ogTitle.isEmpty {
-                    title = ogTitle
-                }
-                ingredients = meta.ingredients ?? []
-                steps = meta.steps ?? []
-                prepTime = meta.prepTime
-                cookTime = meta.cookTime
-                servings = meta.servings
-                if let imageURL = meta.imageURL {
-                    ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL)
-                }
+                await extractRecipeFromServer()
                 isLoadingOG = false
             }
+        }
+    }
+
+    private func extractRecipeFromServer() async {
+        let normalizedBase = baseURL.hasSuffix("/") ? baseURL : baseURL + "/"
+        guard let extractURL = URL(string: normalizedBase + "api/recipes/extract") else { return }
+
+        var request = URLRequest(url: extractURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONEncoder().encode(["url": sharedURL.absoluteString])
+        request.timeoutInterval = 15
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              let result = try? JSONDecoder().decode(ExtractedRecipeResponse.self, from: data)
+        else { return }
+
+        if let extractedTitle = result.title, !extractedTitle.isEmpty {
+            title = extractedTitle
+        }
+        ingredients = result.ingredients ?? []
+        steps = result.steps ?? []
+        prepTime = result.prepTime
+        cookTime = result.cookTime
+        servings = result.servings
+        if let imageURL = result.imageURL {
+            ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL)
         }
     }
 

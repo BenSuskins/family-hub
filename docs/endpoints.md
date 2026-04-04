@@ -9,8 +9,7 @@ per-IP rate limit (100 req/min), family-name injector.
 
 ```bash
 export BASE_URL="http://localhost:8080"
-export API_TOKEN="<scope=api token from /api/auth/exchange or POST /api/tokens>"
-export ICAL_TOKEN="<scope=ical token from admin UI>"
+export API_TOKEN="<token from /api/auth/exchange or POST /api/tokens>"
 export SESSION="<session cookie value, for web routes>"
 ```
 
@@ -64,15 +63,6 @@ curl -s "$BASE_URL/auth/callback?code=XYZ&state=ABC"
 curl -s -b "session=$SESSION" $BASE_URL/logout
 ```
 
-### `GET /ical?token=<ICAL_TOKEN>`
-- **Usecase:** iCal feed of chores + meals for calendar subscriptions.
-- **Callers:** Apple Calendar, Google Calendar, any iCal client.
-- **Security:** Query-param token, must have `ical` scope. Not session-gated.
-
-```bash
-curl -s "$BASE_URL/ical?token=$ICAL_TOKEN"
-```
-
 ### `GET /api/client-config`
 - **Usecase:** Returns OIDC `clientID` + `issuer` so mobile clients can start the auth flow.
 - **Callers:** iOS app on first launch.
@@ -98,9 +88,14 @@ curl -s -X POST $BASE_URL/api/auth/exchange \
 
 ---
 
-## REST API (token auth, scope=api)
+## Authenticated surface (session cookie OR Bearer token)
 
-All routes below require `Authorization: Bearer $API_TOKEN`.
+Every route below resolves a user via either the session cookie (browser) or
+`Authorization: Bearer $API_TOKEN` (mobile/API). A single `RequireUser`
+middleware handles both. The `curl` examples use Bearer for brevity; swap in
+`-b "session=$SESSION"` for the web equivalent.
+
+### JSON API routes
 
 ### `GET /api/me`
 - **Usecase:** Current user profile for the token holder.
@@ -323,14 +318,12 @@ curl -s "$BASE_URL/api/calendar?view=month&month=2026-04" \
 
 ---
 
-## Token admin (session + admin role)
-
-These are cookie-authenticated (browser), not token-authenticated.
+### Token admin (admin role required)
 
 ### `POST /api/tokens`
-- **Usecase:** Generate a new API token.
-- **Callers:** Admin UI (`/admin` page, form POST).
-- **Security:** Session cookie + admin. Returns raw token **once**.
+- **Usecase:** Generate a new API token. Returns raw token **once**.
+- **Callers:** Admin UI (`/admin` page).
+- **Security:** Session or Bearer + admin role.
 
 ```bash
 curl -s -X POST $BASE_URL/api/tokens \
@@ -341,7 +334,7 @@ curl -s -X POST $BASE_URL/api/tokens \
 ### `DELETE /api/tokens/{id}`
 - **Usecase:** Revoke a token.
 - **Callers:** Admin UI.
-- **Security:** Session cookie + admin.
+- **Security:** Session or Bearer + admin role.
 
 ```bash
 curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -b "session=$SESSION" -w "%{http_code}\n"
@@ -349,27 +342,10 @@ curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -b "session=$SESSION" -w "%{htt
 
 ---
 
-## Web routes (session cookie, `RequireAuth`)
+## Web routes
 
 All routes below render HTML (full page or HTMX fragment). Called by the browser
-navigating the app. Security: session cookie via OIDC login.
-
-### Onboarding (exempt from `RequireOnboarding`)
-
-| Method + Path | Usecase |
-|---|---|
-| `GET /setup` | First-run setup wizard page |
-| `POST /setup/family-name` | Save family name |
-| `POST /setup/acknowledge-users` | Confirm user list step |
-| `POST /setup/first-category` | Create first category, complete setup |
-| `GET /welcome` | Per-user welcome after first login |
-| `POST /welcome/start` | Start welcome flow |
-| `POST /welcome/profile` | Complete welcome with profile info |
-
-```bash
-curl -s $BASE_URL/setup -b "session=$SESSION"
-curl -s -X POST $BASE_URL/setup/family-name -b "session=$SESSION" -d "name=Smith"
-```
+navigating the app. Gated by `RequireUser` (session cookie or Bearer).
 
 ### Dashboard / profile (authenticated)
 
@@ -394,12 +370,12 @@ curl -s $BASE_URL/avatar/<userID> -b "session=$SESSION" -o avatar.png
 | `GET /chores` | Chore list page/HTMX partial | no |
 | `GET /chores/{id}/detail` | Chore detail fragment | no |
 | `POST /chores/{id}/complete` | Mark complete | no |
-| `GET /chores/new` | Create form | yes |
-| `POST /chores` | Create | yes |
-| `GET /chores/{id}/edit` | Edit form | yes |
-| `POST /chores/{id}` | Update | yes |
-| `POST /chores/{id}/delete` | Delete | yes |
-| `POST /chores/history/delete` | Clear completed chore history | yes |
+| `GET /chores/new` | Create form | no |
+| `POST /chores` | Create | no |
+| `GET /chores/{id}/edit` | Edit form | no |
+| `POST /chores/{id}` | Update | no |
+| `POST /chores/{id}/delete` | Delete | no |
+| `POST /chores/history/delete` | Clear completed chore history | no |
 
 ```bash
 curl -s $BASE_URL/chores -b "session=$SESSION"
@@ -465,7 +441,6 @@ curl -s $BASE_URL/recipes/<id> -b "session=$SESSION"
 |---|---|
 | `GET /calendar` | Unified calendar page |
 | `GET /calendar/event-detail` | Event detail fragment |
-| `POST /calendar/share` | Fetch iCal share URL (token) |
 
 ```bash
 curl -s "$BASE_URL/calendar?view=month&month=2026-04" -b "session=$SESSION"
@@ -489,7 +464,7 @@ curl -s "$BASE_URL/calendar?view=month&month=2026-04" -b "session=$SESSION"
 | `POST /admin/users/{id}/promote` | Grant admin role |
 | `POST /admin/users/{id}/demote` | Revoke admin role |
 | `POST /admin/settings` | Update family settings |
-| `POST /admin/tokens` | Create iCal/API token |
+| `POST /admin/tokens` | Create API token |
 | `GET /admin/backup` | Download SQLite backup |
 | `POST /admin/restore` | Upload SQLite backup to restore |
 
@@ -502,17 +477,18 @@ curl -s $BASE_URL/admin/backup -b "session=$SESSION" -o backup.db
 
 ## Auth summary
 
-| Mechanism | Routes |
+Only three flows:
+
+| Flow | Routes |
 |---|---|
-| None | `/health`, `/static/*`, `/api/client-config` |
-| OIDC flow | `/login`, `/auth/callback`, `/logout` |
-| Query-param token (scope=ical) | `/ical` |
-| Bearer token (scope=api) | `/api/*` except `/api/auth/exchange`, `/api/client-config`, `/api/tokens*` |
-| OIDC bearer (one-time) | `POST /api/auth/exchange` |
-| Session cookie + admin | `/api/tokens`, `DELETE /api/tokens/{id}` |
-| Session cookie (`RequireAuth`) | All other HTML routes |
-| + `RequireOnboarding` | Everything except `/setup/*`, `/welcome/*` |
-| + `RequireAdmin` | Chore create/edit/delete, calendars write, categories write, `/admin/*` |
+| **Public** | `/health`, `/static/*`, `/api/client-config`, `/login`, `/auth/callback`, `/logout` |
+| **OIDC bearer (one-time)** | `POST /api/auth/exchange` |
+| **Authed user** (session OR Bearer, via `RequireUser`) | Everything else |
+| **Admin user** (`+ RequireAdmin`) | `/admin/*`, categories write, calendars write, `/api/tokens*` |
+
+Session cookie and Bearer token both resolve to the same `User` via `RequireUser`
+— handlers are mechanism-agnostic. Chores, recipes, and meals are open to any
+authed user (no admin gate).
 
 All login-adjacent routes (`/login`, `/auth/callback`, `/api/auth/exchange`) carry an
 additional 10-req/min per-IP limit on top of the global 100/min limit.

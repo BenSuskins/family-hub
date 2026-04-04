@@ -299,6 +299,7 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	rawToken := generateToken()
 	token := models.APIToken{
 		Name:            name,
+		Scope:           models.TokenScopeAPI,
 		TokenHash:       repository.HashToken(rawToken),
 		CreatedByUserID: user.ID,
 	}

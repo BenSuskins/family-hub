@@ -53,9 +53,13 @@ files. The generated `*_templ.go` files are committed but should not be edited d
 **HTMX** — Handlers return either full pages or HTML fragments depending on whether the
 request is an HTMX partial. Fragments are returned for `HX-Request` headers.
 
-**Auth** — OIDC. Session stored as an encrypted cookie. The `RequireAuth`
-middleware gates all routes except `/login`, `/auth/callback`, `/health`, and `/ical`.
-The `RequireAdmin` middleware gates admin-only routes.
+**Auth** — OIDC via Authentik. Two flows: *authed user* (session cookie OR
+Bearer API token, unified in `RequireUser`) and *admin user* (`+ RequireAdmin`).
+Both mechanisms populate the same `UserContextKey`, so handlers are
+mechanism-agnostic. Public routes: `/health`, `/static/*`, `/api/client-config`,
+`/login`, `/auth/callback`, `/logout`. Mobile clients obtain an API token via
+`POST /api/auth/exchange` (one-time OIDC bearer). No onboarding flow; no iCal
+feed export.
 
 ## Feature Map
 
@@ -63,14 +67,12 @@ The `RequireAdmin` middleware gates admin-only routes.
 |------|---------|---------|-------|
 | Chores | `handlers/chores.go` | `services/chores.go`, `services/recurrence.go` | Recurrence: daily, weekly, monthly, custom cron |
 | Calendar | `handlers/calendar.go` | — | Unified view: chores + events + iCal subscriptions |
-| iCal export | `handlers/ical.go` | — | `GET /ical`, token-scoped (`ical` scope) |
 | iCal import | `handlers/ical_subscriptions.go` | `services/ical_fetcher.go` | Admin-managed external feeds |
 | Meals | `handlers/meals.go` | — | Weekly planner, backed by `meal_plans` table |
 | Recipes | `handlers/recipes.go` | — | Ingredient groups, cooking times, linked to meals |
 | Dashboard | `handlers/dashboard.go` | — | Stats + leaderboard |
 | Admin | `handlers/admin.go` | — | Users, categories, token CRUD |
-| REST API | `handlers/api.go` | — | Token-auth, chores/users/categories/dashboard |
-| Home Assistant | `handlers/ical.go` (`HASensorHandler`) | — | Sensor data endpoint, co-located with iCal handler |
+| REST API | `handlers/api.go` | — | Session or Bearer; chores/users/categories/dashboard/recipes/meals |
 
 ## Gotchas
 

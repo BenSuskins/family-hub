@@ -17,19 +17,66 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
-func RequireAuth(authService *services.AuthService) func(http.Handler) http.Handler {
+// RequireUser authenticates the request using either a Bearer API token or a
+// session cookie, populates the user into the request context, and delegates
+// to the next handler. On failure:
+//   - if the request carried a Bearer header, responds 401 Unauthorized
+//   - otherwise redirects to /login (browser UX)
+func RequireUser(
+	authService *services.AuthService,
+	tokenRepo repository.APITokenRepository,
+	userRepo repository.UserRepository,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				user, ok := authenticateBearer(r.Context(), authHeader, tokenRepo, userRepo)
+				if !ok {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserContextKey, user)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			user, err := authService.GetCurrentUser(r)
 			if err != nil {
 				http.Redirect(w, r, "/login", http.StatusFound)
 				return
 			}
-
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func authenticateBearer(
+	ctx context.Context,
+	authHeader string,
+	tokenRepo repository.APITokenRepository,
+	userRepo repository.UserRepository,
+) (models.User, bool) {
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	tokenHash := repository.HashToken(tokenString)
+
+	token, err := tokenRepo.FindByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return models.User{}, false
+	}
+	if token.Scope != models.TokenScopeAPI {
+		return models.User{}, false
+	}
+	if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
+		return models.User{}, false
+	}
+
+	user, err := userRepo.FindByID(ctx, token.CreatedByUserID)
+	if err != nil {
+		return models.User{}, false
+	}
+	return user, true
 }
 
 func RequireAdmin(next http.Handler) http.Handler {
@@ -41,46 +88,6 @@ func RequireAdmin(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func APITokenAuth(tokenRepo repository.APITokenRepository, userRepo repository.UserRepository) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-			tokenHash := repository.HashToken(tokenString)
-
-			token, err := tokenRepo.FindByTokenHash(r.Context(), tokenHash)
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			if token.Scope != models.TokenScopeAPI {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
-				http.Error(w, "Token expired", http.StatusUnauthorized)
-				return
-			}
-
-			user, err := userRepo.FindByID(r.Context(), token.CreatedByUserID)
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), UserContextKey, user)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
 }
 
 func GetUser(ctx context.Context) models.User {

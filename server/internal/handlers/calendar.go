@@ -11,33 +11,26 @@ import (
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/templates/pages"
-	"github.com/google/uuid"
 )
 
 type CalendarHandler struct {
 	choreRepo    repository.ChoreRepository
 	icalFetcher  *services.ICalFetcher
 	userRepo     repository.UserRepository
-	tokenRepo    repository.APITokenRepository
 	mealPlanRepo repository.MealPlanRepository
-	baseURL      string
 }
 
 func NewCalendarHandler(
 	choreRepo repository.ChoreRepository,
 	icalFetcher *services.ICalFetcher,
 	userRepo repository.UserRepository,
-	tokenRepo repository.APITokenRepository,
 	mealPlanRepo repository.MealPlanRepository,
-	baseURL string,
 ) *CalendarHandler {
 	return &CalendarHandler{
 		choreRepo:    choreRepo,
 		icalFetcher:  icalFetcher,
 		userRepo:     userRepo,
-		tokenRepo:    tokenRepo,
 		mealPlanRepo: mealPlanRepo,
-		baseURL:      baseURL,
 	}
 }
 
@@ -183,39 +176,4 @@ func (handler *CalendarHandler) EventDetail(w http.ResponseWriter, r *http.Reque
 	}
 
 	pages.EventDetailFragment(event, "").Render(r.Context(), w)
-}
-
-func (handler *CalendarHandler) ShareInfo(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	user := middleware.GetUser(ctx)
-
-	existing, err := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, "iCal Feed")
-	if err != nil {
-		slog.Error("finding existing ical tokens", "error", err)
-		http.Error(w, "Error", http.StatusInternalServerError)
-		return
-	}
-
-	for _, token := range existing {
-		if err := handler.tokenRepo.Delete(ctx, token.ID); err != nil {
-			slog.Error("deleting old ical token", "error", err, "token_id", token.ID)
-		}
-	}
-
-	rawToken := uuid.New().String()
-	tokenHash := repository.HashToken(rawToken)
-	newToken := models.APIToken{
-		Name:            "iCal Feed",
-		TokenHash:       tokenHash,
-		CreatedByUserID: user.ID,
-	}
-	if _, err := handler.tokenRepo.Create(ctx, newToken); err != nil {
-		slog.Error("creating ical token", "error", err)
-		http.Error(w, "Error creating share link", http.StatusInternalServerError)
-		return
-	}
-
-	icalURL := handler.baseURL + "/ical?token=" + rawToken
-	component := pages.CalendarShareModal(icalURL)
-	component.Render(ctx, w)
 }

@@ -109,8 +109,7 @@ type ChoreAssignment struct {
 type TokenScope string
 
 const (
-	TokenScopeAPI  TokenScope = "api"
-	TokenScopeICal TokenScope = "ical"
+	TokenScopeAPI TokenScope = "api"
 )
 
 type APIToken struct {

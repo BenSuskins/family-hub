@@ -41,16 +41,14 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	dashboardHandler := handlers.NewDashboardHandler(choreRepo, icalFetcher, userRepo, assignmentRepo, choreService, mealPlanRepo, categoryRepo)
 	choreHandler := handlers.NewChoreHandler(choreRepo, categoryRepo, userRepo, choreService)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
-	calendarHandler := handlers.NewCalendarHandler(choreRepo, icalFetcher, userRepo, tokenRepo, mealPlanRepo, cfg.BaseURL)
+	calendarHandler := handlers.NewCalendarHandler(choreRepo, icalFetcher, userRepo, mealPlanRepo)
 	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
 	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.IOSClientID, cfg.OIDCIssuer)
-	icalHandler := handlers.NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo, recipeExtractor)
 	mealHandler := handlers.NewMealHandler(mealPlanRepo, recipeRepo)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
 	profileHandler := handlers.NewProfileHandler(userRepo)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
-	onboardingHandler := handlers.NewOnboardingHandler(settingsRepo, userRepo, categoryRepo, cfg.BaseURL)
 
 	router := chi.NewRouter()
 
@@ -75,115 +73,64 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	})
 	router.Get("/logout", authHandler.Logout)
 
-	router.Get("/ical", icalHandler.Feed)
 	router.Get("/api/client-config", apiHandler.ClientConfig)
-
-	router.Group(func(r chi.Router) {
-		r.Use(middleware.RequireAuth(authService))
-
-		// Onboarding routes — exempt from RequireOnboarding
-		r.Get("/setup", onboardingHandler.SetupPage)
-		r.Post("/setup/family-name", onboardingHandler.SaveFamilyName)
-		r.Post("/setup/acknowledge-users", onboardingHandler.AcknowledgeUsers)
-		r.Post("/setup/first-category", onboardingHandler.CompleteSetup)
-
-		r.Get("/welcome", onboardingHandler.WelcomePage)
-		r.Post("/welcome/start", onboardingHandler.WelcomeStart)
-		r.Post("/welcome/profile", onboardingHandler.CompleteWelcome)
-
-		// All other authenticated routes — require onboarding to be complete
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.RequireOnboarding(settingsRepo))
-
-			r.Get("/", dashboardHandler.Dashboard)
-			r.Get("/leaderboard", dashboardHandler.Leaderboard)
-
-			r.Get("/profile", profileHandler.Page)
-			r.Post("/profile/avatar", profileHandler.Upload)
-			r.Post("/profile/avatar/delete", profileHandler.Remove)
-			r.Get("/avatar/{userID}", profileHandler.Serve)
-
-			r.Get("/chores", choreHandler.List)
-			r.Get("/chores/{id}/detail", choreHandler.Detail)
-			r.Post("/chores/{id}/complete", choreHandler.Complete)
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAdmin)
-
-				r.Get("/chores/new", choreHandler.CreateForm)
-				r.Post("/chores", choreHandler.Create)
-				r.Get("/chores/{id}/edit", choreHandler.EditForm)
-				r.Post("/chores/{id}", choreHandler.Update)
-				r.Post("/chores/{id}/delete", choreHandler.Delete)
-				r.Post("/chores/history/delete", choreHandler.DeleteHistory)
-			})
-
-			r.Get("/calendars", icalSubHandler.List)
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAdmin)
-
-				r.Post("/calendars", icalSubHandler.Create)
-				r.Post("/calendars/{id}/delete", icalSubHandler.Delete)
-				r.Post("/calendars/{id}/refresh", icalSubHandler.Refresh)
-				r.Post("/calendars/{id}/color", icalSubHandler.UpdateColor)
-			})
-
-			r.Get("/meals", mealHandler.Planner)
-			r.Post("/meals", mealHandler.SaveMeal)
-			r.Post("/meals/delete", mealHandler.DeleteMeal)
-			r.Get("/meals/cell", mealHandler.Cell)
-			r.Get("/meals/recipes", mealHandler.RecipePicker)
-			r.Get("/meals/dismiss", mealHandler.Dismiss)
-
-			r.Get("/recipes/import", recipeHandler.ImportFromURL)
-			r.Get("/recipes", recipeHandler.List)
-			r.Get("/recipes/new", recipeHandler.CreateForm)
-			r.Get("/recipes/ingredient-group", recipeHandler.IngredientGroup)
-			r.Get("/recipes/step", recipeHandler.Step)
-			r.Get("/recipes/{id}", recipeHandler.Detail)
-			r.Get("/recipes/{id}/image", recipeHandler.ServeImage)
-			r.Get("/recipes/{id}/cook", recipeHandler.CookMode)
-			r.Post("/recipes", recipeHandler.Create)
-			r.Post("/recipes/{id}/image", recipeHandler.UploadImage)
-			r.Post("/recipes/{id}/image/delete", recipeHandler.RemoveImage)
-			r.Get("/recipes/{id}/edit", recipeHandler.EditForm)
-			r.Post("/recipes/{id}", recipeHandler.Update)
-			r.Post("/recipes/{id}/delete", recipeHandler.Delete)
-
-			r.Get("/calendar", calendarHandler.Calendar)
-			r.Get("/calendar/event-detail", calendarHandler.EventDetail)
-			r.Post("/calendar/share", calendarHandler.ShareInfo)
-
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAdmin)
-
-				r.Post("/categories", categoryHandler.Create)
-				r.Get("/categories/{id}/edit", categoryHandler.EditForm)
-				r.Get("/categories/{id}/cancel", categoryHandler.CancelEdit)
-				r.Post("/categories/{id}", categoryHandler.Update)
-				r.Post("/categories/{id}/delete", categoryHandler.Delete)
-
-				r.Get("/admin/users", adminHandler.Users)
-				r.Post("/admin/users/{id}/promote", adminHandler.PromoteUser)
-				r.Post("/admin/users/{id}/demote", adminHandler.DemoteUser)
-				r.Post("/admin/settings", adminHandler.UpdateSettings)
-				r.Post("/admin/tokens", adminHandler.CreateToken)
-
-				r.Get("/admin/backup", backupHandler.Backup)
-				r.Post("/admin/restore", backupHandler.Restore)
-			})
-		})
-	})
 
 	router.Group(func(r chi.Router) {
 		r.Use(httprate.LimitByIP(10, time.Minute))
 		r.Post("/api/auth/exchange", apiHandler.ExchangeToken)
 	})
 
+	// Unified authenticated surface — session cookie OR Bearer API token.
 	router.Group(func(r chi.Router) {
-		r.Use(middleware.APITokenAuth(tokenRepo, userRepo))
+		r.Use(middleware.RequireUser(authService, tokenRepo, userRepo))
 
+		r.Get("/", dashboardHandler.Dashboard)
+		r.Get("/leaderboard", dashboardHandler.Leaderboard)
+
+		r.Get("/profile", profileHandler.Page)
+		r.Post("/profile/avatar", profileHandler.Upload)
+		r.Post("/profile/avatar/delete", profileHandler.Remove)
+		r.Get("/avatar/{userID}", profileHandler.Serve)
+
+		r.Get("/chores", choreHandler.List)
+		r.Get("/chores/{id}/detail", choreHandler.Detail)
+		r.Post("/chores/{id}/complete", choreHandler.Complete)
+		r.Get("/chores/new", choreHandler.CreateForm)
+		r.Post("/chores", choreHandler.Create)
+		r.Get("/chores/{id}/edit", choreHandler.EditForm)
+		r.Post("/chores/{id}", choreHandler.Update)
+		r.Post("/chores/{id}/delete", choreHandler.Delete)
+		r.Post("/chores/history/delete", choreHandler.DeleteHistory)
+
+		r.Get("/calendars", icalSubHandler.List)
+
+		r.Get("/meals", mealHandler.Planner)
+		r.Post("/meals", mealHandler.SaveMeal)
+		r.Post("/meals/delete", mealHandler.DeleteMeal)
+		r.Get("/meals/cell", mealHandler.Cell)
+		r.Get("/meals/recipes", mealHandler.RecipePicker)
+		r.Get("/meals/dismiss", mealHandler.Dismiss)
+
+		r.Get("/recipes/import", recipeHandler.ImportFromURL)
+		r.Get("/recipes", recipeHandler.List)
+		r.Get("/recipes/new", recipeHandler.CreateForm)
+		r.Get("/recipes/ingredient-group", recipeHandler.IngredientGroup)
+		r.Get("/recipes/step", recipeHandler.Step)
+		r.Get("/recipes/{id}", recipeHandler.Detail)
+		r.Get("/recipes/{id}/image", recipeHandler.ServeImage)
+		r.Get("/recipes/{id}/cook", recipeHandler.CookMode)
+		r.Post("/recipes", recipeHandler.Create)
+		r.Post("/recipes/{id}/image", recipeHandler.UploadImage)
+		r.Post("/recipes/{id}/image/delete", recipeHandler.RemoveImage)
+		r.Get("/recipes/{id}/edit", recipeHandler.EditForm)
+		r.Post("/recipes/{id}", recipeHandler.Update)
+		r.Post("/recipes/{id}/delete", recipeHandler.Delete)
+
+		r.Get("/calendar", calendarHandler.Calendar)
+		r.Get("/calendar/event-detail", calendarHandler.EventDetail)
+
+		// JSON API (primarily called by mobile clients via Bearer, but also
+		// reachable from the browser via session cookie).
 		r.Get("/api/me", apiHandler.Me)
 		r.Get("/api/chores", apiHandler.ListChores)
 		r.Post("/api/chores", apiHandler.CreateChore)
@@ -206,14 +153,34 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Delete("/api/recipes/{id}", apiHandler.DeleteRecipe)
 		r.Get("/api/recipes/{id}/image", recipeHandler.ServeImage)
 		r.Get("/api/calendar", apiHandler.ListCalendar)
-	})
 
-	router.Group(func(r chi.Router) {
-		r.Use(middleware.RequireAuth(authService))
-		r.Use(middleware.RequireAdmin)
+		// Admin-only surface.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireAdmin)
 
-		r.Post("/api/tokens", apiHandler.CreateToken)
-		r.Delete("/api/tokens/{id}", apiHandler.DeleteToken)
+			r.Post("/calendars", icalSubHandler.Create)
+			r.Post("/calendars/{id}/delete", icalSubHandler.Delete)
+			r.Post("/calendars/{id}/refresh", icalSubHandler.Refresh)
+			r.Post("/calendars/{id}/color", icalSubHandler.UpdateColor)
+
+			r.Post("/categories", categoryHandler.Create)
+			r.Get("/categories/{id}/edit", categoryHandler.EditForm)
+			r.Get("/categories/{id}/cancel", categoryHandler.CancelEdit)
+			r.Post("/categories/{id}", categoryHandler.Update)
+			r.Post("/categories/{id}/delete", categoryHandler.Delete)
+
+			r.Get("/admin/users", adminHandler.Users)
+			r.Post("/admin/users/{id}/promote", adminHandler.PromoteUser)
+			r.Post("/admin/users/{id}/demote", adminHandler.DemoteUser)
+			r.Post("/admin/settings", adminHandler.UpdateSettings)
+			r.Post("/admin/tokens", adminHandler.CreateToken)
+
+			r.Get("/admin/backup", backupHandler.Backup)
+			r.Post("/admin/restore", backupHandler.Restore)
+
+			r.Post("/api/tokens", apiHandler.CreateToken)
+			r.Delete("/api/tokens/{id}", apiHandler.DeleteToken)
+		})
 	})
 
 	// One-time seed of existing recurring chores that predate series_id tracking

@@ -17,7 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestAPITokenAuth_RejectsICalScopedToken(t *testing.T) {
+func TestRequireUser_RejectsNonAPIScopedToken(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	tokenRepo := repository.NewAPITokenRepository(database)
 	userRepo := repository.NewUserRepository(database)
@@ -25,30 +25,30 @@ func TestAPITokenAuth_RejectsICalScopedToken(t *testing.T) {
 
 	user, err := userRepo.Create(ctx, models.User{
 		OIDCSubject: "sub-" + time.Now().String(),
-		Email:       "ical-test@example.com",
-		Name:        "iCal Test User",
+		Email:       "scope-test@example.com",
+		Name:        "Scope Test User",
 		Role:        models.RoleAdmin,
 	})
 	if err != nil {
 		t.Fatalf("creating test user: %v", err)
 	}
 
-	rawToken := "ical-scoped-test-token"
+	rawToken := "non-api-scoped-test-token"
 	_, err = tokenRepo.Create(ctx, models.APIToken{
-		Name:            "iCal Token",
+		Name:            "Stale Token",
 		TokenHash:       repository.HashToken(rawToken),
-		Scope:           "ical",
+		Scope:           "ical", // legacy value from before scope removal
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
-		t.Fatalf("creating ical token: %v", err)
+		t.Fatalf("creating stale-scope token: %v", err)
 	}
 
 	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
-		r.Use(middleware.APITokenAuth(tokenRepo, userRepo))
+		r.Use(middleware.RequireUser(nil, tokenRepo, userRepo))
 		r.Get("/api/chores", apiHandler.ListChores)
 	})
 
@@ -58,7 +58,7 @@ func TestAPITokenAuth_RejectsICalScopedToken(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusUnauthorized {
-		t.Errorf("expected status 401 for ical-scoped token on API route, got %d", recorder.Code)
+		t.Errorf("expected status 401 for non-api-scoped token on API route, got %d", recorder.Code)
 	}
 }
 

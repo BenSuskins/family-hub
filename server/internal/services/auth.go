@@ -62,11 +62,10 @@ func NewAuthService(ctx context.Context, cfg config.Config, userRepo repository.
 	}
 
 	oauthConfig := &oauth2.Config{
-		ClientID:     cfg.OIDCClientID,
-		ClientSecret: cfg.OIDCClientSecret,
-		RedirectURL:  cfg.OIDCRedirectURL,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		ClientID:    cfg.OIDCClientID,
+		RedirectURL: cfg.OIDCRedirectURL,
+		Endpoint:    provider.Endpoint(),
+		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OIDCClientID})
@@ -84,11 +83,11 @@ func (service *AuthService) OIDCConfigured() bool {
 	return service.oauthConfig != nil
 }
 
-func (service *AuthService) LoginURL(state string) string {
+func (service *AuthService) LoginURL(state, codeVerifier string) string {
 	if service.oauthConfig == nil {
 		return ""
 	}
-	return service.oauthConfig.AuthCodeURL(state)
+	return service.oauthConfig.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
 }
 
 func (service *AuthService) GenerateState() (string, error) {
@@ -99,12 +98,16 @@ func (service *AuthService) GenerateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-func (service *AuthService) HandleCallback(ctx context.Context, code string) (models.User, error) {
+func (service *AuthService) GenerateCodeVerifier() string {
+	return oauth2.GenerateVerifier()
+}
+
+func (service *AuthService) HandleCallback(ctx context.Context, code, codeVerifier string) (models.User, error) {
 	if service.oauthConfig == nil {
 		return models.User{}, errors.New("OIDC not configured")
 	}
 
-	token, err := service.oauthConfig.Exchange(ctx, code)
+	token, err := service.oauthConfig.Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
 	if err != nil {
 		return models.User{}, fmt.Errorf("exchanging code: %w", err)
 	}

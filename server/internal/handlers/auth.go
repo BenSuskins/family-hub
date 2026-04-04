@@ -39,6 +39,8 @@ func (handler *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	codeVerifier := handler.authService.GenerateCodeVerifier()
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -49,7 +51,17 @@ func (handler *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   300,
 	})
 
-	http.Redirect(w, r, handler.authService.LoginURL(state), http.StatusFound)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_verifier",
+		Value:    codeVerifier,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300,
+	})
+
+	http.Redirect(w, r, handler.authService.LoginURL(state, codeVerifier), http.StatusFound)
 }
 
 func (handler *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +83,26 @@ func (handler *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	})
 
+	verifierCookie, err := r.Cookie("oauth_verifier")
+	if err != nil {
+		http.Error(w, "Missing verifier cookie", http.StatusBadRequest)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_verifier",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, "Missing code", http.StatusBadRequest)
 		return
 	}
 
-	user, err := handler.authService.HandleCallback(r.Context(), code)
+	user, err := handler.authService.HandleCallback(r.Context(), code, verifierCookie.Value)
 	if err != nil {
 		slog.Error("handling callback", "error", err)
 		http.Error(w, "Authentication failed", http.StatusInternalServerError)

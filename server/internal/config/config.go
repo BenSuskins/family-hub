@@ -9,10 +9,8 @@ type Config struct {
 	DatabasePath         string
 	OIDCIssuer           string
 	OIDCClientID         string
-	OIDCClientSecret     string
 	OIDCRedirectURL      string
 	OIDCUserInfoURL      string
-	IOSClientID          string
 	SessionSecret        string
 	SessionEncryptionKey string
 
@@ -27,10 +25,8 @@ func Load() (Config, error) {
 		DatabasePath:         envOrDefault("DATABASE_PATH", "./data/family-hub.db"),
 		OIDCIssuer:           os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("OIDC_CLIENT_ID"),
-		OIDCClientSecret:     os.Getenv("OIDC_CLIENT_SECRET"),
 		OIDCRedirectURL:      os.Getenv("OIDC_REDIRECT_URL"),
 		OIDCUserInfoURL:      envOrDefault("OIDC_USERINFO_URL", os.Getenv("OIDC_ISSUER")+"/api/oidc/userinfo"),
-		IOSClientID:          os.Getenv("IOS_OIDC_CLIENT_ID"),
 		SessionSecret:        os.Getenv("SESSION_SECRET"),
 		SessionEncryptionKey: os.Getenv("SESSION_ENCRYPTION_KEY"),
 

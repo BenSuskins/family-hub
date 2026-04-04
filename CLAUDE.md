@@ -53,13 +53,14 @@ files. The generated `*_templ.go` files are committed but should not be edited d
 **HTMX** — Handlers return either full pages or HTML fragments depending on whether the
 request is an HTMX partial. Fragments are returned for `HX-Request` headers.
 
-**Auth** — OIDC via Authentik. Two flows: *authed user* (session cookie OR
-Bearer API token, unified in `RequireUser`) and *admin user* (`+ RequireAdmin`).
-Both mechanisms populate the same `UserContextKey`, so handlers are
-mechanism-agnostic. Public routes: `/health`, `/static/*`, `/api/client-config`,
-`/login`, `/auth/callback`, `/logout`. Mobile clients obtain an API token via
-`POST /api/auth/exchange` (one-time OIDC bearer). No onboarding flow; no iCal
-feed export.
+**Auth** — OIDC via Authelia. Single public PKCE client shared by web + iOS
+(two redirect URIs, no client secret). Two post-login flows: *authed user*
+(session cookie OR Bearer API token, unified in `RequireUser`) and *admin
+user* (`+ RequireAdmin`). Both mechanisms populate the same `UserContextKey`,
+so handlers are mechanism-agnostic. Public routes: `/health`, `/static/*`,
+`/api/client-config`, `/login`, `/auth/callback`, `/logout`. Mobile clients
+obtain an API token via `POST /api/auth/exchange` (one-time OIDC bearer).
+No onboarding flow; no iCal feed export.
 
 ## Feature Map
 

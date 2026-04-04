@@ -48,8 +48,7 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 |---|---|---|
 | `DATABASE_PATH` | Path to SQLite database file | `./data/family-hub.db` |
 | `OIDC_ISSUER` | OpenID Connect issuer URL | *required* |
-| `OIDC_CLIENT_ID` | OAuth2 client ID | *required* |
-| `OIDC_CLIENT_SECRET` | OAuth2 client secret | *required* |
+| `OIDC_CLIENT_ID` | OAuth2 client ID (single public PKCE client, shared by web + iOS) | *required* |
 | `OIDC_REDIRECT_URL` | OAuth2 callback URL | *required* |
 | `SESSION_SECRET` | Session encryption key | *required* |
 | `BASE_URL` | Public base URL of the app | `http://localhost:8080` |

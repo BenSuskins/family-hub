@@ -9,7 +9,6 @@ services:
       - DATABASE_PATH=/data/family-hub.db
       - OIDC_ISSUER=${OIDC_ISSUER:-}
       - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
-      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
       - OIDC_REDIRECT_URL=${OIDC_REDIRECT_URL:-http://localhost:8080/auth/callback}
       - SESSION_SECRET=${SESSION_SECRET:-dev-secret-change-me-in-production-32chars}
       - HA_API_TOKEN=${HA_API_TOKEN:-dev-ha-token}

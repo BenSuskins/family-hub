@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,7 +25,8 @@ type ExtractedRecipe struct {
 }
 
 type RecipeExtractor struct {
-	client *http.Client
+	client             *http.Client
+	skipURLValidation  bool
 }
 
 func NewRecipeExtractor() *RecipeExtractor {
@@ -35,9 +35,18 @@ func NewRecipeExtractor() *RecipeExtractor {
 	}
 }
 
+func NewRecipeExtractorWithoutSSRFProtection() *RecipeExtractor {
+	return &RecipeExtractor{
+		client:            &http.Client{Timeout: 15 * time.Second},
+		skipURLValidation: true,
+	}
+}
+
 func (extractor *RecipeExtractor) Extract(ctx context.Context, rawURL string) (ExtractedRecipe, error) {
-	if _, err := url.ParseRequestURI(rawURL); err != nil {
-		return ExtractedRecipe{}, fmt.Errorf("invalid URL: %w", err)
+	if !extractor.skipURLValidation {
+		if err := ValidateExternalURL(rawURL); err != nil {
+			return ExtractedRecipe{}, err
+		}
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)

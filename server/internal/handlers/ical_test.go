@@ -22,7 +22,7 @@ func setupICalHandler(t *testing.T) (*ICalHandler, repository.APITokenRepository
 	settingsRepo := repository.NewSettingsRepository(database)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 
-	handler := NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, "")
+	handler := NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo)
 	return handler, tokenRepo, userRepo
 }
 

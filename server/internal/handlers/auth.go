@@ -44,6 +44,7 @@ func (handler *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300,
 	})

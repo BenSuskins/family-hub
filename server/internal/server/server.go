@@ -14,6 +14,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 )
 
 type Server struct {
@@ -43,8 +44,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	calendarHandler := handlers.NewCalendarHandler(choreRepo, icalFetcher, userRepo, tokenRepo, mealPlanRepo, cfg.BaseURL)
 	adminHandler := handlers.NewAdminHandler(userRepo, tokenRepo, settingsRepo, categoryRepo)
 	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, choreService, mealPlanRepo, recipeRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.IOSClientID, cfg.OIDCIssuer)
-	icalHandler := handlers.NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo, cfg.HAAPIToken)
-	haHandler := handlers.NewHASensorHandler(choreRepo, userRepo, cfg.HAAPIToken)
+	icalHandler := handlers.NewICalHandler(choreRepo, userRepo, tokenRepo, settingsRepo, mealPlanRepo)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo, recipeExtractor)
 	mealHandler := handlers.NewMealHandler(mealPlanRepo, recipeRepo)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
@@ -57,6 +57,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	router.Use(chimiddleware.Logger)
 	router.Use(chimiddleware.Recoverer)
 	router.Use(chimiddleware.Compress(5))
+	router.Use(middleware.SecurityHeaders)
+	router.Use(httprate.LimitByIP(100, time.Minute))
 	router.Use(middleware.InjectFamilyName(settingsRepo))
 
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -66,12 +68,14 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		w.Write([]byte("ok"))
 	})
 
-	router.Get("/login", authHandler.LoginPage)
-	router.Get("/auth/callback", authHandler.Callback)
+	router.Group(func(r chi.Router) {
+		r.Use(httprate.LimitByIP(10, time.Minute))
+		r.Get("/login", authHandler.LoginPage)
+		r.Get("/auth/callback", authHandler.Callback)
+	})
 	router.Get("/logout", authHandler.Logout)
 
 	router.Get("/ical", icalHandler.Feed)
-	router.Get("/api/ha/sensors", haHandler.Sensors)
 	router.Get("/api/client-config", apiHandler.ClientConfig)
 
 	router.Group(func(r chi.Router) {
@@ -172,7 +176,10 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		})
 	})
 
-	router.Post("/api/auth/exchange", apiHandler.ExchangeToken)
+	router.Group(func(r chi.Router) {
+		r.Use(httprate.LimitByIP(10, time.Minute))
+		r.Post("/api/auth/exchange", apiHandler.ExchangeToken)
+	})
 
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.APITokenAuth(tokenRepo, userRepo))

@@ -93,8 +93,14 @@ func (fetcher *ICalFetcher) fetchSubscription(ctx context.Context, sub models.IC
 	return parseICalData(*sub.CachedData, sub.ID, sub.Color)
 }
 
-func (fetcher *ICalFetcher) fetchURL(url string) (string, error) {
-	resp, err := fetcher.client.Get(url)
+const maxICalBodyBytes = 10 * 1024 * 1024 // 10 MB
+
+func (fetcher *ICalFetcher) fetchURL(rawURL string) (string, error) {
+	if err := ValidateExternalURL(rawURL); err != nil {
+		return "", fmt.Errorf("blocked URL: %w", err)
+	}
+
+	resp, err := fetcher.client.Get(rawURL)
 	if err != nil {
 		return "", fmt.Errorf("http get: %w", err)
 	}
@@ -104,7 +110,7 @@ func (fetcher *ICalFetcher) fetchURL(url string) (string, error) {
 		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxICalBodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("reading body: %w", err)
 	}

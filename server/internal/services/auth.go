@@ -40,10 +40,18 @@ type oidcClaims struct {
 }
 
 func NewAuthService(ctx context.Context, cfg config.Config, userRepo repository.UserRepository) (*AuthService, error) {
+	var encryptionKey []byte
+	if cfg.SessionEncryptionKey != "" {
+		encryptionKey = []byte(cfg.SessionEncryptionKey)
+		if len(encryptionKey) != 16 && len(encryptionKey) != 32 {
+			return nil, fmt.Errorf("SESSION_ENCRYPTION_KEY must be 16 or 32 bytes, got %d", len(encryptionKey))
+		}
+	}
+
 	if cfg.OIDCIssuer == "" {
-		slog.Warn("OIDC not configured, auth will be disabled")
+		slog.Warn("OIDC not configured, auth will be disabled (DEV_MODE)")
 		return &AuthService{
-			secureCookie: securecookie.New([]byte(cfg.SessionSecret), nil),
+			secureCookie: securecookie.New([]byte(cfg.SessionSecret), encryptionKey),
 			userRepo:     userRepo,
 		}, nil
 	}
@@ -67,7 +75,7 @@ func NewAuthService(ctx context.Context, cfg config.Config, userRepo repository.
 		oauthConfig:  oauthConfig,
 		oidcProvider: provider,
 		oidcVerifier: verifier,
-		secureCookie: securecookie.New([]byte(cfg.SessionSecret), nil),
+		secureCookie: securecookie.New([]byte(cfg.SessionSecret), encryptionKey),
 		userRepo:     userRepo,
 	}, nil
 }
@@ -197,6 +205,7 @@ func (service *AuthService) SetSession(w http.ResponseWriter, userID string) err
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400 * 30,
 	})

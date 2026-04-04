@@ -17,7 +17,6 @@ type ICalHandler struct {
 	tokenRepo    repository.APITokenRepository
 	settingsRepo repository.SettingsRepository
 	mealPlanRepo repository.MealPlanRepository
-	haToken      string
 }
 
 func NewICalHandler(
@@ -26,7 +25,6 @@ func NewICalHandler(
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
 	mealPlanRepo repository.MealPlanRepository,
-	haToken string,
 ) *ICalHandler {
 	return &ICalHandler{
 		choreRepo:    choreRepo,
@@ -34,7 +32,6 @@ func NewICalHandler(
 		tokenRepo:    tokenRepo,
 		settingsRepo: settingsRepo,
 		mealPlanRepo: mealPlanRepo,
-		haToken:      haToken,
 	}
 }
 
@@ -148,10 +145,6 @@ func (handler *ICalHandler) Feed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *ICalHandler) isAuthorizedICalToken(r *http.Request, token string) bool {
-	if handler.haToken != "" && token == handler.haToken {
-		return true
-	}
-
 	tokenHash := repository.HashToken(token)
 	found, err := handler.tokenRepo.FindByTokenHash(r.Context(), tokenHash)
 	if err != nil {
@@ -174,74 +167,4 @@ func escapeICalText(text string) string {
 	text = strings.ReplaceAll(text, ",", "\\,")
 	text = strings.ReplaceAll(text, "\n", "\\n")
 	return text
-}
-
-type HASensorHandler struct {
-	choreRepo repository.ChoreRepository
-	userRepo  repository.UserRepository
-	haToken   string
-}
-
-func NewHASensorHandler(
-	choreRepo repository.ChoreRepository,
-	userRepo repository.UserRepository,
-	haToken string,
-) *HASensorHandler {
-	return &HASensorHandler{
-		choreRepo: choreRepo,
-		userRepo:  userRepo,
-		haToken:   haToken,
-	}
-}
-
-func (handler *HASensorHandler) Sensors(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
-	if token == "" {
-		token = r.URL.Query().Get("token")
-	}
-	token = strings.TrimPrefix(token, "Bearer ")
-
-	if token != handler.haToken {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
-	ctx := r.Context()
-
-	choresDueToday, _ := handler.choreRepo.FindDueToday(ctx)
-	overdueChores, _ := handler.choreRepo.FindOverdueChores(ctx)
-	users, _ := handler.userRepo.FindAll(ctx)
-	allChores, _ := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{})
-
-	weekAgo := time.Now().AddDate(0, 0, -7)
-
-	sensors := map[string]interface{}{
-		"chores_due_today": len(choresDueToday),
-		"chores_overdue":   len(overdueChores),
-	}
-
-	userSensors := make(map[string]interface{})
-	for _, user := range users {
-		assignedPending, _ := handler.choreRepo.CountByStatusAndUser(ctx, "pending", user.ID)
-		overdueCount, _ := handler.choreRepo.CountByStatusAndUser(ctx, "overdue", user.ID)
-
-		var completedCount int
-		for _, chore := range allChores {
-			if chore.CompletedByUserID != nil && *chore.CompletedByUserID == user.ID &&
-				chore.CompletedAt != nil && chore.CompletedAt.After(weekAgo) {
-				completedCount++
-			}
-		}
-
-		safeName := strings.ReplaceAll(strings.ToLower(user.Name), " ", "_")
-		userSensors[safeName] = map[string]int{
-			"assigned_chores":      assignedPending,
-			"overdue_chores":       overdueCount,
-			"completed_this_week":  completedCount,
-		}
-	}
-
-	sensors["users"] = userSensors
-
-	writeJSON(w, http.StatusOK, sensors)
 }

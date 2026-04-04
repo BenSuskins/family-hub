@@ -13,18 +13,20 @@ import (
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/templates/pages"
 	"github.com/go-chi/chi/v5"
 )
 
 type RecipeHandler struct {
-	recipeRepo   repository.RecipeRepository
-	categoryRepo repository.CategoryRepository
-	mealPlanRepo repository.MealPlanRepository
+	recipeRepo      repository.RecipeRepository
+	categoryRepo    repository.CategoryRepository
+	mealPlanRepo    repository.MealPlanRepository
+	recipeExtractor *services.RecipeExtractor
 }
 
-func NewRecipeHandler(recipeRepo repository.RecipeRepository, categoryRepo repository.CategoryRepository, mealPlanRepo repository.MealPlanRepository) *RecipeHandler {
-	return &RecipeHandler{recipeRepo: recipeRepo, categoryRepo: categoryRepo, mealPlanRepo: mealPlanRepo}
+func NewRecipeHandler(recipeRepo repository.RecipeRepository, categoryRepo repository.CategoryRepository, mealPlanRepo repository.MealPlanRepository, recipeExtractor *services.RecipeExtractor) *RecipeHandler {
+	return &RecipeHandler{recipeRepo: recipeRepo, categoryRepo: categoryRepo, mealPlanRepo: mealPlanRepo, recipeExtractor: recipeExtractor}
 }
 
 func (handler *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +393,51 @@ func (handler *RecipeHandler) Step(w http.ResponseWriter, r *http.Request) {
 	}
 	component := pages.RecipeStepField(index, "")
 	component.Render(r.Context(), w)
+}
+
+func (handler *RecipeHandler) ImportFromURL(w http.ResponseWriter, r *http.Request) {
+	rawURL := r.URL.Query().Get("url")
+	if rawURL == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+
+	extracted, err := handler.recipeExtractor.Extract(r.Context(), rawURL)
+	if err != nil {
+		slog.Error("extracting recipe from URL", "url", rawURL, "error", err)
+	}
+
+	recipe := extractedToRecipe(extracted, rawURL)
+	component := pages.RecipeFormFields(recipe)
+	component.Render(r.Context(), w)
+}
+
+func extractedToRecipe(extracted services.ExtractedRecipe, sourceURL string) *models.Recipe {
+	var ingredientGroups []models.IngredientGroup
+	if len(extracted.Ingredients) > 0 {
+		ingredientGroups = []models.IngredientGroup{
+			{Name: "Main", Items: extracted.Ingredients},
+		}
+	}
+
+	recipe := &models.Recipe{
+		Title:       extracted.Title,
+		Steps:       extracted.Steps,
+		Ingredients: ingredientGroups,
+		Servings:    extracted.Servings,
+	}
+
+	if sourceURL != "" {
+		recipe.SourceURL = &sourceURL
+	}
+	if extracted.PrepTime != "" {
+		recipe.PrepTime = &extracted.PrepTime
+	}
+	if extracted.CookTime != "" {
+		recipe.CookTime = &extracted.CookTime
+	}
+
+	return recipe
 }
 
 func (handler *RecipeHandler) saveFormImage(ctx context.Context, r *http.Request, recipeID string) {

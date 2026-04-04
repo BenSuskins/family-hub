@@ -202,6 +202,40 @@ templ RecipeForm(props RecipeFormProps) {
 		<div class="max-w-2xl mx-auto">
 			<h1 class="text-xl font-semibold text-stone-800 dark:text-slate-100 mb-6">{ recipeFormTitle(props.IsEdit) }</h1>
 
+			if !props.IsEdit {
+				<div class="mb-6 bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6">
+					<label for="import_url" class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Import from URL</label>
+					<div class="flex gap-2">
+						<input
+							type="url"
+							id="import_url"
+							name="import_url"
+							placeholder="Paste a recipe URL to auto-fill..."
+							class="flex-1"
+						/>
+						<button
+							type="button"
+							hx-get="/recipes/import"
+							hx-vals="js:{url: document.getElementById('import_url').value}"
+							hx-target="#recipe-form-fields"
+							hx-swap="outerHTML"
+							hx-indicator="#import-spinner"
+							hx-disabled-elt="this"
+							class="bg-indigo-600 py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white hover:bg-indigo-500 transition-colors duration-150 flex-shrink-0 flex items-center gap-2"
+						>
+							<span id="import-spinner" class="htmx-indicator">
+								<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+							</span>
+							Import
+						</button>
+					</div>
+					<p class="mt-1 text-xs text-stone-400 dark:text-slate-500">Works with most recipe websites (AllRecipes, BBC Good Food, etc.)</p>
+				</div>
+			}
+
 			<form
 				if props.IsEdit && props.Recipe != nil {
 					action={ templ.SafeURL(fmt.Sprintf("/recipes/%s", props.Recipe.ID)) }
@@ -212,140 +246,18 @@ templ RecipeForm(props RecipeFormProps) {
 				method="POST"
 				class="space-y-6 bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6"
 			>
-				<div>
-					<label for="title" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Title</label>
-					<input
-						type="text"
-						id="title"
-						name="title"
-						required
-						if props.Recipe != nil {
-							value={ props.Recipe.Title }
-						}
-					/>
-				</div>
+				@RecipeFormFields(props.Recipe)
 
-				<div>
-					<label for="meal_type" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Meal Type</label>
-					<select id="meal_type" name="meal_type">
-						<option value="">None</option>
-						for _, option := range recipeMealTypeOptions() {
-							<option
-								value={ option.value }
-								if props.Recipe != nil && props.Recipe.MealType != nil && string(*props.Recipe.MealType) == option.value {
-									selected
-								}
-							>{ option.label }</option>
-						}
-					</select>
-				</div>
-
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+				if props.IsEdit && props.Recipe != nil && props.Recipe.HasImage {
 					<div>
-						<label for="servings" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Servings</label>
-						<input
-							type="number"
-							id="servings"
-							name="servings"
-							min="1"
-							if props.Recipe != nil && props.Recipe.Servings != nil {
-								value={ strconv.Itoa(*props.Recipe.Servings) }
-							}
-						/>
+						<label class="block text-sm font-medium text-stone-700 dark:text-slate-300">Current Photo</label>
+						<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt="Current photo" class="h-20 w-20 rounded-lg object-cover mt-1 mb-2"/>
 					</div>
-					<div>
-						<label for="prep_time" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Prep Time</label>
-						<input
-							type="text"
-							id="prep_time"
-							name="prep_time"
-							placeholder="e.g. 15 min"
-							if props.Recipe != nil && props.Recipe.PrepTime != nil {
-								value={ *props.Recipe.PrepTime }
-							}
-						/>
-					</div>
-					<div>
-						<label for="cook_time" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Cook Time</label>
-						<input
-							type="text"
-							id="cook_time"
-							name="cook_time"
-							placeholder="e.g. 30 min"
-							if props.Recipe != nil && props.Recipe.CookTime != nil {
-								value={ *props.Recipe.CookTime }
-							}
-						/>
-					</div>
-				</div>
-
-				<div>
-					<label for="source_url" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Source URL</label>
-					<input
-						type="url"
-						id="source_url"
-						name="source_url"
-						placeholder="https://..."
-						if props.Recipe != nil && props.Recipe.SourceURL != nil {
-							value={ *props.Recipe.SourceURL }
-						}
-					/>
-				</div>
+				}
 
 				<div>
 					<label for="image" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Photo <span class="font-normal text-stone-400 dark:text-slate-500">(optional)</span></label>
-					if props.IsEdit && props.Recipe != nil && props.Recipe.HasImage {
-						<img src={ templ.SafeURL(fmt.Sprintf("/recipes/%s/image", props.Recipe.ID)) } alt="Current photo" class="h-20 w-20 rounded-lg object-cover mt-1 mb-2"/>
-					}
 					<input type="file" id="image" name="image" accept="image/*" class="text-sm text-stone-600 dark:text-slate-400 mt-1"/>
-				</div>
-
-				<!-- Ingredient Groups -->
-				<div>
-					<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Ingredients</label>
-					<div id="ingredient-groups" class="space-y-4">
-						if props.Recipe != nil && len(props.Recipe.Ingredients) > 0 {
-							for index, group := range props.Recipe.Ingredients {
-								@IngredientGroupFields(index, group)
-							}
-						} else {
-							@IngredientGroupFields(0, models.IngredientGroup{Name: "Main"})
-						}
-					</div>
-					<button
-						type="button"
-						hx-get="/recipes/ingredient-group"
-						hx-vals="js:{index: document.querySelectorAll('#ingredient-groups > div').length}"
-						hx-target="#ingredient-groups"
-						hx-swap="beforeend"
-						class="mt-3 text-sm text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 font-medium transition-colors duration-150"
-					>
-						+ Add Ingredient Group
-					</button>
-				</div>
-
-				<!-- Steps -->
-				<div>
-					<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Instructions</label>
-					<div id="recipe-steps" class="space-y-3">
-						if props.Recipe != nil && len(props.Recipe.Steps) > 0 {
-							for index, step := range props.Recipe.Steps {
-								@RecipeStepField(index, step)
-							}
-						} else {
-							@RecipeStepField(0, "")
-						}
-					</div>
-					<button
-						type="button"
-						hx-get="/recipes/step"
-						hx-vals="js:{index: document.querySelectorAll('#recipe-steps > div').length}"
-						hx-target="#recipe-steps"
-						hx-swap="beforeend"
-						class="mt-3 text-sm text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 font-medium transition-colors duration-150"
-					>
-						+ Add Step
-					</button>
 				</div>
 
 				<div class="flex justify-end space-x-3">
@@ -361,6 +273,138 @@ templ RecipeForm(props RecipeFormProps) {
 			</form>
 		</div>
 	}
+}
+
+templ RecipeFormFields(recipe *models.Recipe) {
+	<div id="recipe-form-fields" class="space-y-6">
+		<div>
+			<label for="title" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Title</label>
+			<input
+				type="text"
+				id="title"
+				name="title"
+				required
+				if recipe != nil {
+					value={ recipe.Title }
+				}
+			/>
+		</div>
+
+		<div>
+			<label for="meal_type" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Meal Type</label>
+			<select id="meal_type" name="meal_type">
+				<option value="">None</option>
+				for _, option := range recipeMealTypeOptions() {
+					<option
+						value={ option.value }
+						if recipe != nil && recipe.MealType != nil && string(*recipe.MealType) == option.value {
+							selected
+						}
+					>{ option.label }</option>
+				}
+			</select>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+			<div>
+				<label for="servings" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Servings</label>
+				<input
+					type="number"
+					id="servings"
+					name="servings"
+					min="1"
+					if recipe != nil && recipe.Servings != nil {
+						value={ strconv.Itoa(*recipe.Servings) }
+					}
+				/>
+			</div>
+			<div>
+				<label for="prep_time" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Prep Time</label>
+				<input
+					type="text"
+					id="prep_time"
+					name="prep_time"
+					placeholder="e.g. 15 min"
+					if recipe != nil && recipe.PrepTime != nil {
+						value={ *recipe.PrepTime }
+					}
+				/>
+			</div>
+			<div>
+				<label for="cook_time" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Cook Time</label>
+				<input
+					type="text"
+					id="cook_time"
+					name="cook_time"
+					placeholder="e.g. 30 min"
+					if recipe != nil && recipe.CookTime != nil {
+						value={ *recipe.CookTime }
+					}
+				/>
+			</div>
+		</div>
+
+		<div>
+			<label for="source_url" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Source URL</label>
+			<input
+				type="url"
+				id="source_url"
+				name="source_url"
+				placeholder="https://..."
+				if recipe != nil && recipe.SourceURL != nil {
+					value={ *recipe.SourceURL }
+				}
+			/>
+		</div>
+
+		<!-- Ingredient Groups -->
+		<div>
+			<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Ingredients</label>
+			<div id="ingredient-groups" class="space-y-4">
+				if recipe != nil && len(recipe.Ingredients) > 0 {
+					for index, group := range recipe.Ingredients {
+						@IngredientGroupFields(index, group)
+					}
+				} else {
+					@IngredientGroupFields(0, models.IngredientGroup{Name: "Main"})
+				}
+			</div>
+			<button
+				type="button"
+				hx-get="/recipes/ingredient-group"
+				hx-vals="js:{index: document.querySelectorAll('#ingredient-groups > div').length}"
+				hx-target="#ingredient-groups"
+				hx-swap="beforeend"
+				class="mt-3 text-sm text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 font-medium transition-colors duration-150"
+			>
+				+ Add Ingredient Group
+			</button>
+		</div>
+
+		<!-- Steps -->
+		<div>
+			<label class="block text-sm font-medium text-stone-700 dark:text-slate-300 mb-2">Instructions</label>
+			<div id="recipe-steps" class="space-y-3">
+				if recipe != nil && len(recipe.Steps) > 0 {
+					for index, step := range recipe.Steps {
+						@RecipeStepField(index, step)
+					}
+				} else {
+					@RecipeStepField(0, "")
+				}
+			</div>
+			<button
+				type="button"
+				hx-get="/recipes/step"
+				hx-vals="js:{index: document.querySelectorAll('#recipe-steps > div').length}"
+				hx-target="#recipe-steps"
+				hx-swap="beforeend"
+				class="mt-3 text-sm text-stone-600 dark:text-slate-300 hover:text-stone-900 dark:hover:text-slate-100 font-medium transition-colors duration-150"
+			>
+				+ Add Step
+			</button>
+		</div>
+	</div>
 }
 
 templ RecipeStepField(index int, value string) {

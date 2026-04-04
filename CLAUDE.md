@@ -53,7 +53,7 @@ files. The generated `*_templ.go` files are committed but should not be edited d
 **HTMX** — Handlers return either full pages or HTML fragments depending on whether the
 request is an HTMX partial. Fragments are returned for `HX-Request` headers.
 
-**Auth** — OIDC via Authentik. Session stored as an encrypted cookie. The `RequireAuth`
+**Auth** — OIDC. Session stored as an encrypted cookie. The `RequireAuth`
 middleware gates all routes except `/login`, `/auth/callback`, `/health`, and `/ical`.
 The `RequireAdmin` middleware gates admin-only routes.
 

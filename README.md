@@ -40,7 +40,7 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 - Go 1.25+
 - Node.js (for Tailwind CSS)
 - [Templ](https://templ.guide/) CLI
-- An OIDC provider (e.g. Authentik, Keycloak, Auth0)
+- An OIDC provider (e.g. Keycloak, Auth0)
 
 ### Environment Variables
 

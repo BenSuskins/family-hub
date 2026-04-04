@@ -37,7 +37,7 @@ curl -sI $BASE_URL/static/app.css
 ```
 
 ### `GET /login`
-- **Usecase:** Renders login page that redirects to Authentik OIDC.
+- **Usecase:** Renders login page that redirects to the OIDC provider.
 - **Callers:** Browser (any unauthenticated request redirects here).
 - **Security:** Rate limited 10/min per IP.
 
@@ -47,7 +47,7 @@ curl -s $BASE_URL/login
 
 ### `GET /auth/callback`
 - **Usecase:** OIDC redirect target; exchanges code, creates session cookie.
-- **Callers:** Authentik redirect after successful login.
+- **Callers:** OIDC provider redirect after successful login.
 - **Security:** Rate limited 10/min per IP. State param validated.
 
 ```bash
@@ -87,7 +87,7 @@ curl -s $BASE_URL/api/client-config | jq
 ## Mobile token exchange
 
 ### `POST /api/auth/exchange`
-- **Usecase:** Swap an OIDC bearer (from iOS app's Authentik login) for a long-lived API token. Creates user on first login.
+- **Usecase:** Swap an OIDC bearer (from iOS app's OIDC login) for a long-lived API token. Creates user on first login.
 - **Callers:** iOS app post-OIDC login.
 - **Security:** Rate limited 10/min per IP. Validates bearer against OIDC userinfo endpoint. Revokes prior "iOS App" tokens for the user.
 
@@ -352,7 +352,7 @@ curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -b "session=$SESSION" -w "%{htt
 ## Web routes (session cookie, `RequireAuth`)
 
 All routes below render HTML (full page or HTMX fragment). Called by the browser
-navigating the app. Security: session cookie via Authentik OIDC login.
+navigating the app. Security: session cookie via OIDC login.
 
 ### Onboarding (exempt from `RequireOnboarding`)
 

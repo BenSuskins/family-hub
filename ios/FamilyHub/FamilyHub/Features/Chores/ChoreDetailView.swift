@@ -3,6 +3,7 @@ import SwiftUI
 struct ChoreDetailView: View {
     let chore: Chore
     let viewModel: ChoresViewModel
+    let apiClient: any APIClientProtocol
 
     @Environment(\.dismiss) private var dismiss
     @State private var isCompleting = false
@@ -14,7 +15,7 @@ struct ChoreDetailView: View {
         List {
             Section {
                 HStack(spacing: 12) {
-                    UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32)
+                    UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(viewModel.users[chore.assignedToUserID ?? ""]?.name ?? "Unassigned")
                             .font(.body.weight(.medium))

@@ -99,7 +99,7 @@ struct ChoresListView: View {
 
     private func choreRow(_ chore: Chore, isCompleted: Bool) -> some View {
         NavigationLink {
-            ChoreDetailView(chore: chore, viewModel: viewModel)
+            ChoreDetailView(chore: chore, viewModel: viewModel, apiClient: apiClient)
         } label: {
             HStack(spacing: 10) {
                 if isCompleted {

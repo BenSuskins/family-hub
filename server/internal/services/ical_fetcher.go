@@ -25,7 +25,7 @@ func NewICalFetcher(subRepo repository.ICalSubscriptionRepository) *ICalFetcher 
 	return &ICalFetcher{
 		subRepo:  subRepo,
 		cacheTTL: 30 * time.Minute,
-		client:   &http.Client{Timeout: 10 * time.Second},
+		client:   NewSafeHTTPClient(10 * time.Second),
 	}
 }
 

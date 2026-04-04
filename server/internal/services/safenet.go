@@ -1,10 +1,13 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func ValidateExternalURL(rawURL string) error {
@@ -80,4 +83,48 @@ func isPrivateIP(ip net.IP) bool {
 func parseCIDR(cidr string) *net.IPNet {
 	_, network, _ := net.ParseCIDR(cidr)
 	return network
+}
+
+func NewSafeHTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("splitting host:port: %w", err)
+			}
+
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, fmt.Errorf("resolving host: %w", err)
+			}
+
+			for _, ip := range ips {
+				if isPrivateIP(ip.IP) {
+					return nil, fmt.Errorf("blocked connection to private IP: %s resolves to %s", host, ip.IP)
+				}
+			}
+
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no IP addresses for host: %s", host)
+			}
+
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
+			if err := ValidateExternalURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+			return nil
+		},
+	}
 }

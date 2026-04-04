@@ -1,7 +1,11 @@
 package services_test
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/services"
 )
@@ -84,5 +88,48 @@ func TestValidateExternalURL(t *testing.T) {
 				t.Errorf("unexpected error for URL %q: %v", testCase.url, err)
 			}
 		})
+	}
+}
+
+func TestSafeHTTPClient_BlocksRedirectToPrivateIP(t *testing.T) {
+	client := services.NewSafeHTTPClient(5 * time.Second)
+
+	internalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("internal secret data"))
+	}))
+	defer internalServer.Close()
+
+	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, internalServer.URL, http.StatusFound)
+	}))
+	defer redirectServer.Close()
+
+	_, err := client.Get(redirectServer.URL)
+	if err == nil {
+		t.Error("expected error when following redirect to private IP, got nil")
+	}
+}
+
+func TestSafeHTTPClient_BlocksDirectPrivateIP(t *testing.T) {
+	client := services.NewSafeHTTPClient(5 * time.Second)
+
+	_, err := client.Get("http://127.0.0.1:1/should-not-connect")
+	if err == nil {
+		t.Error("expected error when connecting to private IP, got nil")
+	}
+}
+
+func TestSafeHTTPClient_BlocksTooManyRedirects(t *testing.T) {
+	var redirectCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectCount++
+		http.Redirect(w, r, fmt.Sprintf("/?n=%d", redirectCount), http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := services.NewSafeHTTPClient(5 * time.Second)
+	_, err := client.Get(server.URL)
+	if err == nil {
+		t.Error("expected error after too many redirects, got nil")
 	}
 }

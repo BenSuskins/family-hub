@@ -31,7 +31,7 @@ type RecipeExtractor struct {
 
 func NewRecipeExtractor() *RecipeExtractor {
 	return &RecipeExtractor{
-		client: &http.Client{Timeout: 15 * time.Second},
+		client: NewSafeHTTPClient(15 * time.Second),
 	}
 }
 

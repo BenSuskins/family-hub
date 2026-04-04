@@ -3,6 +3,13 @@
 Family organization hub for managing chores, meals, recipes, and calendars.
 Go backend with server-side rendering via Templ + HTMX, SQLite database.
 
+## Endpoint Reference
+
+`docs/endpoints.md` is the canonical list of every HTTP route (usecase, callers,
+security, runnable `curl` example). **Whenever you add, remove, rename, or change
+the auth/behavior of a route in `server/internal/server/server.go` or any handler,
+update `docs/endpoints.md` in the same change.** Do not let it drift.
+
 ## Monorepo Layout
 
 | Component | Directory | Description |

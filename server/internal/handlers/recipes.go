@@ -296,7 +296,13 @@ func (handler *RecipeHandler) ServeImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", parts[0])
+	mimeType, ok := detectImageContentType(imageBytes)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", mimeType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(imageBytes)
 }
@@ -315,7 +321,7 @@ func (handler *RecipeHandler) UploadImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	file, header, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		http.Error(w, "Missing image file", http.StatusBadRequest)
 		return
@@ -332,9 +338,10 @@ func (handler *RecipeHandler) UploadImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = http.DetectContentType(imageBytes)
+	contentType, ok := detectImageContentType(imageBytes)
+	if !ok {
+		http.Error(w, "Unsupported image format", http.StatusBadRequest)
+		return
 	}
 
 	dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)

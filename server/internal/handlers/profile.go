@@ -15,6 +15,21 @@ import (
 
 const maxAvatarBytes = 1 * 1024 * 1024 // 1 MB
 
+var allowedImageContentTypes = map[string]struct{}{
+	"image/png":  {},
+	"image/jpeg": {},
+	"image/gif":  {},
+	"image/webp": {},
+}
+
+func detectImageContentType(imageBytes []byte) (string, bool) {
+	contentType := http.DetectContentType(imageBytes)
+	if _, ok := allowedImageContentTypes[contentType]; !ok {
+		return "", false
+	}
+	return contentType, true
+}
+
 type ProfileHandler struct {
 	userRepo repository.UserRepository
 }
@@ -48,7 +63,7 @@ func (handler *ProfileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("avatar")
+	file, _, err := r.FormFile("avatar")
 	if err != nil {
 		http.Error(w, "Missing avatar file", http.StatusBadRequest)
 		return
@@ -65,9 +80,10 @@ func (handler *ProfileHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = http.DetectContentType(imageBytes)
+	contentType, ok := detectImageContentType(imageBytes)
+	if !ok {
+		http.Error(w, "Unsupported image format", http.StatusBadRequest)
+		return
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(imageBytes)
@@ -115,13 +131,18 @@ func (handler *ProfileHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	mimeType := parts[0]
 	payload := parts[1]
 
 	imageBytes, err := base64.StdEncoding.DecodeString(payload)
 	if err != nil {
 		slog.Error("decoding avatar base64", "error", err)
 		http.Error(w, "Corrupted avatar data", http.StatusInternalServerError)
+		return
+	}
+
+	mimeType, ok := detectImageContentType(imageBytes)
+	if !ok {
+		http.NotFound(w, r)
 		return
 	}
 

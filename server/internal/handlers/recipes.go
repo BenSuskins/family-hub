@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -278,21 +277,9 @@ func (handler *RecipeHandler) ServeImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	withoutPrefix, ok := strings.CutPrefix(imageData, "data:")
+	imageBytes, ok := decodeDataURI(imageData)
 	if !ok {
 		http.NotFound(w, r)
-		return
-	}
-	parts := strings.SplitN(withoutPrefix, ";base64,", 2)
-	if len(parts) != 2 {
-		http.NotFound(w, r)
-		return
-	}
-
-	imageBytes, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		slog.Error("decoding recipe image", "error", err)
-		http.Error(w, "Corrupted image data", http.StatusInternalServerError)
 		return
 	}
 
@@ -321,30 +308,12 @@ func (handler *RecipeHandler) UploadImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	file, _, err := r.FormFile("image")
-	if err != nil {
-		http.Error(w, "Missing image file", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	imageBytes, err := io.ReadAll(io.LimitReader(file, maxRecipeImageBytes+1))
-	if err != nil {
-		http.Error(w, "Failed to read file", http.StatusInternalServerError)
-		return
-	}
-	if len(imageBytes) > maxRecipeImageBytes {
-		http.Error(w, "Image exceeds 2 MB limit", http.StatusBadRequest)
-		return
-	}
-
-	contentType, ok := detectImageContentType(imageBytes)
+	imageBytes, contentType, ok := readUploadedImage(w, r, "image", maxRecipeImageBytes)
 	if !ok {
-		http.Error(w, "Unsupported image format", http.StatusBadRequest)
 		return
 	}
 
-	dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+	dataURI := encodeDataURI(contentType, imageBytes)
 
 	if err := handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI); err != nil {
 		slog.Error("updating recipe image", "error", err)
@@ -448,7 +417,7 @@ func extractedToRecipe(extracted services.ExtractedRecipe, sourceURL string) *mo
 }
 
 func (handler *RecipeHandler) saveFormImage(ctx context.Context, r *http.Request, recipeID string) {
-	file, header, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 	if err != nil {
 		return
 	}
@@ -459,13 +428,14 @@ func (handler *RecipeHandler) saveFormImage(ctx context.Context, r *http.Request
 		return
 	}
 
-	contentType := header.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = http.DetectContentType(imageBytes)
+	contentType, ok := detectImageContentType(imageBytes)
+	if !ok {
+		return
 	}
 
-	dataURI := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
-	handler.recipeRepo.UpdateImage(ctx, recipeID, dataURI)
+	if err := handler.recipeRepo.UpdateImage(ctx, recipeID, encodeDataURI(contentType, imageBytes)); err != nil {
+		slog.Error("saving recipe image from form", "recipeID", recipeID, "error", err)
+	}
 }
 
 func parseMealType(value string) *models.RecipeMealType {

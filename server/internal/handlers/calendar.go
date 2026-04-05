@@ -64,7 +64,7 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 	case "week":
 		date = now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			if d, err := time.Parse(DateFormat, dateStr); err == nil {
 				date = d
 			}
 		}
@@ -78,7 +78,7 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 	case "day":
 		date = now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			if d, err := time.Parse(DateFormat, dateStr); err == nil {
 				date = d
 			}
 		}
@@ -125,8 +125,8 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 	}
 
 	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-		DateFrom: start.Format("2006-01-02"),
-		DateTo:   end.Format("2006-01-02"),
+		DateFrom: start.Format(DateFormat),
+		DateTo:   end.Format(DateFormat),
 	})
 	if err != nil {
 		slog.Error("finding meals for calendar", "error", err)

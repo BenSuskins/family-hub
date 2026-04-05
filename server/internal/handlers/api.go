@@ -78,21 +78,21 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing bearer token"})
+		writeJSONError(w, http.StatusUnauthorized, "missing bearer token")
 		return
 	}
 	oidcToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", handler.oidcUserInfoURL, nil)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		writeJSONError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	req.Header.Set("Authorization", "Bearer "+oidcToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+		writeJSONError(w, http.StatusUnauthorized, "invalid token")
 		return
 	}
 	defer resp.Body.Close()
@@ -105,7 +105,7 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 		Picture           string `json:"picture"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil || userInfo.Sub == "" {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid userinfo response"})
+		writeJSONError(w, http.StatusUnauthorized, "invalid userinfo response")
 		return
 	}
 
@@ -133,11 +133,11 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 			Role:        role,
 		})
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to create user")
 			return
 		}
 	} else if err != nil {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "user lookup failed"})
+		writeJSONError(w, http.StatusUnauthorized, "user lookup failed")
 		return
 	}
 
@@ -149,7 +149,7 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to generate token"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
 	plainToken := hex.EncodeToString(tokenBytes)
@@ -161,7 +161,7 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 		CreatedByUserID: user.ID,
 	}); err != nil {
 		slog.Error("creating iOS API token", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create token"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to create token")
 		return
 	}
 
@@ -191,7 +191,7 @@ func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {
 
 	chores, err := handler.choreRepo.FindAll(ctx, filter)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load chores")
 		return
 	}
 	writeJSON(w, http.StatusOK, chores)
@@ -201,7 +201,7 @@ func (handler *APIHandler) GetChore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	chore, err := handler.choreRepo.FindByID(ctx, chi.URLParam(r, "id"))
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+		writeJSONError(w, http.StatusNotFound, "chore not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, chore)
@@ -211,7 +211,7 @@ func (handler *APIHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load users"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load users")
 		return
 	}
 	writeJSON(w, http.StatusOK, users)
@@ -221,7 +221,7 @@ func (handler *APIHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user, err := handler.userRepo.FindByID(ctx, chi.URLParam(r, "id"))
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+		writeJSONError(w, http.StatusNotFound, "user not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, user)
@@ -231,7 +231,7 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	categories, err := handler.categoryRepo.FindAll(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load categories"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load categories")
 		return
 	}
 	writeJSON(w, http.StatusOK, categories)
@@ -243,12 +243,12 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 
 	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores due today"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load chores due today")
 		return
 	}
 	overdueChores, err := handler.choreRepo.FindOverdueChores(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load overdue chores"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load overdue chores")
 		return
 	}
 
@@ -262,15 +262,15 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	mealsThisWeek := []models.MealPlan{}
 	todayMeals := []models.MealPlan{}
 	if handler.mealPlanRepo != nil {
-		weekStart := now.Truncate(24 * time.Hour)
-		weekEnd := weekStart.AddDate(0, 0, 7)
+		startOfToday := now.Truncate(24 * time.Hour)
+		sevenDaysOut := startOfToday.AddDate(0, 0, 7)
 		if meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-			DateFrom: weekStart.Format("2006-01-02"),
-			DateTo:   weekEnd.Format("2006-01-02"),
+			DateFrom: startOfToday.Format(DateFormat),
+			DateTo:   sevenDaysOut.Format(DateFormat),
 		}); err == nil && meals != nil {
 			mealsThisWeek = meals
 		}
-		if meals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02")); err == nil && meals != nil {
+		if meals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format(DateFormat)); err == nil && meals != nil {
 			todayMeals = meals
 		}
 	}
@@ -292,11 +292,15 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 	if name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		writeJSONError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 
-	rawToken := generateToken()
+	rawToken, err := generateToken()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
 	token := models.APIToken{
 		Name:            name,
 		Scope:           models.TokenScopeAPI,
@@ -307,7 +311,7 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	created, err := handler.tokenRepo.Create(ctx, token)
 	if err != nil {
 		slog.Error("creating token", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create token"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to create token")
 		return
 	}
 
@@ -324,7 +328,7 @@ func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	if err := handler.tokenRepo.Delete(ctx, id); err != nil {
 		slog.Error("deleting token", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete token"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to delete token")
 		return
 	}
 
@@ -339,11 +343,11 @@ func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request)
 	if err := handler.choreService.CompleteChore(ctx, choreID, user.ID); err != nil {
 		switch {
 		case errors.Is(err, services.ErrChoreAlreadyComplete):
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "chore is already complete"})
+			writeJSONError(w, http.StatusConflict, "chore is already complete")
 		case errors.Is(err, sql.ErrNoRows):
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+			writeJSONError(w, http.StatusNotFound, "chore not found")
 		default:
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to complete chore"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to complete chore")
 		}
 		return
 	}
@@ -356,12 +360,12 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 
 	weekParam := r.URL.Query().Get("week")
 	if weekParam == "" {
-		weekParam = time.Now().Format("2006-01-02")
+		weekParam = time.Now().Format(DateFormat)
 	}
 
-	weekStart, err := time.Parse("2006-01-02", weekParam)
+	weekStart, err := time.Parse(DateFormat, weekParam)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid week format, use YYYY-MM-DD"})
+		writeJSONError(w, http.StatusBadRequest, "invalid week format, use YYYY-MM-DD")
 		return
 	}
 
@@ -371,11 +375,11 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 	weekEnd := weekStart.AddDate(0, 0, 6)
 
 	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-		DateFrom: weekStart.Format("2006-01-02"),
-		DateTo:   weekEnd.Format("2006-01-02"),
+		DateFrom: weekStart.Format(DateFormat),
+		DateTo:   weekEnd.Format(DateFormat),
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load meals"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load meals")
 		return
 	}
 	if meals == nil {
@@ -399,7 +403,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	case "week":
 		date := now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			if d, err := time.Parse(DateFormat, dateStr); err == nil {
 				date = d
 			}
 		}
@@ -410,7 +414,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	case "day":
 		date := now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse("2006-01-02", dateStr); err == nil {
+			if d, err := time.Parse(DateFormat, dateStr); err == nil {
 				date = d
 			}
 		}
@@ -424,7 +428,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		}
 		monthStart, err := time.Parse("2006-01", monthParam)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid month format, use YYYY-MM"})
+			writeJSONError(w, http.StatusBadRequest, "invalid month format, use YYYY-MM")
 			return
 		}
 		start = monthStart
@@ -436,7 +440,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		DueBefore: &end,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chores"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load chores")
 		return
 	}
 	if chores == nil {
@@ -459,8 +463,8 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	var meals []models.MealPlan
 	if handler.mealPlanRepo != nil {
 		fetchedMeals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-			DateFrom: start.Format("2006-01-02"),
-			DateTo:   end.Format("2006-01-02"),
+			DateFrom: start.Format(DateFormat),
+			DateTo:   end.Format(DateFormat),
 		})
 		if err != nil {
 			slog.Error("fetching meals for calendar API", "error", err)
@@ -483,7 +487,7 @@ func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recipes, err := handler.recipeRepo.FindAll(ctx)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipes"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to load recipes")
 		return
 	}
 	if recipes == nil {
@@ -497,9 +501,9 @@ func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
 	recipe, err := handler.recipeRepo.FindByID(ctx, chi.URLParam(r, "id"))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
 		}
 		return
 	}
@@ -516,13 +520,12 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		Name     string `json:"name"`
 		RecipeID string `json:"recipeID,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 
 	if body.Date == "" || body.MealType == "" || body.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "date, mealType, and name are required"})
+		writeJSONError(w, http.StatusBadRequest, "date, mealType, and name are required")
 		return
 	}
 
@@ -538,14 +541,14 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 
 	if err := handler.mealPlanRepo.Upsert(ctx, meal); err != nil {
 		slog.Error("saving meal via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save meal"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to save meal")
 		return
 	}
 
 	saved, err := handler.mealPlanRepo.FindByDateAndType(ctx, body.Date, models.MealType(body.MealType))
 	if err != nil {
 		slog.Error("finding saved meal via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to retrieve saved meal"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to retrieve saved meal")
 		return
 	}
 
@@ -559,13 +562,13 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	mealType := r.URL.Query().Get("mealType")
 
 	if date == "" || mealType == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "date and mealType query params are required"})
+		writeJSONError(w, http.StatusBadRequest, "date and mealType query params are required")
 		return
 	}
 
 	if err := handler.mealPlanRepo.Delete(ctx, date, models.MealType(mealType)); err != nil {
 		slog.Error("deleting meal via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete meal"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to delete meal")
 		return
 	}
 
@@ -583,12 +586,11 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 		DueDate        *string  `json:"dueDate,omitempty"`
 		RecurrenceType string   `json:"recurrenceType,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		writeJSONError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 
@@ -605,7 +607,7 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.DueDate != nil && *body.DueDate != "" {
-		dueDate, err := time.Parse("2006-01-02", *body.DueDate)
+		dueDate, err := time.Parse(DateFormat, *body.DueDate)
 		if err == nil {
 			chore.DueDate = &dueDate
 		}
@@ -614,7 +616,7 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 	created, err := handler.choreRepo.Create(ctx, chore)
 	if err != nil {
 		slog.Error("creating chore via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create chore"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to create chore")
 		return
 	}
 
@@ -657,9 +659,9 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	chore, err := handler.choreRepo.FindByID(ctx, choreID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chore"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to load chore")
 		}
 		return
 	}
@@ -671,12 +673,11 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 		DueDate        *string  `json:"dueDate,omitempty"`
 		RecurrenceType string   `json:"recurrenceType,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		writeJSONError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 
@@ -692,7 +693,7 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	chore.RecurrenceValue = ""
 
 	if body.DueDate != nil && *body.DueDate != "" {
-		dueDate, err := time.Parse("2006-01-02", *body.DueDate)
+		dueDate, err := time.Parse(DateFormat, *body.DueDate)
 		if err == nil {
 			chore.DueDate = &dueDate
 		}
@@ -702,7 +703,7 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 
 	if err := handler.choreRepo.Update(ctx, chore); err != nil {
 		slog.Error("updating chore via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update chore"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to update chore")
 		return
 	}
 
@@ -736,9 +737,9 @@ func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
 	chore, err := handler.choreRepo.FindByID(ctx, choreID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "chore not found"})
+			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load chore"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to load chore")
 		}
 		return
 	}
@@ -751,7 +752,7 @@ func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
 
 	if err := handler.choreRepo.Delete(ctx, choreID); err != nil {
 		slog.Error("deleting chore via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete chore"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to delete chore")
 		return
 	}
 
@@ -773,13 +774,12 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 		SourceURL   *string                 `json:"sourceURL,omitempty"`
 		ImageData   *string                 `json:"imageData,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 
 	if body.Title == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
+		writeJSONError(w, http.StatusBadRequest, "title is required")
 		return
 	}
 
@@ -801,7 +801,7 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 	created, err := handler.recipeRepo.Create(ctx, recipe)
 	if err != nil {
 		slog.Error("creating recipe via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create recipe"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to create recipe")
 		return
 	}
 
@@ -820,19 +820,18 @@ func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request)
 	var body struct {
 		URL string `json:"url"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.URL == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url is required"})
+		writeJSONError(w, http.StatusBadRequest, "url is required")
 		return
 	}
 
 	recipe, err := handler.recipeExtractor.Extract(r.Context(), body.URL)
 	if err != nil {
 		slog.Error("extracting recipe", "url", body.URL, "error", err)
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "failed to extract recipe from URL"})
+		writeJSONError(w, http.StatusUnprocessableEntity, "failed to extract recipe from URL")
 		return
 	}
 
@@ -846,9 +845,9 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 	existing, err := handler.recipeRepo.FindByID(ctx, recipeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
 		}
 		return
 	}
@@ -864,13 +863,12 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 		SourceURL   *string                  `json:"sourceURL,omitempty"`
 		ImageData   *string                  `json:"imageData,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 
 	if body.Title == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
+		writeJSONError(w, http.StatusBadRequest, "title is required")
 		return
 	}
 
@@ -890,15 +888,19 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 
 	if err := handler.recipeRepo.Update(ctx, existing); err != nil {
 		slog.Error("updating recipe via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update recipe"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to update recipe")
 		return
 	}
 
 	if body.ImageData != nil {
 		if *body.ImageData == "" {
-			handler.recipeRepo.ClearImage(ctx, recipeID)
+			if err := handler.recipeRepo.ClearImage(ctx, recipeID); err != nil {
+				slog.Error("clearing recipe image via API", "recipeID", recipeID, "error", err)
+			}
 		} else {
-			handler.recipeRepo.UpdateImage(ctx, recipeID, *body.ImageData)
+			if err := handler.recipeRepo.UpdateImage(ctx, recipeID, *body.ImageData); err != nil {
+				slog.Error("updating recipe image via API", "recipeID", recipeID, "error", err)
+			}
 		}
 	}
 
@@ -916,9 +918,9 @@ func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) 
 
 	if _, err := handler.recipeRepo.FindByID(ctx, recipeID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "recipe not found"})
+			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load recipe"})
+			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
 		}
 		return
 	}
@@ -929,21 +931,37 @@ func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) 
 
 	if err := handler.recipeRepo.Delete(ctx, recipeID); err != nil {
 		slog.Error("deleting recipe via API", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete recipe"})
+		writeJSONError(w, http.StatusInternalServerError, "failed to delete recipe")
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func generateToken() string {
+func generateToken() (string, error) {
 	bytes := make([]byte, 32)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
+}
+
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{"error": message})
+}
+
+// decodeJSONBody decodes r.Body into dest. On failure it writes a 400 JSON
+// error and returns false.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dest interface{}) bool {
+	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		return false
+	}
+	return true
 }

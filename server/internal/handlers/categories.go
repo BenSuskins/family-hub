@@ -40,7 +40,7 @@ func (handler *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isHTMXRequest(r) {
 		component := pages.CategoryRow(created)
 		component.Render(ctx, w)
 		return
@@ -104,7 +104,7 @@ func (handler *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isHTMXRequest(r) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}

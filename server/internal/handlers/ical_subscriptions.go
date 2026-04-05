@@ -51,6 +51,10 @@ func (handler *ICalSubscriptionsHandler) Create(w http.ResponseWriter, r *http.R
 		http.Error(w, "Name and URL are required", http.StatusBadRequest)
 		return
 	}
+	if err := services.ValidateExternalURL(url); err != nil {
+		http.Error(w, "Invalid URL: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	color := r.FormValue("color")
 	if !isValidSubscriptionColor(color) {

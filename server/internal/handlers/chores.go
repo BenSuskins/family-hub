@@ -80,7 +80,7 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 
 		historyEntries := buildHistoryEntries(chores, userNameMap)
 
-		if r.Header.Get("HX-Request") == "true" {
+		if isHTMXRequest(r) {
 			component := pages.ChoreHistoryContent(historyEntries, user.Role == models.RoleAdmin)
 			component.Render(ctx, w)
 			return
@@ -120,7 +120,7 @@ func (handler *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isHTMXRequest(r) {
 		component := pages.ChoreTableContent(pages.ChoreTableProps{
 			Chores:        chores,
 			User:          user,
@@ -244,7 +244,7 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dueDateStr := r.FormValue("due_date"); dueDateStr != "" {
-		dueDate, err := time.Parse("2006-01-02", dueDateStr)
+		dueDate, err := time.Parse(DateFormat, dueDateStr)
 		if err == nil {
 			chore.DueDate = &dueDate
 		}
@@ -358,7 +358,7 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dueDateStr := r.FormValue("due_date"); dueDateStr != "" {
-		dueDate, err := time.Parse("2006-01-02", dueDateStr)
+		dueDate, err := time.Parse(DateFormat, dueDateStr)
 		if err == nil {
 			chore.DueDate = &dueDate
 		}
@@ -453,7 +453,7 @@ func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isHTMXRequest(r) {
 		chore, _ := handler.choreRepo.FindByID(ctx, choreID)
 		users, _ := handler.userRepo.FindAll(ctx)
 		userNameMap := make(map[string]string, len(users))

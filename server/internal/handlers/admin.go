@@ -53,7 +53,7 @@ func (handler *AdminHandler) Users(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding categories", "error", err)
 	}
 
-	familyName, err := handler.settingsRepo.Get(ctx, "family_name")
+	familyName, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyFamilyName)
 	if err != nil {
 		slog.Error("getting family name", "error", err)
 		familyName = "Family"
@@ -105,7 +105,12 @@ func (handler *AdminHandler) CreateToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	rawToken := generateToken()
+	rawToken, err := generateToken()
+	if err != nil {
+		slog.Error("generating token", "error", err)
+		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		return
+	}
 	token := models.APIToken{
 		Name:            name,
 		Scope:           models.TokenScopeAPI,
@@ -130,9 +135,9 @@ func (handler *AdminHandler) UpdateSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	familyName := r.FormValue("family_name")
+	familyName := r.FormValue(repository.SettingsKeyFamilyName)
 	if familyName != "" {
-		if err := handler.settingsRepo.Set(ctx, "family_name", familyName); err != nil {
+		if err := handler.settingsRepo.Set(ctx, repository.SettingsKeyFamilyName, familyName); err != nil {
 			slog.Error("updating family name", "error", err)
 			http.Error(w, "Error updating settings", http.StatusInternalServerError)
 			return

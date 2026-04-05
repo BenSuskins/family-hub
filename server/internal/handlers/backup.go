@@ -57,7 +57,7 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer source.Close()
 
-	filename := fmt.Sprintf("family-hub-backup-%s.db.gz", time.Now().Format("2006-01-02"))
+	filename := fmt.Sprintf("family-hub-backup-%s.db.gz", time.Now().Format(DateFormat))
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Type", "application/gzip")
 

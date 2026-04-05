@@ -98,7 +98,7 @@ func GetUser(ctx context.Context) models.User {
 func InjectFamilyName(settingsRepo repository.SettingsRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			familyName, err := settingsRepo.Get(r.Context(), "family_name")
+			familyName, err := settingsRepo.Get(r.Context(), repository.SettingsKeyFamilyName)
 			if err != nil {
 				slog.Debug("loading family name setting", "error", err)
 			}

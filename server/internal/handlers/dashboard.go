@@ -102,17 +102,17 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 		upcomingEvents = upcomingEvents[:7]
 	}
 
-	weekStart := now.Truncate(24 * time.Hour)
-	weekEnd := weekStart.AddDate(0, 0, 7)
+	startOfToday := now.Truncate(24 * time.Hour)
+	sevenDaysOut := startOfToday.AddDate(0, 0, 7)
 	mealsThisWeek, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-		DateFrom: weekStart.Format("2006-01-02"),
-		DateTo:   weekEnd.Format("2006-01-02"),
+		DateFrom: startOfToday.Format(DateFormat),
+		DateTo:   sevenDaysOut.Format(DateFormat),
 	})
 	if err != nil {
 		slog.Error("finding meals this week", "error", err)
 	}
 
-	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format("2006-01-02"))
+	todayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format(DateFormat))
 	if err != nil {
 		slog.Error("finding today's meals", "error", err)
 	}

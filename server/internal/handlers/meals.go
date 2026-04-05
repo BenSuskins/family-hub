@@ -27,7 +27,7 @@ func (handler *MealHandler) Planner(w http.ResponseWriter, r *http.Request) {
 
 	weekStart := lastFriday(time.Now())
 	if weekStartStr := r.URL.Query().Get("week_start"); weekStartStr != "" {
-		if parsed, err := time.Parse("2006-01-02", weekStartStr); err == nil {
+		if parsed, err := time.Parse(DateFormat, weekStartStr); err == nil {
 			weekStart = parsed
 		}
 	}
@@ -35,8 +35,8 @@ func (handler *MealHandler) Planner(w http.ResponseWriter, r *http.Request) {
 	weekEnd := weekStart.AddDate(0, 0, 6)
 
 	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
-		DateFrom: weekStart.Format("2006-01-02"),
-		DateTo:   weekEnd.Format("2006-01-02"),
+		DateFrom: weekStart.Format(DateFormat),
+		DateTo:   weekEnd.Format(DateFormat),
 	})
 	if err != nil {
 		slog.Error("finding meals for planner", "error", err)

@@ -271,23 +271,35 @@ func TestListMeals_API(t *testing.T) {
 	}
 }
 
-func TestListMeals_API_SnapsWeekParamToMonday(t *testing.T) {
+func TestListMeals_API_UsesWeekParamAsStartDate(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 	userRepo := repository.NewUserRepository(database)
 	ctx := context.Background()
 
 	user, _ := userRepo.Create(ctx, models.User{
-		OIDCSubject: "sub-meals-snap",
-		Email:       "meals-snap@example.com",
-		Name:        "Meals Snap User",
+		OIDCSubject: "sub-meals-start",
+		Email:       "meals-start@example.com",
+		Name:        "Meals Start User",
 		Role:        models.RoleMember,
 	})
 
 	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
-		Date:            "2026-03-09",
+		Date:            "2026-03-13",
 		MealType:        models.MealTypeDinner,
-		Name:            "Pasta",
+		Name:            "Friday Pasta",
+		CreatedByUserID: user.ID,
+	})
+	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+		Date:            "2026-03-19",
+		MealType:        models.MealTypeDinner,
+		Name:            "Thursday Pasta",
+		CreatedByUserID: user.ID,
+	})
+	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+		Date:            "2026-03-20",
+		MealType:        models.MealTypeDinner,
+		Name:            "Next Friday Pasta",
 		CreatedByUserID: user.ID,
 	})
 
@@ -296,7 +308,7 @@ func TestListMeals_API_SnapsWeekParamToMonday(t *testing.T) {
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=2026-03-11", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/meals?week=2026-03-13", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
@@ -306,8 +318,8 @@ func TestListMeals_API_SnapsWeekParamToMonday(t *testing.T) {
 
 	var meals []models.MealPlan
 	json.NewDecoder(recorder.Body).Decode(&meals)
-	if len(meals) != 1 {
-		t.Errorf("expected 1 meal (Monday 2026-03-09 snapped from Wednesday 2026-03-11), got %d", len(meals))
+	if len(meals) != 2 {
+		t.Errorf("expected 2 meals (Fri 2026-03-13 through Thu 2026-03-19), got %d", len(meals))
 	}
 }
 

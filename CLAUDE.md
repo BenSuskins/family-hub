@@ -29,10 +29,11 @@ server/
 │   ├── database/        # DB connection + migration runner
 │   ├── models/          # Domain types (Chore, User, Recipe, etc.)
 │   ├── repository/      # Interfaces + SQLite implementations
-│   ├── services/        # Business logic (recurrence, chore assignment, iCal fetch)
+│   ├── services/        # Business logic (recurrence, chore assignment, iCal fetch, recipe extraction, SSRF guard)
 │   ├── handlers/        # HTTP handlers (one file per feature area)
-│   ├── middleware/       # Auth + admin enforcement
-│   └── server/          # Chi router wiring
+│   ├── middleware/      # Auth + admin enforcement
+│   ├── server/          # Chi router wiring
+│   └── testutil/        # Shared test helpers
 templates/           (under server/)
 ├── layouts/         # Base page layout
 ├── pages/           # Full-page templ files
@@ -53,6 +54,11 @@ files. The generated `*_templ.go` files are committed but should not be edited d
 **HTMX** — Handlers return either full pages or HTML fragments depending on whether the
 request is an HTMX partial. Fragments are returned for `HX-Request` headers.
 
+**SSRF guard** — Any handler that fetches an external URL on behalf of a user
+(iCal subscriptions, recipe URL import) must route the request through
+`services.ValidateExternalURL` / `services.NewSafeHTTPClient` in `services/safenet.go`.
+This blocks private IP ranges and non-HTTP(S) schemes.
+
 **Auth** — OIDC via Authelia. Single public PKCE client shared by web + iOS
 (two redirect URIs, no client secret). Two post-login flows: *authed user*
 (session cookie OR Bearer API token, unified in `RequireUser`) and *admin
@@ -69,8 +75,8 @@ No onboarding flow; no iCal feed export.
 | Chores | `handlers/chores.go` | `services/chores.go`, `services/recurrence.go` | Recurrence: daily, weekly, monthly, custom cron |
 | Calendar | `handlers/calendar.go` | — | Unified view: chores + events + iCal subscriptions |
 | iCal import | `handlers/ical_subscriptions.go` | `services/ical_fetcher.go` | Admin-managed external feeds |
-| Meals | `handlers/meals.go` | — | Weekly planner, backed by `meal_plans` table |
-| Recipes | `handlers/recipes.go` | — | Ingredient groups, cooking times, linked to meals |
+| Meals | `handlers/meals.go` | — | Weekly planner (breakfast/lunch/dinner), backed by `meal_plans` table |
+| Recipes | `handlers/recipes.go` | `services/recipe_extractor.go` | Ingredient groups, cooking times, linked to meals. Extractor imports recipes from a URL (JSON-LD + HTML fallback) |
 | Dashboard | `handlers/dashboard.go` | — | Stats + leaderboard |
 | Admin | `handlers/admin.go` | — | Users, categories, token CRUD |
 | REST API | `handlers/api.go` | — | Session or Bearer; chores/users/categories/dashboard/recipes/meals |

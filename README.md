@@ -1,6 +1,6 @@
 # Family Hub
 
-A full-stack family organization hub for managing chores, meals, recipes, and calendars. Built with Go, Templ, and Tailwind CSS, with OAuth2 authentication via OpenID Connect.
+A family organization hub for managing chores, meals, recipes, and calendars. Go + Templ + HTMX + Tailwind web app backed by SQLite, with a SwiftUI iOS client and a Home Assistant integration sharing the same REST API. Auth via OIDC (single public PKCE client).
 
 ## Features
 
@@ -8,8 +8,8 @@ A full-stack family organization hub for managing chores, meals, recipes, and ca
 - **Dashboard** — At-a-glance view of today's chores, overdue items, upcoming events, completion statistics, and a household leaderboard.
 - **Calendar** — Unified view of chores, family events, and external iCal subscriptions.
 - **iCal Subscriptions** — Admin-managed subscriptions to external iCal feeds (e.g. school calendars, sports schedules) displayed alongside your own events.
-- **Meal Planning** — Weekly meal planner organised by meal type (breakfast, lunch, dinner, snack), with entries linked to the recipe library.
-- **Recipes** — Manage a family recipe library with ingredient groups and cooking times, used to populate the meal plan.
+- **Meal Planning** — Weekly meal planner organised by meal type (breakfast, lunch, dinner), with entries linked to the recipe library.
+- **Recipes** — Manage a family recipe library with ingredient groups and cooking times, used to populate the meal plan. Supports importing recipes from a URL.
 - **User Profiles** — Per-user avatar upload and profile management.
 - **Admin Panel** — Manage users (promote/demote roles), chore categories, and API tokens. Includes database backup (download) and restore (upload).
 - **REST API** — Session cookie or Bearer token; same surface for browser and iOS clients. See [`docs/endpoints.md`](docs/endpoints.md) for every route.

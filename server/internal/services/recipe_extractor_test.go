@@ -267,7 +267,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 			}))
 			defer server.Close()
 
-			extractor := services.NewRecipeExtractorWithoutSSRFProtection()
+			extractor := services.NewRecipeExtractorForTest(server.Client())
 			got, err := extractor.Extract(context.Background(), server.URL)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

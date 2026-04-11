@@ -77,10 +77,13 @@ func (handler *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:   "oauth_state",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
 	})
 
 	verifierCookie, err := r.Cookie("oauth_verifier")
@@ -90,10 +93,13 @@ func (handler *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:   "oauth_verifier",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     "oauth_verifier",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
 	})
 
 	code := r.URL.Query().Get("code")

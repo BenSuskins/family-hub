@@ -25,28 +25,20 @@ type ExtractedRecipe struct {
 }
 
 type RecipeExtractor struct {
-	client             *http.Client
-	skipURLValidation  bool
+	client      *http.Client
+	validateURL func(string) error
 }
 
 func NewRecipeExtractor() *RecipeExtractor {
 	return &RecipeExtractor{
-		client: NewSafeHTTPClient(15 * time.Second),
-	}
-}
-
-func NewRecipeExtractorWithoutSSRFProtection() *RecipeExtractor {
-	return &RecipeExtractor{
-		client:            &http.Client{Timeout: 15 * time.Second},
-		skipURLValidation: true,
+		client:      NewSafeHTTPClient(15 * time.Second),
+		validateURL: ValidateExternalURL,
 	}
 }
 
 func (extractor *RecipeExtractor) Extract(ctx context.Context, rawURL string) (ExtractedRecipe, error) {
-	if !extractor.skipURLValidation {
-		if err := ValidateExternalURL(rawURL); err != nil {
-			return ExtractedRecipe{}, err
-		}
+	if err := extractor.validateURL(rawURL); err != nil {
+		return ExtractedRecipe{}, err
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)

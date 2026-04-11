@@ -49,7 +49,8 @@ implementation. Tests use in-memory SQLite (`:memory:`).
 call repositories. Direct repository access from handlers is avoided.
 
 **Templ** — Type-safe templates compiled to Go. Run `templ generate` after editing `.templ`
-files. The generated `*_templ.go` files are committed but should not be edited directly.
+files. The generated `*_templ.go` files are gitignored — CI (and any fresh checkout)
+must run `templ generate` before `go build`/`go test`.
 
 **HTMX** — Handlers return either full pages or HTML fragments depending on whether the
 request is an HTMX partial. Fragments are returned for `HX-Request` headers.

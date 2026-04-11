@@ -9,6 +9,7 @@ final class RecipesViewModel {
     var searchQuery: String = ""
     var selectedMealType: String? = nil
     var errorMessage: String?
+    var recipeImages: [String: Data] = [:]
 
     static let mealTypeOptions: [String] = ["breakfast", "lunch", "dinner", "side", "dessert"]
 
@@ -35,10 +36,33 @@ final class RecipesViewModel {
         do {
             let recipes = try await apiClient.fetchRecipes()
             state = .loaded(recipes)
+            await preloadImages(for: recipes)
         } catch let error as APIError {
             state = .failed(error)
         } catch {
             state = .failed(.network(error))
+        }
+    }
+
+    func preloadImages(for recipes: [Recipe]) async {
+        let missing = recipes.filter { $0.hasImage && recipeImages[$0.id] == nil }
+        guard !missing.isEmpty else { return }
+        let client = apiClient
+        let fetched: [(String, Data)] = await withTaskGroup(of: (String, Data)?.self) { group in
+            for recipe in missing {
+                group.addTask {
+                    guard let data = try? await client.fetchRecipeImage(id: recipe.id) else { return nil }
+                    return (recipe.id, data)
+                }
+            }
+            var results: [(String, Data)] = []
+            for await case let item? in group {
+                results.append(item)
+            }
+            return results
+        }
+        for (id, data) in fetched {
+            recipeImages[id] = data
         }
     }
 

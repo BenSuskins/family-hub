@@ -43,7 +43,7 @@ struct RecipesView: View {
                                     NavigationLink {
                                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                                     } label: {
-                                        RecipeCardView(recipe: recipe, apiClient: apiClient)
+                                        RecipeCardView(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
                                     }
                                     .buttonStyle(ScaleButtonStyle())
                                 }
@@ -98,29 +98,26 @@ private struct FilterChip: View {
 
 private struct RecipeCardView: View {
     let recipe: Recipe
-    let apiClient: any APIClientProtocol
-
-    @State private var imageData: Data?
+    let imageData: Data?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Group {
+            ZStack {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Image(systemName: "fork.knife")
+                            .foregroundStyle(.tertiary)
+                            .font(.title2)
+                    }
                 if let imageData, let uiImage = UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
-                        .aspectRatio(4/3, contentMode: .fill)
-                        .clipped()
-                } else {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .aspectRatio(4/3, contentMode: .fit)
-                        .overlay {
-                            Image(systemName: "fork.knife")
-                                .foregroundStyle(.tertiary)
-                                .font(.title2)
-                        }
+                        .scaledToFill()
                 }
             }
+            .aspectRatio(4/3, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
@@ -146,10 +143,6 @@ private struct RecipeCardView: View {
             .padding(.bottom, 8)
         }
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .task(id: recipe.id) {
-            guard recipe.hasImage else { return }
-            imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
-        }
     }
 }
 

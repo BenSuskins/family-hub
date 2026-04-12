@@ -14,8 +14,8 @@ struct Recipe: Codable, Identifiable {
     let servings: Int?
     let prepTime: String?
     let cookTime: String?
-    let sourceURL: String? = nil
-    let categoryID: String? = nil
+    let sourceURL: String?
+    let categoryID: String?
     let hasImage: Bool
 
     enum CodingKeys: String, CodingKey {

@@ -45,7 +45,7 @@ struct CalendarView: View {
                 }
                 .animation(.spring(duration: 0.3), value: viewModel.viewMode)
             }
-            .refreshable { await viewModel.load() }
+            .refreshable { await viewModel.load(forceRefresh: true) }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

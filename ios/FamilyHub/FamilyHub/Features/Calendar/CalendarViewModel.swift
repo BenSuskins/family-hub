@@ -17,6 +17,8 @@ final class CalendarViewModel {
     var users: [String: User] = [:]
 
     private let apiClient: any APIClientProtocol
+    private var responseCache: [String: CalendarResponse] = [:]
+    private var cachedUsers: [String: User]?
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
@@ -32,18 +34,35 @@ final class CalendarViewModel {
         return calendar.dateInterval(of: .weekOfYear, for: currentDate)!.start
     }
 
-    func load() async {
-        state = .loading
+    func load(forceRefresh: Bool = false) async {
+        if forceRefresh { cachedUsers = nil }
+
+        let key = cacheKey()
+
+        if let cached = responseCache[key] {
+            if let cachedUsers { users = cachedUsers }
+            state = .loaded(cached)
+        } else {
+            state = .loading
+        }
+
         do {
-            async let calendarTask = apiClient.fetchCalendar(view: viewMode.rawValue.lowercased(), date: currentDate)
-            async let usersTask = apiClient.fetchUsers()
-            let (response, userList) = try await (calendarTask, usersTask)
-            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+            async let calendarTask = apiClient.fetchCalendar(
+                view: viewMode.rawValue.lowercased(), date: currentDate)
+
+            if cachedUsers == nil {
+                let userList = try await apiClient.fetchUsers()
+                users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+                cachedUsers = users
+            }
+
+            let response = try await calendarTask
+            responseCache[key] = response
             state = .loaded(response)
-        } catch let error as APIError {
-            state = .failed(error)
         } catch {
-            state = .failed(.network(error))
+            if responseCache[key] == nil {
+                state = .failed(error as? APIError ?? .network(error))
+            }
         }
     }
 
@@ -120,5 +139,23 @@ final class CalendarViewModel {
 
     private func iso8601DayString(_ date: Date) -> String {
         Self.dayFormatter.string(from: date)
+    }
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private func cacheKey() -> String {
+        switch viewMode {
+        case .month:
+            return "month-\(Self.monthFormatter.string(from: currentDate))"
+        case .week:
+            return "week-\(Self.dayFormatter.string(from: currentWeekStart))"
+        case .day:
+            return "day-\(Self.dayFormatter.string(from: currentDate))"
+        }
     }
 }

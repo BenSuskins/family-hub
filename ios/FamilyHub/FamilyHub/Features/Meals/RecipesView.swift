@@ -102,42 +102,43 @@ private struct RecipeCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Image(systemName: "fork.knife")
-                            .foregroundStyle(.tertiary)
-                            .font(.title2)
+            Color.clear
+                .aspectRatio(4/3, contentMode: .fit)
+                .overlay {
+                    if let imageData, let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .overlay {
+                                Image(systemName: "fork.knife")
+                                    .foregroundStyle(.tertiary)
+                                    .font(.title2)
+                            }
                     }
-                if let imageData, let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
                 }
-            }
-            .aspectRatio(4/3, contentMode: .fit)
-            .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                if recipe.prepTime != nil || recipe.servings != nil {
-                    HStack(spacing: 8) {
-                        if let prep = recipe.prepTime {
-                            Label("\(prep) prep", systemImage: "clock")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        if let servings = recipe.servings {
-                            Label("\(servings)", systemImage: "person.2")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                    .frame(minHeight: 36, alignment: .topLeading)
+                HStack(spacing: 8) {
+                    if let prep = recipe.prepTime {
+                        Label("\(prep) prep", systemImage: "clock")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let servings = recipe.servings {
+                        Label("\(servings)", systemImage: "person.2")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .frame(minHeight: 14)
             }
             .padding(.horizontal, 6)
             .padding(.bottom, 8)

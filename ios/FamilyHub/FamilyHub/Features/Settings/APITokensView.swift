@@ -169,7 +169,3 @@ private struct CreatedTokenSheet: View {
         }
     }
 }
-
-extension CreatedToken: Identifiable {
-    var id: String { plaintext }
-}

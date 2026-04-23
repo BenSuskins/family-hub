@@ -12,7 +12,7 @@ struct APIToken: Codable, Identifiable {
     }
 }
 
-struct CreatedToken: Codable {
+struct CreatedToken: Codable, Identifiable {
     let id: String
     let name: String
     let plaintext: String

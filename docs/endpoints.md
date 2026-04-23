@@ -106,6 +106,35 @@ middleware handles both. The `curl` examples use Bearer for brevity; swap in
 curl -s $BASE_URL/api/me -H "Authorization: Bearer $API_TOKEN" | jq
 ```
 
+### `POST /api/profile/avatar`
+- **Usecase:** Upload a custom avatar for the authenticated user. Stores as data URI.
+- **Callers:** iOS app settings — Change Photo.
+- **Security:** API token. Multipart form-data, field `avatar`, max 1 MB. Returns updated `User`.
+
+```bash
+curl -s -X POST $BASE_URL/api/profile/avatar \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -F "avatar=@photo.jpg" | jq
+```
+
+### `DELETE /api/profile/avatar`
+- **Usecase:** Remove custom avatar; reverts to OIDC provider photo URL.
+- **Callers:** iOS app settings.
+- **Security:** API token. Returns 204.
+
+```bash
+curl -s -X DELETE $BASE_URL/api/profile/avatar -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
+```
+
+### `GET /api/settings`
+- **Usecase:** App-wide settings readable by all users (currently: `family_name`).
+- **Callers:** iOS app settings header.
+- **Security:** API token.
+
+```bash
+curl -s $BASE_URL/api/settings -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
 ### `GET /api/chores`
 - **Usecase:** List chores. Optional filters: `status`, `assigned_to`.
 - **Callers:** iOS app chores list.
@@ -318,26 +347,99 @@ curl -s "$BASE_URL/api/calendar?view=month&month=2026-04" \
 
 ---
 
-### Token admin (admin role required)
+### Admin-only API routes (admin role required)
+
+### `POST /api/users/{id}/promote`
+- **Usecase:** Promote a user to admin role.
+- **Callers:** iOS app admin settings — Family Members.
+- **Security:** API token + admin role. Returns updated `User`.
+
+```bash
+curl -s -X POST $BASE_URL/api/users/<userID>/promote -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+### `POST /api/users/{id}/demote`
+- **Usecase:** Demote a user to member role.
+- **Callers:** iOS app admin settings — Family Members.
+- **Security:** API token + admin role. Returns updated `User`.
+
+```bash
+curl -s -X POST $BASE_URL/api/users/<userID>/demote -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+### `PATCH /api/settings`
+- **Usecase:** Update app-wide settings. Currently supports `family_name`.
+- **Callers:** iOS app admin settings — Family Name.
+- **Security:** API token + admin role. Returns 204.
+
+```bash
+curl -s -X PATCH $BASE_URL/api/settings \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"family_name":"The Smiths"}' -w "%{http_code}\n"
+```
+
+### `POST /api/categories`
+- **Usecase:** Create a chore category.
+- **Callers:** iOS app admin settings — Categories.
+- **Security:** API token + admin role. Returns created `Category`.
+
+```bash
+curl -s -X POST $BASE_URL/api/categories \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cleaning"}' | jq
+```
+
+### `PUT /api/categories/{id}`
+- **Usecase:** Rename a category.
+- **Callers:** iOS app admin settings — Categories.
+- **Security:** API token + admin role. Returns updated `Category`.
+
+```bash
+curl -s -X PUT $BASE_URL/api/categories/<categoryID> \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Deep Cleaning"}' | jq
+```
+
+### `DELETE /api/categories/{id}`
+- **Usecase:** Delete a category.
+- **Callers:** iOS app admin settings — Categories.
+- **Security:** API token + admin role. Returns 204.
+
+```bash
+curl -s -X DELETE $BASE_URL/api/categories/<categoryID> -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
+```
+
+### `GET /api/tokens`
+- **Usecase:** List all API tokens with metadata (no plaintext).
+- **Callers:** iOS app admin settings — API Tokens.
+- **Security:** API token + admin role.
+
+```bash
+curl -s $BASE_URL/api/tokens -H "Authorization: Bearer $API_TOKEN" | jq
+```
 
 ### `POST /api/tokens`
 - **Usecase:** Generate a new API token. Returns raw token **once**.
-- **Callers:** Admin UI (`/admin` page).
-- **Security:** Session or Bearer + admin role.
+- **Callers:** Admin UI (`/admin` page), iOS app admin settings.
+- **Security:** API token + admin role. Body: form `name=` or JSON `{"name":"..."}`.
 
 ```bash
 curl -s -X POST $BASE_URL/api/tokens \
-  -b "session=$SESSION" \
-  -d "name=My iOS token" | jq
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Home Assistant"}' | jq
 ```
 
 ### `DELETE /api/tokens/{id}`
 - **Usecase:** Revoke a token.
-- **Callers:** Admin UI.
-- **Security:** Session or Bearer + admin role.
+- **Callers:** Admin UI, iOS app admin settings.
+- **Security:** API token + admin role. Returns 200.
 
 ```bash
-curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -b "session=$SESSION" -w "%{http_code}\n"
+curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
 
 ---

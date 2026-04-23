@@ -24,6 +24,7 @@ type APIHandler struct {
 	categoryRepo    repository.CategoryRepository
 	assignmentRepo  repository.ChoreAssignmentRepository
 	tokenRepo       repository.APITokenRepository
+	settingsRepo    repository.SettingsRepository
 	choreService    *services.ChoreService
 	mealPlanRepo    repository.MealPlanRepository
 	recipeRepo      repository.RecipeRepository
@@ -40,6 +41,7 @@ func NewAPIHandler(
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	tokenRepo repository.APITokenRepository,
+	settingsRepo repository.SettingsRepository,
 	choreService *services.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
@@ -55,6 +57,7 @@ func NewAPIHandler(
 		categoryRepo:    categoryRepo,
 		assignmentRepo:  assignmentRepo,
 		tokenRepo:       tokenRepo,
+		settingsRepo:    settingsRepo,
 		choreService:    choreService,
 		mealPlanRepo:    mealPlanRepo,
 		recipeRepo:      recipeRepo,
@@ -290,7 +293,18 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	name := r.FormValue("name")
+	var name string
+	if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
+		var body struct {
+			Name string `json:"name"`
+		}
+		if !decodeJSONBody(w, r, &body) {
+			return
+		}
+		name = body.Name
+	} else {
+		name = r.FormValue("name")
+	}
 	if name == "" {
 		writeJSONError(w, http.StatusBadRequest, "name is required")
 		return
@@ -933,6 +947,201 @@ func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	if err := r.ParseMultipartForm(maxAvatarBytes + 1024); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "failed to parse form")
+		return
+	}
+
+	imageBytes, contentType, ok := readUploadedImage(w, r, "avatar", maxAvatarBytes)
+	if !ok {
+		return
+	}
+
+	dataURI := encodeDataURI(contentType, imageBytes)
+	if err := handler.userRepo.UpdateAvatar(ctx, user.ID, dataURI); err != nil {
+		slog.Error("updating avatar via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to save avatar")
+		return
+	}
+
+	updated, err := handler.userRepo.FindByID(ctx, user.ID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (handler *APIHandler) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	if err := handler.userRepo.ClearAvatar(ctx, user.ID); err != nil {
+		slog.Error("clearing avatar via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to remove avatar")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) PromoteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := chi.URLParam(r, "id")
+
+	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleAdmin); err != nil {
+		slog.Error("promoting user via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to promote user")
+		return
+	}
+
+	updated, err := handler.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (handler *APIHandler) DemoteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := chi.URLParam(r, "id")
+
+	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleMember); err != nil {
+		slog.Error("demoting user via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to demote user")
+		return
+	}
+
+	updated, err := handler.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (handler *APIHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	familyName, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyFamilyName)
+	if err != nil {
+		familyName = "Family"
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"family_name": familyName,
+	})
+}
+
+func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var body struct {
+		FamilyName string `json:"family_name"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+
+	if body.FamilyName == "" {
+		writeJSONError(w, http.StatusBadRequest, "family_name is required")
+		return
+	}
+
+	if err := handler.settingsRepo.Set(ctx, repository.SettingsKeyFamilyName, body.FamilyName); err != nil {
+		slog.Error("updating family name via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to update settings")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.GetUser(ctx)
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	if body.Name == "" {
+		writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	created, err := handler.categoryRepo.Create(ctx, models.Category{
+		Name:            body.Name,
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		slog.Error("creating category via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to create category")
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (handler *APIHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	categoryID := chi.URLParam(r, "id")
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	if body.Name == "" {
+		writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	if err := handler.categoryRepo.Update(ctx, categoryID, body.Name); err != nil {
+		slog.Error("updating category via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to update category")
+		return
+	}
+
+	category, err := handler.categoryRepo.FindByID(ctx, categoryID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to reload category")
+		return
+	}
+	writeJSON(w, http.StatusOK, category)
+}
+
+func (handler *APIHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	categoryID := chi.URLParam(r, "id")
+
+	if err := handler.categoryRepo.Delete(ctx, categoryID); err != nil {
+		slog.Error("deleting category via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to delete category")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tokens, err := handler.tokenRepo.FindAll(ctx)
+	if err != nil {
+		slog.Error("listing tokens via API", "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to load tokens")
+		return
+	}
+	if tokens == nil {
+		tokens = []models.APIToken{}
+	}
+	writeJSON(w, http.StatusOK, tokens)
 }
 
 func generateToken() (string, error) {

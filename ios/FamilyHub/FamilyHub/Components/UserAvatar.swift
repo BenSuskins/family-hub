@@ -64,10 +64,10 @@ struct UserAvatar: View {
 
 #Preview {
     HStack(spacing: 12) {
-        UserAvatar(user: User(id: "1", name: "Ben Suskins", email: "", avatarURL: ""), size: 32)
-        UserAvatar(user: User(id: "2", name: "Megane Holl", email: "", avatarURL: ""), size: 32)
+        UserAvatar(user: User(id: "1", name: "Ben Suskins", email: "", avatarURL: "", role: "member"), size: 32)
+        UserAvatar(user: User(id: "2", name: "Megane Holl", email: "", avatarURL: "", role: "member"), size: 32)
         UserAvatar(user: nil, size: 32)
-        UserAvatar(user: User(id: "1", name: "Ben Suskins", email: "", avatarURL: ""), size: 24)
+        UserAvatar(user: User(id: "1", name: "Ben Suskins", email: "", avatarURL: "", role: "member"), size: 24)
     }
     .padding()
     .background(Color(.systemBackground))

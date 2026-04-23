@@ -27,4 +27,27 @@ protocol APIClientProtocol: AnyObject {
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
     func deleteMeal(date: String, mealType: String) async throws
     func fetchMe() async throws -> User
+
+    // Avatar
+    func uploadAvatar(imageData: Data, mimeType: String) async throws -> User
+    func deleteAvatar() async throws
+
+    // Settings
+    func fetchSettings() async throws -> AppSettings
+    func updateFamilyName(_ name: String) async throws
+
+    // User management (admin)
+    func promoteUser(id: String) async throws -> User
+    func demoteUser(id: String) async throws -> User
+
+    // Categories (admin)
+    func fetchCategories() async throws -> [Category]
+    func createCategory(name: String) async throws -> Category
+    func updateCategory(id: String, name: String) async throws -> Category
+    func deleteCategory(id: String) async throws
+
+    // API tokens (admin)
+    func fetchTokens() async throws -> [APIToken]
+    func createToken(name: String) async throws -> CreatedToken
+    func deleteToken(id: String) async throws
 }

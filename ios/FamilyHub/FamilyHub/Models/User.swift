@@ -5,6 +5,9 @@ struct User: Codable, Identifiable {
     let name: String
     let email: String
     let avatarURL: String
+    let role: String
+
+    var isAdmin: Bool { role == "admin" }
 
     var initials: String {
         let parts = name.split(separator: " ").prefix(2)
@@ -13,9 +16,10 @@ struct User: Codable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id       = "ID"
-        case name     = "Name"
-        case email    = "Email"
+        case id        = "ID"
+        case name      = "Name"
+        case email     = "Email"
         case avatarURL = "AvatarURL"
+        case role      = "Role"
     }
 }

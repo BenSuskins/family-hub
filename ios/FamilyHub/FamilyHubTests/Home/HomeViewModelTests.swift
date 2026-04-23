@@ -56,7 +56,7 @@ final class HomeViewModelTests: XCTestCase {
         fake.dashboardResult = .success(
             DashboardStats(choresDueToday: 1, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
         )
-        fake.usersResult = .success([User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "")])
+        fake.usersResult = .success([User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "", role: "member")])
         let viewModel = HomeViewModel(apiClient: fake)
 
         await viewModel.load()

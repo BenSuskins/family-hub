@@ -25,6 +25,12 @@ final class APIClient: APIClientProtocol {
         try validate(response: response)
     }
 
+    private func post<T: Decodable>(_ path: String) async throws -> T {
+        let request = try await buildRequest(path: path, method: "POST")
+        let (data, response) = try await perform(request)
+        return try decode(T.self, from: data, response: response)
+    }
+
     private func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         var request = try await buildRequest(path: path, method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -41,10 +47,35 @@ final class APIClient: APIClientProtocol {
         return try decode(T.self, from: data, response: response)
     }
 
+    private func patch(_ path: String, body: some Encodable) async throws {
+        var request = try await buildRequest(path: path, method: "PATCH")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (_, response) = try await perform(request)
+        try validate(response: response)
+    }
+
     private func delete(_ path: String, queryItems: [URLQueryItem] = []) async throws {
         let request = try await buildRequest(path: path, method: "DELETE", queryItems: queryItems)
         let (_, response) = try await perform(request)
         try validate(response: response)
+    }
+
+    private func uploadMultipart<T: Decodable>(_ path: String, field: String, data: Data, mimeType: String) async throws -> T {
+        var request = try await buildRequest(path: path, method: "POST")
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(field)\"; filename=\"upload\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        let (responseData, response) = try await perform(request)
+        return try decode(T.self, from: responseData, response: response)
     }
 
     private func buildRequest(path: String, method: String, queryItems: [URLQueryItem] = []) async throws -> URLRequest {
@@ -201,5 +232,76 @@ final class APIClient: APIClientProtocol {
 
     func fetchMe() async throws -> User {
         try await get("api/me")
+    }
+
+    // MARK: - Avatar
+
+    func uploadAvatar(imageData: Data, mimeType: String) async throws -> User {
+        try await uploadMultipart("api/profile/avatar", field: "avatar", data: imageData, mimeType: mimeType)
+    }
+
+    func deleteAvatar() async throws {
+        try await delete("api/profile/avatar")
+    }
+
+    // MARK: - Settings
+
+    func fetchSettings() async throws -> AppSettings {
+        try await get("api/settings")
+    }
+
+    func updateFamilyName(_ name: String) async throws {
+        struct Body: Encodable { let family_name: String }
+        try await patch("api/settings", body: Body(family_name: name))
+    }
+
+    // MARK: - User management
+
+    func promoteUser(id: String) async throws -> User {
+        try await post("api/users/\(id)/promote")
+    }
+
+    func demoteUser(id: String) async throws -> User {
+        try await post("api/users/\(id)/demote")
+    }
+
+    // MARK: - Categories
+
+    func fetchCategories() async throws -> [Category] {
+        try await get("api/categories")
+    }
+
+    func createCategory(name: String) async throws -> Category {
+        struct Body: Encodable { let name: String }
+        return try await post("api/categories", body: Body(name: name))
+    }
+
+    func updateCategory(id: String, name: String) async throws -> Category {
+        struct Body: Encodable { let name: String }
+        return try await put("api/categories/\(id)", body: Body(name: name))
+    }
+
+    func deleteCategory(id: String) async throws {
+        try await delete("api/categories/\(id)")
+    }
+
+    // MARK: - API tokens
+
+    func fetchTokens() async throws -> [APIToken] {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let request = try await buildRequest(path: "api/tokens", method: "GET")
+        let (data, response) = try await perform(request)
+        try validate(response: response)
+        return try decoder.decode([APIToken].self, from: data)
+    }
+
+    func createToken(name: String) async throws -> CreatedToken {
+        struct Body: Encodable { let name: String }
+        return try await post("api/tokens", body: Body(name: name))
+    }
+
+    func deleteToken(id: String) async throws {
+        try await delete("api/tokens/\(id)")
     }
 }

@@ -12,17 +12,17 @@ final class UserTests: XCTestCase {
     }
 
     func testInitialsFromTwoWordName() {
-        let user = User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "")
+        let user = User(id: "u1", name: "Ben Suskins", email: "", avatarURL: "", role: "member")
         XCTAssertEqual(user.initials, "BS")
     }
 
     func testInitialsFromSingleWordName() {
-        let user = User(id: "u2", name: "Admin", email: "", avatarURL: "")
+        let user = User(id: "u2", name: "Admin", email: "", avatarURL: "", role: "member")
         XCTAssertEqual(user.initials, "A")
     }
 
     func testInitialsFromEmptyName() {
-        let user = User(id: "u3", name: "", email: "", avatarURL: "")
+        let user = User(id: "u3", name: "", email: "", avatarURL: "", role: "member")
         XCTAssertEqual(user.initials, "?")
     }
 }

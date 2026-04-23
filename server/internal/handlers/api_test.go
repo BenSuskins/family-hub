@@ -44,7 +44,7 @@ func TestRequireUser_RejectsNonAPIScopedToken(t *testing.T) {
 		t.Fatalf("creating stale-scope token: %v", err)
 	}
 
-	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil, nil, nil, "", "", "")
+	apiHandler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
@@ -87,7 +87,7 @@ func TestDeleteToken(t *testing.T) {
 		t.Fatalf("creating token: %v", err)
 	}
 
-	handler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, tokenRepo, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Delete("/api/tokens/{id}", handler.DeleteToken)
@@ -130,7 +130,7 @@ func TestCompleteChore_API(t *testing.T) {
 	})
 
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
-	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -170,7 +170,7 @@ func TestCompleteChore_API_NotFound(t *testing.T) {
 	})
 
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
-	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -211,7 +211,7 @@ func TestCompleteChore_API_AlreadyComplete(t *testing.T) {
 	})
 
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
-	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, choreService, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -251,7 +251,7 @@ func TestListMeals_API(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
@@ -303,7 +303,7 @@ func TestListMeals_API_UsesWeekParamAsStartDate(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
@@ -327,7 +327,7 @@ func TestListMeals_API_InvalidWeekParam(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
@@ -345,7 +345,7 @@ func TestListMeals_API_DefaultsToCurrentWeek(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
@@ -377,7 +377,7 @@ func TestListRecipes_API(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -415,7 +415,7 @@ func TestGetRecipe_API(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes/{id}", handler.GetRecipe)
@@ -439,7 +439,7 @@ func TestListRecipes_API_Empty(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -462,7 +462,7 @@ func TestListMeals_API_Empty(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, mealPlanRepo, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/meals", handler.ListMeals)
@@ -485,7 +485,7 @@ func TestGetRecipe_API_NotFound(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes/{id}", handler.GetRecipe)
@@ -520,7 +520,7 @@ func TestListCalendar_API(t *testing.T) {
 		Status:          models.ChoreStatusPending,
 	})
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -549,7 +549,7 @@ func TestListCalendar_API_InvalidMonthParam(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -567,7 +567,7 @@ func TestListCalendar_API_DefaultsToCurrentMonth(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -585,7 +585,7 @@ func TestListCalendar_API_EmptyResult(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -618,7 +618,7 @@ func TestDashboardStats_EmptyListsAreNotNull(t *testing.T) {
 	choreRepo := repository.NewChoreRepository(database)
 	userRepo := repository.NewUserRepository(database)
 
-	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/dashboard", handler.DashboardStats)
@@ -663,7 +663,7 @@ func TestListRecipes_NilIngredientItemsAreEmptyArray(t *testing.T) {
 		},
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -709,7 +709,7 @@ func TestAPIHandler_ClientConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", tt.clientID, tt.oidcIssuer)
+			handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", tt.clientID, tt.oidcIssuer)
 
 			request := httptest.NewRequest(http.MethodGet, "/api/client-config", nil)
 			recorder := httptest.NewRecorder()
@@ -765,7 +765,7 @@ func TestDashboardStats_IncludesChores(t *testing.T) {
 		Status:          models.ChoreStatusOverdue,
 	})
 
-	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/dashboard", handler.DashboardStats)
@@ -823,7 +823,7 @@ func TestCreateRecipe_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -870,7 +870,7 @@ func TestCreateRecipe_API_MissingTitle(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -902,7 +902,7 @@ func TestCreateRecipe_API_WithImage(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -950,7 +950,7 @@ func TestUpdateRecipe_API(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
@@ -979,7 +979,7 @@ func TestUpdateRecipe_API_NotFound(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
@@ -1013,7 +1013,7 @@ func TestUpdateRecipe_API_ImageHandling(t *testing.T) {
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)

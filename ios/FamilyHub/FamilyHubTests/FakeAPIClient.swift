@@ -29,9 +29,9 @@ final class FakeAPIClient: APIClientProtocol {
     var updateFamilyNameResult: Result<Void, Error> = .success(())
     var promoteUserResult: Result<User, Error> = .success(User(id: "2", name: "Other", email: "other@example.com", avatarURL: "", role: "admin"))
     var demoteUserResult: Result<User, Error> = .success(User(id: "2", name: "Other", email: "other@example.com", avatarURL: "", role: "member"))
-    var categoriesResult: Result<[Category], Error> = .success([])
-    var createCategoryResult: Result<Category, Error> = .success(Category(id: "1", name: "Test"))
-    var updateCategoryResult: Result<Category, Error> = .success(Category(id: "1", name: "Updated"))
+    var categoriesResult: Result<[FamilyHub.Category], Error> = .success([])
+    var createCategoryResult: Result<FamilyHub.Category, Error> = .success(FamilyHub.Category(id: "1", name: "Test"))
+    var updateCategoryResult: Result<FamilyHub.Category, Error> = .success(FamilyHub.Category(id: "1", name: "Updated"))
     var deleteCategoryResult: Result<Void, Error> = .success(())
     var tokensResult: Result<[APIToken], Error> = .success([])
     var createTokenResult: Result<CreatedToken, Error> = .success(CreatedToken(id: "1", name: "Test", plaintext: "abc123"))
@@ -62,9 +62,9 @@ final class FakeAPIClient: APIClientProtocol {
     func updateFamilyName(_ name: String) async throws { try updateFamilyNameResult.get() }
     func promoteUser(id: String) async throws -> User { try promoteUserResult.get() }
     func demoteUser(id: String) async throws -> User { try demoteUserResult.get() }
-    func fetchCategories() async throws -> [Category] { try categoriesResult.get() }
-    func createCategory(name: String) async throws -> Category { try createCategoryResult.get() }
-    func updateCategory(id: String, name: String) async throws -> Category { try updateCategoryResult.get() }
+    func fetchCategories() async throws -> [FamilyHub.Category] { try categoriesResult.get() }
+    func createCategory(name: String) async throws -> FamilyHub.Category { try createCategoryResult.get() }
+    func updateCategory(id: String, name: String) async throws -> FamilyHub.Category { try updateCategoryResult.get() }
     func deleteCategory(id: String) async throws { try deleteCategoryResult.get() }
     func fetchTokens() async throws -> [APIToken] { try tokensResult.get() }
     func createToken(name: String) async throws -> CreatedToken { try createTokenResult.get() }

@@ -67,11 +67,11 @@ final class APIClient: APIClientProtocol {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"\(field)\"; filename=\"upload\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"\(field)\"; filename=\"upload\"\r\n".utf8))
+        body.append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
         body.append(data)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         request.httpBody = body
 
         let (responseData, response) = try await perform(request)
@@ -82,10 +82,15 @@ final class APIClient: APIClientProtocol {
         guard let authManager else { throw APIError.unauthorized }
         let token = try await authManager.validAPIToken()
 
-        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
+            throw APIError.network(URLError(.badURL))
+        }
         if !queryItems.isEmpty { components.queryItems = queryItems }
+        guard let requestURL = components.url else {
+            throw APIError.network(URLError(.badURL))
+        }
 
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: requestURL)
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return request
@@ -94,7 +99,10 @@ final class APIClient: APIClientProtocol {
     private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         do {
             let (data, response) = try await session.data(for: request)
-            return (data, response as! HTTPURLResponse)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.network(URLError(.badServerResponse))
+            }
+            return (data, httpResponse)
         } catch {
             throw APIError.network(error)
         }

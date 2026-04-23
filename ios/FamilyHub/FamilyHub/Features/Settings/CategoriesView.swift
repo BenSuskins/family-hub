@@ -75,7 +75,9 @@ struct CategoriesView: View {
                 Text(category.name)
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
-                            Task { await viewModel.delete(at: IndexSet([viewModel.categories.firstIndex(where: { $0.id == category.id })!])) }
+                            if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) {
+                                Task { await viewModel.delete(at: IndexSet([index])) }
+                            }
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }

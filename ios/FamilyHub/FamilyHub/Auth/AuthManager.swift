@@ -61,7 +61,9 @@ final class AuthManager: NSObject {
         let (codeVerifier, codeChallenge) = generatePKCE()
         let state = UUID().uuidString
 
-        var components = URLComponents(url: config.authorizationEndpoint, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: config.authorizationEndpoint, resolvingAgainstBaseURL: false) else {
+            throw AuthError.invalidConfiguration
+        }
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id",     value: config.clientID),
@@ -71,7 +73,9 @@ final class AuthManager: NSObject {
             URLQueryItem(name: "code_challenge", value: codeChallenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
         ]
-        let authURL = components.url!
+        guard let authURL = components.url else {
+            throw AuthError.invalidConfiguration
+        }
 
         let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(
@@ -172,7 +176,10 @@ extension AuthManager: ASWebAuthenticationPresentationContextProviding {
         if let keyWindow = scenes.flatMap(\.windows).first(where: { $0.isKeyWindow }) {
             return keyWindow
         }
-        return ASPresentationAnchor(windowScene: scenes.first!)
+        if let scene = scenes.first {
+            return ASPresentationAnchor(windowScene: scene)
+        }
+        return ASPresentationAnchor()
     }
 }
 
@@ -180,6 +187,7 @@ extension AuthManager: ASWebAuthenticationPresentationContextProviding {
 enum AuthError: Error {
     case cancelled
     case invalidCallback
+    case invalidConfiguration
 }
 
 private struct TokenResponse: Decodable {

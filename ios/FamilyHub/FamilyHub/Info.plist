@@ -10,7 +10,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.familyhub.app</string>
+			<string>uk.co.suskins.familyhub</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>familyhub</string>

@@ -122,8 +122,7 @@ struct RecipesView: View {
                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                     } label: {
                         RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
-                            .frame(maxWidth: .infinity)
-                            .aspectRatio(3/4, contentMode: .fit)
+                            .frame(height: 190)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -141,8 +140,8 @@ private struct RecipeCard: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            heroImage
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Color.clear
+                .overlay { heroImage }
                 .clipped()
 
             LinearGradient(

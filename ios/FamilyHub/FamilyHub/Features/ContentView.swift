@@ -17,9 +17,8 @@ struct ContentView: View {
             Tab("Calendar", systemImage: "calendar") {
                 CalendarView(apiClient: apiClient)
             }
-            Tab("Search", systemImage: "magnifyingglass") {
-                SearchView(apiClient: apiClient)
-            }
         }
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

@@ -5,6 +5,18 @@ struct HomeView: View {
     @State private var showProfile = false
     private let apiClient: any APIClientProtocol
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMMM d"
+        return f
+    }()
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        f.amSymbol = "AM"; f.pmSymbol = "PM"
+        return f
+    }()
+
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
         _viewModel = State(wrappedValue: HomeViewModel(apiClient: apiClient))
@@ -12,27 +24,29 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                switch viewModel.state {
-                case .idle, .loading:
-                    Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    switch viewModel.state {
+                    case .idle, .loading:
                         ProgressView()
                             .frame(maxWidth: .infinity)
-                    }
-                case .failed(let error):
-                    Section {
+                            .padding(.top, 40)
+                    case .failed(let error):
                         Text(error.localizedDescription)
                             .foregroundStyle(.red)
+                            .padding()
+                    case .loaded(let stats):
+                        upNextSection
+                        mealsSection(stats)
+                        choresSection(stats)
                     }
-                case .loaded(let stats):
-                    statsSection(stats)
-                    mealsSection(stats)
-                    choreSection(stats)
                 }
+                .padding(.bottom, 24)
             }
-            .listStyle(.insetGrouped)
+            .meshBackground()
             .refreshable { await viewModel.load() }
-            .navigationTitle("Home")
+            .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -40,6 +54,7 @@ struct HomeView: View {
                     } label: {
                         UserAvatar(user: viewModel.currentUser, size: 32, apiClient: apiClient)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .sheet(isPresented: $showProfile) {
@@ -49,109 +64,256 @@ struct HomeView: View {
         .task { await viewModel.load() }
     }
 
-    @ViewBuilder
-    private func choreSection(_ stats: DashboardStats) -> some View {
-        let allDue = stats.choresOverdueList + stats.choresDueTodayList
-        Section {
-            if allDue.isEmpty {
-                Label("All caught up!", systemImage: "checkmark.circle")
+    // MARK: - Up Next
+
+    private var upNextSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                SectionHeaderLabel(text: "Up next")
+                Spacer()
+            }
+            if viewModel.todayEvents.isEmpty {
+                Text("No events today")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
             } else {
-                ForEach(allDue) { chore in
-                    HStack {
-                        choreRow(chore)
-                        Spacer()
-                        Button {
-                            Task { await viewModel.completeChore(id: chore.id) }
-                        } label: {
-                            Image(systemName: "checkmark.circle")
-                                .font(.title2)
-                                .foregroundStyle(.green)
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.todayEvents.prefix(3).enumerated()), id: \.element.id) { index, event in
+                        if index > 0 {
+                            Divider().padding(.leading, 20)
                         }
-                        .buttonStyle(.plain)
-                        .sensoryFeedback(.success, trigger: chore.status == .completed)
+                        EventRow(event: event, users: viewModel.users, timeFormatter: Self.timeFormatter)
                     }
                 }
+                .glassCard(radius: 16)
+                .padding(.horizontal, 16)
             }
-            NavigationLink {
-                ChoresListView(apiClient: apiClient)
-            } label: {
-                Text("See All Chores")
-            }
-        } header: {
-            Text("Chores")
         }
     }
 
-    private func choreRow(_ chore: Chore) -> some View {
-        HStack(spacing: 10) {
-            UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(chore.name)
-                    .font(.body)
-                HStack(spacing: 6) {
-                    if let user = viewModel.users[chore.assignedToUserID ?? ""] {
-                        Text(user.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let badge = chore.badge {
-                        Text(badge.label)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(badge.color)
-                    }
-                    if let date = chore.formattedDueDate {
-                        Text(date)
-                            .font(.caption2)
-                            .foregroundStyle(chore.status == .overdue ? .red : .orange)
-                    }
-                }
-            }
-        }
-    }
+    // MARK: - Today's Meals
 
     private func mealsSection(_ stats: DashboardStats) -> some View {
-        let meals = stats.todayMeals
-        return Section {
-            ForEach(["breakfast", "lunch", "dinner"], id: \.self) { type in
-                mealRow(label: type.capitalized, name: meals.first(where: { $0.mealType == type })?.name)
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeaderLabel(text: "Today's Meals")
+            VStack(spacing: 0) {
+                ForEach(Array(["breakfast", "lunch", "dinner"].enumerated()), id: \.element) { index, mealType in
+                    let plan = stats.todayMeals.first(where: { $0.mealType == mealType })
+                    if index > 0 {
+                        Divider().padding(.leading, 80)
+                    }
+                    MealSlotRow(
+                        slot: mealType.capitalized,
+                        mealPlan: plan,
+                        apiClient: apiClient
+                    )
+                }
             }
-        } header: {
-            Text("Today's Meals")
+            .glassCard(radius: 18)
+            .padding(.horizontal, 16)
         }
     }
 
-    private func mealRow(label: String, name: String?) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(name ?? "—")
-                .foregroundStyle(name != nil ? .primary : .tertiary)
-        }
-    }
+    // MARK: - Today's Chores
 
-    private func statsSection(_ stats: DashboardStats) -> some View {
-        Section {
-            HStack(spacing: 12) {
-                statItem(value: stats.choresDueToday + stats.choresOverdue, label: "Chores due")
-                Divider()
-                statItem(value: stats.mealsThisWeek, label: "Meals planned")
+    private func choresSection(_ stats: DashboardStats) -> some View {
+        let allDue = stats.choresOverdueList + stats.choresDueTodayList
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                SectionHeaderLabel(text: "Today's chores")
+                Spacer()
+                NavigationLink {
+                    ChoresListView(apiClient: apiClient)
+                } label: {
+                    Text("Manage")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.trailing, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
             }
-            .padding(.vertical, 4)
-        } header: {
-            Text("This Week")
-        }
-    }
 
-    private func statItem(value: Int, label: String) -> some View {
-        VStack(spacing: 2) {
-            Text("\(value)")
-                .font(.title2.bold())
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if allDue.isEmpty {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.appGreen)
+                    Text("All caught up!")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(allDue.enumerated()), id: \.element.id) { index, chore in
+                        if index > 0 {
+                            Divider().padding(.leading, 64)
+                        }
+                        ChoreRow(
+                            chore: chore,
+                            user: viewModel.users[chore.assignedToUserID ?? ""],
+                            apiClient: apiClient,
+                            onComplete: {
+                                Task { await viewModel.completeChore(id: chore.id) }
+                            }
+                        )
+                    }
+                }
+                .glassCard(radius: 16)
+                .padding(.horizontal, 16)
+            }
         }
-        .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - EventRow
+
+private struct EventRow: View {
+    let event: CalendarEvent
+    let users: [String: User]
+    let timeFormatter: DateFormatter
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(hex: event.color) ?? .accentColor)
+                .frame(width: 4, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                if event.allDay {
+                    Text("All day")
+                        .font(.system(size: 13, weight: .semibold, design: .default))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(timeFormatter.string(from: event.startTime))
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                    if let end = event.endTime {
+                        Text(timeFormatter.string(from: end))
+                            .font(.system(size: 12).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(width: 60, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title)
+                    .font(.system(size: 16))
+                    .lineLimit(1)
+                if !event.description.isEmpty {
+                    Text(event.description)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+    }
+}
+
+// MARK: - MealSlotRow
+
+private struct MealSlotRow: View {
+    let slot: String
+    let mealPlan: MealPlan?
+    let apiClient: any APIClientProtocol
+
+    var body: some View {
+        HStack(spacing: 14) {
+            RecipeThumbView(
+                recipeID: mealPlan?.recipeID,
+                apiClient: apiClient,
+                size: 52,
+                cornerRadius: 12
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(slot.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .kerning(0.5)
+                Text(mealPlan?.name ?? "Not planned")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(mealPlan != nil ? .primary : .tertiary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(minHeight: 64)
+    }
+}
+
+// MARK: - ChoreRow
+
+private struct ChoreRow: View {
+    let chore: Chore
+    let user: User?
+    let apiClient: any APIClientProtocol
+    let onComplete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            UserAvatar(user: user, size: 32, apiClient: apiClient)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chore.name)
+                    .font(.system(size: 16, weight: .medium))
+                    .strikethrough(chore.status == .completed)
+                    .foregroundStyle(chore.status == .completed ? .tertiary : .primary)
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if let user {
+                        Text(user.name)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    if chore.status == .overdue {
+                        Text("Overdue")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.red)
+                    } else if let date = chore.formattedDueDate {
+                        Text(date)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button(action: onComplete) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(Color.appGreen, lineWidth: 1.5)
+                        .frame(width: 28, height: 28)
+                        .opacity(chore.status == .completed ? 0 : 1)
+                    Circle()
+                        .fill(Color.appGreen)
+                        .frame(width: 28, height: 28)
+                        .opacity(chore.status == .completed ? 1 : 0)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .opacity(chore.status == .completed ? 1 : 0)
+                }
+            }
+            .buttonStyle(.plain)
+            .sensoryFeedback(.success, trigger: chore.status == .completed)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 56)
+    }
+}
+

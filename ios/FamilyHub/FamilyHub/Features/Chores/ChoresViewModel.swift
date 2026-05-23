@@ -8,6 +8,7 @@ final class ChoresViewModel {
     var state: ViewState<[Chore]> = .idle
     var errorMessage: String?
     var users: [String: User] = [:]
+    var currentUserID: String?
 
     // Derived from loaded chores
     var pendingChores: [Chore] {
@@ -30,6 +31,16 @@ final class ChoresViewModel {
         return chores.filter { $0.status == .completed }
     }
 
+    var todayChores: [Chore] {
+        guard case .loaded(let chores) = state else { return [] }
+        return chores.filter { $0.status == .pending && $0.badge == .dueToday }
+    }
+
+    var upcomingChores: [Chore] {
+        guard case .loaded(let chores) = state else { return [] }
+        return chores.filter { $0.status == .pending && $0.badge == .dueSoon }
+    }
+
     private let apiClient: any APIClientProtocol
 
     init(apiClient: any APIClientProtocol) {
@@ -40,9 +51,11 @@ final class ChoresViewModel {
         state = .loading
         async let choresTask = apiClient.fetchChores()
         async let usersTask = apiClient.fetchUsers()
+        async let meTask = apiClient.fetchMe()
         do {
-            let (chores, userList) = try await (choresTask, usersTask)
+            let (chores, userList, me) = try await (choresTask, usersTask, meTask)
             users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+            currentUserID = me.id
             state = .loaded(chores)
         } catch let error as APIError {
             state = .failed(error)

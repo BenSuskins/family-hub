@@ -24,14 +24,19 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                monthAccentHeader
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+
                 Picker("View", selection: $viewModel.viewMode) {
                     ForEach(CalendarViewMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
 
                 Group {
                     switch viewModel.viewMode {
@@ -45,8 +50,9 @@ struct CalendarView: View {
                 }
                 .animation(.spring(duration: 0.3), value: viewModel.viewMode)
             }
+            .meshBackground()
             .refreshable { await viewModel.load(forceRefresh: true) }
-            .navigationTitle(navigationTitle)
+            .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -69,6 +75,32 @@ struct CalendarView: View {
         .onChange(of: viewModel.viewMode) {
             Task { await viewModel.load() }
         }
+    }
+
+    private var monthAccentHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(monthName)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(Color.accentColor)
+            Text(yearName)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(.primary)
+            Spacer()
+        }
+    }
+
+    private var monthName: String {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: viewModel.currentDate)
+    }
+
+    private var yearName: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: viewModel.currentDate)
     }
 
     // MARK: - Navigation
@@ -364,16 +396,3 @@ private struct DayCell: View {
     }
 }
 
-// MARK: - Color from hex
-
-extension Color {
-    init?(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
-        guard cleaned.count == 6, let rgb = UInt64(cleaned, radix: 16) else { return nil }
-        self.init(
-            red: Double((rgb >> 16) & 0xFF) / 255,
-            green: Double((rgb >> 8) & 0xFF) / 255,
-            blue: Double(rgb & 0xFF) / 255
-        )
-    }
-}

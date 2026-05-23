@@ -66,19 +66,14 @@ struct HomeView: View {
 
     // MARK: - Up Next
 
+    @ViewBuilder
     private var upNextSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                SectionHeaderLabel(text: "Up next")
-                Spacer()
-            }
-            if viewModel.todayEvents.isEmpty {
-                Text("No events today")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-            } else {
+        if !viewModel.todayEvents.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    SectionHeaderLabel(text: "Up next")
+                    Spacer()
+                }
                 VStack(spacing: 0) {
                     ForEach(Array(viewModel.todayEvents.prefix(3).enumerated()), id: \.element.id) { index, event in
                         if index > 0 {

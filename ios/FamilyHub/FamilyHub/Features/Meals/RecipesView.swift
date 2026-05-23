@@ -92,7 +92,8 @@ struct RecipesView: View {
                     NavigationLink {
                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                     } label: {
-                        FeaturedRecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
+                        RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
+                            .frame(width: 250, height: 160)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -120,7 +121,8 @@ struct RecipesView: View {
                     NavigationLink {
                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                     } label: {
-                        RecipeCardView(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
+                        RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -130,52 +132,49 @@ struct RecipesView: View {
     }
 }
 
-// MARK: - Featured card (large, horizontal scroll)
+// MARK: - Recipe card (used in both featured scroll and grid)
 
-private struct FeaturedRecipeCard: View {
+private struct RecipeCard: View {
     let recipe: Recipe
     let imageData: Data?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottom) {
-                heroImage
-                    .frame(width: 250, height: 140)
-                    .clipped()
+        ZStack(alignment: .bottom) {
+            heroImage
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.55)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                .frame(height: 80)
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.55)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .frame(height: 80)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(recipe.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        if let prep = recipe.prepTime {
-                            Text("\(prep) min")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
-                        if let mealType = recipe.mealType {
-                            Text("·")
-                                .foregroundStyle(.white.opacity(0.7))
-                            Text(mealType.capitalized)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(recipe.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    if let prep = recipe.prepTime {
+                        Text("\(prep) min")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    if let mealType = recipe.mealType {
+                        Text("·")
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(mealType.capitalized)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.9))
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 250)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
     }
@@ -196,61 +195,6 @@ private struct FeaturedRecipeCard: View {
                     }
             }
         }
-    }
-}
-
-// MARK: - Grid card
-
-private struct RecipeCardView: View {
-    let recipe: Recipe
-    let imageData: Data?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Color.clear
-                .aspectRatio(4/3, contentMode: .fit)
-                .overlay {
-                    if let imageData, let uiImage = UIImage(data: imageData) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .overlay {
-                                Image(systemName: "fork.knife")
-                                    .foregroundStyle(.tertiary)
-                                    .font(.title2)
-                            }
-                    }
-                }
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(recipe.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                    .frame(minHeight: 36, alignment: .topLeading)
-                HStack(spacing: 8) {
-                    if let prep = recipe.prepTime {
-                        Label("\(prep) prep", systemImage: "clock")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let servings = recipe.servings {
-                        Label("\(servings)", systemImage: "person.2")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(minHeight: 14)
-            }
-            .padding(.horizontal, 6)
-            .padding(.bottom, 8)
-        }
-        .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
     }
 }
 

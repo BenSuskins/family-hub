@@ -123,6 +123,7 @@ struct RecipesView: View {
                     } label: {
                         RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
                             .frame(maxWidth: .infinity)
+                            .aspectRatio(3/4, contentMode: .fit)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }

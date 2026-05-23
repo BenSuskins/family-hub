@@ -228,6 +228,8 @@ struct EditingMeal: Identifiable {
 }
 
 private struct MealEditSheet: View {
+    enum InputMode { case recipe, text }
+
     let meal: EditingMeal
     let viewModel: MealsViewModel
     let apiClient: any APIClientProtocol
@@ -236,6 +238,7 @@ private struct MealEditSheet: View {
     @State private var recipes: [Recipe] = []
     @State private var isSaving = false
     @State private var recipeSearchQuery = ""
+    @State private var inputMode: InputMode = .recipe
     @Environment(\.dismiss) private var dismiss
 
     init(meal: EditingMeal, viewModel: MealsViewModel, apiClient: any APIClientProtocol) {
@@ -243,45 +246,35 @@ private struct MealEditSheet: View {
         self.viewModel = viewModel
         self.apiClient = apiClient
         _name = State(initialValue: meal.name)
+        _inputMode = State(initialValue: meal.name.isEmpty ? .recipe : .text)
     }
 
     private var filteredRecipes: [Recipe] {
-        let slotFiltered = recipes.filter { $0.mealType == nil || $0.mealType == meal.mealType }
-        guard !recipeSearchQuery.isEmpty else { return slotFiltered }
-        return slotFiltered.filter { $0.title.localizedCaseInsensitiveContains(recipeSearchQuery) }
+        guard !recipeSearchQuery.isEmpty else { return recipes }
+        return recipes.filter { $0.title.localizedCaseInsensitiveContains(recipeSearchQuery) }
+    }
+
+    private var canSave: Bool {
+        inputMode == .recipe ? selectedRecipeID != nil : !name.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    TextField("Meal name", text: $name)
-                } header: {
-                    Text(meal.mealType.capitalized)
-                }
-
-                Section("Pick a Recipe") {
-                    TextField("Search recipes", text: $recipeSearchQuery)
-                    ForEach(filteredRecipes) { recipe in
-                        Button {
-                            name = recipe.title
-                            selectedRecipeID = recipe.id
-                        } label: {
-                            HStack {
-                                Text(recipe.title)
-                                Spacer()
-                                if selectedRecipeID == recipe.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                        }
-                        .tint(.primary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    modeToggle
+                    if inputMode == .recipe {
+                        recipePickerSection
+                    } else {
+                        textInputSection
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle(meal.name.isEmpty ? "Add Meal" : "Edit Meal")
+            .meshBackground()
+            .navigationTitle(meal.name.isEmpty ? "Add \(meal.mealType.capitalized)" : "Edit \(meal.mealType.capitalized)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -298,13 +291,14 @@ private struct MealEditSheet: View {
                                     date: meal.date,
                                     mealType: meal.mealType,
                                     name: name,
-                                    recipeID: selectedRecipeID
+                                    recipeID: inputMode == .recipe ? selectedRecipeID : nil
                                 )
                                 isSaving = false
                                 if saved { dismiss() }
                             }
                         }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!canSave)
+                        .fontWeight(.semibold)
                     }
                 }
             }
@@ -313,9 +307,146 @@ private struct MealEditSheet: View {
         .task {
             do {
                 recipes = try await apiClient.fetchRecipes()
-            } catch {
-                // Recipes are optional — meal can still be saved with free text
+            } catch {}
+        }
+    }
+
+    // MARK: - Mode toggle
+
+    private var modeToggle: some View {
+        HStack(spacing: 10) {
+            ForEach([InputMode.recipe, InputMode.text], id: \.self) { mode in
+                let isSelected = inputMode == mode
+                Button {
+                    withAnimation(.spring(duration: 0.2)) { inputMode = mode }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: mode == .recipe ? "book" : "pencil")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                        Text(mode == .recipe ? "From recipe" : "Quick text")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(isSelected
+                                  ? Color.accentColor.opacity(0.12)
+                                  : Color(UIColor.secondarySystemGroupedBackground))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .sensoryFeedback(.selection, trigger: isSelected)
             }
+        }
+    }
+
+    // MARK: - Recipe picker
+
+    private var recipePickerSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14))
+                TextField("Search recipes", text: $recipeSearchQuery)
+                    .autocorrectionDisabled()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .padding(.bottom, 10)
+
+            VStack(spacing: 0) {
+                ForEach(Array(filteredRecipes.enumerated()), id: \.element.id) { index, recipe in
+                    if index > 0 {
+                        Divider().padding(.leading, 74)
+                    }
+                    Button {
+                        name = recipe.title
+                        selectedRecipeID = recipe.id
+                    } label: {
+                        HStack(spacing: 12) {
+                            RecipeThumbView(recipeID: recipe.id, apiClient: apiClient, size: 48, cornerRadius: 10)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(recipe.title)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                HStack(spacing: 4) {
+                                    if let prep = recipe.prepTime {
+                                        Text("\(prep) min")
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let mealType = recipe.mealType {
+                                        Text("·")
+                                            .foregroundStyle(.secondary)
+                                        Text(mealType.capitalized)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+
+                            ZStack {
+                                Circle()
+                                    .strokeBorder(selectedRecipeID == recipe.id ? Color.accentColor : Color(UIColor.tertiaryLabel), lineWidth: 1.5)
+                                    .frame(width: 22, height: 22)
+                                if selectedRecipeID == recipe.id {
+                                    Circle()
+                                        .fill(Color.accentColor)
+                                        .frame(width: 22, height: 22)
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: 68)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if filteredRecipes.isEmpty {
+                    Text(recipes.isEmpty ? "Loading…" : "No recipes found")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                }
+            }
+            .glassCard(radius: 14)
+        }
+    }
+
+    // MARK: - Text input
+
+    private var textInputSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("What's for \(meal.mealType.lowercased())?")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .kerning(0.4)
+                .padding(.horizontal, 4)
+
+            TextField("e.g. Wings and veg", text: $name, axis: .vertical)
+                .font(.system(size: 18))
+                .lineLimit(1...3)
+                .padding(14)
+                .glassCard(radius: 14)
         }
     }
 }

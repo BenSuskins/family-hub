@@ -45,12 +45,12 @@ struct RecipeFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                imageSection
                 basicInfoSection
                 timingSection
                 sourceSection
                 ingredientGroupsSection
                 stepsSection
-                imageSection
             }
             .navigationTitle(isEditing ? "Edit Recipe" : "New Recipe")
             .navigationBarTitleDisplayMode(.inline)
@@ -211,42 +211,65 @@ struct RecipeFormView: View {
     }
 
     private var imageSection: some View {
-        Section("Image") {
-            if let data = selectedImageData, let uiImage = UIImage(data: data) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(4/3, contentMode: .fill)
-                        .frame(maxHeight: 200)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    Button(role: .destructive) {
-                        selectedImageData = nil
-                        photoPickerItem = nil
-                        clearImage = true
-                    } label: {
-                        Label("Remove Image", systemImage: "trash")
+        Section {
+            PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                ZStack {
+                    if let data = selectedImageData, let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: 200)
+                            .clipped()
+                    } else if existingHasImage && !clearImage {
+                        Rectangle()
+                            .fill(Color(UIColor.quaternarySystemFill))
+                            .frame(maxWidth: .infinity, maxHeight: 200)
+                            .overlay {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(.secondary)
+                                    Text("Tap to change photo")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                    } else {
+                        Rectangle()
+                            .fill(Color(UIColor.quaternarySystemFill))
+                            .frame(maxWidth: .infinity, maxHeight: 200)
+                            .overlay {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "photo.badge.plus")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(.secondary)
+                                    Text("Add recipe photo")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                     }
+                }
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .listRowInsets(EdgeInsets())
+            .buttonStyle(.plain)
+
+            if selectedImageData != nil {
+                Button(role: .destructive) {
+                    selectedImageData = nil
+                    photoPickerItem = nil
+                    clearImage = true
+                } label: {
+                    Label("Remove Image", systemImage: "trash")
                 }
             } else if existingHasImage && !clearImage {
-                HStack {
-                    Label("Current image set", systemImage: "photo")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button(role: .destructive) {
-                        clearImage = true
-                    } label: {
-                        Text("Remove")
-                            .foregroundStyle(.red)
-                    }
+                Button(role: .destructive) {
+                    clearImage = true
+                } label: {
+                    Label("Remove Image", systemImage: "trash")
                 }
-            }
-
-            PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                Label(
-                    (selectedImageData != nil || (existingHasImage && !clearImage)) ? "Change Photo" : "Choose Photo",
-                    systemImage: "photo.badge.plus"
-                )
             }
         }
     }

@@ -37,8 +37,9 @@ struct RecipeDetailView: View {
                 recipeContent(displayRecipe)
             }
         }
-        .navigationTitle(recipe.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 4) {
@@ -48,32 +49,25 @@ struct RecipeDetailView: View {
                             subject: Text(recipe.title),
                             message: Text("Check out this recipe: \(recipe.title)")
                         ) {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                            toolbarCircleButton(systemImage: "square.and.arrow.up")
                         }
                     }
 
-                    Button {
-                        showCookMode = true
-                    } label: {
-                        Label("Cook", systemImage: "flame")
+                    Button { showCookMode = true } label: {
+                        toolbarCircleButton(systemImage: "flame")
                     }
                     .disabled(isLoading)
 
                     Menu {
-                        Button {
-                            showEditForm = true
-                        } label: {
+                        Button { showEditForm = true } label: {
                             Label("Edit", systemImage: "pencil")
                         }
                         .disabled(isLoading)
-
-                        Button(role: .destructive) {
-                            showDeleteConfirm = true
-                        } label: {
+                        Button(role: .destructive) { showDeleteConfirm = true } label: {
                             Label("Delete", systemImage: "trash")
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        toolbarCircleButton(systemImage: "ellipsis")
                     }
                 }
             }
@@ -120,89 +114,216 @@ struct RecipeDetailView: View {
         }
     }
 
+    // MARK: - Main content
+
     private func recipeContent(_ r: Recipe) -> some View {
-        List {
-            if let imageData, let uiImage = UIImage(data: imageData) {
-                Section {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxHeight: 250)
-                        .clipped()
-                        .listRowInsets(EdgeInsets())
-                }
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                heroSection(r)
+                metaPillsRow(r)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 6)
 
-            Section {
-                HStack(spacing: 16) {
-                    if let prep = r.prepTime {
-                        metaStat(label: "Prep", value: prep)
-                    }
-                    if let cook = r.cookTime {
-                        metaStat(label: "Cook", value: cook)
-                    }
-                    if let servings = r.servings {
-                        metaStat(label: "Serves", value: "\(servings)")
-                    }
+                if let ingredients = r.ingredients, !ingredients.isEmpty {
+                    ingredientsSection(ingredients)
                 }
-            }
 
-            if let sourceURL = r.sourceURL, !sourceURL.isEmpty, let url = URL(string: sourceURL) {
-                Section("Source") {
-                    Link(sourceURL, destination: url)
-                        .font(.subheadline)
-                        .lineLimit(1)
+                if let steps = r.steps, !steps.isEmpty {
+                    stepsSection(steps)
                 }
-            }
 
-            if let ingredients = r.ingredients, !ingredients.isEmpty {
-                ForEach(ingredients, id: \.name) { group in
-                    Section(group.name.isEmpty || group.name == "Main" ? "Ingredients" : group.name) {
-                        ForEach(group.items, id: \.self) { item in
-                            Text(item)
-                                .font(.subheadline)
-                        }
+                if let sourceURL = r.sourceURL, !sourceURL.isEmpty, let url = URL(string: sourceURL) {
+                    Link(destination: url) {
+                        Text("Source · \(sourceURL)")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 20)
                     }
                 }
-            }
 
-            if let steps = r.steps, !steps.isEmpty {
-                Section("Steps") {
-                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                        HStack(alignment: .top, spacing: 12) {
-                            Text("\(index + 1)")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(Color.accentColor)
-                                .frame(width: 22, alignment: .trailing)
-                            Text(step)
-                                .font(.subheadline)
-                        }
-                    }
-                }
-            }
-
-            Section {
-                Button {
-                    showCookMode = true
-                } label: {
-                    Label("Start Cooking", systemImage: "flame.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(isLoading)
+                Spacer(minLength: 80)
             }
         }
-        .listStyle(.insetGrouped)
+        .ignoresSafeArea(edges: .top)
+        .meshBackground()
     }
 
-    private func metaStat(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.title3.bold())
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    // MARK: - Hero
+
+    private func heroSection(_ r: Recipe) -> some View {
+        ZStack(alignment: .bottom) {
+            Group {
+                if let imageData, let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            Image(systemName: "fork.knife")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.tertiary)
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 280)
+            .clipped()
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.65)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .frame(height: 160)
+
+            VStack(alignment: .leading, spacing: 4) {
+                if let mealType = r.mealType {
+                    Text(mealType.uppercased())
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .kerning(0.6)
+                }
+                Text(r.title)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: 280)
+    }
+
+    // MARK: - Meta pills
+
+    private func metaPillsRow(_ r: Recipe) -> some View {
+        HStack(spacing: 8) {
+            if let prep = r.prepTime {
+                metaPill(icon: "clock", label: "\(prep) min")
+            }
+            if let cook = r.cookTime {
+                metaPill(icon: "flame", label: "\(cook) cook")
+            }
+            if let servings = r.servings {
+                metaPill(icon: "person.2", label: "\(servings) servings")
+            }
+            Spacer()
+        }
+    }
+
+    private func metaPill(icon: String, label: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+    }
+
+    // MARK: - Ingredients
+
+    private func ingredientsSection(_ groups: [IngredientGroup]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Ingredients")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+
+            ForEach(groups, id: \.name) { group in
+                if !group.name.isEmpty && group.name != "Main" {
+                    Text(group.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .kerning(0.4)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(group.items.enumerated()), id: \.element) { index, item in
+                        if index > 0 {
+                            Divider().padding(.leading, 46)
+                        }
+                        HStack(spacing: 12) {
+                            Circle()
+                                .strokeBorder(Color(UIColor.tertiaryLabel), lineWidth: 1.5)
+                                .frame(width: 18, height: 18)
+                            Text(item)
+                                .font(.system(size: 15))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: 44)
+                    }
+                }
+                .glassCard(radius: 12)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+        }
+    }
+
+    // MARK: - Steps
+
+    private func stepsSection(_ steps: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Method")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+
+            VStack(spacing: 10) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .top, spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 24, height: 24)
+                            Text("\(index + 1)")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.top, 1)
+
+                        Text(step)
+                            .font(.system(size: 15))
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(14)
+                    .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Toolbar circle button
+
+    private func toolbarCircleButton(systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(.white)
+            .frame(width: 32, height: 32)
+            .background(.ultraThinMaterial, in: Circle())
     }
 }

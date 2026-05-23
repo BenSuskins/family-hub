@@ -85,7 +85,7 @@ struct RecipesView: View {
     // MARK: - Featured horizontal scroll (first 2 recipes)
 
     private var featuredRow: some View {
-        let featured = Array(viewModel.filteredRecipes.prefix(2))
+        let featured = Array(viewModel.filteredRecipes.shuffled().prefix(2))
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(featured) { recipe in

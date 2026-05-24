@@ -158,7 +158,7 @@ private struct RecipeCard: View {
                     .lineLimit(2)
                 HStack(spacing: 6) {
                     if let prep = recipe.prepTime {
-                        Text("\(prep) min")
+                        Text(prep)
                             .font(.system(size: 12))
                             .foregroundStyle(.white.opacity(0.9))
                     }

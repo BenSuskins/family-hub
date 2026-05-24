@@ -77,7 +77,9 @@ struct RecipeFormView: View {
             .onChange(of: photoPickerItem) { _, item in
                 Task {
                     guard let item else { return }
-                    selectedImageData = try? await item.loadTransferable(type: Data.self)
+                    if let raw = try? await item.loadTransferable(type: Data.self) {
+                        selectedImageData = normalizedImageData(raw)
+                    }
                     clearImage = false
                 }
             }
@@ -344,6 +346,12 @@ struct RecipeFormView: View {
         } else {
             validationError = viewModel.errorMessage ?? "Failed to save recipe."
         }
+    }
+
+    private func normalizedImageData(_ data: Data) -> Data {
+        let serverCompatibleMagicBytes: Set<UInt8> = [0xFF, 0x89, 0x47, 0x52] // jpeg, png, gif, webp
+        guard let first = data.first, !serverCompatibleMagicBytes.contains(first) else { return data }
+        return UIImage(data: data).flatMap { $0.jpegData(compressionQuality: 0.85) } ?? data
     }
 
     private func buildImageDataString() -> String? {

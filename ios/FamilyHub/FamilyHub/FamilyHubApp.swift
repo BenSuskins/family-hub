@@ -4,29 +4,28 @@ import SwiftUI
 struct FamilyHubApp: App {
     @State private var configStore = ConfigStore()
     @State private var authManager = AuthManager()
-    @State private var isDemoMode = false
 
     var body: some Scene {
         WindowGroup {
-            if isDemoMode {
-                ContentView(apiClient: DemoAPIClient(), isDemoMode: true)
+            if authManager.isDemoMode {
+                ContentView(apiClient: DemoAPIClient())
                     .environment(configStore)
                     .environment(authManager)
             } else if !configStore.isConfigured {
-                SetupView(isDemoMode: $isDemoMode)
+                SetupView(isDemoMode: $authManager.isDemoMode)
                     .environment(configStore)
                     .environment(authManager)
             } else if !authManager.isAuthenticated {
-                LoginView(isDemoMode: $isDemoMode)
+                LoginView(isDemoMode: $authManager.isDemoMode)
                     .environment(configStore)
                     .environment(authManager)
             } else if let baseURL = URL(string: configStore.baseURL) {
                 let client = APIClient(baseURL: baseURL, authManager: authManager)
-                ContentView(apiClient: client, isDemoMode: false)
+                ContentView(apiClient: client)
                     .environment(configStore)
                     .environment(authManager)
             } else {
-                SetupView(isDemoMode: $isDemoMode)
+                SetupView(isDemoMode: $authManager.isDemoMode)
                     .environment(configStore)
                     .environment(authManager)
             }

@@ -6,6 +6,7 @@ import AuthenticationServices
 @MainActor
 final class AuthManager: NSObject {
     private(set) var isAuthenticated = false
+    var isDemoMode = false
     var loginError: String?
     private(set) var displayName: String = ""
     private(set) var email: String = ""
@@ -53,6 +54,7 @@ final class AuthManager: NSObject {
     func signOut() {
         keychain.clear()
         isAuthenticated = false
+        isDemoMode = false
     }
 
     // MARK: - Private helpers

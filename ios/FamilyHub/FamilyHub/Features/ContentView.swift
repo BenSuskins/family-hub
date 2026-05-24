@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     let apiClient: any APIClientProtocol
-    var isDemoMode: Bool = false
 
     var body: some View {
         TabView {
@@ -21,18 +20,5 @@ struct ContentView: View {
         }
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .safeAreaInset(edge: .top) {
-            if isDemoMode {
-                HStack(spacing: 6) {
-                    Image(systemName: "theatermasks")
-                    Text("Demo Mode — changes are not saved")
-                        .font(.caption.weight(.medium))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(.orange.opacity(0.15))
-                .foregroundStyle(.orange)
-            }
-        }
     }
 }

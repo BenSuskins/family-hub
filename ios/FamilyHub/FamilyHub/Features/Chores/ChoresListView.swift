@@ -190,7 +190,7 @@ struct ChoresListView: View {
                 NavigationLink {
                     ChoreDetailView(chore: chore, viewModel: viewModel, apiClient: apiClient)
                 } label: {
-                    ChoreListRow(
+                    ChoreRowView(
                         chore: chore,
                         user: viewModel.users[chore.assignedToUserID ?? ""],
                         apiClient: apiClient,
@@ -198,7 +198,9 @@ struct ChoresListView: View {
                             Task {
                                 await viewModel.complete(choreID: chore.id)
                             }
-                        }
+                        },
+                        minHeight: 60,
+                        showDateWhenOverdue: true
                     )
                 }
                 .buttonStyle(.plain)
@@ -209,75 +211,3 @@ struct ChoresListView: View {
     }
 }
 
-// MARK: - ChoreListRow
-
-private struct ChoreListRow: View {
-    let chore: Chore
-    let user: User?
-    let apiClient: any APIClientProtocol
-    let onComplete: () -> Void
-
-    private var isOverdue: Bool { chore.status == .overdue }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            UserAvatar(user: user, size: 32, apiClient: apiClient)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(chore.name)
-                    .font(.system(size: 16, weight: .medium))
-                    .strikethrough(chore.status == .completed)
-                    .foregroundStyle(chore.status == .completed ? .tertiary : .primary)
-                    .lineLimit(1)
-                HStack(spacing: 4) {
-                    if let user {
-                        Text(user.name)
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                        Text("·")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                    if isOverdue {
-                        Text("Overdue")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.red)
-                        if let date = chore.formattedDueDate {
-                            Text(date)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if let date = chore.formattedDueDate {
-                        Text(date)
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            Button(action: onComplete) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(Color.appGreen, lineWidth: 1.5)
-                        .frame(width: 28, height: 28)
-                        .opacity(chore.status == .completed ? 0 : 1)
-                    Circle()
-                        .fill(Color.appGreen)
-                        .frame(width: 28, height: 28)
-                        .opacity(chore.status == .completed ? 1 : 0)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .opacity(chore.status == .completed ? 1 : 0)
-                }
-            }
-            .buttonStyle(.plain)
-            .sensoryFeedback(.success, trigger: chore.status == .completed)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minHeight: 60)
-    }
-}

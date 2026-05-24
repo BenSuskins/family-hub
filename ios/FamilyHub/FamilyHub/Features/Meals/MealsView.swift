@@ -417,19 +417,12 @@ struct MealEditSheet: View {
 
                             Spacer(minLength: 0)
 
-                            ZStack {
-                                Circle()
-                                    .strokeBorder(selectedRecipeID == recipe.id ? Color.accentColor : Color(UIColor.tertiaryLabel), lineWidth: 1.5)
-                                    .frame(width: 22, height: 22)
-                                if selectedRecipeID == recipe.id {
-                                    Circle()
-                                        .fill(Color.accentColor)
-                                        .frame(width: 22, height: 22)
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(.white)
-                                }
-                            }
+                            CheckCircleView(
+                                isSelected: selectedRecipeID == recipe.id,
+                                size: 22,
+                                color: .accentColor,
+                                unselectedBorderColor: Color(UIColor.tertiaryLabel)
+                            )
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)

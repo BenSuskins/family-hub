@@ -6,6 +6,8 @@ struct LoginView: View {
     @Environment(ConfigStore.self) private var configStore
     @State private var isLoading = false
     @State private var appeared = false
+    @State private var baseURL: String = ""
+    @State private var discoveryError: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -20,7 +22,7 @@ struct LoginView: View {
                 Text("Family Hub")
                     .font(.largeTitle.bold())
 
-                Text("Manage chores, meals, and more.")
+                Text(configStore.isConfigured ? "Manage chores, meals, and more." : "Enter your server URL to get started.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -30,32 +32,62 @@ struct LoginView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                if let error = authManager.loginError {
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
+                if configStore.isConfigured {
+                    if let error = authManager.loginError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
 
-                Button {
-                    Task {
-                        isLoading = true
-                        await authManager.login(configStore: configStore)
-                        isLoading = false
+                    Button {
+                        Task {
+                            isLoading = true
+                            await authManager.login(configStore: configStore)
+                            isLoading = false
+                        }
+                    } label: {
+                        if isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Text("Sign In")
+                                .frame(maxWidth: .infinity)
+                        }
                     }
-                } label: {
-                    if isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Sign In")
-                            .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(isLoading)
+                } else {
+                    TextField("https://hub.example.com", text: $baseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+
+                    if let error = discoveryError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
                     }
+
+                    Button {
+                        Task { await connect() }
+                    } label: {
+                        if isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Text("Connect")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(isLoading || baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(isLoading)
 
                 Button("Try Demo") {
                     isDemoMode = true
@@ -74,6 +106,28 @@ struct LoginView: View {
             withAnimation(.spring(duration: 0.6)) {
                 appeared = true
             }
+        }
+    }
+
+    @MainActor
+    private func connect() async {
+        discoveryError = nil
+        isLoading = true
+        defer { isLoading = false }
+
+        guard let url = URL(string: baseURL.trimmingCharacters(in: .whitespaces)),
+              url.scheme == "http" || url.scheme == "https" else {
+            discoveryError = "Enter a valid http or https URL"
+            return
+        }
+
+        do {
+            let result = try await URLSessionOIDCDiscoveryService().discover(baseURL: url)
+            configStore.baseURL = url.absoluteString
+            configStore.applyDiscovery(result)
+            configStore.save()
+        } catch {
+            discoveryError = error.localizedDescription
         }
     }
 }

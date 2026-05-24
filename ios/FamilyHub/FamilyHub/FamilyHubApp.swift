@@ -11,11 +11,7 @@ struct FamilyHubApp: App {
                 ContentView(apiClient: DemoAPIClient())
                     .environment(configStore)
                     .environment(authManager)
-            } else if !configStore.isConfigured {
-                SetupView(isDemoMode: $authManager.isDemoMode)
-                    .environment(configStore)
-                    .environment(authManager)
-            } else if !authManager.isAuthenticated {
+            } else if !configStore.isConfigured || !authManager.isAuthenticated {
                 LoginView(isDemoMode: $authManager.isDemoMode)
                     .environment(configStore)
                     .environment(authManager)
@@ -25,7 +21,7 @@ struct FamilyHubApp: App {
                     .environment(configStore)
                     .environment(authManager)
             } else {
-                SetupView(isDemoMode: $authManager.isDemoMode)
+                LoginView(isDemoMode: $authManager.isDemoMode)
                     .environment(configStore)
                     .environment(authManager)
             }

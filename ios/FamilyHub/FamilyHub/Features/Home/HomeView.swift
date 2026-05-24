@@ -47,6 +47,7 @@ struct HomeView: View {
             .refreshable { await viewModel.load() }
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
+            .navigationSubtitle(Self.dateFormatter.string(from: Date()))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

@@ -50,7 +50,7 @@ jobs:
 
       - name: Install templ
         if: matrix.language == 'go'
-        run: go install github.com/a-h/templ/cmd/templ@latest
+        run: go install github.com/a-h/templ/cmd/templ@v0.3.977
 
       - name: Generate templ files
         if: matrix.language == 'go'

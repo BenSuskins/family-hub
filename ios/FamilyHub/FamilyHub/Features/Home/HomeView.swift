@@ -119,12 +119,41 @@ struct HomeView: View {
                     }
                     if let recipeID = plan?.recipeID {
                         let stub = Recipe(id: recipeID, title: plan!.name, steps: nil, ingredients: nil, mealType: plan!.mealType, servings: nil, prepTime: nil, cookTime: nil, sourceURL: nil, categoryID: nil, hasImage: false)
-                        NavigationLink {
-                            RecipeDetailView(recipe: stub, apiClient: apiClient, viewModel: recipesViewModel)
-                        } label: {
-                            MealSlotRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
+                        HStack(spacing: 0) {
+                            Button {
+                                editingMeal = EditingMeal(date: todayKey, mealType: mealType, name: plan!.name, recipeID: recipeID)
+                            } label: {
+                                RecipeThumbView(recipeID: recipeID, apiClient: apiClient, size: 52, cornerRadius: 12)
+                                    .padding(.leading, 14)
+                                    .padding(.vertical, 12)
+                                    .padding(.trailing, 14)
+                            }
+                            .buttonStyle(.plain)
+
+                            NavigationLink {
+                                RecipeDetailView(recipe: stub, apiClient: apiClient, viewModel: recipesViewModel)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(mealType.uppercased())
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(.secondary)
+                                            .kerning(0.5)
+                                        Text(plan!.name)
+                                            .font(.system(size: 17, weight: .medium))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                        .padding(.trailing, 14)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 64)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     } else {
                         Button {
                             editingMeal = EditingMeal(date: todayKey, mealType: mealType, name: plan?.name ?? "", recipeID: nil)

@@ -155,24 +155,25 @@ struct RecipeDetailView: View {
 
     private func heroSection(_ r: Recipe) -> some View {
         ZStack(alignment: .bottom) {
-            Group {
-                if let imageData, let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .overlay {
-                            Image(systemName: "fork.knife")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.tertiary)
-                        }
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 280)
+                .overlay {
+                    if let imageData, let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .overlay {
+                                Image(systemName: "fork.knife")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.tertiary)
+                            }
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 280)
-            .clipped()
+                .clipped()
 
             LinearGradient(
                 colors: [.clear, .black.opacity(0.65)],

@@ -155,19 +155,23 @@ private struct RecipeCard: View {
                 Text(recipe.title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
                     .lineLimit(2)
                 HStack(spacing: 6) {
                     if let prep = recipe.prepTime {
                         Text(prep)
                             .font(.system(size: 12))
                             .foregroundStyle(.white.opacity(0.9))
+                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
                     }
                     if let mealType = recipe.mealType {
                         Text("·")
                             .foregroundStyle(.white.opacity(0.7))
+                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
                         Text(mealType.capitalized)
                             .font(.system(size: 12))
                             .foregroundStyle(.white.opacity(0.9))
+                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
                     }
                 }
             }

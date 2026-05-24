@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MealsView: View {
     @State private var viewModel: MealsViewModel
+    @State private var recipesViewModel: RecipesViewModel
     @State private var editingMeal: EditingMeal?
 
     private static let dateKeyFormatter: DateFormatter = {
@@ -22,6 +23,7 @@ struct MealsView: View {
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
         _viewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
+        _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
     }
 
     private var isCurrentWeek: Bool {
@@ -158,16 +160,34 @@ struct MealsView: View {
                     if index > 0 {
                         Divider().padding(.leading, 74)
                     }
-                    Button {
-                        editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "")
-                    } label: {
-                        MealDayRow(
-                            slot: mealType.capitalized,
-                            mealPlan: plan,
-                            apiClient: apiClient
-                        )
+                    if let recipeID = plan?.recipeID {
+                        let stub = Recipe(id: recipeID, title: plan!.name, steps: nil, ingredients: nil, mealType: plan!.mealType, servings: nil, prepTime: nil, cookTime: nil, sourceURL: nil, categoryID: nil, hasImage: false)
+                        NavigationLink {
+                            RecipeDetailView(recipe: stub, apiClient: apiClient, viewModel: recipesViewModel)
+                        } label: {
+                            MealDayRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button {
+                                editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan!.name, recipeID: recipeID)
+                            } label: {
+                                Label("Change meal", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                Task { await viewModel.deleteMeal(date: dateKey, mealType: mealType) }
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
+                    } else {
+                        Button {
+                            editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: nil)
+                        } label: {
+                            MealDayRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .glassCard(radius: 12)
@@ -223,11 +243,12 @@ struct EditingMeal: Identifiable {
     let date: String
     let mealType: String
     var name: String
+    var recipeID: String?
 
     var id: String { "\(date)-\(mealType)" }
 }
 
-private struct MealEditSheet: View {
+struct MealEditSheet: View {
     enum InputMode { case recipe, text }
 
     let meal: EditingMeal
@@ -246,7 +267,8 @@ private struct MealEditSheet: View {
         self.viewModel = viewModel
         self.apiClient = apiClient
         _name = State(initialValue: meal.name)
-        _inputMode = State(initialValue: meal.name.isEmpty ? .recipe : .text)
+        _selectedRecipeID = State(initialValue: meal.recipeID)
+        _inputMode = State(initialValue: meal.recipeID != nil ? .recipe : (meal.name.isEmpty ? .recipe : .text))
     }
 
     private var filteredRecipes: [Recipe] {

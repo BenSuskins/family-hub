@@ -2,7 +2,10 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var viewModel: HomeViewModel
+    @State private var mealsViewModel: MealsViewModel
+    @State private var recipesViewModel: RecipesViewModel
     @State private var showProfile = false
+    @State private var editingMeal: EditingMeal?
     private let apiClient: any APIClientProtocol
 
     private static let dateFormatter: DateFormatter = {
@@ -16,10 +19,18 @@ struct HomeView: View {
         f.amSymbol = "AM"; f.pmSymbol = "PM"
         return f
     }()
+    private static let dateKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
         _viewModel = State(wrappedValue: HomeViewModel(apiClient: apiClient))
+        _mealsViewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
+        _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
     }
 
     var body: some View {
@@ -61,6 +72,11 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) {
                 ProfileView(apiClient: apiClient)
             }
+            .sheet(item: $editingMeal, onDismiss: {
+                Task { await viewModel.load() }
+            }) { meal in
+                MealEditSheet(meal: meal, viewModel: mealsViewModel, apiClient: apiClient)
+            }
         }
         .task { await viewModel.load() }
     }
@@ -92,7 +108,8 @@ struct HomeView: View {
     // MARK: - Today's Meals
 
     private func mealsSection(_ stats: DashboardStats) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let todayKey = Self.dateKeyFormatter.string(from: Date())
+        return VStack(alignment: .leading, spacing: 0) {
             SectionHeaderLabel(text: "Today's Meals")
             VStack(spacing: 0) {
                 ForEach(Array(["breakfast", "lunch", "dinner"].enumerated()), id: \.element) { index, mealType in
@@ -100,11 +117,22 @@ struct HomeView: View {
                     if index > 0 {
                         Divider().padding(.leading, 80)
                     }
-                    MealSlotRow(
-                        slot: mealType.capitalized,
-                        mealPlan: plan,
-                        apiClient: apiClient
-                    )
+                    if let recipeID = plan?.recipeID {
+                        let stub = Recipe(id: recipeID, title: plan!.name, steps: nil, ingredients: nil, mealType: plan!.mealType, servings: nil, prepTime: nil, cookTime: nil, sourceURL: nil, categoryID: nil, hasImage: false)
+                        NavigationLink {
+                            RecipeDetailView(recipe: stub, apiClient: apiClient, viewModel: recipesViewModel)
+                        } label: {
+                            MealSlotRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            editingMeal = EditingMeal(date: todayKey, mealType: mealType, name: plan?.name ?? "", recipeID: nil)
+                        } label: {
+                            MealSlotRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .glassCard(radius: 18)

@@ -256,20 +256,7 @@ struct RecipeDetailView: View {
 
                 VStack(spacing: 0) {
                     ForEach(Array(group.items.enumerated()), id: \.element) { index, item in
-                        if index > 0 {
-                            Divider().padding(.leading, 46)
-                        }
-                        HStack(spacing: 12) {
-                            Circle()
-                                .strokeBorder(Color(UIColor.tertiaryLabel), lineWidth: 1.5)
-                                .frame(width: 18, height: 18)
-                            Text(item)
-                                .font(.system(size: 15))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .frame(minHeight: 44)
+                        IngredientRow(item: item, showDivider: index > 0)
                     }
                 }
                 .glassCard(radius: 12)
@@ -326,5 +313,50 @@ struct RecipeDetailView: View {
             .foregroundStyle(.white)
             .frame(width: 32, height: 32)
             .background(.ultraThinMaterial, in: Circle())
+    }
+}
+
+// MARK: - IngredientRow
+
+private struct IngredientRow: View {
+    let item: String
+    let showDivider: Bool
+    @State private var checked = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if showDivider {
+                Divider().padding(.leading, 46)
+            }
+            Button {
+                withAnimation(.spring(duration: 0.2)) { checked.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .strokeBorder(checked ? Color.accentColor : Color(UIColor.tertiaryLabel), lineWidth: 1.5)
+                            .frame(width: 20, height: 20)
+                        if checked {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 20, height: 20)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    Text(item)
+                        .font(.system(size: 15))
+                        .foregroundStyle(checked ? .tertiary : .primary)
+                        .strikethrough(checked, color: .secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .sensoryFeedback(.selection, trigger: checked)
+        }
     }
 }

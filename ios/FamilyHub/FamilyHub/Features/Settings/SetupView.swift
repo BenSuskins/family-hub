@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SetupView: View {
+    @Binding var isDemoMode: Bool
     @Environment(ConfigStore.self) private var configStore
 
     var body: some View {
@@ -22,6 +23,16 @@ struct SetupView: View {
                     discoveryService: URLSessionOIDCDiscoveryService(),
                     onSave: {}
                 )
+
+                Spacer()
+
+                Button("Try Demo") {
+                    isDemoMode = true
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 32)
             }
             .navigationTitle("Setup")
             .navigationBarTitleDisplayMode(.inline)

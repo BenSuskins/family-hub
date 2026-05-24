@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
+    @Binding var isDemoMode: Bool
     @Environment(AuthManager.self) private var authManager
     @Environment(ConfigStore.self) private var configStore
     @State private var isLoading = false
@@ -54,6 +55,14 @@ struct LoginView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .disabled(isLoading)
+
+                Button("Try Demo") {
+                    isDemoMode = true
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .foregroundStyle(.secondary)
                 .disabled(isLoading)
             }
             .padding(.horizontal)

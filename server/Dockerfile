@@ -9,7 +9,7 @@ RUN npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minif
 
 FROM golang:1.25-alpine AS go-builder
 WORKDIR /app
-RUN go install github.com/a-h/templ/cmd/templ@latest
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.977
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .

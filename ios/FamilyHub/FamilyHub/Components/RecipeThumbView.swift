@@ -3,17 +3,18 @@ import UIKit
 
 /// Rounded thumbnail for a recipe slot in meal rows.
 ///
-/// Shows the recipe image when a recipeID is provided and the image loads.
-/// Shows a dashed placeholder with a + icon when recipeID is nil (empty slot).
-/// Shows a filled placeholder while loading.
+/// - Recipe with loaded image: shows the image.
+/// - Recipe loading: filled quaternary background.
+/// - No recipe, placeholderText provided: first letter on a muted background.
+/// - No recipe, no text (empty slot): dashed border with + icon.
 struct RecipeThumbView: View {
     let recipeID: String?
     let apiClient: any APIClientProtocol
     var size: CGFloat = 48
     var cornerRadius: CGFloat = 10
+    var placeholderText: String? = nil
 
     @State private var imageData: Data?
-    @State private var isLoading = false
 
     var body: some View {
         Group {
@@ -23,6 +24,8 @@ struct RecipeThumbView: View {
                     .scaledToFill()
             } else if recipeID != nil {
                 Color(.quaternarySystemFill)
+            } else if let initial = placeholderText?.first.map(String.init), !initial.isEmpty {
+                initialsPlaceholder(initial)
             } else {
                 dashedPlaceholder
             }
@@ -34,6 +37,15 @@ struct RecipeThumbView: View {
             guard let id = recipeID else { return }
             imageData = try? await apiClient.fetchRecipeImage(id: id)
         }
+    }
+
+    private func initialsPlaceholder(_ letter: String) -> some View {
+        Color(.tertiarySystemFill)
+            .overlay {
+                Text(letter.uppercased())
+                    .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(.secondaryLabel))
+            }
     }
 
     private var dashedPlaceholder: some View {

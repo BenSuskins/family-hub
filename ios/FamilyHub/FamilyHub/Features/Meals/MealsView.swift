@@ -206,7 +206,8 @@ private struct MealDayRow: View {
                 recipeID: mealPlan?.recipeID,
                 apiClient: apiClient,
                 size: 48,
-                cornerRadius: 10
+                cornerRadius: 10,
+                placeholderText: mealPlan?.name
             )
 
             VStack(alignment: .leading, spacing: 2) {

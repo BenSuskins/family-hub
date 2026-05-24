@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const maxAvatarBytes = 1 * 1024 * 1024 // 1 MB
+const maxAvatarBytes = 2 * 1024 * 1024 // 2 MB
 
 type ProfileHandler struct {
 	userRepo repository.UserRepository

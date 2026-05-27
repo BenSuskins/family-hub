@@ -2,6 +2,8 @@
 
 A family organization hub for managing chores, meals, recipes, and calendars. Go + Templ + HTMX + Tailwind web app backed by SQLite, with a SwiftUI iOS client and a Home Assistant integration sharing the same REST API. Auth via OIDC (single public PKCE client).
 
+**iOS app available on the App Store:** [Family Home Hub](https://apps.apple.com/gb/app/family-home-hub/id6761337807)
+
 ## Features
 
 - **Chores** — Create and manage chores with recurring schedules (daily, weekly, monthly, custom), random assignment from eligible groups, and completion tracking with automatic overdue detection.

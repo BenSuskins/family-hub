@@ -126,7 +126,7 @@ struct HomeView: View {
                     } label: {
                         Text("Calendar")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
                 VStack(spacing: 0) {
@@ -154,7 +154,7 @@ struct HomeView: View {
                 } label: {
                     Text("Plan")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             HStack(spacing: 12) {
@@ -185,7 +185,7 @@ struct HomeView: View {
                 } label: {
                     Text("Manage")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
 
@@ -276,7 +276,7 @@ private struct TodayMealCard: View {
                         .kerning(0.5)
                     Text(mealPlan?.name ?? "Not planned")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(hasRecipe ? .white : (hasContent ? .primary : .tertiary))
+                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white) : (hasContent ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)))
                         .lineLimit(3)
                         .minimumScaleFactor(0.85)
                 }

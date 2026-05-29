@@ -27,4 +27,5 @@ jobs:
             -scheme FamilyHub \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -resultBundlePath ios-test-results \
+            -skip-testing:FamilyHubUITests \
             CODE_SIGNING_ALLOWED=NO

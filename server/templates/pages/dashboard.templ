@@ -2,6 +2,8 @@ package pages
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/templates/components"
 	"github.com/bensuskins/family-hub/templates/layouts"
@@ -40,8 +42,17 @@ type DashboardProps struct {
 
 templ Dashboard(props DashboardProps) {
 	@layouts.Base("Dashboard", props.User, "/") {
-		<div class="space-y-8">
-			@components.PageHeader("Overview")
+		<div class="space-y-6">
+			<!-- Page Header -->
+			<div class="flex items-center justify-between">
+				<div>
+					<h1 class="text-2xl font-bold tracking-tight text-stone-900 dark:text-slate-100">Today</h1>
+					<p class="text-sm text-stone-500 dark:text-slate-400 mt-0.5">{ todayDateLabel() }</p>
+				</div>
+				<a href="/admin" class="shrink-0">
+					@components.UserAvatar(props.User.Name, props.User.AvatarURL, "h-9 w-9 text-sm")
+				</a>
+			</div>
 
 			<!-- Stat Cards -->
 			<div class="hidden sm:grid sm:grid-cols-3 gap-4">
@@ -73,34 +84,43 @@ templ Dashboard(props DashboardProps) {
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<!-- Chores Due Today -->
 				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6 hover:dark:ring-slate-600 transition-[ring-color] duration-200">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconClipboardList("h-5 w-5 text-emerald-500 dark:text-emerald-400")
-						<a href="/chores" class="text-lg font-semibold text-stone-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150">Chores Due</a>
+					<div class="flex items-center justify-between mb-4">
+						<span class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-slate-400">Today's Chores</span>
+						<a href="/chores" class="text-xs font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 transition-colors duration-150">Manage</a>
 					</div>
 					if len(props.ChoresDueToday) == 0 {
 						<p class="text-stone-400 dark:text-slate-500 text-sm">You're all caught up!</p>
 					} else {
 						<ul class="divide-y divide-zinc-100 dark:divide-slate-700">
 							for _, chore := range props.ChoresDueToday {
-								<li id={ "dashboard-chore-" + chore.ID } class="py-3 flex justify-between items-center">
-									<div class="flex items-center gap-2">
-										if chore.AssignedToUserID != nil {
-											@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-6 w-6 text-xs")
-										}
-										<div>
-											<p class="text-sm font-medium text-stone-900 dark:text-slate-100">{ chore.Name }</p>
-											<div class="flex items-center gap-2">
+								<li id={ "dashboard-chore-" + chore.ID } class="py-3 flex items-center gap-3">
+									if chore.AssignedToUserID != nil {
+										@components.UserAvatar(lookupUserName(props.UserNameMap, *chore.AssignedToUserID), lookupAvatarURL(props.UserAvatarMap, *chore.AssignedToUserID), "h-8 w-8 text-xs shrink-0")
+									}
+									<div class="flex-1 min-w-0">
+										<p class="text-base font-medium text-stone-900 dark:text-slate-100 truncate">{ chore.Name }</p>
+										if chore.Status == models.ChoreStatusOverdue {
+											<p class="text-sm text-red-500 dark:text-red-400">
 												if chore.AssignedToUserID != nil {
-													<p class="text-xs text-stone-500 dark:text-slate-400">{ lookupUserName(props.UserNameMap, *chore.AssignedToUserID) }</p>
+													{ lookupUserName(props.UserNameMap, *chore.AssignedToUserID) } ·
 												}
-												if chore.Status == models.ChoreStatusOverdue {
-													<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400">Overdue</span>
+												Overdue
+												if chore.DueDate != nil {
+													{ " " + chore.DueDate.Format("Jan 2") }
+												}
+											</p>
+										} else {
+											<p class="text-sm text-stone-400 dark:text-slate-500">
+												if chore.AssignedToUserID != nil {
+													{ lookupUserName(props.UserNameMap, *chore.AssignedToUserID) }
 													if chore.DueDate != nil {
-														<span class="text-xs text-red-600 dark:text-red-400">{ chore.DueDate.Format("Jan 2") }</span>
+														{ " · " + chore.DueDate.Format("Jan 2") }
 													}
+												} else if chore.DueDate != nil {
+													{ chore.DueDate.Format("Jan 2") }
 												}
-											</div>
-										</div>
+											</p>
+										}
 									</div>
 									if chore.Status != models.ChoreStatusCompleted {
 										<button
@@ -108,10 +128,10 @@ templ Dashboard(props DashboardProps) {
 											hx-post={ "/chores/" + chore.ID + "/complete" }
 											hx-target={ "#dashboard-chore-" + chore.ID }
 											hx-swap="delete"
-											class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 transition-all duration-150 hover:-translate-y-px active:translate-y-0"
+											class="w-7 h-7 rounded-full ring-1 ring-emerald-400 flex items-center justify-center shrink-0 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors duration-150"
+											aria-label="Complete chore"
 										>
-											@components.IconCheck("h-3.5 w-3.5")
-											Complete
+											@components.IconCheck("h-4 w-4 text-emerald-400")
 										</button>
 									}
 								</li>
@@ -122,24 +142,35 @@ templ Dashboard(props DashboardProps) {
 
 				<!-- Upcoming Events -->
 				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6 hover:dark:ring-slate-600 transition-[ring-color] duration-200">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconCalendarDays("h-5 w-5 text-indigo-500 dark:text-indigo-400")
-						<a href="/calendar" class="text-lg font-semibold text-stone-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150">Upcoming Events</a>
+					<div class="flex items-center justify-between mb-4">
+						<span class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-slate-400">Up Next</span>
+						<a href="/calendar" class="text-xs font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 transition-colors duration-150">See all</a>
 					</div>
 					if len(props.UpcomingEvents) == 0 {
 						<p class="text-stone-400 dark:text-slate-500 text-sm">Nothing on the calendar this week</p>
 					} else {
 						<ul class="divide-y divide-zinc-100 dark:divide-slate-700">
 							for _, event := range props.UpcomingEvents {
-								<li class="py-3">
-									<p class="text-sm font-medium text-stone-900 dark:text-slate-100">{ event.Title }</p>
-									<p class="text-xs text-stone-500 dark:text-slate-400">
+								<li class="py-3 flex items-center gap-3">
+									<div
+										class="shrink-0 w-1 h-9 rounded-full"
+										style={ eventColorStyle(event.Color) }
+									></div>
+									<div class="w-14 shrink-0">
 										if event.AllDay {
-											{ event.StartTime.Format("Jan 2") } (All day)
+											<p class="text-sm font-semibold text-stone-700 dark:text-slate-200">All day</p>
 										} else {
-											{ event.StartTime.Format("Jan 2, 3:04 PM") }
+											<p class="text-sm font-semibold text-stone-700 dark:text-slate-200 tabular-nums">{ event.StartTime.Format("3:04 PM") }</p>
 										}
-									</p>
+									</div>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-medium text-stone-900 dark:text-slate-100 truncate">{ event.Title }</p>
+										if !event.AllDay && event.EndTime != nil {
+											<p class="text-xs text-stone-500 dark:text-slate-400">{ event.StartTime.Format("Jan 2") }</p>
+										} else {
+											<p class="text-xs text-stone-500 dark:text-slate-400">{ event.StartTime.Format("Jan 2") }</p>
+										}
+									</div>
 								</li>
 							}
 						</ul>
@@ -148,31 +179,15 @@ templ Dashboard(props DashboardProps) {
 
 				<!-- Today's Meals -->
 				<div class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6 hover:dark:ring-slate-600 transition-[ring-color] duration-200">
-					<div class="flex items-center gap-2 mb-4">
-						@components.IconFire("h-5 w-5 text-amber-500 dark:text-amber-400")
-						<a href="/meals" class="text-lg font-semibold text-stone-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150">Today's Meals</a>
+					<div class="flex items-center justify-between mb-4">
+						<span class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-slate-400">Today's Meals</span>
+						<a href="/meals" class="text-xs font-medium text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-200 transition-colors duration-150">Plan</a>
 					</div>
-					if len(props.TodayMeals) == 0 {
-						<p class="text-stone-400 dark:text-slate-500 text-sm">No meals planned yet — what's cooking?</p>
-					} else {
-						<div class="space-y-2">
-							for _, meal := range props.TodayMeals {
-								<div class="flex items-baseline gap-2">
-									<span class="text-sm font-medium text-stone-400 dark:text-slate-500 w-16 shrink-0 capitalize">{ string(meal.MealType) }</span>
-									<div class="flex-1 text-base">
-										if meal.RecipeID != nil {
-											<span class="inline-flex items-center gap-1">
-												<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
-												@components.IconBookOpen("h-3.5 w-3.5 text-indigo-400 dark:text-indigo-300 shrink-0")
-											</span>
-										} else {
-											<span class="text-stone-900 dark:text-slate-100">{ meal.Name }</span>
-										}
-									</div>
-								</div>
-							}
-						</div>
-					}
+					<div class="divide-y divide-zinc-100 dark:divide-slate-700">
+						for _, mealType := range []models.MealType{models.MealTypeBreakfast, models.MealTypeLunch, models.MealTypeDinner} {
+							@dashboardMealRow(mealType, dashboardMealForType(props.TodayMeals, mealType))
+						}
+					</div>
 				</div>
 
 				<!-- Leaderboard -->
@@ -185,13 +200,46 @@ templ Dashboard(props DashboardProps) {
 	}
 }
 
+templ dashboardMealRow(mealType models.MealType, meal *models.MealPlan) {
+	if meal != nil {
+		<div class="flex items-center gap-3 py-3 min-h-[64px]">
+			<div class="w-14 h-14 rounded-xl shrink-0 overflow-hidden bg-stone-100 dark:bg-slate-700 flex items-center justify-center">
+				if meal.RecipeID != nil {
+					<img
+						src={ fmt.Sprintf("/recipes/%s/image", *meal.RecipeID) }
+						alt={ meal.Name }
+						class="w-full h-full object-cover"
+						onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+					/>
+					<div class="w-full h-full hidden items-center justify-center">
+						@components.IconFire("h-6 w-6 text-stone-300 dark:text-slate-600")
+					</div>
+				} else {
+					@components.IconFire("h-6 w-6 text-stone-300 dark:text-slate-600")
+				}
+			</div>
+			<div class="flex-1 min-w-0">
+				<p class="text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-slate-500 mb-0.5">{ string(mealType) }</p>
+				<p class="text-base font-medium text-stone-900 dark:text-slate-100 truncate">{ meal.Name }</p>
+			</div>
+		</div>
+	} else {
+		<a href="/meals" class="flex items-center gap-3 py-3 min-h-[64px] group">
+			<div class="w-14 h-14 rounded-xl shrink-0 border-2 border-dashed border-stone-200 dark:border-slate-600 flex items-center justify-center group-hover:border-stone-300 dark:group-hover:border-slate-500 transition-colors duration-150">
+				@components.IconPlus("h-5 w-5 text-stone-300 dark:text-slate-600")
+			</div>
+			<div class="flex-1 min-w-0">
+				<p class="text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-slate-500 mb-0.5">{ string(mealType) }</p>
+				<p class="text-base text-stone-300 dark:text-slate-600">Not planned</p>
+			</div>
+		</a>
+	}
+}
+
 templ LeaderboardTable(props LeaderboardProps) {
 	<div id="leaderboard" class="bg-white dark:bg-slate-800 ring-1 ring-zinc-200 dark:ring-slate-700 shadow-card rounded-xl p-6 hover:dark:ring-slate-600 transition-[ring-color] duration-200">
 		<div class="flex items-center justify-between mb-4">
-			<div class="flex items-center gap-2">
-				@components.IconTrophy("h-5 w-5 text-amber-500")
-				<h2 class="text-lg font-semibold text-stone-900 dark:text-slate-100">Leaderboard</h2>
-			</div>
+			<span class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-slate-400">Leaderboard</span>
 			<div class="flex space-x-1 bg-zinc-100 dark:bg-slate-700 p-1 rounded-lg">
 				<button
 					type="button"
@@ -297,4 +345,24 @@ func lookupAvatarURL(avatarMap map[string]string, userID string) string {
 		return ""
 	}
 	return avatarMap[userID]
+}
+
+func todayDateLabel() string {
+	return time.Now().Format("Monday, January 2")
+}
+
+func dashboardMealForType(meals []models.MealPlan, mealType models.MealType) *models.MealPlan {
+	for index := range meals {
+		if meals[index].MealType == mealType {
+			return &meals[index]
+		}
+	}
+	return nil
+}
+
+func eventColorStyle(color string) templ.SafeCSS {
+	if color == "" {
+		color = "#6366f1"
+	}
+	return templ.SafeCSS("background-color: " + color)
 }

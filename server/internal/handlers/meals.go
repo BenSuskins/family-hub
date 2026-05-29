@@ -146,7 +146,11 @@ func (handler *MealHandler) Cell(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if editMode {
-		pages.MealEditDrawer(date, mealType, meal).Render(ctx, w)
+		recipes, err := handler.recipeRepo.FindAll(ctx)
+		if err != nil {
+			slog.Error("finding recipes for edit drawer", "error", err)
+		}
+		pages.MealEditDrawer(date, mealType, meal, recipes).Render(ctx, w)
 	} else {
 		pages.MealSlotContent(date, mealType, meal).Render(ctx, w)
 	}
@@ -174,7 +178,7 @@ func (handler *MealHandler) RecipePicker(w http.ResponseWriter, r *http.Request)
 					MealType: mealType,
 					Name:     recipe.Title,
 					RecipeID: &recipe.ID,
-				}).Render(ctx, w)
+				}, recipes).Render(ctx, w)
 				return
 			}
 		}

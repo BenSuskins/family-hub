@@ -10,6 +10,7 @@ struct RecipesView: View {
     ]
 
     @State private var showCreateForm = false
+    @State private var isSearching = false
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
@@ -43,13 +44,20 @@ struct RecipesView: View {
             .meshBackground()
             .navigationTitle("Recipes")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $viewModel.searchQuery, prompt: "Search recipes")
+            .searchable(text: $viewModel.searchQuery, isPresented: $isSearching, prompt: "Search recipes")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showCreateForm = true
-                    } label: {
-                        Image(systemName: "plus")
+                    HStack(spacing: 4) {
+                        Button {
+                            isSearching = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        Button {
+                            showCreateForm = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
             }

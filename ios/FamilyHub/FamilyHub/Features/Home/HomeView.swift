@@ -46,28 +46,30 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    greetingHeader
-                    switch viewModel.state {
-                    case .idle, .loading:
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
-                    case .failed(let error):
-                        Text(error.localizedDescription)
-                            .foregroundStyle(.red)
-                            .padding()
-                    case .loaded(let stats):
-                        agendaSection
-                        mealsSection(stats)
-                        choresSection(stats)
+            VStack(spacing: 0) {
+                greetingHeader
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        switch viewModel.state {
+                        case .idle, .loading:
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
+                        case .failed(let error):
+                            Text(error.localizedDescription)
+                                .foregroundStyle(.red)
+                                .padding()
+                        case .loaded(let stats):
+                            agendaSection
+                            mealsSection(stats)
+                            choresSection(stats)
+                        }
                     }
+                    .padding(.bottom, 24)
                 }
-                .padding(.bottom, 24)
+                .refreshable { await viewModel.load() }
             }
             .meshBackground()
-            .refreshable { await viewModel.load() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showProfile) {

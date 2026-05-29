@@ -132,7 +132,7 @@ struct MealsView: View {
                     viewModel.goToCurrentWeek()
                 }
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
             }
 
             Spacer()

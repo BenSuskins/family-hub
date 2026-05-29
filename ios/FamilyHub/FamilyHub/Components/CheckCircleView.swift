@@ -10,7 +10,7 @@ struct CheckCircleView: View {
     var body: some View {
         ZStack {
             Circle()
-                .strokeBorder(isSelected ? color : unselectedBorderColor, lineWidth: 1.5)
+                .strokeBorder(unselectedBorderColor, lineWidth: 1.5)
                 .frame(width: size, height: size)
                 .opacity(isSelected ? 0 : 1)
             Circle()
@@ -19,8 +19,7 @@ struct CheckCircleView: View {
                 .opacity(isSelected ? 1 : 0)
             Image(systemName: "checkmark")
                 .font(.system(size: size * 0.46, weight: .semibold))
-                .foregroundStyle(.white)
-                .opacity(isSelected ? 1 : 0)
+                .foregroundStyle(isSelected ? .white : color)
         }
     }
 }

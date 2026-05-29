@@ -177,7 +177,8 @@ struct HomeView: View {
     // MARK: - Today's Chores
 
     private func choresSection(_ stats: DashboardStats) -> some View {
-        let allDue = stats.choresOverdueList + stats.choresDueTodayList
+        let allDue = (stats.choresOverdueList + stats.choresDueTodayList)
+            .filter { !viewModel.completedChoreIDs.contains($0.id) }
         return VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Today's chores") {
                 NavigationLink {
@@ -271,18 +272,18 @@ private struct TodayMealCard: View {
                 Spacer(minLength: 12)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(mealType.uppercased())
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(hasRecipe ? .white.opacity(0.75) : .secondary)
-                        .kerning(0.5)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.tertiary))
+                        .kerning(0.8)
                     Text(mealPlan?.name ?? "Not planned")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(hasRecipe ? AnyShapeStyle(.white) : (hasContent ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)))
                         .lineLimit(3)
                         .minimumScaleFactor(0.85)
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
             .background(cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -292,11 +293,11 @@ private struct TodayMealCard: View {
     @ViewBuilder
     private var iconBadge: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9)
-                .fill(hasRecipe ? Color.white.opacity(0.2) : iconTint.opacity(0.15))
-                .frame(width: 36, height: 36)
+            RoundedRectangle(cornerRadius: 7)
+                .fill(hasRecipe ? Color.white.opacity(0.2) : iconTint.opacity(0.16))
+                .frame(width: 22, height: 22)
             Image(systemName: mealIcon)
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(hasRecipe ? .white : iconTint)
         }
     }

@@ -8,14 +8,20 @@ struct MealsView: View {
     private static let dateKeyFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
-    private static let weekOfFormatter: DateFormatter = {
+    private static let weekStartFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
+    }()
+    private static let dayEndFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
     private static let dayNameFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "EEEE"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
     private static let dayNumberFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
+    }()
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MMM d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
 
     private let apiClient: any APIClientProtocol
@@ -30,20 +36,79 @@ struct MealsView: View {
         Calendar.current.isDate(viewModel.currentWeek, equalTo: Date(), toGranularity: .weekOfYear)
     }
 
+    private var weekRangeString: String {
+        let start = Self.weekStartFormatter.string(from: viewModel.currentWeek)
+        let endDate = Calendar.current.date(byAdding: .day, value: 6, to: viewModel.currentWeek)!
+        let endDay = Self.dayEndFormatter.string(from: endDate)
+        return "\(start) – \(endDay)"
+    }
+
+    private func plannedCount(from meals: [MealPlan]) -> Int {
+        meals.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
+    }
+
+    private var todayDateKey: String {
+        Self.dateKeyFormatter.string(from: Date())
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                editorialHeader(meals: loadedMeals)
                 weekNavStrip
                 scrollContent
             }
             .meshBackground()
-            .navigationTitle("Meal plan")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editingMeal) { meal in
                 MealEditSheet(meal: meal, viewModel: viewModel, apiClient: apiClient)
             }
         }
         .task { await viewModel.load() }
+    }
+
+    private var loadedMeals: [MealPlan] {
+        if case .loaded(let meals) = viewModel.state { return meals }
+        return []
+    }
+
+    // MARK: - Editorial Header
+
+    private func editorialHeader(meals: [MealPlan]) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(weekRangeString.uppercased())
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .kerning(1.4)
+                Text("Plan the week")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .tracking(-1.6)
+                    .padding(.top, 8)
+                if !meals.isEmpty {
+                    Text("\(plannedCount(from: meals)) of 21 meals planned")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+                }
+            }
+            Spacer(minLength: 0)
+            Button {
+                editingMeal = EditingMeal(date: todayDateKey, mealType: "dinner", name: "", recipeID: nil)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Color.accentColor, in: Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 16)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Week navigation strip
@@ -52,7 +117,6 @@ struct MealsView: View {
         HStack(spacing: 4) {
             Button {
                 viewModel.previousWeek()
-                Task { await viewModel.load() }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
@@ -61,26 +125,20 @@ struct MealsView: View {
             }
             .buttonStyle(.plain)
 
-            VStack(spacing: 1) {
-                Text("Week of \(Self.weekOfFormatter.string(from: viewModel.currentWeek))")
-                    .font(.system(size: 15, weight: .semibold))
-                if isCurrentWeek {
-                    Text("This week")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Button("Jump to this week") {
-                        viewModel.goToCurrentWeek()
-                        Task { await viewModel.load() }
-                    }
-                    .font(.system(size: 12))
+            Spacer()
+
+            if !isCurrentWeek {
+                Button("Jump to this week") {
+                    viewModel.goToCurrentWeek()
                 }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.accent)
             }
-            .frame(maxWidth: .infinity)
+
+            Spacer()
 
             Button {
                 viewModel.nextWeek()
-                Task { await viewModel.load() }
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
@@ -90,7 +148,7 @@ struct MealsView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Scroll content
@@ -134,104 +192,120 @@ struct MealsView: View {
 
     private func daySection(date: Date, dateKey: String, isToday: Bool, meals: [MealPlan]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // Day header
+            HStack(alignment: .center, spacing: 8) {
                 Text(Self.dayNameFormatter.string(from: date))
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(isToday ? Color.accentColor : Color.primary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(isToday ? Color.accentColor : .primary)
                 Text(Self.dayNumberFormatter.string(from: date))
-                    .font(.system(size: 16))
+                    .font(.system(size: 13).monospacedDigit())
                     .foregroundStyle(.tertiary)
-                    .monospacedDigit()
                 if isToday {
-                    Text("Today")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .kerning(0.5)
-                        .textCase(.uppercase)
+                    Text("TODAY")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                        .kerning(0.08 * 9.5)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
             .padding(.bottom, 8)
 
+            // Meal slots card
             VStack(spacing: 0) {
                 ForEach(Array(["breakfast", "lunch", "dinner"].enumerated()), id: \.element) { index, mealType in
                     let plan = meals.first(where: { $0.date == dateKey && $0.mealType == mealType })
                     if index > 0 {
                         Divider().padding(.leading, 74)
                     }
-                    if plan?.recipeID != nil {
-                        RecipeMealRow(
+                    MealsSlotRow(mealType: mealType, plan: plan) {
+                        editingMeal = EditingMeal(
+                            date: dateKey,
                             mealType: mealType,
-                            plan: plan!,
-                            apiClient: apiClient,
-                            recipesViewModel: recipesViewModel,
-                            onEdit: {
-                                editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan!.name, recipeID: plan!.recipeID)
-                            }
+                            name: plan?.name ?? "",
+                            recipeID: plan?.recipeID
                         )
-                        .contextMenu {
+                    }
+                    .contextMenu {
+                        if plan != nil {
                             Button(role: .destructive) {
                                 Task { await viewModel.deleteMeal(date: dateKey, mealType: mealType) }
                             } label: {
                                 Label("Remove", systemImage: "trash")
                             }
                         }
-                    } else {
-                        Button {
-                            editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: nil)
-                        } label: {
-                            MealDayRow(slot: mealType.capitalized, mealPlan: plan, apiClient: apiClient)
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
             }
-            .glassCard(radius: 12)
+            .glassCard(radius: 18)
             .padding(.horizontal, 16)
         }
     }
 }
 
-// MARK: - MealDayRow
+// MARK: - MealsSlotRow
 
-private struct MealDayRow: View {
-    let slot: String
-    let mealPlan: MealPlan?
-    let apiClient: any APIClientProtocol
+private struct MealsSlotRow: View {
+    let mealType: String
+    let plan: MealPlan?
+    let onTap: () -> Void
+
+    private var isEmpty: Bool {
+        plan == nil || plan!.name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var swatchColor: Color {
+        switch mealType {
+        case "breakfast": return Color(.systemOrange)
+        case "lunch":     return Color(.systemGreen)
+        default:          return Color(.systemIndigo)
+        }
+    }
+
+    private var swatchIcon: String {
+        mealType == "breakfast" ? "sun.horizon.fill" : "fork.knife"
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            RecipeThumbView(
-                recipeID: mealPlan?.recipeID,
-                apiClient: apiClient,
-                size: 48,
-                cornerRadius: 10,
-                placeholderText: mealPlan?.name
-            )
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Colored swatch
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(swatchColor.opacity(0.15))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: swatchIcon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(swatchColor)
+                }
+                .padding(.leading, 14)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(slot.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .kerning(0.4)
-                Text(mealPlan?.name ?? "—")
-                    .font(.system(size: 16))
-                    .foregroundStyle(mealPlan != nil ? .primary : .tertiary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            if mealPlan == nil {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
+                // Meal type label
+                Text(mealType.uppercased())
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.tertiary)
+                    .kerning(0.6)
+                    .frame(width: 64, alignment: .leading)
+
+                // Meal name or placeholder
+                Text(isEmpty ? "Tap to add" : (plan?.name ?? ""))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(isEmpty ? .tertiary : .primary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Trailing indicator
+                Image(systemName: isEmpty ? "plus" : "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(isEmpty ? Color.accentColor : Color(UIColor.tertiaryLabel))
+                    .padding(.trailing, 14)
             }
+            .frame(minHeight: 50)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(minHeight: 72)
+        .buttonStyle(.plain)
     }
 }
 

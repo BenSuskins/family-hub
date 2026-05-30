@@ -206,7 +206,10 @@ struct RecipeDetailView: View {
     private func metaPillsRow(_ r: Recipe) -> some View {
         HStack(spacing: 8) {
             if let prep = r.prepTime {
-                metaPill(icon: "clock", label: "\(prep) min")
+                metaPill(icon: "clock", label: prep)
+            }
+            if let cook = r.cookTime {
+                metaPill(icon: "flame", label: cook)
             }
             if let servings = r.servings {
                 metaPill(icon: "person.2", label: "\(servings) servings")

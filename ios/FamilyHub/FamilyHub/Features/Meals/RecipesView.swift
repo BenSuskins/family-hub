@@ -182,10 +182,12 @@ private struct RecipeCard: View {
 
     @ViewBuilder
     private var subtitleText: some View {
-        if let prep = recipe.prepTime, let mealType = recipe.mealType {
-            Text("\(prep)m · \(mealType.capitalized)")
-        } else if let prep = recipe.prepTime {
-            Text("\(prep)m")
+        let timeParts = [recipe.prepTime, recipe.cookTime].compactMap { $0 }
+        let timeString = timeParts.joined(separator: " · ")
+        if !timeString.isEmpty, let mealType = recipe.mealType {
+            Text("\(timeString) · \(mealType.capitalized)")
+        } else if !timeString.isEmpty {
+            Text(timeString)
         } else if let mealType = recipe.mealType {
             Text(mealType.capitalized)
         }

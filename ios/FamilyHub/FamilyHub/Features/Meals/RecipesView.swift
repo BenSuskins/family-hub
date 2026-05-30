@@ -152,9 +152,10 @@ private struct RecipeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            heroImage
+            Color.clear
                 .frame(maxWidth: .infinity)
                 .frame(height: imageHeight)
+                .overlay { heroImage }
                 .clipped()
 
             VStack(alignment: .leading, spacing: 3) {

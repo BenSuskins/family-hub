@@ -508,13 +508,16 @@ struct MealEditSheet: View {
                                     .lineLimit(1)
                                 HStack(spacing: 4) {
                                     if let prep = recipe.prepTime {
-                                        Text("\(prep) min")
+                                        Text(prep)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if recipe.prepTime != nil, recipe.mealType != nil {
+                                        Text("·")
                                             .font(.system(size: 13))
                                             .foregroundStyle(.secondary)
                                     }
                                     if let mealType = recipe.mealType {
-                                        Text("·")
-                                            .foregroundStyle(.secondary)
                                         Text(mealType.capitalized)
                                             .font(.system(size: 13))
                                             .foregroundStyle(.secondary)

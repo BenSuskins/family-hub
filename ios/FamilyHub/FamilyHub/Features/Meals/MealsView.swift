@@ -539,11 +539,24 @@ struct MealEditSheet: View {
                 .kerning(0.4)
                 .padding(.horizontal, 4)
 
-            TextField("e.g. Wings and veg", text: $name, axis: .vertical)
-                .font(.system(size: 18))
-                .lineLimit(1...3)
-                .padding(14)
-                .glassCard(radius: 14)
+            HStack(alignment: .top, spacing: 0) {
+                TextField("e.g. Wings and veg", text: $name, axis: .vertical)
+                    .font(.system(size: 18))
+                    .lineLimit(1...3)
+                if !name.isEmpty {
+                    Button {
+                        name = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color(UIColor.tertiaryLabel))
+                            .font(.system(size: 18))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                }
+            }
+            .padding(14)
+            .glassCard(radius: 14)
         }
     }
 }

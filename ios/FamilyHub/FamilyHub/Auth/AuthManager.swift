@@ -14,11 +14,30 @@ final class AuthManager: NSObject {
 
     private let keychain: KeychainStore
     private var cachedConfig: OIDCConfig?
+    private var unauthorizedObserver: NSObjectProtocol?
 
     init(keychain: KeychainStore = .shared) {
         self.keychain = keychain
         super.init()
         self.isAuthenticated = keychain.apiToken != nil
+
+        // Any 401 from the API layer signs the user out and routes back to login.
+        unauthorizedObserver = NotificationCenter.default.addObserver(
+            forName: .familyHubUnauthorized,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isAuthenticated else { return }
+                self.signOut()
+            }
+        }
+    }
+
+    deinit {
+        if let unauthorizedObserver {
+            NotificationCenter.default.removeObserver(unauthorizedObserver)
+        }
     }
 
     // MARK: - Login (OIDC/PKCE)

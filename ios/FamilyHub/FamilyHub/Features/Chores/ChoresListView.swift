@@ -25,9 +25,9 @@ struct ChoresListView: View {
                     .padding(.bottom, 14)
 
                 if case .failed(let error) = viewModel.state {
-                    Text(error.localizedDescription)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 20)
+                    ErrorStateView(error: error) { await viewModel.load() }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 40)
                 }
 
                 choresContent

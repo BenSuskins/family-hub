@@ -4,7 +4,7 @@ import SwiftUI
 final class APITokensViewModel {
     var tokens: [APIToken] = []
     var isLoading = false
-    var errorMessage: String?
+    var actionError: APIError?
     var newlyCreatedToken: CreatedToken?
 
     private let apiClient: any APIClientProtocol
@@ -19,7 +19,7 @@ final class APITokensViewModel {
         do {
             tokens = try await apiClient.fetchTokens()
         } catch {
-            errorMessage = "Failed to load tokens"
+            actionError = .from(error)
         }
     }
 
@@ -29,7 +29,7 @@ final class APITokensViewModel {
             newlyCreatedToken = created
             await load()
         } catch {
-            errorMessage = "Failed to create token"
+            actionError = .from(error)
         }
     }
 
@@ -40,7 +40,7 @@ final class APITokensViewModel {
             do {
                 try await apiClient.deleteToken(id: token.id)
             } catch {
-                errorMessage = "Failed to revoke token"
+                actionError = .from(error)
             }
         }
     }
@@ -103,14 +103,7 @@ struct APITokensView: View {
         .sheet(item: $viewModel.newlyCreatedToken) { created in
             CreatedTokenSheet(token: created)
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("OK") { viewModel.errorMessage = nil }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
-        }
+        .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }
     }
 }

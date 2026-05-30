@@ -21,11 +21,7 @@ struct RecipesView: View {
         NavigationStack {
             Group {
                 if case .failed(let error) = viewModel.state {
-                    ContentUnavailableView(
-                        "Error",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(error.localizedDescription)
-                    )
+                    ErrorStateView(error: error) { await viewModel.load() }
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {

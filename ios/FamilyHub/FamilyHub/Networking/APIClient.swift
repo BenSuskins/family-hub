@@ -3,6 +3,7 @@ import Foundation
 final class APIClient: APIClientProtocol {
     private let baseURL: URL
     private let session: URLSession
+    private let retryPolicy: RetryPolicy
     private weak var authManager: AuthManager?
     private let imageCache: NSCache<NSString, NSData> = {
         let c = NSCache<NSString, NSData>()
@@ -11,80 +12,139 @@ final class APIClient: APIClientProtocol {
         return c
     }()
 
-    init(baseURL: URL, session: URLSession = .shared, authManager: AuthManager) {
+    /// HTTP methods that are safe to retry automatically.
+    private static let idempotentMethods: Set<String> = ["GET", "PUT", "DELETE"]
+
+    private static let defaultDecoder = JSONDecoder()
+    private static let isoDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    init(baseURL: URL, session: URLSession = .shared, authManager: AuthManager, retryPolicy: RetryPolicy = .default) {
         self.baseURL = baseURL
         self.session = session
         self.authManager = authManager
+        self.retryPolicy = retryPolicy
     }
 
     // MARK: - Generic request helpers
 
-    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem] = []) async throws -> T {
-        let request = try await buildRequest(path: path, method: "GET", queryItems: queryItems)
-        let (data, response) = try await perform(request)
-        return try decode(T.self, from: data, response: response)
+    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem] = [], decoder: JSONDecoder = APIClient.defaultDecoder) async throws -> T {
+        try await send(path: path, method: "GET", queryItems: queryItems, decoder: decoder)
     }
 
     private func post(_ path: String) async throws {
-        let request = try await buildRequest(path: path, method: "POST")
-        let (_, response) = try await perform(request)
-        try validate(response: response)
+        try await sendVoid(path: path, method: "POST")
     }
 
     private func post<T: Decodable>(_ path: String) async throws -> T {
-        let request = try await buildRequest(path: path, method: "POST")
-        let (data, response) = try await perform(request)
-        return try decode(T.self, from: data, response: response)
+        try await send(path: path, method: "POST")
     }
 
     private func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
-        var request = try await buildRequest(path: path, method: "POST")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await perform(request)
-        return try decode(T.self, from: data, response: response)
+        try await send(path: path, method: "POST", body: body)
     }
 
     private func put<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
-        var request = try await buildRequest(path: path, method: "PUT")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await perform(request)
-        return try decode(T.self, from: data, response: response)
+        try await send(path: path, method: "PUT", body: body)
     }
 
     private func patch(_ path: String, body: some Encodable) async throws {
-        var request = try await buildRequest(path: path, method: "PATCH")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-        let (_, response) = try await perform(request)
-        try validate(response: response)
+        try await sendVoid(path: path, method: "PATCH", body: body)
     }
 
     private func delete(_ path: String, queryItems: [URLQueryItem] = []) async throws {
-        let request = try await buildRequest(path: path, method: "DELETE", queryItems: queryItems)
-        let (_, response) = try await perform(request)
-        try validate(response: response)
+        try await sendVoid(path: path, method: "DELETE", queryItems: queryItems)
     }
 
     private func uploadMultipart<T: Decodable>(_ path: String, field: String, data: Data, mimeType: String) async throws -> T {
-        var request = try await buildRequest(path: path, method: "POST")
         let boundary = UUID().uuidString
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
         body.append(Data("Content-Disposition: form-data; name=\"\(field)\"; filename=\"upload\"\r\n".utf8))
         body.append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
         body.append(data)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-        request.httpBody = body
 
-        let (responseData, response) = try await perform(request)
-        return try decode(T.self, from: responseData, response: response)
+        let (responseData, _) = try await performValidated(
+            path: path,
+            method: "POST",
+            body: body,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+        return try decode(T.self, from: responseData)
     }
 
-    private func buildRequest(path: String, method: String, queryItems: [URLQueryItem] = []) async throws -> URLRequest {
+    // MARK: - Unified request core
+
+    /// Build, send (with retries for idempotent methods), validate, and decode.
+    private func send<T: Decodable>(
+        path: String,
+        method: String,
+        body: (any Encodable)? = nil,
+        queryItems: [URLQueryItem] = [],
+        decoder: JSONDecoder = APIClient.defaultDecoder
+    ) async throws -> T {
+        let encodedBody = try body.map { try JSONEncoder().encode($0) }
+        let (data, _) = try await performValidated(
+            path: path,
+            method: method,
+            queryItems: queryItems,
+            body: encodedBody,
+            contentType: body == nil ? nil : "application/json"
+        )
+        return try decode(T.self, from: data, decoder: decoder)
+    }
+
+    /// Same as `send` but for endpoints that return no body to decode.
+    private func sendVoid(
+        path: String,
+        method: String,
+        body: (any Encodable)? = nil,
+        queryItems: [URLQueryItem] = []
+    ) async throws {
+        let encodedBody = try body.map { try JSONEncoder().encode($0) }
+        _ = try await performValidated(
+            path: path,
+            method: method,
+            queryItems: queryItems,
+            body: encodedBody,
+            contentType: body == nil ? nil : "application/json"
+        )
+    }
+
+    /// Perform a request, retrying transient failures for idempotent methods, and
+    /// map non-2xx responses to `APIError` (signaling 401 globally).
+    private func performValidated(
+        path: String,
+        method: String,
+        queryItems: [URLQueryItem] = [],
+        body: Data? = nil,
+        contentType: String? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        let isIdempotent = Self.idempotentMethods.contains(method)
+        return try await withRetry(
+            policy: retryPolicy,
+            shouldRetry: { isIdempotent && $0.isRetryable }
+        ) {
+            let request = try await self.buildRequest(
+                path: path, method: method, queryItems: queryItems, body: body, contentType: contentType
+            )
+            let (data, response) = try await self.perform(request)
+            try self.validate(data: data, response: response)
+            return (data, response)
+        }
+    }
+
+    private func buildRequest(
+        path: String,
+        method: String,
+        queryItems: [URLQueryItem] = [],
+        body: Data? = nil,
+        contentType: String? = nil
+    ) async throws -> URLRequest {
         guard let authManager else { throw APIError.unauthorized }
         let token = try await authManager.validAPIToken()
 
@@ -99,6 +159,8 @@ final class APIClient: APIClientProtocol {
         var request = URLRequest(url: requestURL)
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+        request.httpBody = body
         return request
     }
 
@@ -110,27 +172,50 @@ final class APIClient: APIClientProtocol {
             }
             return (data, httpResponse)
         } catch {
-            throw APIError.network(error)
+            throw APIError.from(error)
         }
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from data: Data, response: HTTPURLResponse) throws -> T {
-        try validate(response: response)
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data, decoder: JSONDecoder = APIClient.defaultDecoder) throws -> T {
         do {
-            return try JSONDecoder().decode(type, from: data)
+            return try decoder.decode(type, from: data)
         } catch {
-            throw APIError.decoding(error)
+            throw APIError.decoding
         }
     }
 
-    private func validate(response: HTTPURLResponse) throws {
-        switch response.statusCode {
-        case 200...299: return
-        case 401: throw APIError.unauthorized
-        case 404: throw APIError.notFound
-        case 409: throw APIError.conflict
-        default: throw APIError.server(response.statusCode)
+    private func validate(data: Data, response: HTTPURLResponse) throws {
+        guard let error = Self.mapStatus(data, response) else { return }
+        if case .unauthorized = error {
+            NotificationCenter.default.post(name: .familyHubUnauthorized, object: nil)
         }
+        throw error
+    }
+
+    /// Map an HTTP status to an `APIError`, capturing the plain-text server body
+    /// for 4xx/5xx responses. Returns `nil` for 2xx (success).
+    private static func mapStatus(_ data: Data, _ response: HTTPURLResponse) -> APIError? {
+        switch response.statusCode {
+        case 200...299: return nil
+        case 400, 422:  return .badRequest(serverMessage: bodyText(data))
+        case 401:       return .unauthorized
+        case 403:       return .forbidden
+        case 404:       return .notFound
+        case 409:       return .conflict
+        case 429:       return .rateLimited(retryAfter: retryAfter(response))
+        default:        return .server(status: response.statusCode, serverMessage: bodyText(data))
+        }
+    }
+
+    private static func bodyText(_ data: Data) -> String? {
+        guard let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else { return nil }
+        return text
+    }
+
+    private static func retryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
+        guard let value = response.value(forHTTPHeaderField: "Retry-After") else { return nil }
+        return TimeInterval(value.trimmingCharacters(in: .whitespaces))
     }
 
     // MARK: - APIClientProtocol
@@ -170,9 +255,7 @@ final class APIClient: APIClientProtocol {
     func fetchUserAvatar(id: String) async throws -> Data {
         let key = "avatar-\(id)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
-        let request = try await buildRequest(path: "avatar/\(id)", method: "GET")
-        let (data, response) = try await perform(request)
-        try validate(response: response)
+        let (data, _) = try await performValidated(path: "avatar/\(id)", method: "GET")
         imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
@@ -188,9 +271,7 @@ final class APIClient: APIClientProtocol {
     func fetchRecipeImage(id: String) async throws -> Data {
         let key = "recipe-\(id)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
-        let request = try await buildRequest(path: "api/recipes/\(id)/image", method: "GET")
-        let (data, response) = try await perform(request)
-        try validate(response: response)
+        let (data, _) = try await performValidated(path: "api/recipes/\(id)/image", method: "GET")
         imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
@@ -220,13 +301,7 @@ final class APIClient: APIClientProtocol {
             queryItems.append(URLQueryItem(name: "date", value: formatter.string(from: date)))
         }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        let request = try await buildRequest(path: "api/calendar", method: "GET", queryItems: queryItems)
-        let (data, response) = try await perform(request)
-        try validate(response: response)
-        return try decoder.decode(CalendarResponse.self, from: data)
+        return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }
 
     func fetchUsers() async throws -> [User] {
@@ -308,12 +383,7 @@ final class APIClient: APIClientProtocol {
     // MARK: - API tokens
 
     func fetchTokens() async throws -> [APIToken] {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let request = try await buildRequest(path: "api/tokens", method: "GET")
-        let (data, response) = try await perform(request)
-        try validate(response: response)
-        return try decoder.decode([APIToken].self, from: data)
+        try await get("api/tokens", decoder: Self.isoDecoder)
     }
 
     func createToken(name: String) async throws -> CreatedToken {

@@ -175,11 +175,7 @@ struct MealsView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let error):
-            ContentUnavailableView(
-                "Error",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            ErrorStateView(error: error) { await viewModel.load() }
         case .loaded(let meals):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {

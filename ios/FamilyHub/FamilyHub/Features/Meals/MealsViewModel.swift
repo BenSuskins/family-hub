@@ -19,10 +19,8 @@ final class MealsViewModel {
         do {
             let meals = try await apiClient.fetchMeals(week: currentWeek)
             state = .loaded(meals)
-        } catch let error as APIError {
-            state = .failed(error)
         } catch {
-            state = .failed(.network(error))
+            state = .failed(.from(error))
         }
     }
 

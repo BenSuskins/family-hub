@@ -12,7 +12,7 @@ struct ProfileView: View {
     @State private var currentUser: User?
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
-    @State private var avatarError: String?
+    @State private var avatarError: APIError?
 
     private var displayName: String { currentUser?.name ?? authManager.displayName }
     private var displayEmail: String { currentUser?.email ?? authManager.email }
@@ -34,14 +34,7 @@ struct ProfileView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .alert("Avatar Error", isPresented: Binding(
-                get: { avatarError != nil },
-                set: { if !$0 { avatarError = nil } }
-            )) {
-                Button("OK") { avatarError = nil }
-            } message: {
-                Text(avatarError ?? "")
-            }
+            .errorAlert($avatarError)
             .task { currentUser = try? await apiClient.fetchMe() }
             .onChange(of: photoPickerItem) { _, item in
                 guard let item else { return }
@@ -165,7 +158,7 @@ struct ProfileView: View {
             let updated = try await apiClient.uploadAvatar(imageData: uploadData, mimeType: mimeType)
             currentUser = updated
         } catch {
-            avatarError = "Failed to upload photo"
+            avatarError = .from(error)
         }
     }
 
@@ -187,7 +180,7 @@ struct ProfileView: View {
             try await apiClient.deleteAvatar()
             currentUser = try await apiClient.fetchMe()
         } catch {
-            avatarError = "Failed to remove photo"
+            avatarError = .from(error)
         }
     }
 

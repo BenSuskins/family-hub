@@ -38,14 +38,14 @@ final class ChoresViewModelTests: XCTestCase {
     func testCompleteChoreFailureLeavesStateUnchanged() async {
         let fake = FakeAPIClient()
         fake.choresResult = .success([makeChore(id: "1", status: .pending)])
-        fake.completeChoreResult = .failure(APIError.server(500))
+        fake.completeChoreResult = .failure(APIError.server(status: 500, serverMessage: nil))
         let viewModel = ChoresViewModel(apiClient: fake)
         await viewModel.load()
 
         await viewModel.complete(choreID: "1")
 
         XCTAssertEqual(viewModel.pendingChores.count, 1)
-        XCTAssertNotNil(viewModel.errorMessage)
+        XCTAssertNotNil(viewModel.actionError)
     }
 
     func testOverdueChoresAreGroupedSeparately() async {

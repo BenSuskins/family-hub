@@ -27,7 +27,7 @@ final class HomeViewModelTests: XCTestCase {
 
     func testLoadFailure() async {
         let fake = FakeAPIClient()
-        fake.dashboardResult = .failure(APIError.server(500))
+        fake.dashboardResult = .failure(APIError.server(status: 500, serverMessage: nil))
         let viewModel = HomeViewModel(apiClient: fake)
 
         await viewModel.load()
@@ -36,7 +36,7 @@ final class HomeViewModelTests: XCTestCase {
             XCTFail("expected failed state")
             return
         }
-        if case .server(let code) = error {
+        if case .server(let code, _) = error {
             XCTAssertEqual(code, 500)
         } else {
             XCTFail("expected server error, got \(error)")
@@ -83,7 +83,7 @@ final class HomeViewModelTests: XCTestCase {
         fake.dashboardResult = .success(
             DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
         )
-        fake.completeChoreResult = .failure(APIError.server(500))
+        fake.completeChoreResult = .failure(APIError.server(status: 500, serverMessage: nil))
         let viewModel = HomeViewModel(apiClient: fake)
         await viewModel.load()
 

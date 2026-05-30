@@ -8,7 +8,7 @@ final class RecipesViewModel {
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
     var selectedMealType: String? = nil
-    var errorMessage: String?
+    var actionError: APIError?
     var recipeImages: [String: Data] = [:]
 
     static let mealTypeOptions: [String] = ["breakfast", "lunch", "dinner", "side", "dessert"]
@@ -47,10 +47,8 @@ final class RecipesViewModel {
             let recipes = try await apiClient.fetchRecipes()
             state = .loaded(recipes)
             await preloadImages(for: recipes)
-        } catch let error as APIError {
-            state = .failed(error)
         } catch {
-            state = .failed(.network(error))
+            state = .failed(.from(error))
         }
     }
 
@@ -85,7 +83,7 @@ final class RecipesViewModel {
             }
             return created
         } catch {
-            errorMessage = "Failed to create recipe"
+            actionError = .from(error)
             return nil
         }
     }
@@ -101,7 +99,7 @@ final class RecipesViewModel {
             }
             return updated
         } catch {
-            errorMessage = "Failed to update recipe"
+            actionError = .from(error)
             return nil
         }
     }
@@ -115,7 +113,7 @@ final class RecipesViewModel {
             }
             return true
         } catch {
-            errorMessage = "Failed to delete recipe"
+            actionError = .from(error)
             return false
         }
     }

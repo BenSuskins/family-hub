@@ -43,6 +43,23 @@ struct MealsView: View {
         return "\(start) – \(endDay)"
     }
 
+    private var weekRelativeLabel: String {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: Date())
+        let daysSinceFriday = (weekday - 6 + 7) % 7
+        let todayStart = calendar.startOfDay(for: Date())
+        let fridayAnchor = calendar.date(byAdding: .day, value: -daysSinceFriday, to: todayStart)!
+        let days = calendar.dateComponents([.day], from: fridayAnchor, to: viewModel.currentWeek).day ?? 0
+        let weeks = days / 7
+        switch weeks {
+        case 0:  return "This week"
+        case 1:  return "Next week"
+        case -1: return "Last week"
+        case let w where w > 1: return "In \(w) weeks"
+        default: return "\(-weeks) weeks ago"
+        }
+    }
+
     private func plannedCount(from meals: [MealPlan]) -> Int {
         meals.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
     }
@@ -82,7 +99,7 @@ struct MealsView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
                     .kerning(1.4)
-                Text("Plan the week")
+                Text(weekRelativeLabel)
                     .font(.system(size: 36, weight: .bold))
                     .foregroundStyle(.primary)
                     .tracking(-1.6)
@@ -103,38 +120,46 @@ struct MealsView: View {
     // MARK: - Week navigation strip
 
     private var weekNavStrip: some View {
-        HStack(spacing: 4) {
-            Button {
-                viewModel.previousWeek()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 32, height: 32)
-                    .background(Color(UIColor.secondarySystemGroupedBackground), in: Circle())
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
+                Button {
+                    viewModel.previousWeek()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 30)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    viewModel.nextWeek()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 38, height: 30)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 13))
+
+            Text(weekRangeString)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.secondary)
 
             Spacer()
 
             if !isCurrentWeek {
-                Button("Jump to this week") {
+                Button("Today") {
                     viewModel.goToCurrentWeek()
                 }
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 13))
             }
-
-            Spacer()
-
-            Button {
-                viewModel.nextWeek()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 32, height: 32)
-                    .background(Color(UIColor.secondarySystemGroupedBackground), in: Circle())
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

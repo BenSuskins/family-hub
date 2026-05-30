@@ -468,8 +468,13 @@ struct MealEditSheet: View {
                         Divider().padding(.leading, 74)
                     }
                     Button {
-                        name = recipe.title
-                        selectedRecipeID = recipe.id
+                        if selectedRecipeID == recipe.id {
+                            selectedRecipeID = nil
+                            name = ""
+                        } else {
+                            name = recipe.title
+                            selectedRecipeID = recipe.id
+                        }
                     } label: {
                         HStack(spacing: 12) {
                             RecipeThumbView(recipeID: recipe.id, apiClient: apiClient, size: 48, cornerRadius: 10)

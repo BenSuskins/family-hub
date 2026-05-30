@@ -6,6 +6,7 @@ struct HomeView: View {
     @State private var recipesViewModel: RecipesViewModel
     @State private var showProfile = false
     @State private var editingMeal: EditingMeal?
+    @State private var showRecipesView = false
     private let apiClient: any APIClientProtocol
 
     private static let dayDateFormatter: DateFormatter = {
@@ -162,17 +163,24 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 ForEach(["breakfast", "lunch", "dinner"], id: \.self) { mealType in
                     let plan = stats.todayMeals.first(where: { $0.mealType == mealType })
-                    TodayMealCard(mealType: mealType, mealPlan: plan) {
-                        editingMeal = EditingMeal(
-                            date: todayKey,
-                            mealType: mealType,
-                            name: plan?.name ?? "",
-                            recipeID: plan?.recipeID
-                        )
+                    TodayMealCard(mealType: mealType, mealPlan: plan, apiClient: apiClient) {
+                        if plan?.recipeID != nil {
+                            showRecipesView = true
+                        } else {
+                            editingMeal = EditingMeal(
+                                date: todayKey,
+                                mealType: mealType,
+                                name: plan?.name ?? "",
+                                recipeID: plan?.recipeID
+                            )
+                        }
                     }
                 }
             }
             .padding(.horizontal, 16)
+            .navigationDestination(isPresented: $showRecipesView) {
+                RecipesView(apiClient: apiClient)
+            }
         }
     }
 
@@ -250,13 +258,21 @@ private struct HomeSectionHeader<Action: View>: View {
 private struct TodayMealCard: View {
     let mealType: String
     let mealPlan: MealPlan?
+    let apiClient: any APIClientProtocol
     var onTap: () -> Void
 
-    private var hasContent: Bool { mealPlan != nil }
+    @State private var recipeImageData: Data?
+
+    private var hasContent: Bool { !(mealPlan?.name ?? "").isEmpty }
     private var hasRecipe: Bool { mealPlan?.recipeID != nil }
+    private var hasTextOnly: Bool { hasContent && !hasRecipe }
 
     private var mealIcon: String {
-        mealType == "breakfast" ? "sun.horizon.fill" : "fork.knife"
+        switch mealType {
+        case "breakfast": return "sun.horizon.fill"
+        case "lunch":     return "sun.max.fill"
+        default:          return "moon.stars.fill"
+        }
     }
 
     private var iconTint: Color {
@@ -277,9 +293,9 @@ private struct TodayMealCard: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(hasRecipe ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.tertiary))
                         .kerning(0.8)
-                    Text(mealPlan?.name ?? "Not planned")
+                    Text(hasContent ? mealPlan!.name : "–")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white) : (hasContent ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)))
+                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white) : (hasTextOnly ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)))
                         .lineLimit(3)
                         .minimumScaleFactor(0.85)
                 }
@@ -290,6 +306,11 @@ private struct TodayMealCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
+        .task(id: mealPlan?.recipeID) {
+            recipeImageData = nil
+            guard let id = mealPlan?.recipeID else { return }
+            recipeImageData = try? await apiClient.fetchRecipeImage(id: id)
+        }
     }
 
     @ViewBuilder
@@ -307,8 +328,23 @@ private struct TodayMealCard: View {
     @ViewBuilder
     private var cardBackground: some View {
         if hasRecipe {
+            if let data = recipeImageData, let uiImage = UIImage(data: data) {
+                ZStack {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                    Color.black.opacity(0.35)
+                }
+            } else {
+                LinearGradient(
+                    colors: [iconTint.opacity(0.7), iconTint.opacity(0.4)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        } else if hasTextOnly {
             LinearGradient(
-                colors: [Color(hex: "#2e7d54") ?? .green, Color(hex: "#1b5e38") ?? .green],
+                colors: [iconTint.opacity(0.18), iconTint.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

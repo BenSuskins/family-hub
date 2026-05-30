@@ -24,7 +24,7 @@ final class RecipesViewModelTests: XCTestCase {
 
     func testLoadFailure() async {
         let fake = FakeAPIClient()
-        fake.recipesResult = .failure(APIError.server(503))
+        fake.recipesResult = .failure(APIError.server(status: 503, serverMessage: nil))
         let viewModel = RecipesViewModel(apiClient: fake)
 
         await viewModel.load()

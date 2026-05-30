@@ -18,7 +18,7 @@ struct SearchView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failed(let error):
-                    ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error.localizedDescription))
+                    ErrorStateView(error: error) { await viewModel.load() }
                 case .loaded:
                     if viewModel.filteredRecipes.isEmpty {
                         ContentUnavailableView.search(text: viewModel.searchQuery)

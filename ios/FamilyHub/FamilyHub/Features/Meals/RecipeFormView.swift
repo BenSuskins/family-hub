@@ -344,7 +344,7 @@ struct RecipeFormView: View {
             onSave?(saved)
             dismiss()
         } else {
-            validationError = viewModel.errorMessage ?? "Failed to save recipe."
+            validationError = viewModel.actionError?.errorDescription ?? "Failed to save recipe."
         }
     }
 

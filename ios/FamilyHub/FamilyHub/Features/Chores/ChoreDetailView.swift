@@ -50,7 +50,7 @@ struct ChoreDetailView: View {
                             completionError = nil
                             let success = await viewModel.complete(choreID: chore.id)
                             isCompleting = false
-                            if success { dismiss() } else { completionError = viewModel.errorMessage }
+                            if success { dismiss() } else { completionError = viewModel.actionError?.errorDescription }
                         }
                     } label: {
                         HStack {

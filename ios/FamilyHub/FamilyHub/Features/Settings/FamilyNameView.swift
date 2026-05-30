@@ -6,7 +6,7 @@ struct FamilyNameView: View {
     @State private var familyName = ""
     @State private var isLoading = false
     @State private var isSaving = false
-    @State private var errorMessage: String?
+    @State private var actionError: APIError?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -29,14 +29,7 @@ struct FamilyNameView: View {
         .overlay {
             if isLoading { ProgressView() }
         }
-        .alert("Error", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK") { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "")
-        }
+        .errorAlert($actionError)
         .task { await load() }
     }
 
@@ -47,7 +40,7 @@ struct FamilyNameView: View {
             let settings = try await apiClient.fetchSettings()
             familyName = settings.familyName
         } catch {
-            errorMessage = "Failed to load settings"
+            actionError = .from(error)
         }
     }
 
@@ -58,7 +51,7 @@ struct FamilyNameView: View {
             try await apiClient.updateFamilyName(familyName.trimmingCharacters(in: .whitespaces))
             dismiss()
         } catch {
-            errorMessage = "Failed to save family name"
+            actionError = .from(error)
         }
     }
 }

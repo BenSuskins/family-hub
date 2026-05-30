@@ -4,7 +4,7 @@ import SwiftUI
 final class FamilyMembersViewModel {
     var users: [User] = []
     var isLoading = false
-    var errorMessage: String?
+    var actionError: APIError?
 
     private let apiClient: any APIClientProtocol
 
@@ -18,7 +18,7 @@ final class FamilyMembersViewModel {
         do {
             users = try await apiClient.fetchUsers()
         } catch {
-            errorMessage = "Failed to load members"
+            actionError = .from(error)
         }
     }
 
@@ -29,7 +29,7 @@ final class FamilyMembersViewModel {
                 users[index] = updated
             }
         } catch {
-            errorMessage = "Failed to promote \(user.name)"
+            actionError = .from(error)
         }
     }
 
@@ -40,7 +40,7 @@ final class FamilyMembersViewModel {
                 users[index] = updated
             }
         } catch {
-            errorMessage = "Failed to demote \(user.name)"
+            actionError = .from(error)
         }
     }
 }
@@ -95,14 +95,7 @@ struct FamilyMembersView: View {
                 ProgressView()
             }
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("OK") { viewModel.errorMessage = nil }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
-        }
+        .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }
     }
 }

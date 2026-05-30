@@ -140,10 +140,8 @@ struct CalendarView: View {
         ScrollView {
             VStack(spacing: 0) {
                 if case .failed(let error) = viewModel.state {
-                    Text(error.localizedDescription)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding()
+                    ErrorStateView(error: error) { await viewModel.load(forceRefresh: true) }
+                        .padding(.vertical, 24)
                 }
                 calendarGrid
                     .padding(.horizontal)

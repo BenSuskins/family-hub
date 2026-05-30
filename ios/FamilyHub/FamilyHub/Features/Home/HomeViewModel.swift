@@ -32,10 +32,8 @@ final class HomeViewModel {
             Self.cacheUser(me)
             todayEvents = cal.events
             state = .loaded(stats)
-        } catch let error as APIError {
-            state = .failed(error)
         } catch {
-            state = .failed(.network(error))
+            state = .failed(.from(error))
         }
     }
 

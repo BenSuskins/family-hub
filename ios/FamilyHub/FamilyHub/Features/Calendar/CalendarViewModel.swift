@@ -61,7 +61,7 @@ final class CalendarViewModel {
             state = .loaded(response)
         } catch {
             if responseCache[key] == nil {
-                state = .failed(error as? APIError ?? .network(error))
+                state = .failed(.from(error))
             }
         }
     }

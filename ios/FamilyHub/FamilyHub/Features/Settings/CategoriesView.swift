@@ -4,7 +4,7 @@ import SwiftUI
 final class CategoriesViewModel {
     var categories: [Category] = []
     var isLoading = false
-    var errorMessage: String?
+    var actionError: APIError?
 
     private let apiClient: any APIClientProtocol
 
@@ -18,7 +18,7 @@ final class CategoriesViewModel {
         do {
             categories = try await apiClient.fetchCategories()
         } catch {
-            errorMessage = "Failed to load categories"
+            actionError = .from(error)
         }
     }
 
@@ -27,7 +27,7 @@ final class CategoriesViewModel {
             let created = try await apiClient.createCategory(name: name)
             categories.append(created)
         } catch {
-            errorMessage = "Failed to create category"
+            actionError = .from(error)
         }
     }
 
@@ -38,7 +38,7 @@ final class CategoriesViewModel {
                 categories[index] = updated
             }
         } catch {
-            errorMessage = "Failed to rename category"
+            actionError = .from(error)
         }
     }
 
@@ -49,7 +49,7 @@ final class CategoriesViewModel {
             do {
                 try await apiClient.deleteCategory(id: category.id)
             } catch {
-                errorMessage = "Failed to delete \(category.name)"
+                actionError = .from(error)
             }
         }
     }
@@ -129,14 +129,7 @@ struct CategoriesView: View {
             }
             Button("Cancel", role: .cancel) { editingCategory = nil }
         }
-        .alert("Error", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
-            Button("OK") { viewModel.errorMessage = nil }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
-        }
+        .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }
     }
 }

@@ -6,7 +6,7 @@ import Observation
 @MainActor
 final class ChoresViewModel {
     var state: ViewState<[Chore]> = .idle
-    var errorMessage: String?
+    var actionError: APIError?
     var users: [String: User] = [:]
     var currentUserID: String?
 
@@ -57,10 +57,8 @@ final class ChoresViewModel {
             users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
             currentUserID = me.id
             state = .loaded(chores)
-        } catch let error as APIError {
-            state = .failed(error)
         } catch {
-            state = .failed(.network(error))
+            state = .failed(.from(error))
         }
     }
 
@@ -72,11 +70,8 @@ final class ChoresViewModel {
                 state = .loaded(chores)
             }
             return created
-        } catch let error as APIError {
-            errorMessage = error.localizedDescription
-            return nil
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = .from(error)
             return nil
         }
     }
@@ -91,11 +86,8 @@ final class ChoresViewModel {
                 state = .loaded(chores)
             }
             return updated
-        } catch let error as APIError {
-            errorMessage = error.localizedDescription
-            return nil
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = .from(error)
             return nil
         }
     }
@@ -108,11 +100,8 @@ final class ChoresViewModel {
                 state = .loaded(chores)
             }
             return true
-        } catch let error as APIError {
-            errorMessage = error.localizedDescription
-            return false
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = .from(error)
             return false
         }
     }
@@ -134,11 +123,8 @@ final class ChoresViewModel {
                 state = .loaded(chores)
             }
             return true
-        } catch let error as APIError {
-            errorMessage = error.localizedDescription
-            return false
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = .from(error)
             return false
         }
     }

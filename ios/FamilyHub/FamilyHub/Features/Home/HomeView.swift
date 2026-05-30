@@ -59,9 +59,9 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
                         case .failed(let error):
-                            Text(error.localizedDescription)
-                                .foregroundStyle(.red)
-                                .padding()
+                            ErrorStateView(error: error) { await viewModel.load() }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
                         case .loaded(let stats):
                             agendaSection
                             mealsSection(stats)

@@ -242,21 +242,18 @@ struct ShareView: View {
         urlRequest.timeoutInterval = 15
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: urlRequest)
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
             guard let http = response as? HTTPURLResponse else {
-                errorMessage = "Unexpected response."
+                errorMessage = "We received an unexpected response. Please try again."
                 return
             }
-            switch http.statusCode {
-            case 200...299:
+            if let message = ShareAPIError.message(forStatus: http.statusCode, body: data) {
+                errorMessage = message
+            } else {
                 onDismiss()
-            case 401:
-                errorMessage = "Not signed in. Please open Family Hub and sign in first."
-            default:
-                errorMessage = "Server error (\(http.statusCode)). Please try again."
             }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = ShareAPIError.message(for: error)
         }
     }
 }

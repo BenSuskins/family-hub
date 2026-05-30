@@ -187,7 +187,7 @@ final class DemoAPIClient: APIClientProtocol {
         meals.removeAll { $0.date == date && $0.mealType == mealType }
     }
 
-    func fetchRecipes() async throws -> [Recipe] { recipes }
+    func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] { recipes }
 
     func fetchRecipe(id: String) async throws -> Recipe {
         guard let recipe = recipes.first(where: { $0.id == id }) else { throw APIError.notFound }

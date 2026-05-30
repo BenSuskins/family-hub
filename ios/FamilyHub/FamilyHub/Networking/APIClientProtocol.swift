@@ -16,7 +16,7 @@ protocol APIClientProtocol: AnyObject {
     func deleteChore(id: String) async throws
     func fetchUserAvatar(id: String) async throws -> Data
     func fetchMeals(week: Date) async throws -> [MealPlan]
-    func fetchRecipes() async throws -> [Recipe]
+    func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe]
     func fetchRecipe(id: String) async throws -> Recipe
     func fetchRecipeImage(id: String) async throws -> Data
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe
@@ -50,4 +50,11 @@ protocol APIClientProtocol: AnyObject {
     func fetchTokens() async throws -> [APIToken]
     func createToken(name: String) async throws -> CreatedToken
     func deleteToken(id: String) async throws
+}
+
+extension APIClientProtocol {
+    /// Cache-friendly convenience used by callers that don't force a refresh.
+    func fetchRecipes() async throws -> [Recipe] {
+        try await fetchRecipes(forceRefresh: false)
+    }
 }

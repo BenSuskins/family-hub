@@ -41,10 +41,10 @@ final class RecipesViewModel {
         self.apiClient = apiClient
     }
 
-    func load() async {
+    func load(forceRefresh: Bool = false) async {
         state = .loading
         do {
-            let recipes = try await apiClient.fetchRecipes()
+            let recipes = try await apiClient.fetchRecipes(forceRefresh: forceRefresh)
             state = .loaded(recipes)
             await preloadImages(for: recipes)
         } catch {

@@ -6,7 +6,8 @@ struct HomeView: View {
     @State private var recipesViewModel: RecipesViewModel
     @State private var showProfile = false
     @State private var editingMeal: EditingMeal?
-    @State private var showRecipesView = false
+    @State private var selectedRecipe: Recipe?
+    @Binding var selectedTab: AppTab
     private let apiClient: any APIClientProtocol
 
     private static let dayDateFormatter: DateFormatter = {
@@ -27,8 +28,9 @@ struct HomeView: View {
         return f
     }()
 
-    init(apiClient: any APIClientProtocol) {
+    init(apiClient: any APIClientProtocol, selectedTab: Binding<AppTab>) {
         self.apiClient = apiClient
+        _selectedTab = selectedTab
         _viewModel = State(wrappedValue: HomeViewModel(apiClient: apiClient))
         _mealsViewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
         _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
@@ -81,6 +83,9 @@ struct HomeView: View {
             }) { meal in
                 MealEditSheet(meal: meal, viewModel: mealsViewModel, apiClient: apiClient)
             }
+            .navigationDestination(item: $selectedRecipe) { recipe in
+                RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: recipesViewModel)
+            }
         }
         .task { await viewModel.load() }
     }
@@ -124,13 +129,14 @@ struct HomeView: View {
         if !viewModel.todayEvents.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 HomeSectionHeader(title: "Agenda") {
-                    NavigationLink {
-                        // Navigate to calendar detail
+                    Button {
+                        selectedTab = .calendar
                     } label: {
                         Text("Calendar")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(Color.accentColor)
                     }
+                    .buttonStyle(.plain)
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(viewModel.todayEvents.prefix(3).enumerated()), id: \.element.id) { index, event in
@@ -152,20 +158,27 @@ struct HomeView: View {
         let todayKey = Self.dateKeyFormatter.string(from: Date())
         return VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Today's meals") {
-                NavigationLink {
-                    MealsView(apiClient: apiClient)
+                Button {
+                    selectedTab = .meals
                 } label: {
                     Text("Plan")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                 }
+                .buttonStyle(.plain)
             }
             HStack(spacing: 12) {
                 ForEach(["breakfast", "lunch", "dinner"], id: \.self) { mealType in
                     let plan = stats.todayMeals.first(where: { $0.mealType == mealType })
                     TodayMealCard(mealType: mealType, mealPlan: plan, apiClient: apiClient) {
-                        if plan?.recipeID != nil {
-                            showRecipesView = true
+                        if let recipeID = plan?.recipeID {
+                            selectedRecipe = Recipe(
+                                id: recipeID,
+                                title: plan?.name ?? "",
+                                steps: nil, ingredients: nil, mealType: nil,
+                                servings: nil, prepTime: nil, cookTime: nil,
+                                sourceURL: nil, categoryID: nil, hasImage: true
+                            )
                         } else {
                             editingMeal = EditingMeal(
                                 date: todayKey,
@@ -178,9 +191,6 @@ struct HomeView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .navigationDestination(isPresented: $showRecipesView) {
-                RecipesView(apiClient: apiClient)
-            }
         }
     }
 

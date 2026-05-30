@@ -25,6 +25,16 @@ final class RecipesViewModel {
         return result
     }
 
+    /// Up to 8 recipes for the featured carousel. Deterministic (no per-render
+    /// shuffle) so the cards stay stable across redraws, with image-backed
+    /// recipes preferred so featured cards always look their best.
+    var featuredRecipes: [Recipe] {
+        let recipes = filteredRecipes
+        let withImages = recipes.filter { $0.hasImage }
+        let withoutImages = recipes.filter { !$0.hasImage }
+        return Array((withImages + withoutImages).prefix(8))
+    }
+
     private let apiClient: any APIClientProtocol
 
     init(apiClient: any APIClientProtocol) {

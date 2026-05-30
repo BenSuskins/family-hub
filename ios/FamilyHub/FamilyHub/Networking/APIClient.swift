@@ -5,6 +5,7 @@ final class APIClient: APIClientProtocol {
     private let session: URLSession
     private let retryPolicy: RetryPolicy
     private weak var authManager: AuthManager?
+    private let recipeCache = RecipeCache()
     private let imageCache: NSCache<NSString, NSData> = {
         let c = NSCache<NSString, NSData>()
         c.countLimit = 200
@@ -260,12 +261,24 @@ final class APIClient: APIClientProtocol {
         return data
     }
 
-    func fetchRecipes() async throws -> [Recipe] {
-        try await get("api/recipes")
+    func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] {
+        if forceRefresh {
+            await recipeCache.invalidateAll()
+        } else if let cached = await recipeCache.cachedList() {
+            return cached
+        }
+        let recipes: [Recipe] = try await get("api/recipes")
+        await recipeCache.storeList(recipes)
+        return recipes
     }
 
     func fetchRecipe(id: String) async throws -> Recipe {
-        try await get("api/recipes/\(id)")
+        if let cached = await recipeCache.cachedDetail(id: id) {
+            return cached
+        }
+        let recipe: Recipe = try await get("api/recipes/\(id)")
+        await recipeCache.storeDetail(recipe)
+        return recipe
     }
 
     func fetchRecipeImage(id: String) async throws -> Data {
@@ -277,15 +290,20 @@ final class APIClient: APIClientProtocol {
     }
 
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
-        try await post("api/recipes", body: request)
+        let created: Recipe = try await post("api/recipes", body: request)
+        await recipeCache.upsert(created)
+        return created
     }
 
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe {
-        try await put("api/recipes/\(id)", body: request)
+        let updated: Recipe = try await put("api/recipes/\(id)", body: request)
+        await recipeCache.storeDetail(updated)
+        return updated
     }
 
     func deleteRecipe(id: String) async throws {
         try await delete("api/recipes/\(id)")
+        await recipeCache.remove(id: id)
     }
 
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {

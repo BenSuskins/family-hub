@@ -45,7 +45,7 @@ final class FakeAPIClient: APIClientProtocol {
     func deleteChore(id: String) async throws { try deleteChoreResult.get() }
     func fetchUserAvatar(id: String) async throws -> Data { try fetchUserAvatarResult.get() }
     func fetchMeals(week: Date) async throws -> [MealPlan] { try mealsResult.get() }
-    func fetchRecipes() async throws -> [Recipe] { try recipesResult.get() }
+    func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] { try recipesResult.get() }
     func fetchRecipe(id: String) async throws -> Recipe { try recipeResult.get() }
     func fetchRecipeImage(id: String) async throws -> Data { try recipeImageResult.get() }
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe { try createRecipeResult.get() }

@@ -34,7 +34,7 @@ struct RecipesView: View {
                         }
                         .padding(.bottom, 24)
                     }
-                    .refreshable { await viewModel.load() }
+                    .refreshable { await viewModel.load(forceRefresh: true) }
                 }
             }
             .meshBackground()

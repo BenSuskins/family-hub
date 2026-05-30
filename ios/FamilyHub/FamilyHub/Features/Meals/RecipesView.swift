@@ -157,6 +157,7 @@ private struct RecipeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             heroImage
+                .frame(maxWidth: .infinity)
                 .frame(height: imageHeight)
                 .clipped()
 
@@ -164,12 +165,13 @@ private struct RecipeCard: View {
                 Text(recipe.title)
                     .font(.system(size: titleFontSize, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2, reservesSpace: true)
+                    .multilineTextAlignment(.leading)
 
-                subtitleText
+                Text(subtitleString)
                     .font(.system(size: subtitleFontSize))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1, reservesSpace: true)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -180,17 +182,17 @@ private struct RecipeCard: View {
         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
     }
 
-    @ViewBuilder
-    private var subtitleText: some View {
+    private var subtitleString: String {
         let timeParts = [recipe.prepTime, recipe.cookTime].compactMap { $0 }
         let timeString = timeParts.joined(separator: " · ")
         if !timeString.isEmpty, let mealType = recipe.mealType {
-            Text("\(timeString) · \(mealType.capitalized)")
+            return "\(timeString) · \(mealType.capitalized)"
         } else if !timeString.isEmpty {
-            Text(timeString)
+            return timeString
         } else if let mealType = recipe.mealType {
-            Text(mealType.capitalized)
+            return mealType.capitalized
         }
+        return ""
     }
 
     private var heroImage: some View {

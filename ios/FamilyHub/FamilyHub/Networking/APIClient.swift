@@ -4,6 +4,12 @@ final class APIClient: APIClientProtocol {
     private let baseURL: URL
     private let session: URLSession
     private weak var authManager: AuthManager?
+    private let imageCache: NSCache<NSString, NSData> = {
+        let c = NSCache<NSString, NSData>()
+        c.countLimit = 200
+        c.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+        return c
+    }()
 
     init(baseURL: URL, session: URLSession = .shared, authManager: AuthManager) {
         self.baseURL = baseURL
@@ -162,9 +168,12 @@ final class APIClient: APIClientProtocol {
     }
 
     func fetchUserAvatar(id: String) async throws -> Data {
+        let key = "avatar-\(id)" as NSString
+        if let cached = imageCache.object(forKey: key) { return cached as Data }
         let request = try await buildRequest(path: "avatar/\(id)", method: "GET")
         let (data, response) = try await perform(request)
         try validate(response: response)
+        imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
 
@@ -177,9 +186,12 @@ final class APIClient: APIClientProtocol {
     }
 
     func fetchRecipeImage(id: String) async throws -> Data {
+        let key = "recipe-\(id)" as NSString
+        if let cached = imageCache.object(forKey: key) { return cached as Data }
         let request = try await buildRequest(path: "api/recipes/\(id)/image", method: "GET")
         let (data, response) = try await perform(request)
         try validate(response: response)
+        imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
 

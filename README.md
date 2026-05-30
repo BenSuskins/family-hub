@@ -16,6 +16,26 @@ A family organization hub for managing chores, meals, recipes, and calendars. Go
 - **Admin Panel** — Manage users (promote/demote roles), chore categories, and API tokens. Includes database backup (download) and restore (upload).
 - **REST API** — Session cookie or Bearer token; same surface for browser and iOS clients. See [`docs/endpoints.md`](docs/endpoints.md) for every route.
 
+## Quick Start (Docker)
+
+The fastest way to get running — three steps:
+
+```bash
+# 1. Copy the example env file and fill in your values
+cp server/.env.example server/.env
+
+# 2. Edit server/.env with your OIDC provider details and a random session secret
+#    (see Environment Variables below for the full reference)
+
+# 3. Start the stack
+cd server && docker compose -f docker-compose.prod.yml up -d
+```
+
+Then open `http://localhost:8080` in your browser. **The first user to sign in is automatically made admin.**
+
+> [!NOTE]
+> You need an OIDC provider (e.g. Authelia, Keycloak, or Auth0) configured with a public PKCE client before the login flow will work. See [OIDC Client Setup](#oidc-client-setup) below.
+
 ## Monorepo Layout
 
 | Component | Directory | Description |
@@ -38,7 +58,7 @@ A family organization hub for managing chores, meals, recipes, and calendars. Go
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.22+
 - Node.js (for Tailwind CSS)
 - [Templ](https://templ.guide/) CLI
 - An OIDC provider with public-client + PKCE support (e.g. Authelia, Keycloak, Auth0)
@@ -63,7 +83,8 @@ A family organization hub for managing chores, meals, recipes, and calendars. Go
 Family Hub uses a **single public OIDC client** with PKCE for both the web UI
 and the iOS app — no client secret, two redirect URIs.
 
-Example Authelia client configuration:
+<details>
+<summary><strong>Authelia</strong></summary>
 
 ```yaml
 identity_providers:
@@ -84,8 +105,41 @@ identity_providers:
         userinfo_signed_response_alg: none
 ```
 
+</details>
+
+<details>
+<summary><strong>Keycloak</strong></summary>
+
+1. Create a new client with **Client ID** `family-hub`.
+2. Set **Client authentication** to `OFF` (public client).
+3. Enable **Standard flow** only.
+4. Under **Valid redirect URIs** add `https://hub.example.com/auth/callback` (and `familyhub://callback` for iOS).
+5. Under **Advanced → Proof Key for Code Exchange Code Challenge Method** select `S256`.
+6. Set `OIDC_ISSUER` to `https://<keycloak-host>/realms/<your-realm>`.
+
+</details>
+
+<details>
+<summary><strong>Auth0</strong></summary>
+
+1. Create a **Single Page Application** (SPA) — this gives you a public PKCE client.
+2. Under **Allowed Callback URLs** add `https://hub.example.com/auth/callback`.
+3. Under **Allowed Web Origins** add `https://hub.example.com`.
+4. Set `OIDC_ISSUER` to `https://<your-tenant>.auth0.com/`.
+5. Set `OIDC_CLIENT_ID` to the Auth0 Client ID shown in the application settings.
+
+> [!NOTE]
+> Auth0 free tier limits to 7,500 monthly active users — more than enough for a family.
+
+</details>
+
 The iOS app discovers the client ID and issuer at runtime via
 `GET /api/client-config`, so you only configure those values on the server.
+
+### First Login
+
+> [!IMPORTANT]
+> **The first user to sign in becomes the admin.** No pre-seeding or invitation step is required — just deploy, configure your OIDC provider, and log in. Once you're in, use the Admin panel to invite or promote other household members.
 
 ### Run with Docker (recommended)
 
@@ -175,3 +229,34 @@ Generate a coverage report:
 ```bash
 cd server && make test-coverage
 ```
+
+## Troubleshooting
+
+### "redirect_uri_mismatch" or login loop
+
+The redirect URI set in `OIDC_REDIRECT_URL` must exactly match the URI registered with your OIDC provider (including scheme, host, port, and path). For example:
+
+```
+OIDC_REDIRECT_URL=https://hub.example.com/auth/callback
+```
+
+### Blank page or 500 after OIDC callback
+
+Check that `SESSION_SECRET` is set and non-empty. Without it the server cannot encode session cookies and will reject every login.
+
+### `templ: command not found` during local build
+
+The `templ` CLI must be on your `PATH`. Install it and add Go's bin directory:
+
+```bash
+go install github.com/a-h/templ/cmd/templ@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### iOS app shows "Unable to connect"
+
+The iOS app fetches `GET /api/client-config` to discover the OIDC issuer and client ID. Make sure `BASE_URL` is set to the publicly reachable URL of your server and that the endpoint is not blocked by a firewall or reverse proxy.
+
+### First user is not admin
+
+Only the very first account to complete the OIDC login flow is auto-promoted to admin. If you logged in with a different account by mistake, you can manually update the `role` column in the SQLite database, or use `DEV_MODE=true` temporarily to log in as a dev admin and promote your real account from the Admin panel.

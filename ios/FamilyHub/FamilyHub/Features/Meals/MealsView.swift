@@ -94,17 +94,6 @@ struct MealsView: View {
                         .padding(.top, 6)
                 }
             }
-            Spacer(minLength: 0)
-            Button {
-                editingMeal = EditingMeal(date: todayDateKey, mealType: "dinner", name: "", recipeID: nil)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-                    .background(Color.accentColor, in: Circle())
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 22)
         .padding(.top, 16)
@@ -266,7 +255,11 @@ private struct MealsSlotRow: View {
     }
 
     private var swatchIcon: String {
-        mealType == "breakfast" ? "sun.horizon.fill" : "fork.knife"
+        switch mealType {
+        case "breakfast": return "sun.horizon.fill"
+        case "lunch":     return "sun.max.fill"
+        default:          return "moon.stars.fill"
+        }
     }
 
     var body: some View {
@@ -288,6 +281,8 @@ private struct MealsSlotRow: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.tertiary)
                     .kerning(0.6)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(width: 64, alignment: .leading)
 
                 // Meal name or placeholder
@@ -348,9 +343,7 @@ struct MealEditSheet: View {
         return recipes.filter { $0.title.localizedCaseInsensitiveContains(recipeSearchQuery) }
     }
 
-    private var canSave: Bool {
-        inputMode == .recipe ? selectedRecipeID != nil : !name.trimmingCharacters(in: .whitespaces).isEmpty
-    }
+    private var canSave: Bool { true }
 
     var body: some View {
         NavigationStack {
@@ -380,18 +373,30 @@ struct MealEditSheet: View {
                     } else {
                         Button("Save") {
                             Task {
-                                isSaving = true
-                                let saved = await viewModel.saveMeal(
-                                    date: meal.date,
-                                    mealType: meal.mealType,
-                                    name: name,
-                                    recipeID: inputMode == .recipe ? selectedRecipeID : nil
-                                )
-                                isSaving = false
-                                if saved { dismiss() }
+                                let isNowEmpty = inputMode == .recipe
+                                    ? selectedRecipeID == nil
+                                    : name.trimmingCharacters(in: .whitespaces).isEmpty
+                                let wasEmpty = meal.name.isEmpty && meal.recipeID == nil
+                                if isNowEmpty && wasEmpty {
+                                    dismiss()
+                                } else if isNowEmpty {
+                                    isSaving = true
+                                    let deleted = await viewModel.deleteMeal(date: meal.date, mealType: meal.mealType)
+                                    isSaving = false
+                                    if deleted { dismiss() }
+                                } else {
+                                    isSaving = true
+                                    let saved = await viewModel.saveMeal(
+                                        date: meal.date,
+                                        mealType: meal.mealType,
+                                        name: name,
+                                        recipeID: inputMode == .recipe ? selectedRecipeID : nil
+                                    )
+                                    isSaving = false
+                                    if saved { dismiss() }
+                                }
                             }
                         }
-                        .disabled(!canSave)
                         .fontWeight(.semibold)
                     }
                 }
@@ -463,8 +468,13 @@ struct MealEditSheet: View {
                         Divider().padding(.leading, 74)
                     }
                     Button {
-                        name = recipe.title
-                        selectedRecipeID = recipe.id
+                        if selectedRecipeID == recipe.id {
+                            selectedRecipeID = nil
+                            name = ""
+                        } else {
+                            name = recipe.title
+                            selectedRecipeID = recipe.id
+                        }
                     } label: {
                         HStack(spacing: 12) {
                             RecipeThumbView(recipeID: recipe.id, apiClient: apiClient, size: 48, cornerRadius: 10)
@@ -529,11 +539,24 @@ struct MealEditSheet: View {
                 .kerning(0.4)
                 .padding(.horizontal, 4)
 
-            TextField("e.g. Wings and veg", text: $name, axis: .vertical)
-                .font(.system(size: 18))
-                .lineLimit(1...3)
-                .padding(14)
-                .glassCard(radius: 14)
+            HStack(alignment: .top, spacing: 0) {
+                TextField("e.g. Wings and veg", text: $name, axis: .vertical)
+                    .font(.system(size: 18))
+                    .lineLimit(1...3)
+                if !name.isEmpty {
+                    Button {
+                        name = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color(UIColor.tertiaryLabel))
+                            .font(.system(size: 18))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                }
+            }
+            .padding(14)
+            .glassCard(radius: 14)
         }
     }
 }

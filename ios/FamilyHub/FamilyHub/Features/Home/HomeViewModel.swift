@@ -12,8 +12,11 @@ final class HomeViewModel {
 
     let apiClient: any APIClientProtocol
 
+    private static let currentUserKey = "cached_current_user"
+
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
+        currentUser = Self.loadCachedUser()
     }
 
     func load() async {
@@ -26,6 +29,7 @@ final class HomeViewModel {
             let (stats, userList, me, cal) = try await (statsTask, usersTask, meTask, calTask)
             users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
             currentUser = me
+            Self.cacheUser(me)
             todayEvents = cal.events
             state = .loaded(stats)
         } catch let error as APIError {
@@ -33,6 +37,15 @@ final class HomeViewModel {
         } catch {
             state = .failed(.network(error))
         }
+    }
+
+    private static func loadCachedUser() -> User? {
+        guard let data = UserDefaults.standard.data(forKey: currentUserKey) else { return nil }
+        return try? JSONDecoder().decode(User.self, from: data)
+    }
+
+    private static func cacheUser(_ user: User) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(user), forKey: currentUserKey)
     }
 
     func completeChore(id: String) async -> Bool {

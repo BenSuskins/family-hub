@@ -1,11 +1,11 @@
 import Foundation
 
-struct IngredientGroup: Codable {
+struct IngredientGroup: Codable, Hashable {
     let name: String
     let items: [String]
 }
 
-struct Recipe: Codable, Identifiable {
+struct Recipe: Codable, Identifiable, Hashable {
     let id: String
     let title: String
     let steps: [String]?           // Go nil slice marshals as null

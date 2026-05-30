@@ -101,7 +101,7 @@ struct RecipesView: View {
                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                     } label: {
                         RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
-                            .frame(width: 250, height: 160)
+                            .frame(width: 250)
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -129,8 +129,13 @@ struct RecipesView: View {
                     NavigationLink {
                         RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: viewModel)
                     } label: {
-                        RecipeCard(recipe: recipe, imageData: viewModel.recipeImages[recipe.id])
-                            .frame(height: 190)
+                        RecipeCard(
+                            recipe: recipe,
+                            imageData: viewModel.recipeImages[recipe.id],
+                            imageHeight: 120,
+                            titleFontSize: 14,
+                            subtitleFontSize: 11
+                        )
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -145,50 +150,45 @@ struct RecipesView: View {
 private struct RecipeCard: View {
     let recipe: Recipe
     let imageData: Data?
+    var imageHeight: CGFloat = 160
+    var titleFontSize: CGFloat = 16
+    var subtitleFontSize: CGFloat = 12
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.clear
-                .overlay { heroImage }
+        VStack(alignment: .leading, spacing: 0) {
+            heroImage
+                .frame(height: imageHeight)
                 .clipped()
 
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.55)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-            .frame(height: 80)
-
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(recipe.title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
+                    .font(.system(size: titleFontSize, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
-                HStack(spacing: 6) {
-                    if let prep = recipe.prepTime {
-                        Text(prep)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
-                    }
-                    if let mealType = recipe.mealType {
-                        Text("·")
-                            .foregroundStyle(.white.opacity(0.7))
-                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
-                        Text(mealType.capitalized)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
-                    }
-                }
+                    .fixedSize(horizontal: false, vertical: true)
+
+                subtitleText
+                    .font(.system(size: subtitleFontSize))
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(UIColor.secondarySystemGroupedBackground))
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+    }
+
+    @ViewBuilder
+    private var subtitleText: some View {
+        if let prep = recipe.prepTime, let mealType = recipe.mealType {
+            Text("\(prep)m · \(mealType.capitalized)")
+        } else if let prep = recipe.prepTime {
+            Text("\(prep)m")
+        } else if let mealType = recipe.mealType {
+            Text(mealType.capitalized)
+        }
     }
 
     private var heroImage: some View {

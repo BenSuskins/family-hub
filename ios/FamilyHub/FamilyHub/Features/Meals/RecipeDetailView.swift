@@ -208,9 +208,6 @@ struct RecipeDetailView: View {
             if let prep = r.prepTime {
                 metaPill(icon: "clock", label: "\(prep) min")
             }
-            if let cook = r.cookTime {
-                metaPill(icon: "flame", label: "\(cook) cook")
-            }
             if let servings = r.servings {
                 metaPill(icon: "person.2", label: "\(servings) servings")
             }

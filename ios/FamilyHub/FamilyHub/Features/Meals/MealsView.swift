@@ -112,6 +112,7 @@ struct MealsView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 22)
         .padding(.top, 16)
         .padding(.bottom, 4)

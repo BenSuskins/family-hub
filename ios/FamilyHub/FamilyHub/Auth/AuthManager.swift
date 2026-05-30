@@ -14,7 +14,9 @@ final class AuthManager: NSObject {
 
     private let keychain: KeychainStore
     private var cachedConfig: OIDCConfig?
-    private var unauthorizedObserver: NSObjectProtocol?
+    // Observer token is set once in init and removed once in deinit. deinit is a
+    // nonisolated context, so this opaque token must be reachable from there.
+    nonisolated(unsafe) private var unauthorizedObserver: NSObjectProtocol?
 
     init(keychain: KeychainStore = .shared) {
         self.keychain = keychain

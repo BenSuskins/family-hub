@@ -260,3 +260,11 @@ The iOS app fetches `GET /api/client-config` to discover the OIDC issuer and cli
 ### First user is not admin
 
 Only the very first account to complete the OIDC login flow is auto-promoted to admin. If you logged in with a different account by mistake, you can manually update the `role` column in the SQLite database, or use `DEV_MODE=true` temporarily to log in as a dev admin and promote your real account from the Admin panel.
+
+## Security
+
+Found a vulnerability? Please report it privately via GitHub's **Report a vulnerability** button on the Security tab. See [SECURITY.md](SECURITY.md) for details — please do not open a public issue for security problems.
+
+## License
+
+Family Hub is released under the [MIT License](LICENSE).

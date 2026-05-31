@@ -12,7 +12,7 @@ templ:
 	$(GOPATH_BIN)/templ generate
 
 css:
-	npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
+	bunx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
 dev:
 	$(GOPATH_BIN)/air

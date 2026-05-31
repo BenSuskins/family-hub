@@ -1,11 +1,11 @@
-FROM node:20-alpine AS css-builder
+FROM oven/bun:1-alpine AS css-builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY tailwind.config.js ./
 COPY templates/ ./templates/
 COPY static/css/input.css ./static/css/input.css
-RUN npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
+RUN bunx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
 FROM golang:1.25-alpine AS go-builder
 WORKDIR /app

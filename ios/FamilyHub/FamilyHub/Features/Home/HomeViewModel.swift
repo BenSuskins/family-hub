@@ -19,6 +19,8 @@ final class HomeViewModel {
         currentUser = Self.loadCachedUser()
     }
 
+    nonisolated deinit {}
+
     func load() async {
         state = .loading
         async let statsTask = apiClient.fetchDashboardStats()

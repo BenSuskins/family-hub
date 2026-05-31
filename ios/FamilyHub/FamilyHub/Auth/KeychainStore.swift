@@ -1,7 +1,16 @@
 import Foundation
 import Security
 
-final class KeychainStore {
+protocol KeychainStoring {
+    var accessToken: String? { get }
+    var refreshToken: String? { get }
+    var apiToken: String? { get }
+    func save(accessToken: String, refreshToken: String)
+    func saveAPIToken(_ token: String)
+    func clear()
+}
+
+final class KeychainStore: KeychainStoring {
     nonisolated(unsafe) static let shared = KeychainStore()
 
     private let service: String

@@ -19,7 +19,12 @@ final class HomeViewModel {
         currentUser = Self.loadCachedUser()
     }
 
+    // Prevents an Xcode 26 crash where the Swift 6 runtime's isolated-deinit
+    // mechanism tries to use task-local storage that doesn't exist when the
+    // object is released outside an async context (e.g. sync unit tests).
+    #if compiler(>=6.0)
     nonisolated deinit {}
+    #endif
 
     func load() async {
         state = .loading

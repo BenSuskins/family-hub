@@ -88,6 +88,34 @@ type Chore struct {
 	UpdatedAt time.Time
 }
 
+// ChoreSeries is the definition/template for a recurring chore. It owns the
+// recurrence rule, end conditions, eligible-assignee pool and a durable rotation
+// cursor (the last user assigned within the series). Individual occurrences in
+// the chores table reference it via their SeriesID.
+type ChoreSeries struct {
+	ID              string
+	Name            string
+	Description     string
+	CreatedByUserID string
+	CategoryID      *string
+
+	DueTime *string
+
+	RecurrenceType  RecurrenceType
+	RecurrenceValue string
+	RecurOnComplete bool
+	RecurrenceUntil *time.Time
+	RecurrenceCount *int
+
+	RotationCursorUserID *string
+	DeletedAt            *time.Time
+
+	EligibleAssignees []string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Event struct {
 	ID              string
 	Title           string

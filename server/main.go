@@ -43,7 +43,8 @@ func main() {
 
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
 
 	go runOverdueChecker(choreService)
 	go runSeriesTopUp(choreService)

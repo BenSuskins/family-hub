@@ -24,7 +24,7 @@ func setupDashboardHandler(t *testing.T) (*DashboardHandler, models.User, *repos
 	assignmentRepo := repository.NewChoreAssignmentRepository(database)
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 	categoryRepo := repository.NewCategoryRepository(database)
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
 	icalFetcher := services.NewICalFetcher(icalSubRepo)
 
 	user, err := userRepo.Create(context.Background(), models.User{

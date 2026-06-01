@@ -262,7 +262,8 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if assignees := r.Form["assignees"]; len(assignees) > 0 {
+	assignees := r.Form["assignees"]
+	if len(assignees) > 0 {
 		if err := handler.choreRepo.SetEligibleAssignees(ctx, created.ID, assignees); err != nil {
 			slog.Error("setting eligible assignees", "error", err)
 		}
@@ -273,12 +274,16 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		slog.Error("assigning chore", "error", err)
 	}
 
-	if created.RecurrenceType != models.RecurrenceNone && !created.RecurOnComplete {
+	// Recurring chores (including RecurOnComplete) own their rule in a
+	// chore_series row, which must exist before chores.series_id references it.
+	if created.RecurrenceType != models.RecurrenceNone {
 		seriesID := created.ID
 		assigned.SeriesID = &seriesID
-		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, assignees); err != nil {
+			slog.Error("creating series definition for new chore", "error", err)
+		} else if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore", "error", err)
-		} else {
+		} else if !created.RecurOnComplete {
 			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences for new chore", "error", err)
 			}
@@ -309,11 +314,22 @@ func (handler *ChoreHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding users", "error", err)
 	}
 
-	eligibleAssignees, err := handler.choreRepo.GetEligibleAssignees(ctx, choreID)
-	if err != nil {
-		slog.Error("getting eligible assignees", "error", err)
+	// When the chore belongs to a series, the series owns the eligible pool;
+	// fall back to the per-occurrence pool for non-recurring chores.
+	if chore.SeriesID != nil {
+		if series, err := handler.choreService.SeriesByID(ctx, *chore.SeriesID); err != nil {
+			slog.Error("getting series for eligible assignees", "error", err)
+		} else if series != nil {
+			chore.EligibleAssignees = series.EligibleAssignees
+		}
 	}
-	chore.EligibleAssignees = eligibleAssignees
+	if chore.EligibleAssignees == nil {
+		eligibleAssignees, err := handler.choreRepo.GetEligibleAssignees(ctx, choreID)
+		if err != nil {
+			slog.Error("getting eligible assignees", "error", err)
+		}
+		chore.EligibleAssignees = eligibleAssignees
+	}
 
 	component := pages.ChoreForm(pages.ChoreFormProps{
 		User:       user,
@@ -381,13 +397,16 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if assignees := r.Form["assignees"]; len(assignees) > 0 {
-		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
-			slog.Error("setting eligible assignees", "error", err)
-		}
-	} else {
-		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, nil); err != nil {
-			slog.Error("clearing eligible assignees", "error", err)
+	assignees := r.Form["assignees"]
+	if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
+		slog.Error("setting eligible assignees", "error", err)
+	}
+
+	// Keep the series definition (rule + eligible pool) in step with the edit so
+	// the change applies to every occurrence, not just this row.
+	if chore.SeriesID != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, chore, assignees); err != nil {
+			slog.Error("syncing series definition on update", "error", err)
 		}
 	}
 
@@ -418,6 +437,9 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if chore.SeriesID != nil {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting future pending siblings", "error", err)
+		}
+		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
+			slog.Error("soft-deleting series definition", "error", err)
 		}
 	}
 

@@ -11,6 +11,23 @@ import (
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
+func setupChoreServiceWithSeries(t *testing.T) (
+	*services.ChoreService,
+	*repository.SQLiteChoreRepository,
+	*repository.SQLiteChoreAssignmentRepository,
+	*repository.SQLiteUserRepository,
+	*repository.SQLiteChoreSeriesRepository,
+) {
+	t.Helper()
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	return service, choreRepo, assignmentRepo, userRepo, seriesRepo
+}
+
 func setupChoreService(t *testing.T) (
 	*services.ChoreService,
 	*repository.SQLiteChoreRepository,
@@ -18,12 +35,35 @@ func setupChoreService(t *testing.T) (
 	*repository.SQLiteUserRepository,
 ) {
 	t.Helper()
-	db := testutil.NewTestDatabase(t)
-	userRepo := repository.NewUserRepository(db)
-	choreRepo := repository.NewChoreRepository(db)
-	assignmentRepo := repository.NewChoreAssignmentRepository(db)
-	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	service, choreRepo, assignmentRepo, userRepo, _ := setupChoreServiceWithSeries(t)
 	return service, choreRepo, assignmentRepo, userRepo
+}
+
+// newRecurringChore creates an anchor occurrence and a chore_series definition
+// wired together (series.ID = occurrence.ID), as production code does. The
+// recurrence rule comes from `series`; occurrence state (due date, assignee,
+// status) from `occ`. Required now that the rule and the series_id foreign key
+// live in chore_series.
+func newRecurringChore(t *testing.T, choreRepo *repository.SQLiteChoreRepository, seriesRepo *repository.SQLiteChoreSeriesRepository, series models.ChoreSeries, occ models.Chore) models.Chore {
+	t.Helper()
+	ctx := context.Background()
+	occ.SeriesID = nil
+	created, err := choreRepo.Create(ctx, occ)
+	if err != nil {
+		t.Fatalf("creating occurrence: %v", err)
+	}
+	series.ID = created.ID
+	if series.CreatedByUserID == "" {
+		series.CreatedByUserID = occ.CreatedByUserID
+	}
+	if _, err := seriesRepo.Create(ctx, series); err != nil {
+		t.Fatalf("creating series: %v", err)
+	}
+	created.SeriesID = &created.ID
+	if err := choreRepo.Update(ctx, created); err != nil {
+		t.Fatalf("linking series: %v", err)
+	}
+	return created
 }
 
 func createUsers(t *testing.T, repo *repository.SQLiteUserRepository, count int) []models.User {
@@ -160,22 +200,21 @@ func TestChoreService_CompleteChore_AlreadyComplete(t *testing.T) {
 }
 
 func TestChoreService_CompleteChore_CreatesRecurrence(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 
 	users := createUsers(t, userRepo, 2)
 
 	dueDate := time.Now()
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:             "Recurring",
-		CreatedByUserID:  users[0].ID,
-		AssignedToUserID: &users[0].ID,
-		Status:           models.ChoreStatusPending,
-		DueDate:          &dueDate,
-		RecurrenceType:   models.RecurrenceDaily,
-		RecurrenceValue:  `{"interval": 1}`,
-		RecurOnComplete:  true,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval": 1}`, RecurOnComplete: true},
+		models.Chore{
+			Name:             "Recurring",
+			CreatedByUserID:  users[0].ID,
+			AssignedToUserID: &users[0].ID,
+			Status:           models.ChoreStatusPending,
+			DueDate:          &dueDate,
+		})
 
 	if err := service.CompleteChore(ctx, chore.ID, users[0].ID); err != nil {
 		t.Fatalf("completing recurring chore: %v", err)
@@ -269,25 +308,22 @@ func TestChoreService_AssignNextUser_PoolChange(t *testing.T) {
 }
 
 func TestChoreService_SeedFutureOccurrences(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 2)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1) // due tomorrow
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Weekly Cleanup",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceWeekly,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		LastAssignedIndex: -1,
-	})
-	// Set series_id = chore.ID
-	seriesID := chore.ID
-	chore.SeriesID = &seriesID
-	choreRepo.Update(ctx, chore)
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Weekly Cleanup",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
+	seriesID := *chore.SeriesID
 
 	until := now.AddDate(0, 0, 28) // seed 4 weeks ahead
 	if err := service.SeedFutureOccurrences(ctx, chore, until); err != nil {
@@ -318,25 +354,22 @@ func TestChoreService_SeedFutureOccurrences(t *testing.T) {
 }
 
 func TestChoreService_SeedFutureOccurrences_RotatesAcrossUsers(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 3)
 	_ = users
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1)
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceDaily,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		LastAssignedIndex: -1,
-	})
-	seriesID := chore.ID
-	chore.SeriesID = &seriesID
-	choreRepo.Update(ctx, chore)
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 	chore, _ = service.AssignNextUser(ctx, chore)
 
 	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 7)); err != nil {
@@ -402,25 +435,22 @@ func TestChoreService_AssignNextUser_AllOverdueStillRotates(t *testing.T) {
 }
 
 func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
-	createUsers(t, userRepo, 2)
+	users := createUsers(t, userRepo, 2)
 
 	// A recurring series whose only row is already in the past: the future
 	// window is exhausted.
 	past := time.Now().AddDate(0, 0, -3)
-	seriesID := "exhausted-series"
-	user := func() string { u, _ := userRepo.FindAll(ctx); return u[0].ID }()
-	choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   user,
-		RecurrenceType:    models.RecurrenceDaily,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &past,
-		Status:            models.ChoreStatusPending,
-		SeriesID:          &seriesID,
-		LastAssignedIndex: -1,
-	})
+	newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &past,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 
 	if err := service.TopUpAllSeries(ctx, time.Now().AddDate(0, 0, 10)); err != nil {
 		t.Fatalf("TopUpAllSeries: %v", err)
@@ -441,26 +471,124 @@ func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
 	}
 }
 
+func TestChoreService_CompleteChore_UsesSeriesRule(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 2)
+
+	seriesID := "s-rule"
+	seriesRepo.Create(ctx, models.ChoreSeries{
+		ID:              seriesID,
+		Name:            "Daily",
+		CreatedByUserID: users[0].ID,
+		RecurrenceType:  models.RecurrenceDaily,
+		RecurrenceValue: `{"interval":1}`,
+		RecurOnComplete: true,
+	})
+
+	now := time.Now()
+	uid := users[0].ID
+	// The occurrence's own rule columns are stale (look non-recurring); only the
+	// series says it recurs. Completion must honor the series rule.
+	occ, _ := choreRepo.Create(ctx, models.Chore{
+		Name:             "Daily",
+		CreatedByUserID:  users[0].ID,
+		AssignedToUserID: &uid,
+		SeriesID:         &seriesID,
+		DueDate:          &now,
+		Status:           models.ChoreStatusPending,
+		RecurrenceType:   models.RecurrenceNone,
+	})
+
+	if err := service.CompleteChore(ctx, occ.ID, users[0].ID); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
+	})
+	if len(pending) == 0 {
+		t.Error("series rule should have created a next occurrence despite stale occurrence rule columns")
+	}
+}
+
+func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 3)
+
+	seriesID := "s1"
+	seriesRepo.Create(ctx, models.ChoreSeries{
+		ID:              seriesID,
+		Name:            "X",
+		CreatedByUserID: users[0].ID,
+		RecurrenceType:  models.RecurrenceDaily,
+	})
+	// Series pool restricts to a single user.
+	seriesRepo.SetEligibleAssignees(ctx, seriesID, []string{users[1].ID})
+
+	c1, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "occ1", CreatedByUserID: users[0].ID, SeriesID: &seriesID, LastAssignedIndex: -1,
+	})
+	// Give the occurrence a DIFFERENT per-chore pool to prove the series wins.
+	choreRepo.SetEligibleAssignees(ctx, c1.ID, []string{users[0].ID, users[2].ID})
+
+	a1, err := service.AssignNextUser(ctx, c1)
+	if err != nil {
+		t.Fatalf("assign occ1: %v", err)
+	}
+	if *a1.AssignedToUserID != users[1].ID {
+		t.Errorf("series pool must be authoritative; expected users[1], got %s", *a1.AssignedToUserID)
+	}
+
+	series, _ := seriesRepo.FindByID(ctx, seriesID)
+	if series.RotationCursorUserID == nil || *series.RotationCursorUserID != users[1].ID {
+		t.Errorf("rotation cursor should advance to users[1], got %v", series.RotationCursorUserID)
+	}
+
+	// Widen the pool; the next occurrence must continue rotation from the cursor.
+	seriesRepo.SetEligibleAssignees(ctx, seriesID, []string{users[0].ID, users[1].ID, users[2].ID})
+	c2, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "occ2", CreatedByUserID: users[0].ID, SeriesID: &seriesID, LastAssignedIndex: -1,
+	})
+	a2, err := service.AssignNextUser(ctx, c2)
+	if err != nil {
+		t.Fatalf("assign occ2: %v", err)
+	}
+	if *a2.AssignedToUserID == users[1].ID {
+		t.Errorf("rotation should advance past the cursor user, but stayed on users[1]")
+	}
+}
+
 func TestChoreService_SeedFutureOccurrences_StopsAtRecurrenceUntil(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 2)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1)
 	until := now.AddDate(0, 0, 5) // series ends in 5 days
-	seriesID := "until-series"
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceDaily,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		SeriesID:          &seriesID,
-		RecurrenceUntil:   &until,
-		LastAssignedIndex: -1,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`, RecurrenceUntil: &until},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 
 	// Ask to seed 30 days ahead; the end date must win.
 	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 30)); err != nil {
@@ -476,25 +604,23 @@ func TestChoreService_SeedFutureOccurrences_StopsAtRecurrenceUntil(t *testing.T)
 }
 
 func TestChoreService_SeedFutureOccurrences_StopsAfterRecurrenceCount(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 2)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1)
 	count := 3
-	seriesID := "count-series"
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceDaily,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		SeriesID:          &seriesID,
-		RecurrenceCount:   &count,
-		LastAssignedIndex: -1,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`, RecurrenceCount: &count},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
+	seriesID := *chore.SeriesID
 
 	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 30)); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -516,23 +642,21 @@ func TestChoreService_SeedFutureOccurrences_StopsAfterRecurrenceCount(t *testing
 }
 
 func TestChoreService_SeedFutureOccurrences_SkipsPastNoBackfill(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 1)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, -10) // anchor due 10 days ago
-	seriesID := "past-series"
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceDaily,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		SeriesID:          &seriesID,
-		LastAssignedIndex: -1,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 
 	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 5)); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -550,21 +674,20 @@ func TestChoreService_SeedFutureOccurrences_SkipsPastNoBackfill(t *testing.T) {
 }
 
 func TestChoreService_SeedFutureOccurrences_SkipsRecurOnComplete(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 1)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1)
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:            "Ad-hoc",
-		CreatedByUserID: users[0].ID,
-		RecurrenceType:  models.RecurrenceWeekly,
-		RecurrenceValue: `{"interval":1}`,
-		RecurOnComplete: true,
-		DueDate:         &base,
-		Status:          models.ChoreStatusPending,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`, RecurOnComplete: true},
+		models.Chore{
+			Name:            "Ad-hoc",
+			CreatedByUserID: users[0].ID,
+			DueDate:         &base,
+			Status:          models.ChoreStatusPending,
+		})
 
 	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 1, 0)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -577,23 +700,21 @@ func TestChoreService_SeedFutureOccurrences_SkipsRecurOnComplete(t *testing.T) {
 }
 
 func TestChoreService_SeedFutureOccurrences_Idempotent(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 1)
 
 	now := time.Now()
 	base := now.AddDate(0, 0, 1)
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Daily",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceDaily,
-		DueDate:           &base,
-		Status:            models.ChoreStatusPending,
-		LastAssignedIndex: -1,
-	})
-	seriesID := chore.ID
-	chore.SeriesID = &seriesID
-	choreRepo.Update(ctx, chore)
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Daily",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &base,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 
 	until := now.AddDate(0, 0, 7)
 	service.SeedFutureOccurrences(ctx, chore, until)
@@ -609,23 +730,21 @@ func TestChoreService_SeedFutureOccurrences_Idempotent(t *testing.T) {
 }
 
 func TestChoreService_CompleteChore_SeedsAhead(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
+	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
 	ctx := context.Background()
 	users := createUsers(t, userRepo, 2)
 
 	now := time.Now()
 	dueDate := now.AddDate(0, 0, -1) // overdue
-	seriesID := "test-series"
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Weekly",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceWeekly,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &dueDate,
-		Status:            models.ChoreStatusPending,
-		SeriesID:          &seriesID,
-		LastAssignedIndex: -1,
-	})
+	chore := newRecurringChore(t, choreRepo, seriesRepo,
+		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`},
+		models.Chore{
+			Name:              "Weekly",
+			CreatedByUserID:   users[0].ID,
+			DueDate:           &dueDate,
+			Status:            models.ChoreStatusPending,
+			LastAssignedIndex: -1,
+		})
 	chore, _ = service.AssignNextUser(ctx, chore)
 
 	if err := service.CompleteChore(ctx, chore.ID, users[0].ID); err != nil {
@@ -637,44 +756,6 @@ func TestChoreService_CompleteChore_SeedsAhead(t *testing.T) {
 	})
 	if len(pending) == 0 {
 		t.Error("completing a recurring chore should seed future pending instances")
-	}
-}
-
-func TestChoreService_SeedExistingRecurringChores(t *testing.T) {
-	service, choreRepo, _, userRepo := setupChoreService(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 1)
-
-	now := time.Now()
-	dueDate := now.AddDate(0, 0, 1)
-	// Create a legacy recurring chore with no series_id
-	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:              "Legacy Weekly",
-		CreatedByUserID:   users[0].ID,
-		RecurrenceType:    models.RecurrenceWeekly,
-		RecurrenceValue:   `{"interval":1}`,
-		DueDate:           &dueDate,
-		Status:            models.ChoreStatusPending,
-		LastAssignedIndex: -1,
-	})
-	if chore.SeriesID != nil {
-		t.Fatal("freshly created chore should have nil series_id for this test")
-	}
-
-	until := now.AddDate(0, 0, 21) // 3 weeks
-	if err := service.SeedExistingRecurringChores(ctx, until); err != nil {
-		t.Fatalf("SeedExistingRecurringChores: %v", err)
-	}
-
-	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
-	if len(all) < 3 {
-		t.Errorf("want at least 3 pending instances (1 + 2 seeded), got %d", len(all))
-	}
-
-	// Verify series_id was set on the original chore
-	updated, _ := choreRepo.FindByID(ctx, chore.ID)
-	if updated.SeriesID == nil {
-		t.Error("original chore should have series_id set after seeding")
 	}
 }
 

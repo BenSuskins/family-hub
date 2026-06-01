@@ -225,6 +225,8 @@ func newChoreFromTemplate(template models.Chore, dueDate *time.Time, lastAssigne
 		RecurrenceType:    template.RecurrenceType,
 		RecurrenceValue:   template.RecurrenceValue,
 		RecurOnComplete:   template.RecurOnComplete,
+		RecurrenceUntil:   template.RecurrenceUntil,
+		RecurrenceCount:   template.RecurrenceCount,
 		Status:            models.ChoreStatusPending,
 	}
 }
@@ -238,8 +240,24 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 		return nil
 	}
 
+	// Stop the series once it reaches its end date.
+	if chore.RecurrenceUntil != nil && nextDueDate.After(*chore.RecurrenceUntil) {
+		return nil
+	}
+
 	if err := service.ensureSeriesID(ctx, &chore); err != nil {
 		return fmt.Errorf("setting series_id on legacy chore: %w", err)
+	}
+
+	// Stop the series once it reaches its occurrence cap.
+	if chore.RecurrenceCount != nil {
+		existing, err := service.choreRepo.CountBySeries(ctx, *chore.SeriesID)
+		if err != nil {
+			return fmt.Errorf("counting series occurrences: %w", err)
+		}
+		if existing >= *chore.RecurrenceCount {
+			return nil
+		}
 	}
 
 	createdChore, err := service.choreRepo.Create(ctx, newChoreFromTemplate(chore, nextDueDate, chore.LastAssignedIndex))
@@ -284,17 +302,38 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 		return fmt.Errorf("parsing recurrence config: %w", err)
 	}
 
+	// Never materialize past the series end date.
+	if chore.RecurrenceUntil != nil && chore.RecurrenceUntil.Before(until) {
+		until = *chore.RecurrenceUntil
+	}
+
+	// Track how many occurrences already exist so we can honor the cap.
+	existing := 0
+	if chore.RecurrenceCount != nil {
+		existing, err = service.choreRepo.CountBySeries(ctx, *chore.SeriesID)
+		if err != nil {
+			return fmt.Errorf("counting series occurrences: %w", err)
+		}
+	}
+
 	current := *startChore.DueDate
 	currentChore := startChore
 	now := time.Now()
 
 	for i := 0; i < maxExpansionIterations; i++ {
+		if chore.RecurrenceCount != nil && existing >= *chore.RecurrenceCount {
+			break
+		}
+
 		nextDate := advanceToNextOccurrence(current, chore.RecurrenceType, config)
 		if !nextDate.Before(until) {
 			break
 		}
 		current = nextDate
 
+		// Catch-up policy: occurrences whose due date has already passed are
+		// skipped, not back-filled. The cursor advances so the series resumes
+		// at the next future date.
 		if nextDate.Before(now) {
 			continue
 		}
@@ -313,6 +352,7 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 			return fmt.Errorf("assigning seeded chore: %w", err)
 		}
 		currentChore = assigned
+		existing++
 	}
 
 	return nil

@@ -74,6 +74,12 @@ type Chore struct {
 	RecurOnComplete bool
 	SeriesID        *string
 
+	// Optional end conditions for a recurring series. RecurrenceUntil stops
+	// generating occurrences due after the given instant; RecurrenceCount caps
+	// the total number of occurrences (rows) in the series. Nil means no limit.
+	RecurrenceUntil *time.Time
+	RecurrenceCount *int
+
 	Status          ChoreStatus
 	CompletedAt     *time.Time
 	CompletedByUserID *string

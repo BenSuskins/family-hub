@@ -43,6 +43,7 @@ type ChoreRepository interface {
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
 	DeleteFuturePendingBySeries(ctx context.Context, seriesID string) error
 	FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error)
+	CountBySeries(ctx context.Context, seriesID string) (int, error)
 	DeleteCompletedByName(ctx context.Context, name string) error
 }
 
@@ -63,6 +64,7 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 		&chore.AssignedToUserID, &chore.LastAssignedIndex,
 		&chore.DueDate, &chore.DueTime,
 		&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
+		&chore.RecurrenceUntil, &chore.RecurrenceCount,
 		&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
 		&chore.CreatedAt, &chore.UpdatedAt,
 	)
@@ -76,6 +78,7 @@ const choreColumns = `id, name, description, created_by_user_id, category_id,
 		assigned_to_user_id, last_assigned_index,
 		due_date, due_time,
 		recurrence_type, recurrence_value, recur_on_complete, series_id,
+		recurrence_until, recurrence_count,
 		status, completed_at, completed_by_user_id,
 		created_at, updated_at`
 
@@ -172,13 +175,15 @@ func (repository *SQLiteChoreRepository) Create(ctx context.Context, chore model
 			assigned_to_user_id, last_assigned_index,
 			due_date, due_time,
 			recurrence_type, recurrence_value, recur_on_complete, series_id,
+			recurrence_until, recurrence_count,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		chore.ID, chore.Name, chore.Description, chore.CreatedByUserID, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
 		chore.DueDate, chore.DueTime,
 		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
+		chore.RecurrenceUntil, chore.RecurrenceCount,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.CreatedAt, chore.UpdatedAt,
 	)
@@ -195,6 +200,7 @@ func (repository *SQLiteChoreRepository) Update(ctx context.Context, chore model
 			assigned_to_user_id = ?, last_assigned_index = ?,
 			due_date = ?, due_time = ?,
 			recurrence_type = ?, recurrence_value = ?, recur_on_complete = ?, series_id = ?,
+			recurrence_until = ?, recurrence_count = ?,
 			status = ?, completed_at = ?, completed_by_user_id = ?,
 			updated_at = ?
 		WHERE id = ?`,
@@ -202,6 +208,7 @@ func (repository *SQLiteChoreRepository) Update(ctx context.Context, chore model
 		chore.AssignedToUserID, chore.LastAssignedIndex,
 		chore.DueDate, chore.DueTime,
 		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
+		chore.RecurrenceUntil, chore.RecurrenceCount,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.UpdatedAt, chore.ID,
 	)
@@ -370,6 +377,19 @@ func (repository *SQLiteChoreRepository) FindLastFuturePendingInSeries(ctx conte
 	return &chores[0], nil
 }
 
+// CountBySeries returns the total number of chore rows (any status) belonging to
+// the series. Used to enforce a recurrence occurrence cap.
+func (repository *SQLiteChoreRepository) CountBySeries(ctx context.Context, seriesID string) (int, error) {
+	var count int
+	err := repository.database.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM chores WHERE series_id = ?", seriesID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("counting chores by series: %w", err)
+	}
+	return count, nil
+}
+
 func (repository *SQLiteChoreRepository) DeleteCompletedByName(ctx context.Context, name string) error {
 	_, err := repository.database.ExecContext(ctx,
 		`DELETE FROM chores WHERE name = ? AND status = 'completed'`,
@@ -414,6 +434,7 @@ func scanChores(rows *sql.Rows) ([]models.Chore, error) {
 			&chore.AssignedToUserID, &chore.LastAssignedIndex,
 			&chore.DueDate, &chore.DueTime,
 			&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
+			&chore.RecurrenceUntil, &chore.RecurrenceCount,
 			&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
 			&chore.CreatedAt, &chore.UpdatedAt,
 		); err != nil {

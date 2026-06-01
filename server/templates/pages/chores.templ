@@ -486,6 +486,29 @@ templ ChoreForm(props ChoreFormProps) {
 							<option value="months" if props.Chore != nil && recurrenceUnit(props.Chore) == "months" { selected }>Months</option>
 						</select>
 					</div>
+					<div id="recurrence-end-field" class="hidden grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div>
+							<label for="recurrence_until" class="block text-sm font-medium text-stone-700 dark:text-slate-300">Ends on (optional)</label>
+							<input
+								type="date"
+								id="recurrence_until"
+								name="recurrence_until"
+								if props.Chore != nil && props.Chore.RecurrenceUntil != nil {
+									value={ props.Chore.RecurrenceUntil.Format("2006-01-02") }
+								}
+							/>
+						</div>
+						<div>
+							<label for="recurrence_count" class="block text-sm font-medium text-stone-700 dark:text-slate-300">After N occurrences (optional)</label>
+							<input
+								type="number"
+								min="1"
+								id="recurrence_count"
+								name="recurrence_count"
+								value={ recurrenceCountValue(props.Chore) }
+							/>
+						</div>
+					</div>
 				</div>
 
 				<div class="flex items-center">
@@ -522,11 +545,17 @@ templ ChoreForm(props ChoreFormProps) {
 				var dayOfMonthField = document.getElementById('recurrence-day-of-month-field');
 				var unitField = document.getElementById('recurrence-unit-field');
 				var unitLabel = document.getElementById('recurrence-interval-unit');
+				var endField = document.getElementById('recurrence-end-field');
 
 				intervalField.classList.add('hidden');
 				daysField.classList.add('hidden');
 				dayOfMonthField.classList.add('hidden');
 				unitField.classList.add('hidden');
+				endField.classList.add('hidden');
+
+				if (type !== 'none' && type !== '') {
+					endField.classList.remove('hidden');
+				}
 
 				if (type === 'weekly') {
 					intervalField.classList.remove('hidden');
@@ -608,6 +637,13 @@ func recurrenceUnit(chore *models.Chore) string {
 		return config.Unit
 	}
 	return "days"
+}
+
+func recurrenceCountValue(chore *models.Chore) string {
+	if chore == nil || chore.RecurrenceCount == nil {
+		return ""
+	}
+	return strconv.Itoa(*chore.RecurrenceCount)
 }
 
 func hasRecurrenceDay(recurrenceValue string, day string) bool {

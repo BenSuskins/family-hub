@@ -121,6 +121,68 @@ func TestChoreRepository_CreateAndFindByID(t *testing.T) {
 	}
 }
 
+func TestChoreRepository_RecurrenceEndConditions_RoundTrip(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+
+	until := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+	count := 10
+	created, err := choreRepo.Create(ctx, models.Chore{
+		Name:            "Bounded",
+		CreatedByUserID: user.ID,
+		RecurrenceType:  models.RecurrenceDaily,
+		RecurrenceUntil: &until,
+		RecurrenceCount: &count,
+	})
+	if err != nil {
+		t.Fatalf("creating chore: %v", err)
+	}
+
+	found, err := choreRepo.FindByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("finding chore: %v", err)
+	}
+	if found.RecurrenceUntil == nil || !found.RecurrenceUntil.Equal(until) {
+		t.Errorf("recurrence_until round-trip failed: got %v, want %v", found.RecurrenceUntil, until)
+	}
+	if found.RecurrenceCount == nil || *found.RecurrenceCount != count {
+		t.Errorf("recurrence_count round-trip failed: got %v, want %d", found.RecurrenceCount, count)
+	}
+
+	// nil end conditions must stay nil.
+	plain, _ := choreRepo.Create(ctx, models.Chore{Name: "Unbounded", CreatedByUserID: user.ID})
+	foundPlain, _ := choreRepo.FindByID(ctx, plain.ID)
+	if foundPlain.RecurrenceUntil != nil || foundPlain.RecurrenceCount != nil {
+		t.Errorf("expected nil end conditions, got until=%v count=%v", foundPlain.RecurrenceUntil, foundPlain.RecurrenceCount)
+	}
+}
+
+func TestChoreRepository_CountBySeries(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	seriesID := "series-1"
+	for i := 0; i < 3; i++ {
+		choreRepo.Create(ctx, models.Chore{Name: "S", CreatedByUserID: user.ID, SeriesID: &seriesID})
+	}
+	choreRepo.Create(ctx, models.Chore{Name: "Other", CreatedByUserID: user.ID})
+
+	count, err := choreRepo.CountBySeries(ctx, seriesID)
+	if err != nil {
+		t.Fatalf("CountBySeries: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 chores in series, got %d", count)
+	}
+}
+
 func TestChoreRepository_FindAll_WithFilters(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

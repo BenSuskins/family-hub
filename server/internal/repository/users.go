@@ -58,7 +58,7 @@ func (repository *SQLiteUserRepository) FindByOIDCSubject(ctx context.Context, s
 
 func (repository *SQLiteUserRepository) FindAll(ctx context.Context) ([]models.User, error) {
 	rows, err := repository.database.QueryContext(ctx,
-		fmt.Sprintf("SELECT %s FROM users ORDER BY name", userColumns),
+		fmt.Sprintf("SELECT %s FROM users ORDER BY name, id", userColumns),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("finding all users: %w", err)

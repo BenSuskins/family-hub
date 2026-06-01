@@ -238,6 +238,7 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		RecurrenceValue: recurrenceValue,
 		RecurOnComplete: r.FormValue("recur_on_complete") == "on",
 	}
+	chore.RecurrenceUntil, chore.RecurrenceCount = parseRecurrenceEnd(r)
 
 	if categoryID := r.FormValue("category_id"); categoryID != "" {
 		chore.CategoryID = &categoryID
@@ -341,6 +342,7 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	oldRecurrenceType := chore.RecurrenceType
 	oldRecurrenceValue := chore.RecurrenceValue
+	oldRecurrenceEnd := recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount)
 
 	recurrenceType := models.RecurrenceType(r.FormValue("recurrence_type"))
 	recurrenceValue := buildRecurrenceValue(recurrenceType, r)
@@ -350,6 +352,7 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	chore.RecurrenceType = recurrenceType
 	chore.RecurrenceValue = recurrenceValue
 	chore.RecurOnComplete = r.FormValue("recur_on_complete") == "on"
+	chore.RecurrenceUntil, chore.RecurrenceCount = parseRecurrenceEnd(r)
 
 	if categoryID := r.FormValue("category_id"); categoryID != "" {
 		chore.CategoryID = &categoryID
@@ -388,7 +391,9 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recurrenceChanged := recurrenceType != oldRecurrenceType || recurrenceValue != oldRecurrenceValue
+	recurrenceChanged := recurrenceType != oldRecurrenceType ||
+		recurrenceValue != oldRecurrenceValue ||
+		recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount) != oldRecurrenceEnd
 	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting stale future instances", "error", err)
@@ -506,6 +511,41 @@ type recurrenceConfigJSON struct {
 	Unit       string   `json:"unit,omitempty"`
 	Days       []string `json:"days,omitempty"`
 	DayOfMonth int      `json:"day_of_month,omitempty"`
+}
+
+// recurrenceEndKey renders the end conditions as a comparable string so an edit
+// to either can be detected (to trigger a re-seed).
+func recurrenceEndKey(until *time.Time, count *int) string {
+	key := "until="
+	if until != nil {
+		key += until.Format(DateFormat)
+	}
+	key += ";count="
+	if count != nil {
+		key += strconv.Itoa(*count)
+	}
+	return key
+}
+
+// parseRecurrenceEnd reads the optional recurrence end conditions from the form.
+// recurrence_until is a date (the series stops after it); recurrence_count caps
+// the total number of occurrences. Either or both may be absent.
+func parseRecurrenceEnd(r *http.Request) (*time.Time, *int) {
+	var until *time.Time
+	if untilStr := r.FormValue("recurrence_until"); untilStr != "" {
+		if parsed, err := time.Parse(DateFormat, untilStr); err == nil {
+			until = &parsed
+		}
+	}
+
+	var count *int
+	if countStr := r.FormValue("recurrence_count"); countStr != "" {
+		if parsed, err := strconv.Atoi(countStr); err == nil && parsed > 0 {
+			count = &parsed
+		}
+	}
+
+	return until, count
 }
 
 func buildRecurrenceValue(recurrenceType models.RecurrenceType, r *http.Request) string {

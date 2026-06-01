@@ -479,6 +479,10 @@ curl -s $BASE_URL/avatar/<userID> -b "session=$SESSION" -o avatar.png
 | `POST /chores/{id}/delete` | Delete | no |
 | `POST /chores/history/delete` | Clear completed chore history | no |
 
+`POST /chores` and `POST /chores/{id}` accept optional recurrence end conditions:
+`recurrence_until` (date, `YYYY-MM-DD`) and `recurrence_count` (positive integer).
+Either bounds how far a recurring series is generated.
+
 ```bash
 curl -s $BASE_URL/chores -b "session=$SESSION"
 curl -s -X POST $BASE_URL/chores/<id>/complete -b "session=$SESSION"

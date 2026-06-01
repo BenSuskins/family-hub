@@ -317,6 +317,130 @@ func TestChoreService_SeedFutureOccurrences(t *testing.T) {
 	}
 }
 
+func TestChoreService_SeedFutureOccurrences_RotatesAcrossUsers(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+	users := createUsers(t, userRepo, 3)
+	_ = users
+
+	now := time.Now()
+	base := now.AddDate(0, 0, 1)
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:              "Daily",
+		CreatedByUserID:   users[0].ID,
+		RecurrenceType:    models.RecurrenceDaily,
+		RecurrenceValue:   `{"interval":1}`,
+		DueDate:           &base,
+		Status:            models.ChoreStatusPending,
+		LastAssignedIndex: -1,
+	})
+	seriesID := chore.ID
+	chore.SeriesID = &seriesID
+	choreRepo.Update(ctx, chore)
+	chore, _ = service.AssignNextUser(ctx, chore)
+
+	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 7)); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
+		OrderBy:  repository.OrderByDueDateAsc,
+	})
+
+	seen := map[string]bool{}
+	prev := ""
+	for _, c := range pending {
+		if c.AssignedToUserID == nil {
+			t.Fatalf("occurrence %s left unassigned", c.ID)
+		}
+		seen[*c.AssignedToUserID] = true
+		if prev != "" && prev == *c.AssignedToUserID {
+			t.Errorf("consecutive occurrences both assigned to %s", prev)
+		}
+		prev = *c.AssignedToUserID
+	}
+	if len(seen) != 3 {
+		t.Errorf("expected rotation to cover all 3 users, got %d distinct", len(seen))
+	}
+}
+
+func TestChoreService_AssignNextUser_AllOverdueStillRotates(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+	users := createUsers(t, userRepo, 2)
+
+	// Every user already has an overdue chore, so the zero-overdue preference
+	// can never be satisfied.
+	past := time.Now().AddDate(0, 0, -1)
+	for _, u := range users {
+		uid := u.ID
+		choreRepo.Create(ctx, models.Chore{
+			Name:             "Old",
+			CreatedByUserID:  u.ID,
+			AssignedToUserID: &uid,
+			DueDate:          &past,
+			Status:           models.ChoreStatusOverdue,
+		})
+	}
+
+	c1, _ := choreRepo.Create(ctx, models.Chore{Name: "A", CreatedByUserID: users[0].ID, LastAssignedIndex: -1})
+	a1, err := service.AssignNextUser(ctx, c1)
+	if err != nil {
+		t.Fatalf("first assign: %v", err)
+	}
+
+	c2, _ := choreRepo.Create(ctx, models.Chore{Name: "B", CreatedByUserID: users[0].ID, LastAssignedIndex: a1.LastAssignedIndex})
+	a2, err := service.AssignNextUser(ctx, c2)
+	if err != nil {
+		t.Fatalf("second assign: %v", err)
+	}
+
+	if *a1.AssignedToUserID == *a2.AssignedToUserID {
+		t.Error("rotation should still advance when every candidate is overdue")
+	}
+}
+
+func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+	createUsers(t, userRepo, 2)
+
+	// A recurring series whose only row is already in the past: the future
+	// window is exhausted.
+	past := time.Now().AddDate(0, 0, -3)
+	seriesID := "exhausted-series"
+	user := func() string { u, _ := userRepo.FindAll(ctx); return u[0].ID }()
+	choreRepo.Create(ctx, models.Chore{
+		Name:              "Daily",
+		CreatedByUserID:   user,
+		RecurrenceType:    models.RecurrenceDaily,
+		RecurrenceValue:   `{"interval":1}`,
+		DueDate:           &past,
+		Status:            models.ChoreStatusPending,
+		SeriesID:          &seriesID,
+		LastAssignedIndex: -1,
+	})
+
+	if err := service.TopUpAllSeries(ctx, time.Now().AddDate(0, 0, 10)); err != nil {
+		t.Fatalf("TopUpAllSeries: %v", err)
+	}
+
+	now := time.Now()
+	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
+	})
+	future := 0
+	for _, c := range pending {
+		if c.DueDate != nil && c.DueDate.After(now) {
+			future++
+		}
+	}
+	if future == 0 {
+		t.Error("top-up should refill future occurrences for an exhausted series")
+	}
+}
+
 func TestChoreService_SeedFutureOccurrences_SkipsRecurOnComplete(t *testing.T) {
 	service, choreRepo, _, userRepo := setupChoreService(t)
 	ctx := context.Background()

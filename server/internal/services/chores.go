@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -15,6 +16,14 @@ var (
 	ErrUserHasOverdueChores = errors.New("user has overdue chores")
 	ErrChoreAlreadyComplete = errors.New("chore is already completed")
 )
+
+// SeedHorizon is how far ahead fixed-schedule recurring chores are materialized.
+// A background top-up (TopUpAllSeries) keeps this window full, so it stays
+// bounded to keep the row count and per-seed work small rather than a full year.
+const SeedHorizon = 75 * 24 * time.Hour
+
+// SeedHorizonFrom returns the materialization cutoff relative to now.
+func SeedHorizonFrom(now time.Time) time.Time { return now.Add(SeedHorizon) }
 
 type ChoreService struct {
 	choreRepo      repository.ChoreRepository
@@ -35,6 +44,18 @@ func NewChoreService(
 }
 
 func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Chore) (models.Chore, error) {
+	return service.assignNextUser(ctx, chore, chore.AssignedToUserID)
+}
+
+// assignNextUser assigns the chore to the next user in rotation. Rotation is
+// anchored to lastAssignedUserID — the previous occupant, or the previous
+// occurrence's assignee when seeding a series — so it survives users being
+// added, removed, or renamed. It falls back to the positional LastAssignedIndex
+// only when no previous assignee is known (e.g. the first assignment of a
+// brand-new chore). A user with outstanding overdue chores is skipped within a
+// single lap, but if everyone is overdue the rotation still advances rather than
+// always landing on the same person.
+func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Chore, lastAssignedUserID *string) (models.Chore, error) {
 	candidates, err := service.findCandidates(ctx, chore.ID)
 	if err != nil {
 		return chore, err
@@ -44,30 +65,24 @@ func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Ch
 		return chore, errors.New("no users available for assignment")
 	}
 
-	nextIndex := (chore.LastAssignedIndex + 1) % len(candidates)
+	start := rotationStart(candidates, lastAssignedUserID, chore.LastAssignedIndex)
 
-	var assignedUser models.User
-	found := false
+	chosenIndex := start
 	for attempts := 0; attempts < len(candidates); attempts++ {
-		candidateIndex := (nextIndex + attempts) % len(candidates)
-		candidate := candidates[candidateIndex]
+		candidateIndex := (start + attempts) % len(candidates)
 
-		overdueCount, err := service.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusOverdue, candidate.ID)
+		overdueCount, err := service.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusOverdue, candidates[candidateIndex].ID)
 		if err != nil {
 			return chore, fmt.Errorf("checking overdue chores: %w", err)
 		}
 
 		if overdueCount == 0 {
-			assignedUser = candidate
-			nextIndex = candidateIndex
-			found = true
+			chosenIndex = candidateIndex
 			break
 		}
 	}
 
-	if !found {
-		assignedUser = candidates[nextIndex%len(candidates)]
-	}
+	assignedUser := candidates[chosenIndex]
 
 	if chore.AssignedToUserID != nil {
 		if err := service.assignmentRepo.MarkReassigned(ctx, chore.ID); err != nil {
@@ -76,7 +91,7 @@ func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Ch
 	}
 
 	chore.AssignedToUserID = &assignedUser.ID
-	chore.LastAssignedIndex = nextIndex
+	chore.LastAssignedIndex = chosenIndex
 
 	_, err = service.assignmentRepo.Create(ctx, models.ChoreAssignment{
 		ChoreID: chore.ID,
@@ -92,6 +107,22 @@ func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Ch
 	}
 
 	return chore, nil
+}
+
+// rotationStart returns the index of the candidate that should be tried first.
+// When the previously assigned user is still in the candidate list, rotation
+// continues from the person after them (robust to membership changes). Otherwise
+// it falls back to advancing the stored positional index.
+func rotationStart(candidates []models.User, lastAssignedUserID *string, lastIndex int) int {
+	n := len(candidates)
+	if lastAssignedUserID != nil {
+		for i, user := range candidates {
+			if user.ID == *lastAssignedUserID {
+				return (i + 1) % n
+			}
+		}
+	}
+	return ((lastIndex+1)%n + n) % n
 }
 
 func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, userID string) error {
@@ -124,7 +155,7 @@ func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, 
 	if chore.RecurOnComplete {
 		return service.createNextRecurrence(ctx, chore, now)
 	}
-	return service.SeedFutureOccurrences(ctx, chore, now.AddDate(1, 0, 0))
+	return service.SeedFutureOccurrences(ctx, chore, SeedHorizonFrom(now))
 
 }
 
@@ -139,21 +170,24 @@ func (service *ChoreService) findCandidates(ctx context.Context, choreID string)
 		return nil, fmt.Errorf("finding users: %w", err)
 	}
 
-	if len(eligibleIDs) == 0 {
-		return allUsers, nil
-	}
+	candidates := allUsers
+	if len(eligibleIDs) > 0 {
+		eligibleSet := make(map[string]bool, len(eligibleIDs))
+		for _, id := range eligibleIDs {
+			eligibleSet[id] = true
+		}
 
-	eligibleSet := make(map[string]bool, len(eligibleIDs))
-	for _, id := range eligibleIDs {
-		eligibleSet[id] = true
-	}
-
-	var candidates []models.User
-	for _, user := range allUsers {
-		if eligibleSet[user.ID] {
-			candidates = append(candidates, user)
+		candidates = nil
+		for _, user := range allUsers {
+			if eligibleSet[user.ID] {
+				candidates = append(candidates, user)
+			}
 		}
 	}
+
+	// Rotation anchors on candidate position, so the order must be stable and
+	// independent of query plan or display name. Sort by immutable ID.
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
 	return candidates, nil
 }
 
@@ -217,7 +251,7 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 		return err
 	}
 
-	_, err = service.AssignNextUser(ctx, createdChore)
+	_, err = service.assignNextUser(ctx, createdChore, chore.AssignedToUserID)
 	if err != nil {
 		return fmt.Errorf("assigning next user: %w", err)
 	}
@@ -274,13 +308,46 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 			return err
 		}
 
-		assigned, err := service.AssignNextUser(ctx, created)
+		assigned, err := service.assignNextUser(ctx, created, currentChore.AssignedToUserID)
 		if err != nil {
 			return fmt.Errorf("assigning seeded chore: %w", err)
 		}
 		currentChore = assigned
 	}
 
+	return nil
+}
+
+// TopUpAllSeries refills every active fixed-schedule recurring series up to
+// `until`, so a series that is never completed does not run out of future
+// occurrences (the materialization horizon is bounded). It also backfills legacy
+// recurring chores that predate series_id tracking, subsuming
+// SeedExistingRecurringChores. Safe to call repeatedly: SeedFutureOccurrences is
+// idempotent. A failure on one series is logged and does not abort the rest.
+func (service *ChoreService) TopUpAllSeries(ctx context.Context, until time.Time) error {
+	anchors, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+		RecurrenceTypes: []models.RecurrenceType{
+			models.RecurrenceDaily,
+			models.RecurrenceWeekly,
+			models.RecurrenceMonthly,
+			models.RecurrenceCustom,
+			models.RecurrenceCalendar,
+		},
+		OnlyNextPerSeries: true,
+	})
+	if err != nil {
+		return fmt.Errorf("finding series anchors: %w", err)
+	}
+
+	for _, anchor := range anchors {
+		if anchor.RecurOnComplete || anchor.DueDate == nil {
+			continue
+		}
+		if err := service.SeedFutureOccurrences(ctx, anchor, until); err != nil {
+			slog.Error("topping up series", "chore_id", anchor.ID, "error", err)
+		}
+	}
 	return nil
 }
 

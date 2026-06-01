@@ -46,6 +46,7 @@ func main() {
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
 
 	go runOverdueChecker(choreService)
+	go runSeriesTopUp(choreService)
 
 	srv := server.New(db, cfg, authService)
 	if err := srv.Start(); err != nil {
@@ -62,6 +63,22 @@ func runOverdueChecker(choreService *services.ChoreService) {
 		ctx := context.Background()
 		if err := choreService.UpdateOverdueChores(ctx); err != nil {
 			slog.Error("updating overdue chores", "error", err)
+		}
+		<-ticker.C
+	}
+}
+
+// runSeriesTopUp keeps the bounded materialization window full for every active
+// recurring series so a never-completed chore does not run out of future
+// occurrences. Runs once on startup, then every 6 hours.
+func runSeriesTopUp(choreService *services.ChoreService) {
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		ctx := context.Background()
+		if err := choreService.TopUpAllSeries(ctx, services.SeedHorizonFrom(time.Now())); err != nil {
+			slog.Error("topping up recurring series", "error", err)
 		}
 		<-ticker.C
 	}

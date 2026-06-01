@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -193,13 +192,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		})
 	})
 
-	// One-time seed of existing recurring chores that predate series_id tracking
-	go func() {
-		ctx := context.Background()
-		if err := choreService.SeedExistingRecurringChores(ctx, time.Now().AddDate(1, 0, 0)); err != nil {
-			slog.Error("seeding existing recurring chores", "error", err)
-		}
-	}()
+	// Recurring-series materialization (including backfill of legacy chores that
+	// predate series_id) is handled by the periodic top-up started in main.
 
 	server := &Server{
 		router: router,

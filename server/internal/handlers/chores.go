@@ -278,7 +278,7 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore", "error", err)
 		} else {
-			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, time.Now().AddDate(1, 0, 0)); err != nil {
+			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences for new chore", "error", err)
 			}
 		}
@@ -392,7 +392,7 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting stale future instances", "error", err)
-		} else if err := handler.choreService.SeedFutureOccurrences(ctx, chore, time.Now().AddDate(1, 0, 0)); err != nil {
+		} else if err := handler.choreService.SeedFutureOccurrences(ctx, chore, services.SeedHorizonFrom(time.Now())); err != nil {
 			slog.Error("re-seeding after recurrence change", "error", err)
 		}
 	}

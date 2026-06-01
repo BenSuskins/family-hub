@@ -313,11 +313,22 @@ func (handler *ChoreHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 		slog.Error("finding users", "error", err)
 	}
 
-	eligibleAssignees, err := handler.choreRepo.GetEligibleAssignees(ctx, choreID)
-	if err != nil {
-		slog.Error("getting eligible assignees", "error", err)
+	// When the chore belongs to a series, the series owns the eligible pool;
+	// fall back to the per-occurrence pool for non-recurring chores.
+	if chore.SeriesID != nil {
+		if series, err := handler.choreService.SeriesByID(ctx, *chore.SeriesID); err != nil {
+			slog.Error("getting series for eligible assignees", "error", err)
+		} else if series != nil {
+			chore.EligibleAssignees = series.EligibleAssignees
+		}
 	}
-	chore.EligibleAssignees = eligibleAssignees
+	if chore.EligibleAssignees == nil {
+		eligibleAssignees, err := handler.choreRepo.GetEligibleAssignees(ctx, choreID)
+		if err != nil {
+			slog.Error("getting eligible assignees", "error", err)
+		}
+		chore.EligibleAssignees = eligibleAssignees
+	}
 
 	component := pages.ChoreForm(pages.ChoreFormProps{
 		User:       user,

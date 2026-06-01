@@ -168,14 +168,18 @@ func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, 
 		return fmt.Errorf("marking assignment completed: %w", err)
 	}
 
-	if chore.RecurrenceType == models.RecurrenceNone {
+	// The series definition is authoritative for the recurrence rule, so a rule
+	// edit is honored even by an in-flight occurrence created before the edit.
+	rule := applySeriesRule(chore, service.loadSeries(ctx, chore.SeriesID))
+
+	if rule.RecurrenceType == models.RecurrenceNone {
 		return nil
 	}
 
-	if chore.RecurOnComplete {
-		return service.createNextRecurrence(ctx, chore, now)
+	if rule.RecurOnComplete {
+		return service.createNextRecurrence(ctx, rule, now)
 	}
-	return service.SeedFutureOccurrences(ctx, chore, SeedHorizonFrom(now))
+	return service.SeedFutureOccurrences(ctx, rule, SeedHorizonFrom(now))
 
 }
 
@@ -192,6 +196,33 @@ func (service *ChoreService) loadSeries(ctx context.Context, seriesID *string) *
 		return nil
 	}
 	return series
+}
+
+// SeriesByID exposes the series definition to handlers (e.g. to render the
+// authoritative eligible pool on the edit form). Returns (nil, nil) when absent.
+func (service *ChoreService) SeriesByID(ctx context.Context, seriesID string) (*models.ChoreSeries, error) {
+	if service.seriesRepo == nil {
+		return nil, nil
+	}
+	return service.seriesRepo.FindByID(ctx, seriesID)
+}
+
+// applySeriesRule overlays the recurrence rule, end conditions and timing from
+// the series definition onto a chore copy, making the series the source of truth
+// for behaviour. Occurrence rule columns remain as a denormalized read cache for
+// display and filtering. No-op when there is no series definition.
+func applySeriesRule(chore models.Chore, series *models.ChoreSeries) models.Chore {
+	if series == nil {
+		return chore
+	}
+	chore.RecurrenceType = series.RecurrenceType
+	chore.RecurrenceValue = series.RecurrenceValue
+	chore.RecurOnComplete = series.RecurOnComplete
+	chore.RecurrenceUntil = series.RecurrenceUntil
+	chore.RecurrenceCount = series.RecurrenceCount
+	chore.DueTime = series.DueTime
+	chore.CategoryID = series.CategoryID
+	return chore
 }
 
 // findCandidates resolves the eligible assignee pool for a chore. When the chore
@@ -277,6 +308,9 @@ func newChoreFromTemplate(template models.Chore, dueDate *time.Time, lastAssigne
 }
 
 func (service *ChoreService) createNextRecurrence(ctx context.Context, chore models.Chore, completedAt time.Time) error {
+	series := service.loadSeries(ctx, chore.SeriesID)
+	chore = applySeriesRule(chore, series)
+
 	nextDueDate, err := CalculateNextDueDate(chore, completedAt)
 	if err != nil {
 		return fmt.Errorf("calculating next due date: %w", err)
@@ -310,8 +344,12 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 		return fmt.Errorf("creating next chore instance: %w", err)
 	}
 
-	if err := service.copyEligibleAssignees(ctx, chore.ID, createdChore.ID); err != nil {
-		return err
+	// The series owns the eligible pool; only fall back to copying the
+	// per-occurrence pool when there is no series definition yet.
+	if series == nil {
+		if err := service.copyEligibleAssignees(ctx, chore.ID, createdChore.ID); err != nil {
+			return err
+		}
 	}
 
 	_, err = service.assignNextUser(ctx, createdChore, chore.AssignedToUserID)
@@ -325,6 +363,9 @@ func (service *ChoreService) createNextRecurrence(ctx context.Context, chore mod
 // No-op for RecurOnComplete chores (can't predict completion dates) or chores without a DueDate.
 // Idempotent: starts from the last existing future pending instance in the series.
 func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore models.Chore, until time.Time) error {
+	series := service.loadSeries(ctx, chore.SeriesID)
+	chore = applySeriesRule(chore, series)
+
 	if chore.RecurrenceType == models.RecurrenceNone || chore.RecurOnComplete || chore.DueDate == nil {
 		return nil
 	}
@@ -388,8 +429,12 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 			return fmt.Errorf("creating seeded chore instance: %w", err)
 		}
 
-		if err := service.copyEligibleAssignees(ctx, chore.ID, created.ID); err != nil {
-			return err
+		// The series owns the eligible pool; only fall back to per-occurrence
+		// copies when there is no series definition yet.
+		if series == nil {
+			if err := service.copyEligibleAssignees(ctx, chore.ID, created.ID); err != nil {
+				return err
+			}
 		}
 
 		assigned, err := service.assignNextUser(ctx, created, currentChore.AssignedToUserID)

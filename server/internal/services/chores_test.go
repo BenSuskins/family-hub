@@ -441,6 +441,53 @@ func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
 	}
 }
 
+func TestChoreService_CompleteChore_UsesSeriesRule(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 2)
+
+	seriesID := "s-rule"
+	seriesRepo.Create(ctx, models.ChoreSeries{
+		ID:              seriesID,
+		Name:            "Daily",
+		CreatedByUserID: users[0].ID,
+		RecurrenceType:  models.RecurrenceDaily,
+		RecurrenceValue: `{"interval":1}`,
+		RecurOnComplete: true,
+	})
+
+	now := time.Now()
+	uid := users[0].ID
+	// The occurrence's own rule columns are stale (look non-recurring); only the
+	// series says it recurs. Completion must honor the series rule.
+	occ, _ := choreRepo.Create(ctx, models.Chore{
+		Name:             "Daily",
+		CreatedByUserID:  users[0].ID,
+		AssignedToUserID: &uid,
+		SeriesID:         &seriesID,
+		DueDate:          &now,
+		Status:           models.ChoreStatusPending,
+		RecurrenceType:   models.RecurrenceNone,
+	})
+
+	if err := service.CompleteChore(ctx, occ.ID, users[0].ID); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
+	})
+	if len(pending) == 0 {
+		t.Error("series rule should have created a next occurrence despite stale occurrence rule columns")
+	}
+}
+
 func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

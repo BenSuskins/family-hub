@@ -317,8 +317,13 @@ func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 	}
 
 	for _, chore := range overdueChores {
-		chore.Status = models.ChoreStatusOverdue
-		if err := service.choreRepo.Update(ctx, chore); err != nil {
+		// FindOverdueChores returns rows already marked overdue too; skip them
+		// so we don't rewrite unchanged rows every cycle. MarkOverdue is
+		// additionally guarded by status = 'pending' in SQL.
+		if chore.Status == models.ChoreStatusOverdue {
+			continue
+		}
+		if err := service.choreRepo.MarkOverdue(ctx, chore.ID); err != nil {
 			return fmt.Errorf("updating overdue chore %s: %w", chore.ID, err)
 		}
 	}

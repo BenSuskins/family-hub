@@ -471,3 +471,38 @@ func TestChoreService_UpdateOverdueChores(t *testing.T) {
 		}
 	}
 }
+
+func TestChoreService_UpdateOverdueChores_DoesNotRewriteAlreadyOverdue(t *testing.T) {
+	service, choreRepo, _, userRepo := setupChoreService(t)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 1)
+
+	pastDate := time.Now().AddDate(0, 0, -2)
+	chore, _ := choreRepo.Create(ctx, models.Chore{
+		Name:            "Overdue",
+		CreatedByUserID: users[0].ID,
+		DueDate:         &pastDate,
+		Status:          models.ChoreStatusPending,
+	})
+
+	// First pass flips pending -> overdue and stamps updated_at.
+	if err := service.UpdateOverdueChores(ctx); err != nil {
+		t.Fatalf("first pass: %v", err)
+	}
+	afterFirst, _ := choreRepo.FindByID(ctx, chore.ID)
+	if afterFirst.Status != models.ChoreStatusOverdue {
+		t.Fatalf("expected overdue after first pass, got %s", afterFirst.Status)
+	}
+
+	// Second pass must be a no-op: the row is already overdue, so updated_at
+	// must not move (no write amplification).
+	if err := service.UpdateOverdueChores(ctx); err != nil {
+		t.Fatalf("second pass: %v", err)
+	}
+	afterSecond, _ := choreRepo.FindByID(ctx, chore.ID)
+	if !afterSecond.UpdatedAt.Equal(afterFirst.UpdatedAt) {
+		t.Errorf("already-overdue chore was rewritten: updated_at moved from %v to %v",
+			afterFirst.UpdatedAt, afterSecond.UpdatedAt)
+	}
+}

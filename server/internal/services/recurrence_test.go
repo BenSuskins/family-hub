@@ -208,17 +208,106 @@ func TestCalculateNextDueDate_Custom(t *testing.T) {
 func TestFindNextWeekday(t *testing.T) {
 	wednesday := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 
-	result := findNextWeekday(wednesday, []string{"friday"})
+	result := findNextWeekday(wednesday, []string{"friday"}, 1)
 	if result.Weekday() != time.Friday {
 		t.Errorf("expected Friday, got %v", result.Weekday())
 	}
 
-	result = findNextWeekday(wednesday, []string{"monday"})
+	result = findNextWeekday(wednesday, []string{"monday"}, 1)
 	if result.Weekday() != time.Monday {
 		t.Errorf("expected Monday, got %v", result.Weekday())
 	}
 	if result.Before(wednesday) {
 		t.Errorf("result should be after base date")
+	}
+}
+
+func TestAdvanceMonthly_Overflow(t *testing.T) {
+	tests := []struct {
+		name       string
+		from       time.Time
+		interval   int
+		dayOfMonth int
+		want       time.Time
+	}{
+		{
+			name:     "jan 31 plus one month clamps to feb 28 (non-leap)",
+			from:     time.Date(2025, time.January, 31, 9, 0, 0, 0, time.UTC),
+			interval: 1,
+			want:     time.Date(2025, time.February, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "jan 31 plus one month clamps to feb 29 (leap)",
+			from:     time.Date(2024, time.January, 31, 9, 0, 0, 0, time.UTC),
+			interval: 1,
+			want:     time.Date(2024, time.February, 29, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "mar 31 plus one month clamps to apr 30",
+			from:     time.Date(2025, time.March, 31, 9, 0, 0, 0, time.UTC),
+			interval: 1,
+			want:     time.Date(2025, time.April, 30, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "jan 15 plus one month stays feb 15 (no skip)",
+			from:     time.Date(2025, time.January, 15, 9, 0, 0, 0, time.UTC),
+			interval: 1,
+			want:     time.Date(2025, time.February, 15, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			name:       "day_of_month 31 in february clamps, never skips to march",
+			from:       time.Date(2025, time.January, 15, 9, 0, 0, 0, time.UTC),
+			interval:   1,
+			dayOfMonth: 31,
+			want:       time.Date(2025, time.February, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "december plus one month rolls year",
+			from:     time.Date(2025, time.December, 10, 9, 0, 0, 0, time.UTC),
+			interval: 1,
+			want:     time.Date(2026, time.January, 10, 9, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := RecurrenceConfig{Interval: test.interval, DayOfMonth: test.dayOfMonth}
+			got := advanceToNextOccurrence(test.from, models.RecurrenceMonthly, config)
+			if !got.Equal(test.want) {
+				t.Errorf("advanceToNextOccurrence(%v) = %v, want %v", test.from, got, test.want)
+			}
+		})
+	}
+}
+
+func TestAdvanceWeekly_MultiDayWithInterval(t *testing.T) {
+	// Every 2 weeks on Monday & Thursday, starting Monday 2025-01-06.
+	config := RecurrenceConfig{Interval: 2, Days: []string{"monday", "thursday"}}
+	cursor := time.Date(2025, time.January, 6, 8, 0, 0, 0, time.UTC) // Monday
+
+	want := []time.Time{
+		time.Date(2025, time.January, 9, 8, 0, 0, 0, time.UTC),  // Thu, same fortnight
+		time.Date(2025, time.January, 20, 8, 0, 0, 0, time.UTC), // Mon, +1 week gap
+		time.Date(2025, time.January, 23, 8, 0, 0, 0, time.UTC), // Thu
+		time.Date(2025, time.February, 3, 8, 0, 0, 0, time.UTC), // Mon, +1 week gap
+	}
+
+	for i, w := range want {
+		cursor = advanceToNextOccurrence(cursor, models.RecurrenceWeekly, config)
+		if !cursor.Equal(w) {
+			t.Fatalf("occurrence %d = %v (%s), want %v (%s)", i, cursor, cursor.Weekday(), w, w.Weekday())
+		}
+	}
+}
+
+func TestAdvanceWeekly_SingleDayWithInterval(t *testing.T) {
+	// Every 2 weeks on Monday.
+	config := RecurrenceConfig{Interval: 2, Days: []string{"monday"}}
+	from := time.Date(2025, time.January, 6, 8, 0, 0, 0, time.UTC) // Monday
+	got := advanceToNextOccurrence(from, models.RecurrenceWeekly, config)
+	want := time.Date(2025, time.January, 20, 8, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("got %v, want %v", got, want)
 	}
 }
 

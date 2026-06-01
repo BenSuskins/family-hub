@@ -36,6 +36,7 @@ type ChoreRepository interface {
 	Update(ctx context.Context, chore models.Chore) error
 	Delete(ctx context.Context, id string) error
 	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
+	MarkOverdue(ctx context.Context, choreID string) error
 	FindDueToday(ctx context.Context) ([]models.Chore, error)
 	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
@@ -245,6 +246,20 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 		}
 	}
 	return overdue, nil
+}
+
+// MarkOverdue flips a chore to overdue only if it is still pending. The
+// status guard makes the call idempotent so a chore already marked overdue is
+// left untouched (no needless updated_at churn).
+func (repository *SQLiteChoreRepository) MarkOverdue(ctx context.Context, choreID string) error {
+	_, err := repository.database.ExecContext(ctx,
+		"UPDATE chores SET status = 'overdue', updated_at = ? WHERE id = ? AND status = 'pending'",
+		time.Now(), choreID,
+	)
+	if err != nil {
+		return fmt.Errorf("marking chore overdue: %w", err)
+	}
+	return nil
 }
 
 func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]models.Chore, error) {

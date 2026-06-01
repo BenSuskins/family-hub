@@ -69,9 +69,9 @@ private enum DemoData {
         let today = ISO8601DateFormatter().string(from: Date())
         let nextWeek = ISO8601DateFormatter().string(from: Calendar.current.date(byAdding: .day, value: 7, to: Date())!)
         return [
-            Chore(id: "demo-chore-1", name: "Vacuum living room", description: "Full vacuum including under the sofa.", status: .overdue, dueDate: yesterday, assignedToUserID: alexID),
-            Chore(id: "demo-chore-2", name: "Do the dishes", description: "", status: .pending, dueDate: today, assignedToUserID: samID),
-            Chore(id: "demo-chore-3", name: "Take out trash", description: "All bins — kitchen, bathrooms, recycling.", status: .pending, dueDate: nextWeek, assignedToUserID: alexID),
+            Chore(id: "demo-chore-1", name: "Vacuum living room", description: "Full vacuum including under the sofa.", status: .overdue, dueDate: yesterday, assignedToUserID: alexID, eligibleAssignees: [alexID, samID], recurrenceType: "weekly", recurrenceValue: "{\"interval\":1,\"days\":[\"monday\"]}", seriesID: "demo-series-1"),
+            Chore(id: "demo-chore-2", name: "Do the dishes", description: "", status: .pending, dueDate: today, assignedToUserID: samID, eligibleAssignees: [alexID, samID], recurrenceType: "daily", seriesID: "demo-series-2"),
+            Chore(id: "demo-chore-3", name: "Take out trash", description: "All bins — kitchen, bathrooms, recycling.", status: .pending, dueDate: nextWeek, assignedToUserID: alexID, eligibleAssignees: [alexID], recurrenceType: "weekly", recurrenceValue: "{\"interval\":1,\"days\":[\"thursday\"]}", seriesID: "demo-series-3"),
             Chore(id: "demo-chore-4", name: "Grocery shopping", description: "Weekly shop — see fridge list.", status: .pending, dueDate: nextWeek, assignedToUserID: samID),
             Chore(id: "demo-chore-5", name: "Clean bathroom", description: "", status: .completed, dueDate: nil, assignedToUserID: samID),
         ]
@@ -142,18 +142,13 @@ final class DemoAPIClient: APIClientProtocol {
     func completeChore(id: String) async throws {
         guard let index = chores.firstIndex(where: { $0.id == id }) else { return }
         let old = chores[index]
-        chores[index] = Chore(id: old.id, name: old.name, description: old.description, status: .completed, dueDate: old.dueDate, assignedToUserID: old.assignedToUserID)
+        chores[index] = Chore(id: old.id, name: old.name, description: old.description, status: .completed, dueDate: old.dueDate, assignedToUserID: old.assignedToUserID, categoryID: old.categoryID, dueTime: old.dueTime, eligibleAssignees: old.eligibleAssignees, recurrenceType: old.recurrenceType, recurrenceValue: old.recurrenceValue, recurOnComplete: old.recurOnComplete, seriesID: old.seriesID, recurrenceUntil: old.recurrenceUntil, recurrenceCount: old.recurrenceCount)
     }
 
     func createChore(_ request: ChoreRequest) async throws -> Chore {
-        let chore = Chore(
-            id: "demo-chore-\(UUID().uuidString)",
-            name: request.name,
-            description: request.description,
-            status: .pending,
-            dueDate: request.dueDate,
-            assignedToUserID: request.assignees.first
-        )
+        let id = "demo-chore-\(UUID().uuidString)"
+        let recurring = (request.recurrenceType ?? "none") != "none"
+        let chore = Self.choreFrom(request, id: id, status: .pending, seriesID: recurring ? "demo-series-\(id)" : nil)
         chores.append(chore)
         return chore
     }
@@ -163,9 +158,43 @@ final class DemoAPIClient: APIClientProtocol {
             throw APIError.notFound
         }
         let old = chores[index]
-        let updated = Chore(id: id, name: request.name, description: request.description, status: old.status, dueDate: request.dueDate, assignedToUserID: request.assignees.first)
+        let updated = Self.choreFrom(request, id: id, status: old.status, seriesID: old.seriesID)
         chores[index] = updated
         return updated
+    }
+
+    /// Builds a Chore from a request, re-encoding the structured recurrence fields
+    /// into a recurrenceValue JSON string so the Manage view reflects edits.
+    private static func choreFrom(_ request: ChoreRequest, id: String, status: ChoreStatus, seriesID: String?) -> Chore {
+        var config: [String: Any] = [:]
+        if let interval = request.recurrenceInterval { config["interval"] = interval }
+        if let days = request.recurrenceDays, !days.isEmpty { config["days"] = days }
+        if let dom = request.recurrenceDayOfMonth { config["day_of_month"] = dom }
+        if let unit = request.recurrenceUnit { config["unit"] = unit }
+        var recurrenceValue = ""
+        let type = request.recurrenceType ?? "none"
+        if type != "none", type != "daily", !config.isEmpty,
+           let data = try? JSONSerialization.data(withJSONObject: config),
+           let json = String(data: data, encoding: .utf8) {
+            recurrenceValue = json
+        }
+        return Chore(
+            id: id,
+            name: request.name,
+            description: request.description,
+            status: status,
+            dueDate: request.dueDate,
+            assignedToUserID: request.assignees.first,
+            categoryID: request.categoryId,
+            dueTime: request.dueTime,
+            eligibleAssignees: request.assignees,
+            recurrenceType: type,
+            recurrenceValue: recurrenceValue,
+            recurOnComplete: request.recurOnComplete,
+            seriesID: seriesID,
+            recurrenceUntil: request.recurrenceUntil,
+            recurrenceCount: request.recurrenceCount
+        )
     }
 
     func deleteChore(id: String) async throws {

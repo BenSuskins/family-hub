@@ -146,15 +146,21 @@ curl -s "$BASE_URL/api/chores?status=pending&assigned_to=<userID>" \
 ```
 
 ### `POST /api/chores`
-- **Usecase:** Create a chore.
+- **Usecase:** Create a chore (full parity with the web form).
 - **Callers:** iOS app.
-- **Security:** API token. Body JSON: `name` required.
+- **Security:** API token. Body JSON: `name` required; all other fields optional.
+- **Body fields:** `name`, `description`, `categoryId`, `assignees` (eligible-assignee
+  rotation pool), `dueDate` (`YYYY-MM-DD`), `dueTime` (`HH:MM`), `recurrenceType`
+  (`none`/`daily`/`weekly`/`monthly`/`custom`), `recurrenceInterval` (int ≥1),
+  `recurrenceDays` (weekly; `["monday",…]`), `recurrenceDayOfMonth` (monthly; 1–31),
+  `recurrenceUnit` (custom; `days`/`weeks`/`months`), `recurrenceUntil` (`YYYY-MM-DD`),
+  `recurrenceCount` (int ≥1), `recurOnComplete` (bool).
 
 ```bash
 curl -s -X POST $BASE_URL/api/chores \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Take out trash","description":"Bins by the curb","assignees":["user-id-1"],"dueDate":"2026-04-10","recurrenceType":"weekly"}' | jq
+  -d '{"name":"Take out trash","description":"Bins by the curb","categoryId":"cat-1","assignees":["user-id-1","user-id-2"],"dueDate":"2026-04-10","dueTime":"18:30","recurrenceType":"weekly","recurrenceInterval":1,"recurrenceDays":["monday","thursday"],"recurrenceUntil":"2026-12-31","recurOnComplete":false}' | jq
 ```
 
 ### `GET /api/chores/{id}`
@@ -167,7 +173,10 @@ curl -s $BASE_URL/api/chores/<choreID> -H "Authorization: Bearer $API_TOKEN" | j
 ```
 
 ### `PUT /api/chores/{id}`
-- **Usecase:** Update chore (name, description, assignees, due date, recurrence).
+- **Usecase:** Update chore. Accepts the same body fields as `POST /api/chores`
+  (name, description, category, assignees, due date/time, full recurrence config, end
+  conditions, recur-on-complete). Editing an occurrence that belongs to a series syncs the
+  series definition. Omitted optional fields are cleared.
 - **Callers:** iOS app edit.
 - **Security:** API token.
 
@@ -175,7 +184,7 @@ curl -s $BASE_URL/api/chores/<choreID> -H "Authorization: Bearer $API_TOKEN" | j
 curl -s -X PUT $BASE_URL/api/chores/<choreID> \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Updated","description":"","assignees":["user-id-1"],"dueDate":"2026-04-15","recurrenceType":"none"}' | jq
+  -d '{"name":"Updated","description":"","assignees":["user-id-1"],"dueDate":"2026-04-15","recurrenceType":"monthly","recurrenceDayOfMonth":15,"recurrenceCount":6}' | jq
 ```
 
 ### `DELETE /api/chores/{id}`

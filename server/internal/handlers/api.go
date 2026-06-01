@@ -586,17 +586,80 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// choreAPIBody is the JSON request body shared by CreateChore and UpdateChore.
+// It mirrors the full set of options the web chore form exposes so API clients
+// (the iOS app) reach parity.
+type choreAPIBody struct {
+	Name                 string   `json:"name"`
+	Description          string   `json:"description"`
+	CategoryID           *string  `json:"categoryId,omitempty"`
+	Assignees            []string `json:"assignees,omitempty"`
+	DueDate              *string  `json:"dueDate,omitempty"`
+	DueTime              *string  `json:"dueTime,omitempty"`
+	RecurrenceType       string   `json:"recurrenceType,omitempty"`
+	RecurrenceInterval   int      `json:"recurrenceInterval,omitempty"`
+	RecurrenceDays       []string `json:"recurrenceDays,omitempty"`
+	RecurrenceDayOfMonth int      `json:"recurrenceDayOfMonth,omitempty"`
+	RecurrenceUnit       string   `json:"recurrenceUnit,omitempty"`
+	RecurrenceUntil      *string  `json:"recurrenceUntil,omitempty"`
+	RecurrenceCount      *int     `json:"recurrenceCount,omitempty"`
+	RecurOnComplete      bool     `json:"recurOnComplete,omitempty"`
+}
+
+// applyTo writes the body's schedule, category and recurrence fields onto a
+// chore. Name/Description are set by the caller. Absent optional fields clear
+// their target so an edit can remove a value.
+func (b choreAPIBody) applyTo(chore *models.Chore) {
+	recurrenceType := models.RecurrenceNone
+	if b.RecurrenceType != "" {
+		recurrenceType = models.RecurrenceType(b.RecurrenceType)
+	}
+	chore.RecurrenceType = recurrenceType
+	chore.RecurrenceValue = buildRecurrenceValueFrom(
+		recurrenceType, b.RecurrenceInterval, b.RecurrenceDays, b.RecurrenceDayOfMonth, b.RecurrenceUnit,
+	)
+	chore.RecurOnComplete = b.RecurOnComplete
+
+	if b.CategoryID != nil && *b.CategoryID != "" {
+		chore.CategoryID = b.CategoryID
+	} else {
+		chore.CategoryID = nil
+	}
+
+	if b.DueTime != nil && *b.DueTime != "" {
+		chore.DueTime = b.DueTime
+	} else {
+		chore.DueTime = nil
+	}
+
+	if b.DueDate != nil && *b.DueDate != "" {
+		if dueDate, err := time.Parse(DateFormat, *b.DueDate); err == nil {
+			chore.DueDate = &dueDate
+		}
+	} else {
+		chore.DueDate = nil
+	}
+
+	if b.RecurrenceUntil != nil && *b.RecurrenceUntil != "" {
+		if until, err := time.Parse(DateFormat, *b.RecurrenceUntil); err == nil {
+			chore.RecurrenceUntil = &until
+		}
+	} else {
+		chore.RecurrenceUntil = nil
+	}
+
+	if b.RecurrenceCount != nil && *b.RecurrenceCount > 0 {
+		chore.RecurrenceCount = b.RecurrenceCount
+	} else {
+		chore.RecurrenceCount = nil
+	}
+}
+
 func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	var body struct {
-		Name           string   `json:"name"`
-		Description    string   `json:"description"`
-		Assignees      []string `json:"assignees,omitempty"`
-		DueDate        *string  `json:"dueDate,omitempty"`
-		RecurrenceType string   `json:"recurrenceType,omitempty"`
-	}
+	var body choreAPIBody
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
@@ -605,24 +668,12 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recurrenceType := models.RecurrenceNone
-	if body.RecurrenceType != "" {
-		recurrenceType = models.RecurrenceType(body.RecurrenceType)
-	}
-
 	chore := models.Chore{
 		Name:            body.Name,
 		Description:     body.Description,
-		RecurrenceType:  recurrenceType,
 		CreatedByUserID: user.ID,
 	}
-
-	if body.DueDate != nil && *body.DueDate != "" {
-		dueDate, err := time.Parse(DateFormat, *body.DueDate)
-		if err == nil {
-			chore.DueDate = &dueDate
-		}
-	}
+	body.applyTo(&chore)
 
 	created, err := handler.choreRepo.Create(ctx, chore)
 	if err != nil {
@@ -679,13 +730,7 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		Name           string   `json:"name"`
-		Description    string   `json:"description"`
-		Assignees      []string `json:"assignees,omitempty"`
-		DueDate        *string  `json:"dueDate,omitempty"`
-		RecurrenceType string   `json:"recurrenceType,omitempty"`
-	}
+	var body choreAPIBody
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
@@ -695,24 +740,12 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	oldRecurrenceType := chore.RecurrenceType
+	oldRecurrenceValue := chore.RecurrenceValue
+	oldRecurrenceEnd := recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount)
 
 	chore.Name = body.Name
 	chore.Description = body.Description
-	if body.RecurrenceType != "" {
-		chore.RecurrenceType = models.RecurrenceType(body.RecurrenceType)
-	} else {
-		chore.RecurrenceType = models.RecurrenceNone
-	}
-	chore.RecurrenceValue = ""
-
-	if body.DueDate != nil && *body.DueDate != "" {
-		dueDate, err := time.Parse(DateFormat, *body.DueDate)
-		if err == nil {
-			chore.DueDate = &dueDate
-		}
-	} else {
-		chore.DueDate = nil
-	}
+	body.applyTo(&chore)
 
 	if err := handler.choreRepo.Update(ctx, chore); err != nil {
 		slog.Error("updating chore via API", "error", err)
@@ -732,7 +765,9 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recurrenceChanged := chore.RecurrenceType != oldRecurrenceType
+	recurrenceChanged := chore.RecurrenceType != oldRecurrenceType ||
+		chore.RecurrenceValue != oldRecurrenceValue ||
+		recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount) != oldRecurrenceEnd
 	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting stale future instances via API", "error", err)

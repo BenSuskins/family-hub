@@ -274,15 +274,16 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		slog.Error("assigning chore", "error", err)
 	}
 
-	if created.RecurrenceType != models.RecurrenceNone && !created.RecurOnComplete {
+	// Recurring chores (including RecurOnComplete) own their rule in a
+	// chore_series row, which must exist before chores.series_id references it.
+	if created.RecurrenceType != models.RecurrenceNone {
 		seriesID := created.ID
 		assigned.SeriesID = &seriesID
-		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, assignees); err != nil {
+			slog.Error("creating series definition for new chore", "error", err)
+		} else if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore", "error", err)
-		} else {
-			if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, assignees); err != nil {
-				slog.Error("syncing series definition for new chore", "error", err)
-			}
+		} else if !created.RecurOnComplete {
 			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences for new chore", "error", err)
 			}

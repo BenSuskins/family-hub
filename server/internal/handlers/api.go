@@ -643,15 +643,14 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 		assigned = created
 	}
 
-	if created.RecurrenceType != models.RecurrenceNone && !created.RecurOnComplete {
+	if created.RecurrenceType != models.RecurrenceNone {
 		seriesID := created.ID
 		assigned.SeriesID = &seriesID
-		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, body.Assignees); err != nil {
+			slog.Error("creating series definition via API", "error", err)
+		} else if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore via API", "error", err)
-		} else {
-			if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, body.Assignees); err != nil {
-				slog.Error("syncing series definition via API", "error", err)
-			}
+		} else if !created.RecurOnComplete {
 			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences via API", "error", err)
 			}

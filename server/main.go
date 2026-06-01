@@ -78,9 +78,6 @@ func runSeriesTopUp(choreService *services.ChoreService) {
 
 	for {
 		ctx := context.Background()
-		if err := choreService.BackfillSeries(ctx); err != nil {
-			slog.Error("backfilling chore series", "error", err)
-		}
 		if err := choreService.TopUpAllSeries(ctx, services.SeedHorizonFrom(time.Now())); err != nil {
 			slog.Error("topping up recurring series", "error", err)
 		}

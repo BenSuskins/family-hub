@@ -24,7 +24,11 @@ func Migrate(db *sql.DB) error {
 	}
 	defer source.Close()
 
-	driver, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	// NoTxWrap runs each migration as a single multi-statement Exec on one
+	// connection rather than wrapping it in a transaction. This is required by
+	// migration 016, which toggles PRAGMA foreign_keys (a no-op inside a
+	// transaction) to rebuild the chores table without cascade-deleting children.
+	driver, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{NoTxWrap: true})
 	if err != nil {
 		return fmt.Errorf("creating sqlite driver: %w", err)
 	}

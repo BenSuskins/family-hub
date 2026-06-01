@@ -282,10 +282,49 @@ func (service *ChoreService) copyEligibleAssignees(ctx context.Context, sourceCh
 
 func (service *ChoreService) ensureSeriesID(ctx context.Context, chore *models.Chore) error {
 	if chore.SeriesID != nil {
-		return nil
+		// A series row must exist before chores.series_id can reference it (FK).
+		return service.ensureSeriesRow(ctx, *chore)
 	}
 	chore.SeriesID = &chore.ID
+	if err := service.ensureSeriesRow(ctx, *chore); err != nil {
+		return err
+	}
 	return service.choreRepo.Update(ctx, *chore)
+}
+
+// ensureSeriesRow creates a minimal chore_series definition from the chore when
+// one does not yet exist, satisfying the chores.series_id foreign key. The rule
+// is taken from the chore's own fields (which, for in-memory chores, still carry
+// the intended rule). No-op when the definition already exists.
+func (service *ChoreService) ensureSeriesRow(ctx context.Context, chore models.Chore) error {
+	if service.seriesRepo == nil || chore.SeriesID == nil {
+		return nil
+	}
+	existing, err := service.seriesRepo.FindByID(ctx, *chore.SeriesID)
+	if err != nil {
+		return fmt.Errorf("checking series row: %w", err)
+	}
+	if existing != nil {
+		return nil
+	}
+	_, err = service.seriesRepo.Create(ctx, models.ChoreSeries{
+		ID:                   *chore.SeriesID,
+		Name:                 chore.Name,
+		Description:          chore.Description,
+		CreatedByUserID:      chore.CreatedByUserID,
+		CategoryID:           chore.CategoryID,
+		DueTime:              chore.DueTime,
+		RecurrenceType:       chore.RecurrenceType,
+		RecurrenceValue:      chore.RecurrenceValue,
+		RecurOnComplete:      chore.RecurOnComplete,
+		RecurrenceUntil:      chore.RecurrenceUntil,
+		RecurrenceCount:      chore.RecurrenceCount,
+		RotationCursorUserID: chore.AssignedToUserID,
+	})
+	if err != nil {
+		return fmt.Errorf("creating series row: %w", err)
+	}
+	return nil
 }
 
 func newChoreFromTemplate(template models.Chore, dueDate *time.Time, lastAssignedIndex int) models.Chore {
@@ -450,10 +489,9 @@ func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore mo
 
 // TopUpAllSeries refills every active fixed-schedule recurring series up to
 // `until`, so a series that is never completed does not run out of future
-// occurrences (the materialization horizon is bounded). It also backfills legacy
-// recurring chores that predate series_id tracking, subsuming
-// SeedExistingRecurringChores. Safe to call repeatedly: SeedFutureOccurrences is
-// idempotent. A failure on one series is logged and does not abort the rest.
+// occurrences (the materialization horizon is bounded). Safe to call repeatedly:
+// SeedFutureOccurrences is idempotent. A failure on one series is logged and
+// does not abort the rest.
 func (service *ChoreService) TopUpAllSeries(ctx context.Context, until time.Time) error {
 	anchors, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
@@ -478,83 +516,6 @@ func (service *ChoreService) TopUpAllSeries(ctx context.Context, until time.Time
 			slog.Error("topping up series", "chore_id", anchor.ID, "error", err)
 		}
 	}
-	return nil
-}
-
-// BackfillSeries ensures every active recurring series has a chore_series
-// definition row, derived from the series anchor. It is idempotent: a series
-// that already has a definition is skipped. The rotation cursor is seeded from
-// the latest occurrence's assignee, and the eligible pool is copied from the
-// anchor occurrence. Safe to call repeatedly and concurrently with normal use.
-func (service *ChoreService) BackfillSeries(ctx context.Context) error {
-	if service.seriesRepo == nil {
-		return nil
-	}
-
-	anchors, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		RecurrenceTypes: []models.RecurrenceType{
-			models.RecurrenceDaily,
-			models.RecurrenceWeekly,
-			models.RecurrenceMonthly,
-			models.RecurrenceCustom,
-			models.RecurrenceCalendar,
-		},
-		OnlyNextPerSeries: true,
-	})
-	if err != nil {
-		return fmt.Errorf("finding series anchors: %w", err)
-	}
-
-	for _, anchor := range anchors {
-		if err := service.ensureSeriesID(ctx, &anchor); err != nil {
-			return fmt.Errorf("ensuring series_id for backfill: %w", err)
-		}
-		seriesID := *anchor.SeriesID
-
-		existing, err := service.seriesRepo.FindByID(ctx, seriesID)
-		if err != nil {
-			return fmt.Errorf("checking existing series: %w", err)
-		}
-		if existing != nil {
-			continue
-		}
-
-		// Continue rotation from the latest occurrence's assignee when present.
-		cursor := anchor.AssignedToUserID
-		if last, err := service.choreRepo.FindLastFuturePendingInSeries(ctx, seriesID); err == nil && last != nil && last.AssignedToUserID != nil {
-			cursor = last.AssignedToUserID
-		}
-
-		_, err = service.seriesRepo.Create(ctx, models.ChoreSeries{
-			ID:                   seriesID,
-			Name:                 anchor.Name,
-			Description:          anchor.Description,
-			CreatedByUserID:      anchor.CreatedByUserID,
-			CategoryID:           anchor.CategoryID,
-			DueTime:              anchor.DueTime,
-			RecurrenceType:       anchor.RecurrenceType,
-			RecurrenceValue:      anchor.RecurrenceValue,
-			RecurOnComplete:      anchor.RecurOnComplete,
-			RecurrenceUntil:      anchor.RecurrenceUntil,
-			RecurrenceCount:      anchor.RecurrenceCount,
-			RotationCursorUserID: cursor,
-		})
-		if err != nil {
-			return fmt.Errorf("creating backfilled series %s: %w", seriesID, err)
-		}
-
-		eligible, err := service.choreRepo.GetEligibleAssignees(ctx, anchor.ID)
-		if err != nil {
-			return fmt.Errorf("reading anchor eligible assignees: %w", err)
-		}
-		if len(eligible) > 0 {
-			if err := service.seriesRepo.SetEligibleAssignees(ctx, seriesID, eligible); err != nil {
-				return fmt.Errorf("copying eligible assignees to series: %w", err)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -615,31 +576,6 @@ func (service *ChoreService) DeleteSeriesDefinition(ctx context.Context, seriesI
 	return service.seriesRepo.MarkDeleted(ctx, seriesID)
 }
 
-func (service *ChoreService) SeedExistingRecurringChores(ctx context.Context, until time.Time) error {
-	chores, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		RecurrenceTypes: []models.RecurrenceType{
-			models.RecurrenceDaily,
-			models.RecurrenceWeekly,
-			models.RecurrenceMonthly,
-			models.RecurrenceCustom,
-			models.RecurrenceCalendar,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("finding chores to seed: %w", err)
-	}
-
-	for _, chore := range chores {
-		if chore.SeriesID != nil || chore.RecurOnComplete || chore.DueDate == nil {
-			continue
-		}
-		if err := service.SeedFutureOccurrences(ctx, chore, until); err != nil {
-			slog.Error("seeding existing chore", "chore_id", chore.ID, "error", err)
-		}
-	}
-	return nil
-}
 
 func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 	overdueChores, err := service.choreRepo.FindOverdueChores(ctx)

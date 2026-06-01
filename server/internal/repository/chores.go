@@ -58,7 +58,7 @@ func NewChoreRepository(database *sql.DB) *SQLiteChoreRepository {
 func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string) (models.Chore, error) {
 	var chore models.Chore
 	err := repository.database.QueryRowContext(ctx,
-		fmt.Sprintf("SELECT %s FROM chores WHERE id = ?", choreColumns), id,
+		fmt.Sprintf("SELECT %s %s WHERE c.id = ?", choreSelectColumns, choreJoin), id,
 	).Scan(
 		&chore.ID, &chore.Name, &chore.Description, &chore.CreatedByUserID, &chore.CategoryID,
 		&chore.AssignedToUserID, &chore.LastAssignedIndex,
@@ -74,20 +74,37 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 	return chore, nil
 }
 
-const choreColumns = `id, name, description, created_by_user_id, category_id,
-		assigned_to_user_id, last_assigned_index,
-		due_date, due_time,
+// As of migration 016 the recurrence rule lives in chore_series, not on chores.
+// Reads LEFT JOIN the series and project the rule fields back into the same
+// column order the model scans, so the rest of the code is unaffected by the
+// normalization. choreColumnNames is the bare list for the OnlyNextPerSeries
+// subquery wrapper.
+const choreSelectColumns = `c.id AS id, c.name AS name, c.description AS description,
+		c.created_by_user_id AS created_by_user_id, c.category_id AS category_id,
+		c.assigned_to_user_id AS assigned_to_user_id, c.last_assigned_index AS last_assigned_index,
+		c.due_date AS due_date, c.due_time AS due_time,
+		COALESCE(cs.recurrence_type, 'none') AS recurrence_type,
+		COALESCE(cs.recurrence_value, '') AS recurrence_value,
+		COALESCE(cs.recur_on_complete, 0) AS recur_on_complete,
+		c.series_id AS series_id,
+		cs.recurrence_until AS recurrence_until, cs.recurrence_count AS recurrence_count,
+		c.status AS status, c.completed_at AS completed_at, c.completed_by_user_id AS completed_by_user_id,
+		c.created_at AS created_at, c.updated_at AS updated_at`
+
+const choreColumnNames = `id, name, description, created_by_user_id, category_id,
+		assigned_to_user_id, last_assigned_index, due_date, due_time,
 		recurrence_type, recurrence_value, recur_on_complete, series_id,
-		recurrence_until, recurrence_count,
-		status, completed_at, completed_by_user_id,
+		recurrence_until, recurrence_count, status, completed_at, completed_by_user_id,
 		created_at, updated_at`
+
+const choreJoin = `FROM chores c LEFT JOIN chore_series cs ON cs.id = c.series_id`
 
 func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
 	where := "WHERE 1=1"
 	var args []interface{}
 
 	if filter.Status != nil {
-		where += " AND status = ?"
+		where += " AND c.status = ?"
 		args = append(args, *filter.Status)
 	}
 	if len(filter.Statuses) > 0 {
@@ -96,7 +113,7 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 			placeholders[i] = "?"
 			args = append(args, string(s))
 		}
-		where += " AND status IN (" + strings.Join(placeholders, ",") + ")"
+		where += " AND c.status IN (" + strings.Join(placeholders, ",") + ")"
 	}
 	if len(filter.RecurrenceTypes) > 0 {
 		placeholders := make([]string, len(filter.RecurrenceTypes))
@@ -104,22 +121,22 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 			placeholders[i] = "?"
 			args = append(args, string(rt))
 		}
-		where += " AND recurrence_type IN (" + strings.Join(placeholders, ",") + ")"
+		where += " AND COALESCE(cs.recurrence_type, 'none') IN (" + strings.Join(placeholders, ",") + ")"
 	}
 	if filter.AssignedToUser != nil {
-		where += " AND assigned_to_user_id = ?"
+		where += " AND c.assigned_to_user_id = ?"
 		args = append(args, *filter.AssignedToUser)
 	}
 	if filter.CategoryID != nil {
-		where += " AND category_id = ?"
+		where += " AND c.category_id = ?"
 		args = append(args, *filter.CategoryID)
 	}
 	if filter.DueBefore != nil {
-		where += " AND due_date <= ?"
+		where += " AND c.due_date <= ?"
 		args = append(args, *filter.DueBefore)
 	}
 	if filter.DueAfter != nil {
-		where += " AND due_date >= ?"
+		where += " AND c.due_date >= ?"
 		args = append(args, *filter.DueAfter)
 	}
 
@@ -133,14 +150,14 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter Cho
 		query = fmt.Sprintf(
 			`SELECT %s FROM (
 				SELECT %s,
-					ROW_NUMBER() OVER (PARTITION BY COALESCE(series_id, id) ORDER BY due_date ASC NULLS LAST) AS _rn
-				FROM chores %s
+					ROW_NUMBER() OVER (PARTITION BY COALESCE(c.series_id, c.id) ORDER BY c.due_date ASC NULLS LAST) AS _rn
+				%s %s
 			) WHERE _rn = 1
 			ORDER BY %s`,
-			choreColumns, choreColumns, where, orderBy,
+			choreColumnNames, choreSelectColumns, choreJoin, where, orderBy,
 		)
 	} else {
-		query = fmt.Sprintf("SELECT %s FROM chores %s ORDER BY %s", choreColumns, where, orderBy)
+		query = fmt.Sprintf("SELECT %s %s %s ORDER BY %s", choreSelectColumns, choreJoin, where, orderBy)
 	}
 
 	if filter.Limit > 0 {
@@ -170,20 +187,19 @@ func (repository *SQLiteChoreRepository) Create(ctx context.Context, chore model
 		chore.RecurrenceType = models.RecurrenceNone
 	}
 
+	// The recurrence rule lives in chore_series (migration 016); only occurrence
+	// state is stored here. series_id has a foreign key, so the series row must
+	// already exist when it is non-null.
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO chores (id, name, description, created_by_user_id, category_id,
 			assigned_to_user_id, last_assigned_index,
-			due_date, due_time,
-			recurrence_type, recurrence_value, recur_on_complete, series_id,
-			recurrence_until, recurrence_count,
+			due_date, due_time, series_id,
 			status, completed_at, completed_by_user_id,
 			created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		chore.ID, chore.Name, chore.Description, chore.CreatedByUserID, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
-		chore.DueDate, chore.DueTime,
-		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
-		chore.RecurrenceUntil, chore.RecurrenceCount,
+		chore.DueDate, chore.DueTime, chore.SeriesID,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.CreatedAt, chore.UpdatedAt,
 	)
@@ -198,17 +214,13 @@ func (repository *SQLiteChoreRepository) Update(ctx context.Context, chore model
 	_, err := repository.database.ExecContext(ctx,
 		`UPDATE chores SET name = ?, description = ?, category_id = ?,
 			assigned_to_user_id = ?, last_assigned_index = ?,
-			due_date = ?, due_time = ?,
-			recurrence_type = ?, recurrence_value = ?, recur_on_complete = ?, series_id = ?,
-			recurrence_until = ?, recurrence_count = ?,
+			due_date = ?, due_time = ?, series_id = ?,
 			status = ?, completed_at = ?, completed_by_user_id = ?,
 			updated_at = ?
 		WHERE id = ?`,
 		chore.Name, chore.Description, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
-		chore.DueDate, chore.DueTime,
-		chore.RecurrenceType, chore.RecurrenceValue, chore.RecurOnComplete, chore.SeriesID,
-		chore.RecurrenceUntil, chore.RecurrenceCount,
+		chore.DueDate, chore.DueTime, chore.SeriesID,
 		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
 		chore.UpdatedAt, chore.ID,
 	)
@@ -231,9 +243,9 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(24 * time.Hour)
 
 	rows, err := repository.database.QueryContext(ctx,
-		fmt.Sprintf(`SELECT %s FROM chores
-		WHERE status IN ('pending', 'overdue') AND due_date IS NOT NULL AND due_date < ?
-		ORDER BY due_date ASC`, choreColumns),
+		fmt.Sprintf(`SELECT %s %s
+		WHERE c.status IN ('pending', 'overdue') AND c.due_date IS NOT NULL AND c.due_date < ?
+		ORDER BY c.due_date ASC`, choreSelectColumns, choreJoin),
 		endOfToday,
 	)
 	if err != nil {
@@ -274,9 +286,9 @@ func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]mo
 	tomorrow := today.Add(24 * time.Hour)
 
 	rows, err := repository.database.QueryContext(ctx,
-		fmt.Sprintf(`SELECT %s FROM chores
-		WHERE due_date >= ? AND due_date < ? AND status = 'pending'
-		ORDER BY due_date ASC`, choreColumns),
+		fmt.Sprintf(`SELECT %s %s
+		WHERE c.due_date >= ? AND c.due_date < ? AND c.status = 'pending'
+		ORDER BY c.due_date ASC`, choreSelectColumns, choreJoin),
 		today, tomorrow,
 	)
 	if err != nil {
@@ -356,10 +368,10 @@ func (repository *SQLiteChoreRepository) DeleteFuturePendingBySeries(ctx context
 
 func (repository *SQLiteChoreRepository) FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error) {
 	rows, err := repository.database.QueryContext(ctx,
-		fmt.Sprintf(`SELECT %s FROM chores
-		WHERE series_id = ? AND status = 'pending' AND due_date > CURRENT_TIMESTAMP
-		ORDER BY due_date DESC
-		LIMIT 1`, choreColumns),
+		fmt.Sprintf(`SELECT %s %s
+		WHERE c.series_id = ? AND c.status = 'pending' AND c.due_date > CURRENT_TIMESTAMP
+		ORDER BY c.due_date DESC
+		LIMIT 1`, choreSelectColumns, choreJoin),
 		seriesID,
 	)
 	if err != nil {

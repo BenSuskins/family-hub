@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -80,6 +81,19 @@ func createTestUser(t *testing.T, repo *repository.SQLiteUserRepository) models.
 	return user
 }
 
+// makeChoreSeries creates a chore_series row so occurrences can reference it
+// (the recurrence rule and the chores.series_id foreign key live there as of
+// migration 016). Returns the series id.
+func makeChoreSeries(t *testing.T, db *sql.DB, createdBy string, rule models.ChoreSeries) string {
+	t.Helper()
+	rule.CreatedByUserID = createdBy
+	created, err := repository.NewChoreSeriesRepository(db).Create(context.Background(), rule)
+	if err != nil {
+		t.Fatalf("creating chore series: %v", err)
+	}
+	return created.ID
+}
+
 func TestChoreRepository_CreateAndFindByID(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)
@@ -88,14 +102,18 @@ func TestChoreRepository_CreateAndFindByID(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
+	// The recurrence rule lives on the series; FindByID projects it back.
+	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{
+		Name: "Clean kitchen", RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval": 1}`,
+	})
+
 	dueDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 	chore := models.Chore{
 		Name:            "Clean kitchen",
 		Description:     "Wipe counters and mop",
 		CreatedByUserID: user.ID,
 		DueDate:         &dueDate,
-		RecurrenceType:  models.RecurrenceWeekly,
-		RecurrenceValue: `{"interval": 1}`,
+		SeriesID:        &seriesID,
 	}
 
 	created, err := choreRepo.Create(ctx, chore)
@@ -117,47 +135,14 @@ func TestChoreRepository_CreateAndFindByID(t *testing.T) {
 		t.Errorf("expected name 'Clean kitchen', got '%s'", found.Name)
 	}
 	if found.RecurrenceType != models.RecurrenceWeekly {
-		t.Errorf("expected weekly recurrence, got '%s'", found.RecurrenceType)
-	}
-}
-
-func TestChoreRepository_RecurrenceEndConditions_RoundTrip(t *testing.T) {
-	db := testutil.NewTestDatabase(t)
-	userRepo := repository.NewUserRepository(db)
-	choreRepo := repository.NewChoreRepository(db)
-	ctx := context.Background()
-
-	user := createTestUser(t, userRepo)
-
-	until := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
-	count := 10
-	created, err := choreRepo.Create(ctx, models.Chore{
-		Name:            "Bounded",
-		CreatedByUserID: user.ID,
-		RecurrenceType:  models.RecurrenceDaily,
-		RecurrenceUntil: &until,
-		RecurrenceCount: &count,
-	})
-	if err != nil {
-		t.Fatalf("creating chore: %v", err)
+		t.Errorf("expected weekly recurrence from series, got '%s'", found.RecurrenceType)
 	}
 
-	found, err := choreRepo.FindByID(ctx, created.ID)
-	if err != nil {
-		t.Fatalf("finding chore: %v", err)
-	}
-	if found.RecurrenceUntil == nil || !found.RecurrenceUntil.Equal(until) {
-		t.Errorf("recurrence_until round-trip failed: got %v, want %v", found.RecurrenceUntil, until)
-	}
-	if found.RecurrenceCount == nil || *found.RecurrenceCount != count {
-		t.Errorf("recurrence_count round-trip failed: got %v, want %d", found.RecurrenceCount, count)
-	}
-
-	// nil end conditions must stay nil.
-	plain, _ := choreRepo.Create(ctx, models.Chore{Name: "Unbounded", CreatedByUserID: user.ID})
+	// A chore with no series resolves to a non-recurring rule.
+	plain, _ := choreRepo.Create(ctx, models.Chore{Name: "One off", CreatedByUserID: user.ID})
 	foundPlain, _ := choreRepo.FindByID(ctx, plain.ID)
-	if foundPlain.RecurrenceUntil != nil || foundPlain.RecurrenceCount != nil {
-		t.Errorf("expected nil end conditions, got until=%v count=%v", foundPlain.RecurrenceUntil, foundPlain.RecurrenceCount)
+	if foundPlain.RecurrenceType != models.RecurrenceNone {
+		t.Errorf("expected none recurrence for seriesless chore, got '%s'", foundPlain.RecurrenceType)
 	}
 }
 
@@ -168,7 +153,7 @@ func TestChoreRepository_CountBySeries(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	seriesID := "series-1"
+	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "S", RecurrenceType: models.RecurrenceDaily})
 	for i := 0; i < 3; i++ {
 		choreRepo.Create(ctx, models.Chore{Name: "S", CreatedByUserID: user.ID, SeriesID: &seriesID})
 	}
@@ -414,7 +399,7 @@ func TestChoreRepository_DeleteFuturePendingBySeries(t *testing.T) {
 	ctx := context.Background()
 
 	user, _ := userRepo.Create(ctx, models.User{OIDCSubject: "sub1", Email: "a@b.com", Name: "A", Role: models.RoleMember})
-	seriesID := "series-1"
+	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "Clean", RecurrenceType: models.RecurrenceWeekly})
 
 	past := time.Now().AddDate(0, 0, -1)
 	future1 := time.Now().AddDate(0, 0, 7)
@@ -460,7 +445,7 @@ func TestChoreRepository_FindLastFuturePendingInSeries(t *testing.T) {
 	ctx := context.Background()
 
 	user, _ := userRepo.Create(ctx, models.User{OIDCSubject: "sub2", Email: "b@b.com", Name: "B", Role: models.RoleMember})
-	seriesID := "series-2"
+	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "Clean", RecurrenceType: models.RecurrenceWeekly})
 
 	t.Run("returns nil when no future pending instances", func(t *testing.T) {
 		result, err := repo.FindLastFuturePendingInSeries(ctx, seriesID)
@@ -624,6 +609,14 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("creating test user: %v", err)
+			}
+
+			// Series rows must exist for occurrences to reference them (FK).
+			seriesRepo := repository.NewChoreSeriesRepository(db)
+			for _, sid := range []string{seriesA, seriesB} {
+				if _, err := seriesRepo.Create(ctx, models.ChoreSeries{ID: sid, Name: "S", CreatedByUserID: user.ID, RecurrenceType: models.RecurrenceWeekly}); err != nil {
+					t.Fatalf("creating series %s: %v", sid, err)
+				}
 			}
 
 			testCase.setup(t, repo, user.ID)

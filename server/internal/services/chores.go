@@ -59,13 +59,22 @@ func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Ch
 // single lap, but if everyone is overdue the rotation still advances rather than
 // always landing on the same person.
 func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Chore, lastAssignedUserID *string) (models.Chore, error) {
-	candidates, err := service.findCandidates(ctx, chore.ID)
+	series := service.loadSeries(ctx, chore.SeriesID)
+
+	candidates, err := service.findCandidates(ctx, chore.ID, series)
 	if err != nil {
 		return chore, err
 	}
 
 	if len(candidates) == 0 {
 		return chore, errors.New("no users available for assignment")
+	}
+
+	// When a series definition exists, its rotation cursor is the authoritative
+	// anchor so rotation is durable across the whole series; otherwise fall back
+	// to the caller-supplied previous assignee.
+	if series != nil {
+		lastAssignedUserID = series.RotationCursorUserID
 	}
 
 	start := rotationStart(candidates, lastAssignedUserID, chore.LastAssignedIndex)
@@ -107,6 +116,14 @@ func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Ch
 
 	if err := service.choreRepo.Update(ctx, chore); err != nil {
 		return chore, fmt.Errorf("updating chore assignment: %w", err)
+	}
+
+	// Advance the durable rotation cursor on the series so the next occurrence
+	// continues from this assignee regardless of which row it lives on.
+	if series != nil {
+		if err := service.seriesRepo.SetRotationCursor(ctx, series.ID, assignedUser.ID); err != nil {
+			return chore, fmt.Errorf("updating rotation cursor: %w", err)
+		}
 	}
 
 	return chore, nil
@@ -162,10 +179,35 @@ func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, 
 
 }
 
-func (service *ChoreService) findCandidates(ctx context.Context, choreID string) ([]models.User, error) {
-	eligibleIDs, err := service.choreRepo.GetEligibleAssignees(ctx, choreID)
+// loadSeries returns the chore_series definition for a chore, or nil when there
+// is no series repository, no series id, or no definition row yet (the latter
+// keeps pre-Phase-4 occurrences working via per-occurrence fields).
+func (service *ChoreService) loadSeries(ctx context.Context, seriesID *string) *models.ChoreSeries {
+	if service.seriesRepo == nil || seriesID == nil {
+		return nil
+	}
+	series, err := service.seriesRepo.FindByID(ctx, *seriesID)
 	if err != nil {
-		return nil, fmt.Errorf("getting eligible assignees: %w", err)
+		slog.Error("loading chore series", "series_id", *seriesID, "error", err)
+		return nil
+	}
+	return series
+}
+
+// findCandidates resolves the eligible assignee pool for a chore. When the chore
+// belongs to a series with a definition row, the series pool is authoritative
+// (so pool edits apply to every occurrence, including already-seeded ones);
+// otherwise it falls back to the per-occurrence pool.
+func (service *ChoreService) findCandidates(ctx context.Context, choreID string, series *models.ChoreSeries) ([]models.User, error) {
+	var eligibleIDs []string
+	if series != nil {
+		eligibleIDs = series.EligibleAssignees
+	} else {
+		ids, err := service.choreRepo.GetEligibleAssignees(ctx, choreID)
+		if err != nil {
+			return nil, fmt.Errorf("getting eligible assignees: %w", err)
+		}
+		eligibleIDs = ids
 	}
 
 	allUsers, err := service.userRepo.FindAll(ctx)
@@ -469,6 +511,63 @@ func (service *ChoreService) BackfillSeries(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// SyncSeriesDefinition creates or updates the chore_series definition for a
+// chore's series from the chore's current fields and eligible pool. On first
+// creation the rotation cursor is seeded from the chore's current assignee.
+// No-op when there is no series repository or the chore has no series id.
+func (service *ChoreService) SyncSeriesDefinition(ctx context.Context, chore models.Chore, eligibleIDs []string) error {
+	if service.seriesRepo == nil || chore.SeriesID == nil {
+		return nil
+	}
+	seriesID := *chore.SeriesID
+
+	existing, err := service.seriesRepo.FindByID(ctx, seriesID)
+	if err != nil {
+		return fmt.Errorf("loading series for sync: %w", err)
+	}
+
+	def := models.ChoreSeries{
+		ID:              seriesID,
+		Name:            chore.Name,
+		Description:     chore.Description,
+		CreatedByUserID: chore.CreatedByUserID,
+		CategoryID:      chore.CategoryID,
+		DueTime:         chore.DueTime,
+		RecurrenceType:  chore.RecurrenceType,
+		RecurrenceValue: chore.RecurrenceValue,
+		RecurOnComplete: chore.RecurOnComplete,
+		RecurrenceUntil: chore.RecurrenceUntil,
+		RecurrenceCount: chore.RecurrenceCount,
+	}
+
+	if existing == nil {
+		def.RotationCursorUserID = chore.AssignedToUserID
+		if _, err := service.seriesRepo.Create(ctx, def); err != nil {
+			return fmt.Errorf("creating series definition: %w", err)
+		}
+	} else {
+		def.CreatedAt = existing.CreatedAt
+		def.RotationCursorUserID = existing.RotationCursorUserID
+		def.DeletedAt = existing.DeletedAt
+		if err := service.seriesRepo.Update(ctx, def); err != nil {
+			return fmt.Errorf("updating series definition: %w", err)
+		}
+	}
+
+	if err := service.seriesRepo.SetEligibleAssignees(ctx, seriesID, eligibleIDs); err != nil {
+		return fmt.Errorf("setting series eligible assignees: %w", err)
+	}
+	return nil
+}
+
+// DeleteSeriesDefinition soft-deletes the series definition (audit trail).
+func (service *ChoreService) DeleteSeriesDefinition(ctx context.Context, seriesID string) error {
+	if service.seriesRepo == nil {
+		return nil
+	}
+	return service.seriesRepo.MarkDeleted(ctx, seriesID)
 }
 
 func (service *ChoreService) SeedExistingRecurringChores(ctx context.Context, until time.Time) error {

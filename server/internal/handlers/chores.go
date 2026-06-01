@@ -262,7 +262,8 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if assignees := r.Form["assignees"]; len(assignees) > 0 {
+	assignees := r.Form["assignees"]
+	if len(assignees) > 0 {
 		if err := handler.choreRepo.SetEligibleAssignees(ctx, created.ID, assignees); err != nil {
 			slog.Error("setting eligible assignees", "error", err)
 		}
@@ -279,6 +280,9 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore", "error", err)
 		} else {
+			if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, assignees); err != nil {
+				slog.Error("syncing series definition for new chore", "error", err)
+			}
 			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences for new chore", "error", err)
 			}
@@ -381,13 +385,16 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if assignees := r.Form["assignees"]; len(assignees) > 0 {
-		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
-			slog.Error("setting eligible assignees", "error", err)
-		}
-	} else {
-		if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, nil); err != nil {
-			slog.Error("clearing eligible assignees", "error", err)
+	assignees := r.Form["assignees"]
+	if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
+		slog.Error("setting eligible assignees", "error", err)
+	}
+
+	// Keep the series definition (rule + eligible pool) in step with the edit so
+	// the change applies to every occurrence, not just this row.
+	if chore.SeriesID != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, chore, assignees); err != nil {
+			slog.Error("syncing series definition on update", "error", err)
 		}
 	}
 
@@ -418,6 +425,9 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if chore.SeriesID != nil {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting future pending siblings", "error", err)
+		}
+		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
+			slog.Error("soft-deleting series definition", "error", err)
 		}
 	}
 

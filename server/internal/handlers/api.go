@@ -649,6 +649,9 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 		if err := handler.choreRepo.Update(ctx, assigned); err != nil {
 			slog.Error("setting series_id on new chore via API", "error", err)
 		} else {
+			if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, body.Assignees); err != nil {
+				slog.Error("syncing series definition via API", "error", err)
+			}
 			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
 				slog.Error("seeding future occurrences via API", "error", err)
 			}
@@ -724,6 +727,12 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if chore.SeriesID != nil {
+		if err := handler.choreService.SyncSeriesDefinition(ctx, chore, body.Assignees); err != nil {
+			slog.Error("syncing series definition on update via API", "error", err)
+		}
+	}
+
 	recurrenceChanged := chore.RecurrenceType != oldRecurrenceType
 	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
@@ -758,6 +767,9 @@ func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
 	if chore.SeriesID != nil {
 		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
 			slog.Error("deleting future pending siblings via API", "error", err)
+		}
+		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
+			slog.Error("soft-deleting series definition via API", "error", err)
 		}
 	}
 

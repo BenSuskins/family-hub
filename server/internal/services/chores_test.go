@@ -441,6 +441,60 @@ func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
 	}
 }
 
+func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 3)
+
+	seriesID := "s1"
+	seriesRepo.Create(ctx, models.ChoreSeries{
+		ID:              seriesID,
+		Name:            "X",
+		CreatedByUserID: users[0].ID,
+		RecurrenceType:  models.RecurrenceDaily,
+	})
+	// Series pool restricts to a single user.
+	seriesRepo.SetEligibleAssignees(ctx, seriesID, []string{users[1].ID})
+
+	c1, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "occ1", CreatedByUserID: users[0].ID, SeriesID: &seriesID, LastAssignedIndex: -1,
+	})
+	// Give the occurrence a DIFFERENT per-chore pool to prove the series wins.
+	choreRepo.SetEligibleAssignees(ctx, c1.ID, []string{users[0].ID, users[2].ID})
+
+	a1, err := service.AssignNextUser(ctx, c1)
+	if err != nil {
+		t.Fatalf("assign occ1: %v", err)
+	}
+	if *a1.AssignedToUserID != users[1].ID {
+		t.Errorf("series pool must be authoritative; expected users[1], got %s", *a1.AssignedToUserID)
+	}
+
+	series, _ := seriesRepo.FindByID(ctx, seriesID)
+	if series.RotationCursorUserID == nil || *series.RotationCursorUserID != users[1].ID {
+		t.Errorf("rotation cursor should advance to users[1], got %v", series.RotationCursorUserID)
+	}
+
+	// Widen the pool; the next occurrence must continue rotation from the cursor.
+	seriesRepo.SetEligibleAssignees(ctx, seriesID, []string{users[0].ID, users[1].ID, users[2].ID})
+	c2, _ := choreRepo.Create(ctx, models.Chore{
+		Name: "occ2", CreatedByUserID: users[0].ID, SeriesID: &seriesID, LastAssignedIndex: -1,
+	})
+	a2, err := service.AssignNextUser(ctx, c2)
+	if err != nil {
+		t.Fatalf("assign occ2: %v", err)
+	}
+	if *a2.AssignedToUserID == users[1].ID {
+		t.Errorf("rotation should advance past the cursor user, but stayed on users[1]")
+	}
+}
+
 func TestChoreService_BackfillSeries(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

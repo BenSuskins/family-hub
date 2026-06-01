@@ -22,7 +22,7 @@ func setupChoreService(t *testing.T) (
 	userRepo := repository.NewUserRepository(db)
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
-	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(db))
 	return service, choreRepo, assignmentRepo, userRepo
 }
 
@@ -438,6 +438,57 @@ func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
 	}
 	if future == 0 {
 		t.Error("top-up should refill future occurrences for an exhausted series")
+	}
+}
+
+func TestChoreService_BackfillSeries(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	choreRepo := repository.NewChoreRepository(db)
+	assignmentRepo := repository.NewChoreAssignmentRepository(db)
+	seriesRepo := repository.NewChoreSeriesRepository(db)
+	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	ctx := context.Background()
+
+	users := createUsers(t, userRepo, 2)
+
+	now := time.Now()
+	base := now.AddDate(0, 0, 1)
+	seriesID := "legacy-series"
+	uid := users[0].ID
+	choreRepo.Create(ctx, models.Chore{
+		Name:             "Hoover",
+		Description:      "Whole house",
+		CreatedByUserID:  users[0].ID,
+		AssignedToUserID: &uid,
+		RecurrenceType:   models.RecurrenceWeekly,
+		RecurrenceValue:  `{"interval":1}`,
+		DueDate:          &base,
+		Status:           models.ChoreStatusPending,
+		SeriesID:         &seriesID,
+	})
+
+	if err := service.BackfillSeries(ctx); err != nil {
+		t.Fatalf("BackfillSeries: %v", err)
+	}
+
+	series, err := seriesRepo.FindByID(ctx, seriesID)
+	if err != nil {
+		t.Fatalf("finding backfilled series: %v", err)
+	}
+	if series == nil {
+		t.Fatal("expected a backfilled series row")
+	}
+	if series.Name != "Hoover" || series.RecurrenceType != models.RecurrenceWeekly {
+		t.Errorf("backfilled series mismatch: %+v", series)
+	}
+	if series.RotationCursorUserID == nil || *series.RotationCursorUserID != uid {
+		t.Errorf("expected rotation cursor %s, got %v", uid, series.RotationCursorUserID)
+	}
+
+	// Idempotent: a second pass must not error or duplicate.
+	if err := service.BackfillSeries(ctx); err != nil {
+		t.Fatalf("second BackfillSeries: %v", err)
 	}
 }
 

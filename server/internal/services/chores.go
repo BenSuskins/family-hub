@@ -29,17 +29,20 @@ type ChoreService struct {
 	choreRepo      repository.ChoreRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	userRepo       repository.UserRepository
+	seriesRepo     repository.ChoreSeriesRepository
 }
 
 func NewChoreService(
 	choreRepo repository.ChoreRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	userRepo repository.UserRepository,
+	seriesRepo repository.ChoreSeriesRepository,
 ) *ChoreService {
 	return &ChoreService{
 		choreRepo:      choreRepo,
 		assignmentRepo: assignmentRepo,
 		userRepo:       userRepo,
+		seriesRepo:     seriesRepo,
 	}
 }
 
@@ -388,6 +391,83 @@ func (service *ChoreService) TopUpAllSeries(ctx context.Context, until time.Time
 			slog.Error("topping up series", "chore_id", anchor.ID, "error", err)
 		}
 	}
+	return nil
+}
+
+// BackfillSeries ensures every active recurring series has a chore_series
+// definition row, derived from the series anchor. It is idempotent: a series
+// that already has a definition is skipped. The rotation cursor is seeded from
+// the latest occurrence's assignee, and the eligible pool is copied from the
+// anchor occurrence. Safe to call repeatedly and concurrently with normal use.
+func (service *ChoreService) BackfillSeries(ctx context.Context) error {
+	if service.seriesRepo == nil {
+		return nil
+	}
+
+	anchors, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
+		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
+		RecurrenceTypes: []models.RecurrenceType{
+			models.RecurrenceDaily,
+			models.RecurrenceWeekly,
+			models.RecurrenceMonthly,
+			models.RecurrenceCustom,
+			models.RecurrenceCalendar,
+		},
+		OnlyNextPerSeries: true,
+	})
+	if err != nil {
+		return fmt.Errorf("finding series anchors: %w", err)
+	}
+
+	for _, anchor := range anchors {
+		if err := service.ensureSeriesID(ctx, &anchor); err != nil {
+			return fmt.Errorf("ensuring series_id for backfill: %w", err)
+		}
+		seriesID := *anchor.SeriesID
+
+		existing, err := service.seriesRepo.FindByID(ctx, seriesID)
+		if err != nil {
+			return fmt.Errorf("checking existing series: %w", err)
+		}
+		if existing != nil {
+			continue
+		}
+
+		// Continue rotation from the latest occurrence's assignee when present.
+		cursor := anchor.AssignedToUserID
+		if last, err := service.choreRepo.FindLastFuturePendingInSeries(ctx, seriesID); err == nil && last != nil && last.AssignedToUserID != nil {
+			cursor = last.AssignedToUserID
+		}
+
+		_, err = service.seriesRepo.Create(ctx, models.ChoreSeries{
+			ID:                   seriesID,
+			Name:                 anchor.Name,
+			Description:          anchor.Description,
+			CreatedByUserID:      anchor.CreatedByUserID,
+			CategoryID:           anchor.CategoryID,
+			DueTime:              anchor.DueTime,
+			RecurrenceType:       anchor.RecurrenceType,
+			RecurrenceValue:      anchor.RecurrenceValue,
+			RecurOnComplete:      anchor.RecurOnComplete,
+			RecurrenceUntil:      anchor.RecurrenceUntil,
+			RecurrenceCount:      anchor.RecurrenceCount,
+			RotationCursorUserID: cursor,
+		})
+		if err != nil {
+			return fmt.Errorf("creating backfilled series %s: %w", seriesID, err)
+		}
+
+		eligible, err := service.choreRepo.GetEligibleAssignees(ctx, anchor.ID)
+		if err != nil {
+			return fmt.Errorf("reading anchor eligible assignees: %w", err)
+		}
+		if len(eligible) > 0 {
+			if err := service.seriesRepo.SetEligibleAssignees(ctx, seriesID, eligible); err != nil {
+				return fmt.Errorf("copying eligible assignees to series: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 

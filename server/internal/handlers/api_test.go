@@ -129,7 +129,7 @@ func TestCompleteChore_API(t *testing.T) {
 		Status:          models.ChoreStatusPending,
 	})
 
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
 	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
@@ -169,7 +169,7 @@ func TestCompleteChore_API_NotFound(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
 	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
@@ -210,7 +210,7 @@ func TestCompleteChore_API_AlreadyComplete(t *testing.T) {
 		Status:          models.ChoreStatusCompleted,
 	})
 
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
 	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()

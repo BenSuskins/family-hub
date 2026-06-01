@@ -571,16 +571,35 @@ func parseRecurrenceEnd(r *http.Request) (*time.Time, *int) {
 }
 
 func buildRecurrenceValue(recurrenceType models.RecurrenceType, r *http.Request) string {
+	interval := 0
+	if intervalStr := r.FormValue("recurrence_interval"); intervalStr != "" {
+		if parsed, err := strconv.Atoi(intervalStr); err == nil {
+			interval = parsed
+		}
+	}
+
+	dayOfMonth := 0
+	if dayStr := r.FormValue("recurrence_day_of_month"); dayStr != "" {
+		if day, err := strconv.Atoi(dayStr); err == nil {
+			dayOfMonth = day
+		}
+	}
+
+	return buildRecurrenceValueFrom(recurrenceType, interval, r.Form["recurrence_days"], dayOfMonth, r.FormValue("recurrence_unit"))
+}
+
+// buildRecurrenceValueFrom encodes the structured recurrence config as JSON.
+// It is the shared core used by both the web form handler (buildRecurrenceValue)
+// and the JSON API, so the two stay in lockstep.
+func buildRecurrenceValueFrom(recurrenceType models.RecurrenceType, interval int, days []string, dayOfMonth int, unit string) string {
 	if recurrenceType == models.RecurrenceNone || recurrenceType == models.RecurrenceDaily {
 		return ""
 	}
 
 	config := recurrenceConfigJSON{}
 
-	if intervalStr := r.FormValue("recurrence_interval"); intervalStr != "" {
-		if interval, err := strconv.Atoi(intervalStr); err == nil && interval > 0 {
-			config.Interval = interval
-		}
+	if interval > 0 {
+		config.Interval = interval
 	}
 	if config.Interval == 0 {
 		config.Interval = 1
@@ -588,15 +607,13 @@ func buildRecurrenceValue(recurrenceType models.RecurrenceType, r *http.Request)
 
 	switch recurrenceType {
 	case models.RecurrenceWeekly:
-		config.Days = r.Form["recurrence_days"]
+		config.Days = days
 	case models.RecurrenceMonthly:
-		if dayStr := r.FormValue("recurrence_day_of_month"); dayStr != "" {
-			if day, err := strconv.Atoi(dayStr); err == nil && day >= 1 && day <= 31 {
-				config.DayOfMonth = day
-			}
+		if dayOfMonth >= 1 && dayOfMonth <= 31 {
+			config.DayOfMonth = dayOfMonth
 		}
 	case models.RecurrenceCustom:
-		config.Unit = r.FormValue("recurrence_unit")
+		config.Unit = unit
 		if config.Unit == "" {
 			config.Unit = "days"
 		}

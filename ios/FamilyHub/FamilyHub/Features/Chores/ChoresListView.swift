@@ -2,9 +2,16 @@ import SwiftUI
 
 struct ChoresListView: View {
     @State private var viewModel: ChoresViewModel
+    @State private var mode: Mode = .all
     @State private var scope: Scope = .all
     private let apiClient: any APIClientProtocol
     @State private var showCreateForm = false
+    @State private var editingChore: Chore?
+
+    enum Mode: String, CaseIterable {
+        case all = "All Chores"
+        case manage = "Manage"
+    }
 
     enum Scope: String, CaseIterable {
         case all = "All"
@@ -20,7 +27,7 @@ struct ChoresListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                scopeSegmented
+                segmented(Array(Mode.allCases), selection: $mode) { $0.rawValue }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 14)
 
@@ -30,13 +37,21 @@ struct ChoresListView: View {
                         .padding(.top, 40)
                 }
 
-                choresContent
+                switch mode {
+                case .all:
+                    scopeSegmented
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
+                    choresContent
+                case .manage:
+                    manageContent
+                }
 
                 Spacer(minLength: 24)
             }
         }
         .meshBackground()
-        .navigationTitle("Chores")
+        .navigationTitle("Manage Chores")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showCreateForm = true } label: {
@@ -47,11 +62,47 @@ struct ChoresListView: View {
         .sheet(isPresented: $showCreateForm) {
             ChoreFormView(mode: .create, viewModel: viewModel)
         }
+        .sheet(item: $editingChore) { chore in
+            ChoreFormView(mode: .edit(chore), viewModel: viewModel)
+        }
         .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
     }
 
-    // MARK: - Segmented control
+    // MARK: - Segmented controls
+
+    private func segmented<T: Hashable>(
+        _ options: [T],
+        selection: Binding<T>,
+        label: @escaping (T) -> String
+    ) -> some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    withAnimation(.spring(duration: 0.2)) { selection.wrappedValue = option }
+                } label: {
+                    Text(label(option))
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(
+                            selection.wrappedValue == option
+                                ? Color(UIColor.secondarySystemGroupedBackground)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 7)
+                        )
+                        .shadow(
+                            color: selection.wrappedValue == option ? .black.opacity(0.08) : .clear,
+                            radius: 1, x: 0, y: 1
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.primary)
+            }
+        }
+        .padding(2)
+        .background(Color(UIColor.quaternarySystemFill), in: RoundedRectangle(cornerRadius: 9))
+    }
 
     private var scopeSegmented: some View {
         HStack(spacing: 2) {
@@ -92,7 +143,7 @@ struct ChoresListView: View {
         .background(Color(UIColor.quaternarySystemFill), in: RoundedRectangle(cornerRadius: 9))
     }
 
-    // MARK: - Content
+    // MARK: - All Chores content
 
     @ViewBuilder
     private var choresContent: some View {
@@ -209,5 +260,115 @@ struct ChoresListView: View {
         .glassCard(radius: 16)
         .padding(.horizontal, 16)
     }
-}
 
+    // MARK: - Manage content
+
+    @ViewBuilder
+    private var manageContent: some View {
+        let series = viewModel.series
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                showCreateForm = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                    Text("New Chore")
+                        .font(.system(size: 16, weight: .semibold))
+                    Spacer()
+                }
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .glassCard(radius: 16)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+
+            if series.isEmpty {
+                if case .loaded = viewModel.state {
+                    ContentUnavailableView(
+                        "No chores yet",
+                        systemImage: "checklist",
+                        description: Text("Create a chore to start managing your family's tasks.")
+                    )
+                    .padding(.top, 24)
+                }
+            } else {
+                manageSection(series)
+            }
+        }
+    }
+
+    private func manageSection(_ chores: [Chore]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(chores.enumerated()), id: \.element.id) { index, chore in
+                if index > 0 {
+                    Divider().padding(.leading, 16)
+                }
+                Button {
+                    editingChore = chore
+                } label: {
+                    manageRow(chore)
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button { editingChore = chore } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        Task { await viewModel.deleteChore(id: chore.id) }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .glassCard(radius: 16)
+        .padding(.horizontal, 16)
+    }
+
+    private func manageRow(_ chore: Chore) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(chore.name)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    Label(chore.recurrenceSummary, systemImage: chore.isRecurring ? "repeat" : "calendar")
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    if let category = viewModel.categoryName(chore.categoryID) {
+                        Text("· \(category)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if !chore.eligibleAssignees.isEmpty {
+                    Text(assigneeSummary(chore))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
+    }
+
+    private func assigneeSummary(_ chore: Chore) -> String {
+        let names = chore.eligibleAssignees.compactMap { viewModel.users[$0]?.name }
+        if names.isEmpty {
+            return "\(chore.eligibleAssignees.count) assignee\(chore.eligibleAssignees.count == 1 ? "" : "s")"
+        }
+        return names.joined(separator: ", ")
+    }
+}

@@ -1051,3 +1051,92 @@ func TestUpdateRecipe_API_ImageHandling(t *testing.T) {
 		t.Error("expected HasImage false after clearing image")
 	}
 }
+
+func TestCreateChore_API_FullOptions(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	categoryRepo := repository.NewCategoryRepository(database)
+	assignmentRepo := repository.NewChoreAssignmentRepository(database)
+	seriesRepo := repository.NewChoreSeriesRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-fullopts",
+		Email:       "fullopts@example.com",
+		Name:        "Full Options User",
+		Role:        models.RoleMember,
+	})
+
+	category, _ := categoryRepo.Create(ctx, models.Category{Name: "Kitchen", CreatedByUserID: user.ID})
+
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	handler := NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, nil, nil, choreService, nil, nil, nil, nil, "", "", "")
+
+	router := chi.NewRouter()
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), middleware.UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+	router.Post("/api/chores", handler.CreateChore)
+
+	body := `{
+		"name": "Mop floors",
+		"description": "Whole kitchen",
+		"categoryId": "` + category.ID + `",
+		"assignees": ["` + user.ID + `"],
+		"dueDate": "2026-06-01",
+		"dueTime": "18:30",
+		"recurrenceType": "weekly",
+		"recurrenceInterval": 2,
+		"recurrenceDays": ["monday", "thursday"],
+		"recurrenceUntil": "2026-12-31",
+		"recurOnComplete": true
+	}`
+	request := httptest.NewRequest(http.MethodPost, "/api/chores", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var created models.Chore
+	if err := json.NewDecoder(recorder.Body).Decode(&created); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+
+	if created.RecurrenceType != models.RecurrenceWeekly {
+		t.Errorf("expected weekly recurrence, got %q", created.RecurrenceType)
+	}
+	if created.CategoryID == nil || *created.CategoryID != category.ID {
+		t.Errorf("expected category %q, got %v", category.ID, created.CategoryID)
+	}
+	if created.DueTime == nil || *created.DueTime != "18:30" {
+		t.Errorf("expected due time 18:30, got %v", created.DueTime)
+	}
+	if !strings.Contains(created.RecurrenceValue, "monday") || !strings.Contains(created.RecurrenceValue, "thursday") {
+		t.Errorf("expected recurrence days in value, got %q", created.RecurrenceValue)
+	}
+	if !strings.Contains(created.RecurrenceValue, "\"interval\":2") {
+		t.Errorf("expected interval 2 in value, got %q", created.RecurrenceValue)
+	}
+
+	// Series-owned fields are persisted on the chore_series row.
+	if created.SeriesID == nil {
+		t.Fatalf("expected series id to be set for recurring chore")
+	}
+	series, err := seriesRepo.FindByID(ctx, *created.SeriesID)
+	if err != nil {
+		t.Fatalf("loading series: %v", err)
+	}
+	if !series.RecurOnComplete {
+		t.Errorf("expected recurOnComplete true on series")
+	}
+	if series.RecurrenceUntil == nil {
+		t.Errorf("expected recurrenceUntil set on series")
+	}
+}

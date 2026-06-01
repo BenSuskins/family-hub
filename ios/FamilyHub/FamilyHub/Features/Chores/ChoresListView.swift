@@ -5,8 +5,7 @@ struct ChoresListView: View {
     @State private var mode: Mode = .all
     @State private var scope: Scope = .all
     private let apiClient: any APIClientProtocol
-    @State private var showCreateForm = false
-    @State private var editingChore: Chore?
+    @State private var activeSheet: ActiveSheet?
 
     enum Mode: String, CaseIterable {
         case all = "All Chores"
@@ -17,6 +16,20 @@ struct ChoresListView: View {
         case all = "All"
         case mine = "Mine"
         case overdue = "Overdue"
+    }
+
+    /// Single sheet driver. Stacking multiple `.sheet` modifiers on one view is a
+    /// known SwiftUI pitfall, so create/edit share one enum-driven presentation.
+    enum ActiveSheet: Identifiable {
+        case create
+        case edit(Chore)
+
+        var id: String {
+            switch self {
+            case .create:          return "create"
+            case .edit(let chore): return "edit-\(chore.id)"
+            }
+        }
     }
 
     init(apiClient: any APIClientProtocol) {
@@ -54,16 +67,18 @@ struct ChoresListView: View {
         .navigationTitle("Manage Chores")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showCreateForm = true } label: {
+                Button { activeSheet = .create } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        .sheet(isPresented: $showCreateForm) {
-            ChoreFormView(mode: .create, viewModel: viewModel)
-        }
-        .sheet(item: $editingChore) { chore in
-            ChoreFormView(mode: .edit(chore), viewModel: viewModel)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .create:
+                ChoreFormView(mode: .create, viewModel: viewModel)
+            case .edit(let chore):
+                ChoreFormView(mode: .edit(chore), viewModel: viewModel)
+            }
         }
         .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
@@ -266,39 +281,20 @@ struct ChoresListView: View {
     @ViewBuilder
     private var manageContent: some View {
         let series = viewModel.series
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                showCreateForm = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
-                    Text("New Chore")
-                        .font(.system(size: 16, weight: .semibold))
-                    Spacer()
+        if series.isEmpty {
+            if case .loaded = viewModel.state {
+                ContentUnavailableView {
+                    Label("No chores yet", systemImage: "checklist")
+                } description: {
+                    Text("Create a chore to start managing your family's tasks.")
+                } actions: {
+                    Button("New Chore") { activeSheet = .create }
+                        .buttonStyle(.borderedProminent)
                 }
-                .foregroundStyle(Color.accentColor)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 24)
             }
-            .buttonStyle(.plain)
-            .glassCard(radius: 16)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-
-            if series.isEmpty {
-                if case .loaded = viewModel.state {
-                    ContentUnavailableView(
-                        "No chores yet",
-                        systemImage: "checklist",
-                        description: Text("Create a chore to start managing your family's tasks.")
-                    )
-                    .padding(.top, 24)
-                }
-            } else {
-                manageSection(series)
-            }
+        } else {
+            manageSection(series)
         }
     }
 
@@ -309,13 +305,13 @@ struct ChoresListView: View {
                     Divider().padding(.leading, 16)
                 }
                 Button {
-                    editingChore = chore
+                    activeSheet = .edit(chore)
                 } label: {
                     manageRow(chore)
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
-                    Button { editingChore = chore } label: {
+                    Button { activeSheet = .edit(chore) } label: {
                         Label("Edit", systemImage: "pencil")
                     }
                     Button(role: .destructive) {

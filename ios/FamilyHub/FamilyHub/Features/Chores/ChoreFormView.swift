@@ -39,6 +39,8 @@ struct ChoreFormView: View {
 
     @State private var recurOnComplete = false
     @State private var isSaving = false
+    @State private var isDeleting = false
+    @State private var showDeleteConfirm = false
 
     private let recurrenceOptions = ["none", "daily", "weekly", "monthly", "custom"]
     private let customUnits = ["days", "weeks", "months"]
@@ -72,6 +74,9 @@ struct ChoreFormView: View {
                 if recurrenceType != "none" {
                     endConditionsSection
                 }
+                if isEditing {
+                    deleteSection
+                }
             }
             .navigationTitle(isEditing ? "Edit Chore" : "New Chore")
             .navigationBarTitleDisplayMode(.inline)
@@ -80,13 +85,56 @@ struct ChoreFormView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task { await save() }
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Save") {
+                            Task { await save() }
+                        }
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isDeleting)
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                 }
             }
-            .onAppear { populate() }
+            .onAppear {
+                viewModel.actionError = nil
+                populate()
+            }
+            .errorAlert($viewModel.actionError)
+            .confirmationDialog(
+                "Delete Chore?",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    Task { await delete() }
+                }
+            } message: {
+                Text("This permanently deletes \"\(name)\"\(isRecurringSeries ? " and its future occurrences" : "").")
+            }
+        }
+    }
+
+    private var isRecurringSeries: Bool {
+        if case .edit(let chore) = mode { return chore.isRecurring }
+        return false
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showDeleteConfirm = true
+            } label: {
+                HStack {
+                    Spacer()
+                    if isDeleting {
+                        ProgressView()
+                    } else {
+                        Label("Delete Chore", systemImage: "trash")
+                    }
+                    Spacer()
+                }
+            }
+            .disabled(isSaving || isDeleting)
         }
     }
 
@@ -326,6 +374,16 @@ struct ChoreFormView: View {
                 dismiss()
             }
         }
+    }
+
+    private func delete() async {
+        guard case .edit(let chore) = mode else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+        if await viewModel.deleteChore(id: chore.id) {
+            dismiss()
+        }
+        // On failure, viewModel.actionError is set and surfaced via errorAlert.
     }
 
     // MARK: - Date helpers

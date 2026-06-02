@@ -4,7 +4,7 @@
 
 ## Screenshots
 
-![Family Hub Screenshots](ios.png?raw=true "Screenshots")
+<img src="ios.png?raw=true" alt="Family Hub Screenshots" title="Screenshots" width="300">
 
 [**iOS app on the App Store: Family Home Hub →**](https://apps.apple.com/gb/app/family-home-hub/id6761337807)
 

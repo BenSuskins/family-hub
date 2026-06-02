@@ -1,6 +1,51 @@
 import SwiftUI
 import UIKit
 
+private enum ParseStatus {
+    case success, partial, failed
+
+    var icon: String {
+        switch self {
+        case .success: "checkmark.circle.fill"
+        case .partial: "exclamationmark.circle.fill"
+        case .failed:  "xmark.circle.fill"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .success: "Recipe details extracted"
+        case .partial: "Title found — fill in details manually"
+        case .failed:  "Couldn't parse recipe — fill in manually"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .success: .green
+        case .partial: .orange
+        case .failed:  .red
+        }
+    }
+}
+
+private struct ParseToast: View {
+    let status: ParseStatus
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: status.icon)
+                .foregroundStyle(status.color)
+            Text(status.message)
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+    }
+}
+
 // Duplicated here since the extension cannot import the main app module
 private enum ShareMealType: String, CaseIterable {
     case breakfast
@@ -59,6 +104,8 @@ struct ShareView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var savedSuccessfully = false
+    @State private var parseStatus: ParseStatus?
+    @State private var showParseToast = false
 
     var body: some View {
         NavigationStack {
@@ -177,6 +224,14 @@ struct ShareView: View {
                 await extractRecipeFromServer()
                 isLoadingOG = false
             }
+            .overlay(alignment: .bottom) {
+                if showParseToast, let status = parseStatus {
+                    ParseToast(status: status)
+                        .padding(.bottom, 24)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.35), value: showParseToast)
         }
     }
 
@@ -195,7 +250,10 @@ struct ShareView: View {
               let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               let result = try? JSONDecoder().decode(ExtractedRecipeResponse.self, from: data)
-        else { return }
+        else {
+            showToast(.failed)
+            return
+        }
 
         if let extractedTitle = result.title, !extractedTitle.isEmpty {
             title = extractedTitle
@@ -207,6 +265,18 @@ struct ShareView: View {
         servings = result.servings
         if let imageURL = result.imageURL {
             ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL)
+        }
+
+        let hasContent = !ingredients.isEmpty || !steps.isEmpty
+        showToast(hasContent ? .success : .partial)
+    }
+
+    private func showToast(_ status: ParseStatus) {
+        parseStatus = status
+        withAnimation { showParseToast = true }
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            withAnimation { showParseToast = false }
         }
     }
 

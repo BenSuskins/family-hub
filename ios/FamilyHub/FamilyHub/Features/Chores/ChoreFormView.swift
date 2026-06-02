@@ -388,33 +388,15 @@ struct ChoreFormView: View {
 
     // MARK: - Date helpers
 
-    private func parseDate(_ value: String?) -> Date? {
-        guard let value else { return nil }
-        let iso = ISO8601DateFormatter()
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return iso.date(from: value) ?? fmt.date(from: String(value.prefix(10)))
-    }
+    private func parseDate(_ value: String?) -> Date? { APIDate.parse(value) }
 
-    private func formatDate(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.string(from: date)
-    }
+    private func formatDate(_ date: Date) -> String { APIDate.dayString(date) }
 
     private func parseTime(_ value: String) -> Date? {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.date(from: String(value.prefix(5)))
+        APIDate.time.date(from: String(value.prefix(5)))
     }
 
     private func formatTime(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        return fmt.string(from: date)
+        APIDate.time.string(from: date)
     }
 }

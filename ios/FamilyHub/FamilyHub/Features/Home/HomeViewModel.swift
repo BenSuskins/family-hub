@@ -27,20 +27,28 @@ final class HomeViewModel {
     #endif
 
     func load() async {
-        state = .loading
+        await load(silent: false)
+    }
+
+    /// Loads the dashboard, users, current user and today's events together.
+    /// When `silent`, the existing UI is kept while refreshing (no spinner, and
+    /// transient failures don't replace already-loaded content).
+    private func load(silent: Bool) async {
+        if !silent { state = .loading }
         async let statsTask = apiClient.fetchDashboardStats()
         async let usersTask = apiClient.fetchUsers()
         async let meTask = apiClient.fetchMe()
         async let calTask = apiClient.fetchCalendar(view: "day", date: Date())
         do {
             let (stats, userList, me, cal) = try await (statsTask, usersTask, meTask, calTask)
-            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+            users = userList.keyedByID
             currentUser = me
             Self.cacheUser(me)
             todayEvents = cal.events
             state = .loaded(stats)
+            if silent { completedChoreIDs = [] }
         } catch {
-            state = .failed(.from(error))
+            if !silent { state = .failed(.from(error)) }
         }
     }
 
@@ -57,26 +65,11 @@ final class HomeViewModel {
         completedChoreIDs.insert(id)
         do {
             try await apiClient.completeChore(id: id)
-            await loadSilently()
+            await load(silent: true)
             return true
         } catch {
             completedChoreIDs.remove(id)
             return false
         }
-    }
-
-    private func loadSilently() async {
-        async let statsTask = apiClient.fetchDashboardStats()
-        async let usersTask = apiClient.fetchUsers()
-        async let meTask = apiClient.fetchMe()
-        async let calTask = apiClient.fetchCalendar(view: "day", date: Date())
-        do {
-            let (stats, userList, me, cal) = try await (statsTask, usersTask, meTask, calTask)
-            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
-            currentUser = me
-            todayEvents = cal.events
-            state = .loaded(stats)
-            completedChoreIDs = []
-        } catch {}
     }
 }

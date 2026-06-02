@@ -40,7 +40,7 @@ struct ChoresListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                segmented(Array(Mode.allCases), selection: $mode) { $0.rawValue }
+                SegmentedControl(options: Mode.allCases, selection: $mode) { $0.rawValue }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 14)
 
@@ -52,9 +52,14 @@ struct ChoresListView: View {
 
                 switch mode {
                 case .all:
-                    scopeSegmented
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 14)
+                    SegmentedControl(
+                        options: Scope.allCases,
+                        selection: $scope,
+                        label: { $0.rawValue },
+                        badge: { $0 == .overdue ? viewModel.overdueChores.count : nil }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
                     choresContent
                 case .manage:
                     manageContent
@@ -84,80 +89,6 @@ struct ChoresListView: View {
         .task { await viewModel.load() }
     }
 
-    // MARK: - Segmented controls
-
-    private func segmented<T: Hashable>(
-        _ options: [T],
-        selection: Binding<T>,
-        label: @escaping (T) -> String
-    ) -> some View {
-        HStack(spacing: 2) {
-            ForEach(options, id: \.self) { option in
-                Button {
-                    withAnimation(.spring(duration: 0.2)) { selection.wrappedValue = option }
-                } label: {
-                    Text(label(option))
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .background(
-                            selection.wrappedValue == option
-                                ? Color(UIColor.secondarySystemGroupedBackground)
-                                : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 7)
-                        )
-                        .shadow(
-                            color: selection.wrappedValue == option ? .black.opacity(0.08) : .clear,
-                            radius: 1, x: 0, y: 1
-                        )
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.primary)
-            }
-        }
-        .padding(2)
-        .background(Color(UIColor.quaternarySystemFill), in: RoundedRectangle(cornerRadius: 9))
-    }
-
-    private var scopeSegmented: some View {
-        HStack(spacing: 2) {
-            ForEach(Scope.allCases, id: \.self) { s in
-                Button {
-                    withAnimation(.spring(duration: 0.2)) { scope = s }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(s.rawValue)
-                            .font(.system(size: 13, weight: .medium))
-                        if s == .overdue && !viewModel.overdueChores.isEmpty {
-                            Text("\(viewModel.overdueChores.count)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(Color.red, in: Capsule())
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        scope == s
-                            ? Color(UIColor.secondarySystemGroupedBackground)
-                            : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 7)
-                    )
-                    .shadow(
-                        color: scope == s ? .black.opacity(0.08) : .clear,
-                        radius: 1, x: 0, y: 1
-                    )
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.primary)
-            }
-        }
-        .padding(2)
-        .background(Color(UIColor.quaternarySystemFill), in: RoundedRectangle(cornerRadius: 9))
-    }
-
     // MARK: - All Chores content
 
     @ViewBuilder
@@ -175,7 +106,7 @@ struct ChoresListView: View {
     private var allContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !viewModel.overdueChores.isEmpty {
-                choreSectionHeader("Overdue", color: .red)
+                SectionHeaderLabel(text: "Overdue", color: .red)
                 choreSection(viewModel.overdueChores)
                     .padding(.bottom, 16)
             }
@@ -221,24 +152,11 @@ struct ChoresListView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    choreSectionHeader("Overdue", color: .red)
+                    SectionHeaderLabel(text: "Overdue", color: .red)
                     choreSection(viewModel.overdueChores)
                 }
             }
         }
-    }
-
-    private func choreSectionHeader(_ label: String, color: Color = .secondary) -> some View {
-        HStack {
-            Text(label.uppercased())
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(color)
-                .kerning(0.5)
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 24)
-        .padding(.bottom, 8)
     }
 
     private var allPendingChores: [Chore] {

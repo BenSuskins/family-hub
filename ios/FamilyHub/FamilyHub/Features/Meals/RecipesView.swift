@@ -19,23 +19,19 @@ struct RecipesView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if case .failed(let error) = viewModel.state {
-                    ErrorStateView(error: error) { await viewModel.load() }
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            filterChips
+            StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        filterChips
 
-                            if !viewModel.filteredRecipes.isEmpty {
-                                featuredRow
-                                allRecipesGrid
-                            }
+                        if !viewModel.filteredRecipes.isEmpty {
+                            featuredRow
+                            allRecipesGrid
                         }
-                        .padding(.bottom, 24)
                     }
-                    .refreshable { await viewModel.load(forceRefresh: true) }
+                    .padding(.bottom, 24)
                 }
+                .refreshable { await viewModel.load(forceRefresh: true) }
             }
             .meshBackground()
             .navigationTitle("Recipes")

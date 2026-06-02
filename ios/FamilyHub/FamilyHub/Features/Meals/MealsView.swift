@@ -5,23 +5,14 @@ struct MealsView: View {
     @State private var recipesViewModel: RecipesViewModel
     @State private var editingMeal: EditingMeal?
 
-    private static let dateKeyFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-    private static let weekStartFormatter: DateFormatter = {
+    private static let monthDayFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-    private static let dayEndFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
     private static let dayNameFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "EEEE"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
     private static let dayNumberFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-    private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "MMM d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
 
     private let apiClient: any APIClientProtocol
@@ -37,9 +28,9 @@ struct MealsView: View {
     }
 
     private var weekRangeString: String {
-        let start = Self.weekStartFormatter.string(from: viewModel.currentWeek)
+        let start = Self.monthDayFormatter.string(from: viewModel.currentWeek)
         let endDate = Calendar.current.date(byAdding: .day, value: 6, to: viewModel.currentWeek)!
-        let endDay = Self.dayEndFormatter.string(from: endDate)
+        let endDay = Self.dayNumberFormatter.string(from: endDate)
         return "\(start) – \(endDay)"
     }
 
@@ -62,10 +53,6 @@ struct MealsView: View {
 
     private func plannedCount(from meals: [MealPlan]) -> Int {
         meals.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
-    }
-
-    private var todayDateKey: String {
-        Self.dateKeyFormatter.string(from: Date())
     }
 
     var body: some View {
@@ -168,20 +155,13 @@ struct MealsView: View {
 
     // MARK: - Scroll content
 
-    @ViewBuilder
     private var scrollContent: some View {
-        switch viewModel.state {
-        case .idle, .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .failed(let error):
-            ErrorStateView(error: error) { await viewModel.load() }
-        case .loaded(let meals):
+        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { meals in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(0..<7, id: \.self) { offset in
                         let date = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.currentWeek)!
-                        let dateKey = Self.dateKeyFormatter.string(from: date)
+                        let dateKey = APIDate.dayString(date)
                         let isToday = Calendar.current.isDateInToday(date)
 
                         daySection(

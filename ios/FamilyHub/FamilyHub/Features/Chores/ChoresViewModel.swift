@@ -4,7 +4,7 @@ import Observation
 
 @Observable
 @MainActor
-final class ChoresViewModel {
+final class ChoresViewModel: MutableListViewModel {
     var state: ViewState<[Chore]> = .idle
     var actionError: APIError?
     var users: [String: User] = [:]
@@ -93,7 +93,7 @@ final class ChoresViewModel {
         async let categoriesTask = apiClient.fetchCategories()
         do {
             let (chores, userList, me) = try await (choresTask, usersTask, meTask)
-            users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+            users = userList.keyedByID
             categories = (try? await categoriesTask) ?? []
             currentUserID = me.id
             state = .loaded(chores)
@@ -103,74 +103,33 @@ final class ChoresViewModel {
     }
 
     func createChore(_ request: ChoreRequest) async -> Chore? {
-        do {
-            let created = try await apiClient.createChore(request)
-            if case .loaded(var chores) = state {
-                chores.append(created)
-                state = .loaded(chores)
-            }
-            return created
-        } catch {
-            actionError = .from(error)
-            return nil
+        await performMutation { try await apiClient.createChore(request) } applying: { created, chores in
+            chores.append(created)
         }
     }
 
     func updateChore(id: String, _ request: ChoreRequest) async -> Chore? {
-        do {
-            let updated = try await apiClient.updateChore(id: id, request)
-            if case .loaded(var chores) = state {
-                if let i = chores.firstIndex(where: { $0.id == id }) {
-                    chores[i] = updated
-                }
-                state = .loaded(chores)
+        await performMutation { try await apiClient.updateChore(id: id, request) } applying: { updated, chores in
+            if let index = chores.firstIndex(where: { $0.id == id }) {
+                chores[index] = updated
             }
-            return updated
-        } catch {
-            actionError = .from(error)
-            return nil
         }
     }
 
     func deleteChore(id: String) async -> Bool {
-        do {
-            try await apiClient.deleteChore(id: id)
-            if case .loaded(var chores) = state {
-                chores.removeAll { $0.id == id }
-                state = .loaded(chores)
-            }
-            return true
-        } catch {
-            actionError = .from(error)
-            return false
+        await performDeletion { try await apiClient.deleteChore(id: id) } applying: { chores in
+            chores.removeAll { $0.id == id }
         }
     }
 
     func complete(choreID: String) async -> Bool {
         do {
             try await apiClient.completeChore(id: choreID)
-            // Update local state immediately without re-fetching
-            guard case .loaded(var chores) = state else { return true }
-            if let index = chores.firstIndex(where: { $0.id == choreID }) {
-                let existing = chores[index]
-                chores[index] = Chore(
-                    id: existing.id,
-                    name: existing.name,
-                    description: existing.description,
-                    status: .completed,
-                    dueDate: existing.dueDate,
-                    assignedToUserID: existing.assignedToUserID,
-                    categoryID: existing.categoryID,
-                    dueTime: existing.dueTime,
-                    eligibleAssignees: existing.eligibleAssignees,
-                    recurrenceType: existing.recurrenceType,
-                    recurrenceValue: existing.recurrenceValue,
-                    recurOnComplete: existing.recurOnComplete,
-                    seriesID: existing.seriesID,
-                    recurrenceUntil: existing.recurrenceUntil,
-                    recurrenceCount: existing.recurrenceCount
-                )
-                state = .loaded(chores)
+            // Update local state immediately without re-fetching.
+            mutateLoaded { chores in
+                if let index = chores.firstIndex(where: { $0.id == choreID }) {
+                    chores[index] = chores[index].completed
+                }
             }
             return true
         } catch {

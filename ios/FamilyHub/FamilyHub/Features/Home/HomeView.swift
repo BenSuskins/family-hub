@@ -21,12 +21,6 @@ struct HomeView: View {
         f.amSymbol = "AM"; f.pmSymbol = "PM"
         return f
     }()
-    private static let dateKeyFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
 
     init(apiClient: any APIClientProtocol, selectedTab: Binding<AppTab>) {
         self.apiClient = apiClient
@@ -53,16 +47,7 @@ struct HomeView: View {
                 greetingHeader
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        switch viewModel.state {
-                        case .idle, .loading:
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 40)
-                        case .failed(let error):
-                            ErrorStateView(error: error) { await viewModel.load() }
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 40)
-                        case .loaded(let stats):
+                        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
                             agendaSection
                             mealsSection(stats)
                             choresSection(stats)
@@ -155,7 +140,7 @@ struct HomeView: View {
     // MARK: - Today's Meals
 
     private func mealsSection(_ stats: DashboardStats) -> some View {
-        let todayKey = Self.dateKeyFormatter.string(from: Date())
+        let todayKey = APIDate.dayString(Date())
         return VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Today's meals") {
                 Button {

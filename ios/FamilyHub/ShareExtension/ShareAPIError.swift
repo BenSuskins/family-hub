@@ -6,6 +6,14 @@ import Foundation
 /// user-facing copy of the app's `APIError` to keep error messaging consistent
 /// across the whole product. Maps both HTTP responses and thrown transport
 /// errors to friendly, non-technical strings.
+///
+/// NOTE: The status→message mapping and the `cleaned`/`bodyText` helpers
+/// duplicate `APIError` by necessity — an app-extension target can't depend on
+/// the host app. To remove this duplication we'd extract the shared messaging
+/// into a `SharedKit` framework target embedded in both the app and the
+/// extension. That's a project-structure change (new target + membership) and
+/// is deliberately deferred; until then, keep the copy here in sync with
+/// `APIError.errorDescription`.
 enum ShareAPIError {
 
     /// Friendly message for a non-2xx HTTP response, capturing the server's

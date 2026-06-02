@@ -68,12 +68,13 @@ extension Color {
 
 struct SectionHeaderLabel: View {
     let text: String
+    var color: Color = .secondary
 
     var body: some View {
         HStack {
             Text(text.uppercased())
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(color)
                 .kerning(0.5)
             Spacer()
         }

@@ -23,3 +23,11 @@ struct User: Codable, Identifiable {
         case role      = "Role"
     }
 }
+
+extension Sequence where Element == User {
+    /// Index users by id for O(1) lookup. On the (server-prevented) chance of a
+    /// duplicate id, the last one wins.
+    var keyedByID: [String: User] {
+        Dictionary(map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+    }
+}

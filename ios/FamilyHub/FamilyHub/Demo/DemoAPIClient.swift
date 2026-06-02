@@ -65,9 +65,9 @@ private enum DemoData {
     ]
 
     static var chores: [Chore] {
-        let yesterday = ISO8601DateFormatter().string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
-        let today = ISO8601DateFormatter().string(from: Date())
-        let nextWeek = ISO8601DateFormatter().string(from: Calendar.current.date(byAdding: .day, value: 7, to: Date())!)
+        let yesterday = APIDate.iso.string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+        let today = APIDate.iso.string(from: Date())
+        let nextWeek = APIDate.iso.string(from: Calendar.current.date(byAdding: .day, value: 7, to: Date())!)
         return [
             Chore(id: "demo-chore-1", name: "Vacuum living room", description: "Full vacuum including under the sofa.", status: .overdue, dueDate: yesterday, assignedToUserID: alexID, eligibleAssignees: [alexID, samID], recurrenceType: "weekly", recurrenceValue: "{\"interval\":1,\"days\":[\"monday\"]}", seriesID: "demo-series-1"),
             Chore(id: "demo-chore-2", name: "Do the dishes", description: "", status: .pending, dueDate: today, assignedToUserID: samID, eligibleAssignees: [alexID, samID], recurrenceType: "daily", seriesID: "demo-series-2"),
@@ -101,9 +101,7 @@ private enum DemoData {
         let weekday = calendar.component(.weekday, from: today)
         let daysToMonday = (weekday == 1 ? -6 : 2 - weekday)
         let monday = calendar.date(byAdding: .day, value: daysToMonday + offset, to: today)!
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: monday)
+        return APIDate.dayString(monday)
     }
 
     private static func daysUntilWeekend() -> Int {
@@ -123,9 +121,7 @@ final class DemoAPIClient: APIClientProtocol {
     func fetchDashboardStats() async throws -> DashboardStats {
         let overdue = chores.filter { $0.status == .overdue }
         let dueToday = chores.filter { $0.badge == .dueToday }
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let today = dateFormatter.string(from: Date())
+        let today = APIDate.dayString(Date())
         let todayMeals = meals.filter { $0.date == today }
         return DashboardStats(
             choresDueToday: dueToday.count,
@@ -141,8 +137,7 @@ final class DemoAPIClient: APIClientProtocol {
 
     func completeChore(id: String) async throws {
         guard let index = chores.firstIndex(where: { $0.id == id }) else { return }
-        let old = chores[index]
-        chores[index] = Chore(id: old.id, name: old.name, description: old.description, status: .completed, dueDate: old.dueDate, assignedToUserID: old.assignedToUserID, categoryID: old.categoryID, dueTime: old.dueTime, eligibleAssignees: old.eligibleAssignees, recurrenceType: old.recurrenceType, recurrenceValue: old.recurrenceValue, recurOnComplete: old.recurOnComplete, seriesID: old.seriesID, recurrenceUntil: old.recurrenceUntil, recurrenceCount: old.recurrenceCount)
+        chores[index] = chores[index].completed
     }
 
     func createChore(_ request: ChoreRequest) async throws -> Chore {

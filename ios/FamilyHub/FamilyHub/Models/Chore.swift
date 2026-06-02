@@ -207,35 +207,46 @@ extension Chore {
         case .overdue:   return .overdue
         case .completed: return nil
         case .pending:
-            guard let dueDate else { return .dueSoon }
-            let date = ISO8601DateFormatter().date(from: dueDate)
-                ?? parseShortDate(dueDate)
-            guard let date else { return .dueSoon }
+            guard let date = APIDate.parse(dueDate) else { return .dueSoon }
             return Calendar.current.isDateInToday(date) ? .dueToday : .dueSoon
         }
     }
 
-    private func parseShortDate(_ string: String) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.date(from: String(string.prefix(10)))
+    /// Returns a copy with a different status, preserving every other field.
+    /// Avoids re-listing all stored properties at each call site.
+    func with(status: ChoreStatus) -> Chore {
+        Chore(
+            id: id,
+            name: name,
+            description: description,
+            status: status,
+            dueDate: dueDate,
+            assignedToUserID: assignedToUserID,
+            categoryID: categoryID,
+            dueTime: dueTime,
+            eligibleAssignees: eligibleAssignees,
+            recurrenceType: recurrenceType,
+            recurrenceValue: recurrenceValue,
+            recurOnComplete: recurOnComplete,
+            seriesID: seriesID,
+            recurrenceUntil: recurrenceUntil,
+            recurrenceCount: recurrenceCount
+        )
     }
+
+    var completed: Chore { with(status: .completed) }
 }
 
 extension Chore {
+    private static let dueDateDisplayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
+
     var formattedDueDate: String? {
-        guard let dueDate else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let iso = ISO8601DateFormatter()
-        guard let date = iso.date(from: dueDate) ?? formatter.date(from: String(dueDate.prefix(10))) else {
-            return nil
-        }
-        let display = DateFormatter()
-        display.dateFormat = "MMM d"
-        return display.string(from: date)
+        guard let date = APIDate.parse(dueDate) else { return nil }
+        return Self.dueDateDisplayFormatter.string(from: date)
     }
 }
 

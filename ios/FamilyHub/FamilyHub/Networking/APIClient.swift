@@ -1,6 +1,16 @@
 import Foundation
 
 final class APIClient: APIClientProtocol {
+    // Three deliberately distinct caches, each matched to its data's lifetime:
+    //   • recipeCache — an actor for thread-safe recipe metadata reused across
+    //     screens (list vs. detail kept separate; see RecipeCache).
+    //   • imageCache — an NSCache so avatar/recipe image bytes are evicted under
+    //     memory pressure rather than held forever.
+    //   • the calendar view model keeps its own per-key response dictionary, as
+    //     that caching is view-state specific (month/week/day) and short-lived.
+    // The current-user blob is persisted separately in UserDefaults (HomeViewModel)
+    // so the greeting can render instantly on cold launch. They are not unified
+    // on purpose — a single abstraction would obscure these different policies.
     private let baseURL: URL
     private let session: URLSession
     private let retryPolicy: RetryPolicy
@@ -234,10 +244,8 @@ final class APIClient: APIClientProtocol {
     }
 
     func fetchMeals(week: Date) async throws -> [MealPlan] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return try await get("api/meals", queryItems: [
-            URLQueryItem(name: "week", value: formatter.string(from: week))
+        try await get("api/meals", queryItems: [
+            URLQueryItem(name: "week", value: APIDate.dayString(week))
         ])
     }
 
@@ -307,18 +315,12 @@ final class APIClient: APIClientProtocol {
     }
 
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-
         var queryItems = [URLQueryItem(name: "view", value: view)]
         if view == "month" {
-            formatter.dateFormat = "yyyy-MM"
-            queryItems.append(URLQueryItem(name: "month", value: formatter.string(from: date)))
+            queryItems.append(URLQueryItem(name: "month", value: APIDate.monthString(date)))
         } else {
-            formatter.dateFormat = "yyyy-MM-dd"
-            queryItems.append(URLQueryItem(name: "date", value: formatter.string(from: date)))
+            queryItems.append(URLQueryItem(name: "date", value: APIDate.dayString(date)))
         }
-
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }
 

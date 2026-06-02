@@ -4,7 +4,7 @@ import Observation
 
 @Observable
 @MainActor
-final class RecipesViewModel {
+final class RecipesViewModel: MutableListViewModel {
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
     var selectedMealType: String? = nil
@@ -75,46 +75,22 @@ final class RecipesViewModel {
     }
 
     func createRecipe(_ request: RecipeRequest) async -> Recipe? {
-        do {
-            let created = try await apiClient.createRecipe(request)
-            if case .loaded(var recipes) = state {
-                recipes.append(created)
-                state = .loaded(recipes)
-            }
-            return created
-        } catch {
-            actionError = .from(error)
-            return nil
+        await performMutation { try await apiClient.createRecipe(request) } applying: { created, recipes in
+            recipes.append(created)
         }
     }
 
     func updateRecipe(id: String, _ request: RecipeRequest) async -> Recipe? {
-        do {
-            let updated = try await apiClient.updateRecipe(id: id, request)
-            if case .loaded(var recipes) = state {
-                if let index = recipes.firstIndex(where: { $0.id == id }) {
-                    recipes[index] = updated
-                }
-                state = .loaded(recipes)
+        await performMutation { try await apiClient.updateRecipe(id: id, request) } applying: { updated, recipes in
+            if let index = recipes.firstIndex(where: { $0.id == id }) {
+                recipes[index] = updated
             }
-            return updated
-        } catch {
-            actionError = .from(error)
-            return nil
         }
     }
 
     func deleteRecipe(id: String) async -> Bool {
-        do {
-            try await apiClient.deleteRecipe(id: id)
-            if case .loaded(var recipes) = state {
-                recipes.removeAll { $0.id == id }
-                state = .loaded(recipes)
-            }
-            return true
-        } catch {
-            actionError = .from(error)
-            return false
+        await performDeletion { try await apiClient.deleteRecipe(id: id) } applying: { recipes in
+            recipes.removeAll { $0.id == id }
         }
     }
 }

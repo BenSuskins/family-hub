@@ -52,7 +52,7 @@ final class CalendarViewModel {
 
             if cachedUsers == nil {
                 let userList = try await apiClient.fetchUsers()
-                users = Dictionary(uniqueKeysWithValues: userList.map { ($0.id, $0) })
+                users = userList.keyedByID
                 cachedUsers = users
             }
 
@@ -106,7 +106,7 @@ final class CalendarViewModel {
 
     func chores(for day: Date) -> [Chore] {
         guard case .loaded(let response) = state else { return [] }
-        let dayString = iso8601DayString(day)
+        let dayString = APIDate.dayString(day)
         return response.chores.filter { chore in
             guard let dueDate = chore.dueDate else { return false }
             return dueDate.hasPrefix(dayString)
@@ -122,7 +122,7 @@ final class CalendarViewModel {
 
     func meals(for day: Date) -> [MealPlan] {
         guard case .loaded(let response) = state else { return [] }
-        let dayString = iso8601DayString(day)
+        let dayString = APIDate.dayString(day)
         return response.meals.filter { $0.date == dayString }
     }
 
@@ -130,32 +130,14 @@ final class CalendarViewModel {
         !chores(for: day).isEmpty || !events(for: day).isEmpty || !meals(for: day).isEmpty
     }
 
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    private func iso8601DayString(_ date: Date) -> String {
-        Self.dayFormatter.string(from: date)
-    }
-
-    private static let monthFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     private func cacheKey() -> String {
         switch viewMode {
         case .month:
-            return "month-\(Self.monthFormatter.string(from: currentDate))"
+            return "month-\(APIDate.monthString(currentDate))"
         case .week:
-            return "week-\(Self.dayFormatter.string(from: currentWeekStart))"
+            return "week-\(APIDate.dayString(currentWeekStart))"
         case .day:
-            return "day-\(Self.dayFormatter.string(from: currentDate))"
+            return "day-\(APIDate.dayString(currentDate))"
         }
     }
 }

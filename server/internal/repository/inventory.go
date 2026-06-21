@@ -68,7 +68,7 @@ func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) (
 	}
 
 	itemRows, err := repository.database.QueryContext(ctx,
-		`SELECT id, area_id, name, quantity, unit, par, created_by_user_id, created_at, updated_at
+		`SELECT id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at
 		FROM inventory_items ORDER BY name ASC`,
 	)
 	if err != nil {
@@ -161,10 +161,10 @@ func (repository *SQLiteInventoryRepository) DeleteArea(ctx context.Context, id 
 func (repository *SQLiteInventoryRepository) FindItemByID(ctx context.Context, id string) (models.InventoryItem, error) {
 	var item models.InventoryItem
 	err := repository.database.QueryRowContext(ctx,
-		`SELECT id, area_id, name, quantity, unit, par, created_by_user_id, created_at, updated_at
+		`SELECT id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at
 		FROM inventory_items WHERE id = ?`, id,
 	).Scan(
-		&item.ID, &item.AreaID, &item.Name, &item.Quantity, &item.Unit, &item.Par,
+		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
 		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -177,20 +177,15 @@ func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, ite
 	if item.ID == "" {
 		item.ID = uuid.New().String()
 	}
-	if item.Quantity < 0 {
-		item.Quantity = 0
-	}
-	if item.Par < 0 {
-		item.Par = 0
-	}
+	item = normalizeItem(item)
 	now := time.Now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
 
 	_, err := repository.database.ExecContext(ctx,
-		`INSERT INTO inventory_items (id, area_id, name, quantity, unit, par, created_by_user_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.AreaID, item.Name, item.Quantity, item.Unit, item.Par,
+		`INSERT INTO inventory_items (id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.AreaID, item.Name, item.TrackingMode, item.Quantity, item.Level, item.Unit, item.LowAt,
 		item.CreatedByUserID, item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
@@ -200,16 +195,11 @@ func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, ite
 }
 
 func (repository *SQLiteInventoryRepository) UpdateItem(ctx context.Context, item models.InventoryItem) error {
-	if item.Quantity < 0 {
-		item.Quantity = 0
-	}
-	if item.Par < 0 {
-		item.Par = 0
-	}
+	item = normalizeItem(item)
 	item.UpdatedAt = time.Now()
 	_, err := repository.database.ExecContext(ctx,
-		`UPDATE inventory_items SET name = ?, quantity = ?, unit = ?, par = ?, updated_at = ? WHERE id = ?`,
-		item.Name, item.Quantity, item.Unit, item.Par, item.UpdatedAt, item.ID,
+		`UPDATE inventory_items SET name = ?, tracking_mode = ?, quantity = ?, level = ?, unit = ?, low_at = ?, updated_at = ? WHERE id = ?`,
+		item.Name, item.TrackingMode, item.Quantity, item.Level, item.Unit, item.LowAt, item.UpdatedAt, item.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("updating inventory item: %w", err)
@@ -227,7 +217,7 @@ func (repository *SQLiteInventoryRepository) DeleteItem(ctx context.Context, id 
 
 func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context, areaID string) ([]models.InventoryItem, error) {
 	rows, err := repository.database.QueryContext(ctx,
-		`SELECT id, area_id, name, quantity, unit, par, created_by_user_id, created_at, updated_at
+		`SELECT id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at
 		FROM inventory_items WHERE area_id = ? ORDER BY name ASC`, areaID,
 	)
 	if err != nil {
@@ -248,10 +238,39 @@ func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context
 
 func scanItem(rows *sql.Rows, item *models.InventoryItem) error {
 	if err := rows.Scan(
-		&item.ID, &item.AreaID, &item.Name, &item.Quantity, &item.Unit, &item.Par,
+		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
 		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
 	); err != nil {
 		return fmt.Errorf("scanning inventory item: %w", err)
 	}
 	return nil
+}
+
+// normalizeItem clamps an item's fields to valid ranges before persisting:
+// quantity and low_at are never negative, level is bounded to 0–100, and in
+// level mode low_at is read as a percentage so it is bounded to 0–100 too. An
+// unrecognized tracking mode falls back to count.
+func normalizeItem(item models.InventoryItem) models.InventoryItem {
+	if item.TrackingMode != models.TrackingModeLevel {
+		item.TrackingMode = models.TrackingModeCount
+	}
+	item.Quantity = atLeast(item.Quantity, 0)
+	item.Level = clamp(item.Level, 0, 100)
+	if item.TrackingMode == models.TrackingModeLevel {
+		item.LowAt = clamp(item.LowAt, 0, 100)
+	} else {
+		item.LowAt = atLeast(item.LowAt, 0)
+	}
+	return item
+}
+
+func atLeast(value, low int) int {
+	if value < low {
+		return low
+	}
+	return value
+}
+
+func clamp(value, low, high int) int {
+	return atLeast(min(value, high), low)
 }

@@ -90,13 +90,16 @@ private enum DemoData {
 
     // Inventory — areas with stocked items (mirrors the design handoff seed).
     static var inventory: [InventoryArea] {
-        func item(_ id: String, _ name: String, _ qty: Int, _ unit: String, _ par: Int, area: String) -> InventoryItem {
-            InventoryItem(id: id, areaID: area, name: name, quantity: qty, unit: unit, par: par)
+        func item(_ id: String, _ name: String, _ qty: Int, _ unit: String, _ lowAt: Int, area: String) -> InventoryItem {
+            InventoryItem(id: id, areaID: area, name: name, quantity: qty, unit: unit, lowAt: lowAt)
+        }
+        func levelItem(_ id: String, _ name: String, _ level: Int, _ lowAt: Int, area: String) -> InventoryItem {
+            InventoryItem(id: id, areaID: area, name: name, trackingMode: .level, quantity: 0, level: level, unit: "", lowAt: lowAt)
         }
         return [
             InventoryArea(id: "laundry", name: "Laundry cupboard", icon: "drop", tint: "blue", items: [
                 item("la1", "Washing tablets", 45, "pods", 20, area: "laundry"),
-                item("la2", "Fabric softener", 1, "bottles", 2, area: "laundry"),
+                levelItem("la2", "Fabric softener", 15, 20, area: "laundry"),
                 item("la3", "Dryer sheets", 28, "sheets", 20, area: "laundry"),
                 item("la4", "Stain remover", 2, "sprays", 1, area: "laundry"),
             ]),
@@ -401,9 +404,11 @@ final class DemoAPIClient: APIClientProtocol {
             id: "demo-item-\(UUID().uuidString)",
             areaID: areaID,
             name: request.name,
+            trackingMode: request.trackingMode,
             quantity: max(0, request.quantity),
+            level: min(100, max(0, request.level)),
             unit: request.unit,
-            par: max(0, request.par)
+            lowAt: max(0, request.lowAt)
         )
         areas[index] = replacingItems(areas[index], areas[index].items + [item])
         return item
@@ -417,9 +422,11 @@ final class DemoAPIClient: APIClientProtocol {
             id: id,
             areaID: areas[areaIndex].id,
             name: request.name,
+            trackingMode: request.trackingMode,
             quantity: max(0, request.quantity),
+            level: min(100, max(0, request.level)),
             unit: request.unit,
-            par: max(0, request.par)
+            lowAt: max(0, request.lowAt)
         )
         let newItems = areas[areaIndex].items.map { $0.id == id ? updated : $0 }
         areas[areaIndex] = replacingItems(areas[areaIndex], newItems)

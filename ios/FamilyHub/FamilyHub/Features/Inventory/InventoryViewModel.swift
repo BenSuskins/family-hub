@@ -109,13 +109,22 @@ final class InventoryViewModel: MutableListViewModel {
     func adjustQuantity(item: InventoryItem, by delta: Int) async {
         let target = item.adjusting(by: delta)
         if target.quantity == item.quantity { return } // already clamped at 0
+        await persistOptimistically(target, previous: item)
+    }
 
-        let previous = item
+    /// Set a level item's fill percentage, optimistically and then persisted.
+    func setLevel(item: InventoryItem, to newLevel: Int) async {
+        let target = item.withLevel(newLevel)
+        if target.level == item.level { return }
+        await persistOptimistically(target, previous: item)
+    }
+
+    /// Apply `target` locally so the control feels instant, persist it, then
+    /// revert to `previous` and surface `actionError` if the save fails.
+    private func persistOptimistically(_ target: InventoryItem, previous: InventoryItem) async {
         mutateLoaded { Self.upsertItem(target, in: target.areaID, areas: &$0) }
-
         do {
-            let request = ItemRequest(name: target.name, quantity: target.quantity, unit: target.unit, par: target.par)
-            let saved = try await apiClient.updateItem(id: target.id, request)
+            let saved = try await apiClient.updateItem(id: target.id, target.asRequest)
             mutateLoaded { Self.upsertItem(saved, in: saved.areaID, areas: &$0) }
         } catch {
             mutateLoaded { Self.upsertItem(previous, in: previous.areaID, areas: &$0) }

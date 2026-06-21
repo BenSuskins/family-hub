@@ -142,13 +142,13 @@ func TestInventory_FullFlow(t *testing.T) {
 
 	// Add item
 	rec = doRequest(t, router, http.MethodPost, "/api/inventory/areas/"+area.ID+"/items",
-		`{"name":"Toilet roll","quantity":12,"unit":"rolls","par":8}`)
+		`{"name":"Toilet roll","quantity":12,"unit":"rolls","lowAt":8}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create item: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 	var item models.InventoryItem
 	json.NewDecoder(rec.Body).Decode(&item)
-	if item.AreaID != area.ID || item.Quantity != 12 || item.Par != 8 {
+	if item.AreaID != area.ID || item.TrackingMode != models.TrackingModeCount || item.Quantity != 12 || item.LowAt != 8 {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 
@@ -162,7 +162,7 @@ func TestInventory_FullFlow(t *testing.T) {
 
 	// Update item quantity (stepper)
 	rec = doRequest(t, router, http.MethodPut, "/api/inventory/items/"+item.ID,
-		`{"name":"Toilet roll","quantity":3,"unit":"rolls","par":8}`)
+		`{"name":"Toilet roll","quantity":3,"unit":"rolls","lowAt":8}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update item: expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -172,13 +172,25 @@ func TestInventory_FullFlow(t *testing.T) {
 		t.Errorf("expected quantity 3, got %d", updated.Quantity)
 	}
 
+	// A level-tracked item round-trips its percentage and threshold
+	rec = doRequest(t, router, http.MethodPost, "/api/inventory/areas/"+area.ID+"/items",
+		`{"name":"Fabric softener","trackingMode":"level","level":40,"lowAt":20}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create level item: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var levelItem models.InventoryItem
+	json.NewDecoder(rec.Body).Decode(&levelItem)
+	if levelItem.TrackingMode != models.TrackingModeLevel || levelItem.Level != 40 || levelItem.LowAt != 20 {
+		t.Errorf("unexpected level item: %+v", levelItem)
+	}
+
 	// Delete area cascades the item
 	rec = doRequest(t, router, http.MethodDelete, "/api/inventory/areas/"+area.ID, "")
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete area: expected 204, got %d", rec.Code)
 	}
 	rec = doRequest(t, router, http.MethodPut, "/api/inventory/items/"+item.ID,
-		`{"name":"Toilet roll","quantity":1,"unit":"rolls","par":8}`)
+		`{"name":"Toilet roll","quantity":1,"unit":"rolls","lowAt":8}`)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected item to be gone (404) after area delete, got %d", rec.Code)
 	}

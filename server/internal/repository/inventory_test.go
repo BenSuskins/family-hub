@@ -100,7 +100,7 @@ func TestInventoryRepository_ItemCRUD(t *testing.T) {
 		Name:            "Toilet roll",
 		Quantity:        12,
 		Unit:            "rolls",
-		Par:             8,
+		LowAt:           8,
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
@@ -114,7 +114,7 @@ func TestInventoryRepository_ItemCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding item: %v", err)
 	}
-	if found.Quantity != 12 || found.Unit != "rolls" || found.Par != 8 {
+	if found.TrackingMode != models.TrackingModeCount || found.Quantity != 12 || found.Unit != "rolls" || found.LowAt != 8 {
 		t.Errorf("unexpected item: %+v", found)
 	}
 
@@ -149,13 +149,13 @@ func TestInventoryRepository_FindAllAreasNestsItems(t *testing.T) {
 	laundry, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
 	pantry, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
 
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: laundry.ID, Name: "Pods", Quantity: 45, Unit: "pods", Par: 20, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: laundry.ID, Name: "Pods", Quantity: 45, Unit: "pods", LowAt: 20, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Pasta", Quantity: 6, Unit: "packs", Par: 3, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Pasta", Quantity: 6, Unit: "packs", LowAt: 3, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Olive oil", Quantity: 1, Unit: "bottles", Par: 2, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Olive oil", Quantity: 1, Unit: "bottles", LowAt: 2, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestInventoryRepository_DeleteAreaCascadesItems(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Cleaning closet", CreatedByUserID: user.ID})
-	item, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Bin bags", Quantity: 40, Unit: "bags", Par: 20, CreatedByUserID: user.ID})
+	item, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Bin bags", Quantity: 40, Unit: "bags", LowAt: 20, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
@@ -209,12 +209,12 @@ func TestInventoryRepository_QuantityClampsAtZero(t *testing.T) {
 	user := createTestUser(t, userRepo)
 	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Shed", CreatedByUserID: user.ID})
 
-	created, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Screws", Quantity: -5, Par: -1, CreatedByUserID: user.ID})
+	created, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Screws", Quantity: -5, LowAt: -1, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
-	if created.Quantity != 0 || created.Par != 0 {
-		t.Errorf("expected negatives clamped to 0, got quantity=%d par=%d", created.Quantity, created.Par)
+	if created.Quantity != 0 || created.LowAt != 0 {
+		t.Errorf("expected negatives clamped to 0, got quantity=%d lowAt=%d", created.Quantity, created.LowAt)
 	}
 
 	created.Quantity = -3
@@ -224,5 +224,69 @@ func TestInventoryRepository_QuantityClampsAtZero(t *testing.T) {
 	updated, _ := invRepo.FindItemByID(ctx, created.ID)
 	if updated.Quantity != 0 {
 		t.Errorf("expected quantity clamped to 0 on update, got %d", updated.Quantity)
+	}
+}
+
+func TestInventoryRepository_LevelItem(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	invRepo := repository.NewInventoryRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
+
+	created, err := invRepo.CreateItem(ctx, models.InventoryItem{
+		AreaID:          area.ID,
+		Name:            "Fabric softener",
+		TrackingMode:    models.TrackingModeLevel,
+		Level:           40,
+		LowAt:           20,
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating level item: %v", err)
+	}
+
+	found, err := invRepo.FindItemByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("finding level item: %v", err)
+	}
+	if found.TrackingMode != models.TrackingModeLevel || found.Level != 40 || found.LowAt != 20 {
+		t.Errorf("level item not persisted: %+v", found)
+	}
+}
+
+func TestInventoryRepository_LevelClampsToHundred(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(db)
+	invRepo := repository.NewInventoryRepository(db)
+	ctx := context.Background()
+
+	user := createTestUser(t, userRepo)
+	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
+
+	created, err := invRepo.CreateItem(ctx, models.InventoryItem{
+		AreaID:          area.ID,
+		Name:            "Bleach",
+		TrackingMode:    models.TrackingModeLevel,
+		Level:           150,
+		LowAt:           200,
+		CreatedByUserID: user.ID,
+	})
+	if err != nil {
+		t.Fatalf("creating level item: %v", err)
+	}
+	if created.Level != 100 || created.LowAt != 100 {
+		t.Errorf("expected level and lowAt clamped to 100, got level=%d lowAt=%d", created.Level, created.LowAt)
+	}
+
+	created.Level = -5
+	if err := invRepo.UpdateItem(ctx, created); err != nil {
+		t.Fatalf("updating level item: %v", err)
+	}
+	updated, _ := invRepo.FindItemByID(ctx, created.ID)
+	if updated.Level != 0 {
+		t.Errorf("expected level clamped to 0 on update, got %d", updated.Level)
 	}
 }

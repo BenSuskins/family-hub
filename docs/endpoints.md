@@ -359,12 +359,14 @@ curl -s "$BASE_URL/api/calendar?view=month&month=2026-04" \
 ### Inventory API
 
 Stock tracking across home **areas** (e.g. Laundry cupboard), each holding
-**items** with a quantity, unit and `par` (low-stock threshold). An item is "low"
-when `quantity <= par`; that flag and the cross-area "running low" rollup are
-derived by clients — the server stores and returns raw fields. Any authenticated
-user can manage inventory. `icon` ∈ {box, drop, cart, pills, sparkles, heart,
-cloud, flame}; `tint` ∈ {blue, orange, teal, green, purple, indigo, red}; both
-default to `box`/`blue` when blank.
+**items**. An item's `trackingMode` is either `count` (whole units, default) or
+`level` (a 0–100 fill percentage for partially-used items like bottles). The
+`lowAt` threshold is read as a count in count mode and a percentage in level mode;
+an item is "low" when `quantity <= lowAt` (count) or `level <= lowAt` (level).
+That flag and the cross-area "running low" rollup are derived by clients — the
+server stores and returns raw fields. Any authenticated user can manage inventory.
+`icon` ∈ {box, drop, cart, pills, sparkles, heart, cloud, flame}; `tint` ∈ {blue,
+orange, teal, green, purple, indigo, red}; both default to `box`/`blue` when blank.
 
 ### `GET /api/inventory`
 - **Usecase:** List every area with its items nested (single call backing the iOS
@@ -412,8 +414,10 @@ curl -s -X DELETE $BASE_URL/api/inventory/areas/<id> \
 ```
 
 ### `POST /api/inventory/areas/{id}/items`
-- **Usecase:** Add an item to an area. Body JSON: `name` required; `quantity`,
-  `unit`, `par` optional (numbers clamped at 0).
+- **Usecase:** Add an item to an area. Body JSON: `name` required; `trackingMode`
+  (`count` default, or `level`), `quantity`, `level` (0–100), `unit`, `lowAt`
+  optional. `quantity`/`lowAt` clamped at 0; `level` and (in level mode) `lowAt`
+  clamped to 0–100.
 - **Callers:** iOS app (Add Item sheet).
 - **Security:** API token.
 
@@ -421,12 +425,12 @@ curl -s -X DELETE $BASE_URL/api/inventory/areas/<id> \
 curl -s -X POST $BASE_URL/api/inventory/areas/<id>/items \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Fabric softener","quantity":1,"unit":"bottles","par":2}' | jq
+  -d '{"name":"Fabric softener","trackingMode":"level","level":40,"lowAt":20}' | jq
 ```
 
 ### `PUT /api/inventory/items/{id}`
-- **Usecase:** Update an item (name/quantity/unit/par). Drives the stepper's
-  quantity changes. `name` required.
+- **Usecase:** Update an item (name/trackingMode/quantity/level/unit/lowAt). Drives
+  the stepper's quantity changes and the level slider. `name` required.
 - **Callers:** iOS app (stepper + edit item sheet).
 - **Security:** API token.
 
@@ -434,7 +438,7 @@ curl -s -X POST $BASE_URL/api/inventory/areas/<id>/items \
 curl -s -X PUT $BASE_URL/api/inventory/items/<id> \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Fabric softener","quantity":3,"unit":"bottles","par":2}' | jq
+  -d '{"name":"Fabric softener","trackingMode":"level","level":75,"lowAt":20}' | jq
 ```
 
 ### `DELETE /api/inventory/items/{id}`

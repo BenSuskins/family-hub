@@ -20,10 +20,12 @@ type areaAPIBody struct {
 
 // itemAPIBody is the JSON request body for creating/updating an item.
 type itemAPIBody struct {
-	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
-	Unit     string `json:"unit,omitempty"`
-	Par      int    `json:"par"`
+	Name         string `json:"name"`
+	TrackingMode string `json:"trackingMode,omitempty"`
+	Quantity     int    `json:"quantity"`
+	Level        int    `json:"level"`
+	Unit         string `json:"unit,omitempty"`
+	LowAt        int    `json:"lowAt"`
 }
 
 // ListInventory returns every area with its items nested — a single call backs
@@ -160,9 +162,11 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 	created, err := handler.inventoryRepo.CreateItem(ctx, models.InventoryItem{
 		AreaID:          areaID,
 		Name:            body.Name,
+		TrackingMode:    body.TrackingMode,
 		Quantity:        body.Quantity,
+		Level:           body.Level,
 		Unit:            body.Unit,
-		Par:             body.Par,
+		LowAt:           body.LowAt,
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
@@ -197,9 +201,11 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 	}
 
 	item.Name = body.Name
+	item.TrackingMode = body.TrackingMode
 	item.Quantity = body.Quantity
+	item.Level = body.Level
 	item.Unit = body.Unit
-	item.Par = body.Par
+	item.LowAt = body.LowAt
 
 	if err := handler.inventoryRepo.UpdateItem(ctx, item); err != nil {
 		slog.Error("updating inventory item via API", "error", err)

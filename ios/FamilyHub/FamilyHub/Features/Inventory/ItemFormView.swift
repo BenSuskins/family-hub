@@ -1,19 +1,26 @@
 import SwiftUI
 
-/// Add / edit an item: name, Count + Low-at (par) steppers, and a unit chip picker.
+/// Add / edit an item. Count items get Count + Low-at steppers and a unit chip
+/// picker; level items get a fill-percentage slider and a low-below-% threshold.
 struct ItemFormView: View {
     enum FormMode {
         case create(areaID: String)
         case edit(InventoryItem)
     }
 
+    /// Sensible low-at defaults per mode: a couple of units, or a fifth of a tank.
+    private static let countLowAtDefault = 2
+    private static let levelLowAtDefault = 20
+
     let mode: FormMode
     @Bindable var viewModel: InventoryViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
+    @State private var trackingMode: TrackingMode = .count
     @State private var quantity = 1
-    @State private var par = 2
+    @State private var level = 100
+    @State private var lowAt = ItemFormView.countLowAtDefault
     @State private var unit = "pcs"
     @State private var isSaving = false
 
@@ -33,8 +40,13 @@ struct ItemFormView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     nameField
-                    stockCard
-                    unitPicker
+                    modePicker
+                    if trackingMode == .count {
+                        stockCard
+                        unitPicker
+                    } else {
+                        levelCard
+                    }
                     if isEditing { deleteButton }
                     Spacer(minLength: 40)
                 }
@@ -69,17 +81,63 @@ struct ItemFormView: View {
             .padding(.top, 12)
     }
 
+    private var modePicker: some View {
+        Picker("Tracking", selection: $trackingMode) {
+            Text("Count").tag(TrackingMode.count)
+            Text("Level").tag(TrackingMode.level)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .onChange(of: trackingMode) { _, newMode in
+            // Switching unit (count vs %) changes what "low at" means, so reset it
+            // to a sensible default — but only while creating, never on an edit.
+            guard !isEditing else { return }
+            lowAt = newMode == .level ? Self.levelLowAtDefault : Self.countLowAtDefault
+        }
+    }
+
     private var stockCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionHeaderLabel(text: "Stock")
             VStack(spacing: 0) {
                 numberRow(label: "Count", value: $quantity)
                 Divider().padding(.leading, 16)
-                numberRow(label: "Low at (par)", value: $par)
+                numberRow(label: "Low at", value: $lowAt)
             }
             .glassCard(radius: 14)
             .padding(.horizontal, 16)
         }
+    }
+
+    private var levelCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeaderLabel(text: "Fill level")
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Remaining")
+                            .font(.system(size: 16))
+                        Spacer()
+                        Text("\(level)%")
+                            .font(.system(size: 16, weight: .semibold))
+                            .monospacedDigit()
+                    }
+                    Slider(value: levelBinding, in: 0...100, step: 5)
+                        .tint(Color.appGreen)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                Divider().padding(.leading, 16)
+                numberRow(label: "Low below (%)", value: $lowAt)
+            }
+            .glassCard(radius: 14)
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var levelBinding: Binding<Double> {
+        Binding(get: { Double(level) }, set: { level = Int($0) })
     }
 
     private func numberRow(label: String, value: Binding<Int>) -> some View {
@@ -146,8 +204,10 @@ struct ItemFormView: View {
     private func populate() {
         if case .edit(let item) = mode {
             name = item.name
+            trackingMode = item.trackingMode
             quantity = item.quantity
-            par = item.par
+            level = item.level
+            lowAt = item.lowAt
             unit = item.unit
         } else {
             nameFocused = true
@@ -157,7 +217,8 @@ struct ItemFormView: View {
     private func save() async {
         isSaving = true
         defer { isSaving = false }
-        let request = ItemRequest(name: trimmedName, quantity: quantity, unit: unit, par: par)
+        let request = ItemRequest(name: trimmedName, trackingMode: trackingMode,
+                                  quantity: quantity, level: level, unit: unit, lowAt: lowAt)
         let result: InventoryItem?
         switch mode {
         case .create(let areaID):

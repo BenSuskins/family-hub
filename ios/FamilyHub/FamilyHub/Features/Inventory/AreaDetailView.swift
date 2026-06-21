@@ -144,12 +144,17 @@ struct AreaDetailView: View {
             }
             .buttonStyle(.plain)
 
-            QuantityStepper(
-                quantity: item.quantity,
-                isLow: item.isLow,
-                onDecrement: { Task { await viewModel.adjustQuantity(item: item, by: -1) } },
-                onIncrement: { Task { await viewModel.adjustQuantity(item: item, by: 1) } }
-            )
+            switch item.trackingMode {
+            case .count:
+                QuantityStepper(
+                    quantity: item.quantity,
+                    isLow: item.isLow,
+                    onDecrement: { Task { await viewModel.adjustQuantity(item: item, by: -1) } },
+                    onIncrement: { Task { await viewModel.adjustQuantity(item: item, by: 1) } }
+                )
+            case .level:
+                LevelBar(level: item.level, isLow: item.isLow)
+            }
         }
         .padding(.leading, 16)
         .padding(.trailing, 14)
@@ -165,8 +170,13 @@ struct AreaDetailView: View {
     }
 
     private func subtitle(for item: InventoryItem) -> String {
-        let unit = item.unit.isEmpty ? "" : " \(item.unit)"
-        return "\(item.quantity)\(unit) · par \(item.par)"
+        switch item.trackingMode {
+        case .level:
+            return "low at \(item.lowAt)%"
+        case .count:
+            let unit = item.unit.isEmpty ? "" : " \(item.unit)"
+            return "\(item.quantity)\(unit) · low at \(item.lowAt)"
+        }
     }
 
     private var addItemRow: some View {

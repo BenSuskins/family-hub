@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Small uppercase "LOW" pill shown beside an item that's at or below its par.
+/// Small uppercase "LOW" pill shown beside an item at or below its low-at threshold.
 struct LowBadge: View {
     var body: some View {
         Text("Low")

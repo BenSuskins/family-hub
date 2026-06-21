@@ -222,15 +222,26 @@ type InventoryArea struct {
 	UpdatedAt       time.Time
 }
 
-// InventoryItem is a stocked consumable within an area. An item is considered
-// "low" when Quantity <= Par; that flag is derived by clients, not stored.
+// Tracking modes for an InventoryItem. A count item is measured in whole units
+// (Quantity); a level item is measured as a 0–100 fill percentage (Level).
+const (
+	TrackingModeCount = "count"
+	TrackingModeLevel = "level"
+)
+
+// InventoryItem is a stocked consumable within an area. TrackingMode selects how
+// stock is measured: in count mode an item is "low" when Quantity <= LowAt; in
+// level mode when Level <= LowAt (LowAt read as a percentage). The low flag is
+// derived by clients, not stored.
 type InventoryItem struct {
 	ID              string
 	AreaID          string
 	Name            string
+	TrackingMode    string
 	Quantity        int
+	Level           int
 	Unit            string
-	Par             int
+	LowAt           int
 	CreatedByUserID string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

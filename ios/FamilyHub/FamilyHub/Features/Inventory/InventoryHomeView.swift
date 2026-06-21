@@ -109,7 +109,7 @@ struct InventoryHomeView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            Text(entry.item.quantityLabel)
+            Text(entry.item.statusLabel)
                 .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(InventoryStyle.low)

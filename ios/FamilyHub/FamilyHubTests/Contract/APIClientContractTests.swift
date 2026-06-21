@@ -168,7 +168,7 @@ class APIClientContractTests: XCTestCase {
         let client = try makeClient()
         let area = try await client.createArea(AreaRequest(name: "Office", icon: "box", tint: "blue"))
 
-        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Printer paper", quantity: 5, unit: "reams", par: 2))
+        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Printer paper", quantity: 5, unit: "reams", lowAt: 2))
         XCTAssertEqual(item.areaID, area.id)
 
         let all = try await client.fetchInventory()
@@ -179,21 +179,37 @@ class APIClientContractTests: XCTestCase {
     func test_updateItem_quantityReflectedByFetch() async throws {
         let client = try makeClient()
         let area = try await client.createArea(AreaRequest(name: "Pantry", icon: "cart", tint: "orange"))
-        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Rice", quantity: 4, unit: "bags", par: 2))
+        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Rice", quantity: 4, unit: "bags", lowAt: 2))
 
-        let updated = try await client.updateItem(id: item.id, ItemRequest(name: "Rice", quantity: 1, unit: "bags", par: 2))
+        let updated = try await client.updateItem(id: item.id, ItemRequest(name: "Rice", quantity: 1, unit: "bags", lowAt: 2))
         XCTAssertEqual(updated.quantity, 1)
-        XCTAssertTrue(updated.isLow, "1 <= par 2 should be flagged low")
+        XCTAssertTrue(updated.isLow, "1 <= lowAt 2 should be flagged low")
 
         let all = try await client.fetchInventory()
         let fetched = all.first { $0.id == area.id }?.items.first { $0.id == item.id }
         XCTAssertEqual(fetched?.quantity, 1)
     }
 
+    func test_createLevelItem_roundTripsPercentageAndLowFlag() async throws {
+        let client = try makeClient()
+        let area = try await client.createArea(AreaRequest(name: "Cleaning", icon: "drop", tint: "blue"))
+
+        let item = try await client.createItem(areaID: area.id,
+            ItemRequest(name: "Bleach", trackingMode: .level, quantity: 0, level: 15, unit: "", lowAt: 20))
+        XCTAssertEqual(item.trackingMode, .level)
+        XCTAssertEqual(item.level, 15)
+        XCTAssertTrue(item.isLow, "15 <= lowAt 20 should be flagged low")
+
+        let all = try await client.fetchInventory()
+        let fetched = all.first { $0.id == area.id }?.items.first { $0.id == item.id }
+        XCTAssertEqual(fetched?.level, 15)
+        XCTAssertEqual(fetched?.trackingMode, .level)
+    }
+
     func test_deleteArea_cascadesItems() async throws {
         let client = try makeClient()
         let area = try await client.createArea(AreaRequest(name: "Shed", icon: "box", tint: "green"))
-        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Nails", quantity: 100, unit: "pcs", par: 50))
+        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Nails", quantity: 100, unit: "pcs", lowAt: 50))
 
         try await client.deleteArea(id: area.id)
 
@@ -205,7 +221,7 @@ class APIClientContractTests: XCTestCase {
     func test_deleteItem_removesItFromFetch() async throws {
         let client = try makeClient()
         let area = try await client.createArea(AreaRequest(name: "Bathroom", icon: "pills", tint: "teal"))
-        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Soap", quantity: 3, unit: "bars", par: 1))
+        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Soap", quantity: 3, unit: "bars", lowAt: 1))
 
         try await client.deleteItem(id: item.id)
 

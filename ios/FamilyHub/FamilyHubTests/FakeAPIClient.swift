@@ -40,8 +40,8 @@ final class FakeAPIClient: APIClientProtocol {
     var createAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
     var updateAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
     var deleteAreaResult: Result<Void, Error> = .success(())
-    var createItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", par: 0))
-    var updateItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", par: 0))
+    var createItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", lowAt: 0))
+    var updateItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", lowAt: 0))
     var deleteItemResult: Result<Void, Error> = .success(())
 
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }

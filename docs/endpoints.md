@@ -356,6 +356,99 @@ curl -s "$BASE_URL/api/calendar?view=month&month=2026-04" \
 
 ---
 
+### Inventory API
+
+Stock tracking across home **areas** (e.g. Laundry cupboard), each holding
+**items** with a quantity, unit and `par` (low-stock threshold). An item is "low"
+when `quantity <= par`; that flag and the cross-area "running low" rollup are
+derived by clients — the server stores and returns raw fields. Any authenticated
+user can manage inventory. `icon` ∈ {box, drop, cart, pills, sparkles, heart,
+cloud, flame}; `tint` ∈ {blue, orange, teal, green, purple, indigo, red}; both
+default to `box`/`blue` when blank.
+
+### `GET /api/inventory`
+- **Usecase:** List every area with its items nested (single call backing the iOS
+  Inventory home screen). Empty list returned as `[]`.
+- **Callers:** iOS app inventory tab.
+- **Security:** API token.
+
+```bash
+curl -s "$BASE_URL/api/inventory" \
+  -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+### `POST /api/inventory/areas`
+- **Usecase:** Create an area. Body JSON: `name` required; `icon`, `tint` optional.
+- **Callers:** iOS app (Add Area sheet).
+- **Security:** API token.
+
+```bash
+curl -s -X POST $BASE_URL/api/inventory/areas \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Laundry cupboard","icon":"drop","tint":"blue"}' | jq
+```
+
+### `PUT /api/inventory/areas/{id}`
+- **Usecase:** Update an area's name/icon/tint. `name` required.
+- **Callers:** iOS app.
+- **Security:** API token.
+
+```bash
+curl -s -X PUT $BASE_URL/api/inventory/areas/<id> \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Utility room","icon":"sparkles","tint":"green"}' | jq
+```
+
+### `DELETE /api/inventory/areas/{id}`
+- **Usecase:** Delete an area; its items are cascade-deleted. Returns 204.
+- **Callers:** iOS app.
+- **Security:** API token.
+
+```bash
+curl -s -X DELETE $BASE_URL/api/inventory/areas/<id> \
+  -H "Authorization: Bearer $API_TOKEN" -i
+```
+
+### `POST /api/inventory/areas/{id}/items`
+- **Usecase:** Add an item to an area. Body JSON: `name` required; `quantity`,
+  `unit`, `par` optional (numbers clamped at 0).
+- **Callers:** iOS app (Add Item sheet).
+- **Security:** API token.
+
+```bash
+curl -s -X POST $BASE_URL/api/inventory/areas/<id>/items \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Fabric softener","quantity":1,"unit":"bottles","par":2}' | jq
+```
+
+### `PUT /api/inventory/items/{id}`
+- **Usecase:** Update an item (name/quantity/unit/par). Drives the stepper's
+  quantity changes. `name` required.
+- **Callers:** iOS app (stepper + edit item sheet).
+- **Security:** API token.
+
+```bash
+curl -s -X PUT $BASE_URL/api/inventory/items/<id> \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Fabric softener","quantity":3,"unit":"bottles","par":2}' | jq
+```
+
+### `DELETE /api/inventory/items/{id}`
+- **Usecase:** Delete an item. Returns 204.
+- **Callers:** iOS app.
+- **Security:** API token.
+
+```bash
+curl -s -X DELETE $BASE_URL/api/inventory/items/<id> \
+  -H "Authorization: Bearer $API_TOKEN" -i
+```
+
+---
+
 ### Admin-only API routes (admin role required)
 
 ### `POST /api/users/{id}/promote`

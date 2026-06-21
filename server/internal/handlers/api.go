@@ -28,6 +28,7 @@ type APIHandler struct {
 	choreService    *services.ChoreService
 	mealPlanRepo    repository.MealPlanRepository
 	recipeRepo      repository.RecipeRepository
+	inventoryRepo   repository.InventoryRepository
 	icalFetcher      *services.ICalFetcher
 	recipeExtractor  *services.RecipeExtractor
 	oidcUserInfoURL  string
@@ -45,6 +46,7 @@ func NewAPIHandler(
 	choreService *services.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
+	inventoryRepo repository.InventoryRepository,
 	icalFetcher *services.ICalFetcher,
 	recipeExtractor *services.RecipeExtractor,
 	oidcUserInfoURL string,
@@ -61,6 +63,7 @@ func NewAPIHandler(
 		choreService:    choreService,
 		mealPlanRepo:    mealPlanRepo,
 		recipeRepo:      recipeRepo,
+		inventoryRepo:   inventoryRepo,
 		icalFetcher:      icalFetcher,
 		recipeExtractor:  recipeExtractor,
 		oidcUserInfoURL:  oidcUserInfoURL,

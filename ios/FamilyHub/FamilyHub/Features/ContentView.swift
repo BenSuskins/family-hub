@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AppTab { case home, meals, recipes, calendar }
+enum AppTab { case home, meals, inventory, recipes, calendar }
 
 struct ContentView: View {
     let apiClient: any APIClientProtocol
@@ -13,6 +13,9 @@ struct ContentView: View {
             }
             Tab("Meals", systemImage: "fork.knife", value: AppTab.meals) {
                 MealsView(apiClient: apiClient)
+            }
+            Tab("Inventory", systemImage: "shippingbox", value: AppTab.inventory) {
+                InventoryHomeView(apiClient: apiClient)
             }
             Tab("Recipes", systemImage: "book", value: AppTab.recipes) {
                 RecipesView(apiClient: apiClient)

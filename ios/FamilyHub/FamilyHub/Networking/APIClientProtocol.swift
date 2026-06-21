@@ -50,6 +50,15 @@ protocol APIClientProtocol: AnyObject {
     func fetchTokens() async throws -> [APIToken]
     func createToken(name: String) async throws -> CreatedToken
     func deleteToken(id: String) async throws
+
+    // Inventory
+    func fetchInventory() async throws -> [InventoryArea]
+    func createArea(_ request: AreaRequest) async throws -> InventoryArea
+    func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea
+    func deleteArea(id: String) async throws
+    func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem
+    func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem
+    func deleteItem(id: String) async throws
 }
 
 extension APIClientProtocol {

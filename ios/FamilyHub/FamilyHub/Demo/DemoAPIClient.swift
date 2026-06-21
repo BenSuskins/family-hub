@@ -88,6 +88,47 @@ private enum DemoData {
         ]
     }
 
+    // Inventory — areas with stocked items (mirrors the design handoff seed).
+    static var inventory: [InventoryArea] {
+        func item(_ id: String, _ name: String, _ qty: Int, _ unit: String, _ par: Int, area: String) -> InventoryItem {
+            InventoryItem(id: id, areaID: area, name: name, quantity: qty, unit: unit, par: par)
+        }
+        return [
+            InventoryArea(id: "laundry", name: "Laundry cupboard", icon: "drop", tint: "blue", items: [
+                item("la1", "Washing tablets", 45, "pods", 20, area: "laundry"),
+                item("la2", "Fabric softener", 1, "bottles", 2, area: "laundry"),
+                item("la3", "Dryer sheets", 28, "sheets", 20, area: "laundry"),
+                item("la4", "Stain remover", 2, "sprays", 1, area: "laundry"),
+            ]),
+            InventoryArea(id: "pantry", name: "Kitchen pantry", icon: "cart", tint: "orange", items: [
+                item("pa1", "Pasta", 6, "packs", 3, area: "pantry"),
+                item("pa2", "Tinned tomatoes", 8, "tins", 4, area: "pantry"),
+                item("pa3", "Olive oil", 1, "bottles", 2, area: "pantry"),
+                item("pa4", "Coffee beans", 2, "bags", 1, area: "pantry"),
+                item("pa5", "Cereal", 3, "boxes", 2, area: "pantry"),
+            ]),
+            InventoryArea(id: "bath", name: "Bathroom", icon: "pills", tint: "teal", items: [
+                item("ba1", "Toilet roll", 12, "rolls", 8, area: "bath"),
+                item("ba2", "Toothpaste", 4, "tubes", 2, area: "bath"),
+                item("ba3", "Shampoo", 1, "bottles", 2, area: "bath"),
+                item("ba4", "Hand soap", 3, "refills", 2, area: "bath"),
+            ]),
+            InventoryArea(id: "cleaning", name: "Cleaning closet", icon: "sparkles", tint: "green", items: [
+                item("cl1", "Surface spray", 2, "sprays", 1, area: "cleaning"),
+                item("cl2", "Bin bags", 40, "bags", 20, area: "cleaning"),
+                item("cl3", "Sponges", 5, "sponges", 4, area: "cleaning"),
+                item("cl4", "Bleach", 1, "bottles", 2, area: "cleaning"),
+                item("cl5", "Kitchen roll", 3, "rolls", 4, area: "cleaning"),
+            ]),
+            InventoryArea(id: "medicine", name: "Medicine cabinet", icon: "heart", tint: "purple", items: [
+                item("me1", "Paracetamol", 24, "tablets", 8, area: "medicine"),
+                item("me2", "Plasters", 30, "pcs", 10, area: "medicine"),
+                item("me3", "Ibuprofen", 16, "tablets", 8, area: "medicine"),
+                item("me4", "Cough syrup", 1, "bottles", 1, area: "medicine"),
+            ]),
+        ]
+    }
+
     static var calendarEvent: CalendarEvent {
         let saturday = Calendar.current.date(byAdding: .day, value: daysUntilWeekend(), to: Date())!
         let start = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: saturday)!
@@ -117,6 +158,7 @@ final class DemoAPIClient: APIClientProtocol {
     private var recipes: [Recipe] = DemoData.recipes
     private var categories: [Category] = DemoData.categories
     private var tokens: [APIToken] = []
+    private var areas: [InventoryArea] = DemoData.inventory
 
     func fetchDashboardStats() async throws -> DashboardStats {
         let overdue = chores.filter { $0.status == .overdue }
@@ -318,6 +360,80 @@ final class DemoAPIClient: APIClientProtocol {
 
     func deleteToken(id: String) async throws {
         tokens.removeAll { $0.id == id }
+    }
+
+    // MARK: - Inventory
+
+    func fetchInventory() async throws -> [InventoryArea] { areas }
+
+    func createArea(_ request: AreaRequest) async throws -> InventoryArea {
+        let area = InventoryArea(
+            id: "demo-area-\(UUID().uuidString)",
+            name: request.name,
+            icon: request.icon.isEmpty ? "box" : request.icon,
+            tint: request.tint.isEmpty ? "blue" : request.tint,
+            items: []
+        )
+        areas.append(area)
+        return area
+    }
+
+    func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea {
+        guard let index = areas.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let updated = InventoryArea(
+            id: id,
+            name: request.name,
+            icon: request.icon.isEmpty ? areas[index].icon : request.icon,
+            tint: request.tint.isEmpty ? areas[index].tint : request.tint,
+            items: areas[index].items
+        )
+        areas[index] = updated
+        return updated
+    }
+
+    func deleteArea(id: String) async throws {
+        areas.removeAll { $0.id == id }
+    }
+
+    func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem {
+        guard let index = areas.firstIndex(where: { $0.id == areaID }) else { throw APIError.notFound }
+        let item = InventoryItem(
+            id: "demo-item-\(UUID().uuidString)",
+            areaID: areaID,
+            name: request.name,
+            quantity: max(0, request.quantity),
+            unit: request.unit,
+            par: max(0, request.par)
+        )
+        areas[index] = replacingItems(areas[index], areas[index].items + [item])
+        return item
+    }
+
+    func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem {
+        guard let areaIndex = areas.firstIndex(where: { $0.items.contains(where: { $0.id == id }) }) else {
+            throw APIError.notFound
+        }
+        let updated = InventoryItem(
+            id: id,
+            areaID: areas[areaIndex].id,
+            name: request.name,
+            quantity: max(0, request.quantity),
+            unit: request.unit,
+            par: max(0, request.par)
+        )
+        let newItems = areas[areaIndex].items.map { $0.id == id ? updated : $0 }
+        areas[areaIndex] = replacingItems(areas[areaIndex], newItems)
+        return updated
+    }
+
+    func deleteItem(id: String) async throws {
+        guard let areaIndex = areas.firstIndex(where: { $0.items.contains(where: { $0.id == id }) }) else { return }
+        let newItems = areas[areaIndex].items.filter { $0.id != id }
+        areas[areaIndex] = replacingItems(areas[areaIndex], newItems)
+    }
+
+    private func replacingItems(_ area: InventoryArea, _ items: [InventoryItem]) -> InventoryArea {
+        InventoryArea(id: area.id, name: area.name, icon: area.icon, tint: area.tint, items: items)
     }
 }
 

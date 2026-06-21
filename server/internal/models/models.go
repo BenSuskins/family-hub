@@ -208,6 +208,34 @@ type MealPlan struct {
 	UpdatedAt       time.Time
 }
 
+// InventoryArea is a physical storage area in the home (e.g. "Laundry
+// cupboard") holding stocked items. Icon and Tint are presentation hints chosen
+// by the client from a fixed set; the server stores them verbatim.
+type InventoryArea struct {
+	ID              string
+	Name            string
+	Icon            string
+	Tint            string
+	Items           []InventoryItem // populated on list/get
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// InventoryItem is a stocked consumable within an area. An item is considered
+// "low" when Quantity <= Par; that flag is derived by clients, not stored.
+type InventoryItem struct {
+	ID              string
+	AreaID          string
+	Name            string
+	Quantity        int
+	Unit            string
+	Par             int
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type ICalSubscription struct {
 	ID            string
 	Name          string

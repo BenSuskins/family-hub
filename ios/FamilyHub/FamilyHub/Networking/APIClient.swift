@@ -414,4 +414,34 @@ final class APIClient: APIClientProtocol {
     func deleteToken(id: String) async throws {
         try await delete("api/tokens/\(id)")
     }
+
+    // MARK: - Inventory
+
+    func fetchInventory() async throws -> [InventoryArea] {
+        try await get("api/inventory")
+    }
+
+    func createArea(_ request: AreaRequest) async throws -> InventoryArea {
+        try await post("api/inventory/areas", body: request)
+    }
+
+    func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea {
+        try await put("api/inventory/areas/\(id)", body: request)
+    }
+
+    func deleteArea(id: String) async throws {
+        try await delete("api/inventory/areas/\(id)")
+    }
+
+    func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem {
+        try await post("api/inventory/areas/\(areaID)/items", body: request)
+    }
+
+    func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem {
+        try await put("api/inventory/items/\(id)", body: request)
+    }
+
+    func deleteItem(id: String) async throws {
+        try await delete("api/inventory/items/\(id)")
+    }
 }

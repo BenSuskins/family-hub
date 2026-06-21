@@ -36,6 +36,13 @@ final class FakeAPIClient: APIClientProtocol {
     var tokensResult: Result<[APIToken], Error> = .success([])
     var createTokenResult: Result<CreatedToken, Error> = .success(CreatedToken(id: "1", name: "Test", plaintext: "abc123"))
     var deleteTokenResult: Result<Void, Error> = .success(())
+    var inventoryResult: Result<[InventoryArea], Error> = .success([])
+    var createAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
+    var updateAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
+    var deleteAreaResult: Result<Void, Error> = .success(())
+    var createItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", par: 0))
+    var updateItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", par: 0))
+    var deleteItemResult: Result<Void, Error> = .success(())
 
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
@@ -69,4 +76,11 @@ final class FakeAPIClient: APIClientProtocol {
     func fetchTokens() async throws -> [APIToken] { try tokensResult.get() }
     func createToken(name: String) async throws -> CreatedToken { try createTokenResult.get() }
     func deleteToken(id: String) async throws { try deleteTokenResult.get() }
+    func fetchInventory() async throws -> [InventoryArea] { try inventoryResult.get() }
+    func createArea(_ request: AreaRequest) async throws -> InventoryArea { try createAreaResult.get() }
+    func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea { try updateAreaResult.get() }
+    func deleteArea(id: String) async throws { try deleteAreaResult.get() }
+    func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem { try createItemResult.get() }
+    func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem { try updateItemResult.get() }
+    func deleteItem(id: String) async throws { try deleteItemResult.get() }
 }

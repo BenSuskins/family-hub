@@ -74,14 +74,24 @@ final class InventoryViewModel: MutableListViewModel {
     // MARK: - Item mutations
 
     func createItem(areaID: String, _ request: ItemRequest) async -> InventoryItem? {
-        await performMutation { try await apiClient.createItem(areaID: areaID, request) } applying: { created, areas in
-            Self.upsertItem(created, in: areaID, areas: &areas)
+        do {
+            let created = try await apiClient.createItem(areaID: areaID, request)
+            mutateLoaded { Self.upsertItem(created, in: areaID, areas: &$0) }
+            return created
+        } catch {
+            actionError = .from(error)
+            return nil
         }
     }
 
     func updateItem(areaID: String, id: String, _ request: ItemRequest) async -> InventoryItem? {
-        await performMutation { try await apiClient.updateItem(id: id, request) } applying: { updated, areas in
-            Self.upsertItem(updated, in: areaID, areas: &areas)
+        do {
+            let updated = try await apiClient.updateItem(id: id, request)
+            mutateLoaded { Self.upsertItem(updated, in: areaID, areas: &$0) }
+            return updated
+        } catch {
+            actionError = .from(error)
+            return nil
         }
     }
 

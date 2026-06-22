@@ -522,11 +522,47 @@ struct MealEditSheet: View {
                 }
 
                 if filteredRecipes.isEmpty {
-                    Text(recipes.isEmpty ? "Loading…" : "No recipes found")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
+                    let trimmedQuery = recipeSearchQuery.trimmingCharacters(in: .whitespaces)
+                    if recipes.isEmpty {
+                        Text("Loading…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    } else if trimmedQuery.isEmpty {
+                        Text("No recipes found")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    } else {
+                        Button {
+                            name = trimmedQuery
+                            selectedRecipeID = nil
+                            withAnimation(.spring(duration: 0.2)) { inputMode = .text }
+                        } label: {
+                            VStack(spacing: 8) {
+                                Text("No recipes found")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 8) {
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 15, weight: .medium))
+                                    Text("Use \"\(trimmedQuery)\" as a custom meal")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .foregroundStyle(Color.accentColor)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                            .padding(.horizontal, 14)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .sensoryFeedback(.selection, trigger: inputMode)
+                    }
                 }
             }
             .glassCard(radius: 14)

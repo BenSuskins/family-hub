@@ -59,3 +59,7 @@ ios/**/*.xcodeproj/xcuserdata/
 ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
 ios/**/Config.plist
+
+# Rendered App Store screenshot assets
+ios/marketing/screenshots/out/
+ios/marketing/screenshots/raw/*.png

@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../lib/slide.css">
+<style>body.slide { --accent: var(--teal); }</style>
+</head>
+<body class="slide">
+<main>
+  <p class="eyebrow">Home</p>
+  <h1>The whole day,<br>at a <mark>glance</mark></h1>
+  <div class="stage">
+    <div class="phone">
+      <div class="screen">
+        <img class="capture" src="../raw/01-home.jpeg" onerror="this.remove()">
+        <div class="mock">
+          <div class="statusbar"><span>9:41</span><span class="right"><span class="signal"><i></i><i></i><i></i><i></i></span><span class="battery"></span></span></div>
+          <div class="greeting">
+            <p class="kicker">Sunday · June 21</p>
+            <p class="hello">Good morning,</p>
+            <p class="name">Alex</p>
+          </div>
+          <div>
+            <h2>Up next</h2>
+            <div class="card agenda">
+              <p class="time">4:00<small>PM</small></p>
+              <span class="bullet"></span>
+              <p class="what">Swimming lessons<small>Ellie · Weekly</small></p>
+            </div>
+          </div>
+          <div>
+            <h2>Today's meals <span class="link">Plan</span></h2>
+            <div class="meals">
+              <div class="meal fill" style="--mc: var(--sun)"><span class="ico">🥞</span><span><span class="slot">BREAKFAST</span><p class="dish">Pancakes</p></span></div>
+              <div class="meal fill" style="--mc: var(--teal)"><span class="ico">🥗</span><span><span class="slot">LUNCH</span><p class="dish">Pasta salad</p></span></div>
+              <div class="meal fill" style="--mc: var(--moon)"><span class="ico">🍲</span><span><span class="slot">DINNER</span><p class="dish">Chilli</p></span></div>
+            </div>
+          </div>
+          <div>
+            <h2>Today's chores <span class="link">Manage</span></h2>
+            <div class="card chores">
+              <div class="chore"><span class="avatar" style="--ac: var(--sun)">M</span><p class="what">Tidy bedroom<small>Mia · <span class="due">by 5 PM</span></small></p><span class="tick empty"></span></div>
+              <div class="chore"><span class="avatar" style="--ac: var(--teal)">S</span><p class="what">Walk the dog<small>Sam · Every day</small></p><span class="tick">✓</span></div>
+              <div class="chore"><span class="avatar" style="--ac: var(--moon)">J</span><p class="what">Load dishwasher<small>Jade · After dinner</small></p><span class="tick">✓</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chip chip-a"><span class="dot"></span>Chores · Meals · Calendar</div>
+    <div class="chip chip-b"><span class="dot"></span>For the whole family</div>
+  </div>
+</main>
+</body>
+</html>

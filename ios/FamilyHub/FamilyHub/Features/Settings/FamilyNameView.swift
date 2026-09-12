@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct FamilyNameView: View {
     let apiClient: any APIClientProtocol

@@ -1,5 +1,8 @@
 import XCTest
-@testable import FamilyHub
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+@testable import FamilyHubKit
 
 final class APIErrorTests: XCTestCase {
 

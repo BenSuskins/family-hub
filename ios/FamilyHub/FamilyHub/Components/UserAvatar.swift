@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FamilyHubKit
 
 /// Circular avatar showing a user photo or initials fallback.
 ///

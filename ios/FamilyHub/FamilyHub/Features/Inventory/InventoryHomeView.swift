@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct InventoryHomeView: View {
     @State private var viewModel: InventoryViewModel

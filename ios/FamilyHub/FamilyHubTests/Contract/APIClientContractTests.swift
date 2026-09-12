@@ -1,5 +1,6 @@
 import XCTest
 @testable import FamilyHub
+import FamilyHubKit
 
 /// Behavioural contract every `APIClientProtocol` implementation must satisfy.
 ///

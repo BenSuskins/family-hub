@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct ChoresListView: View {
     @State private var viewModel: ChoresViewModel

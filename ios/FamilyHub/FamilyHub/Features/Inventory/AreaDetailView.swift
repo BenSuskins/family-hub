@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct AreaDetailView: View {
     let areaID: String

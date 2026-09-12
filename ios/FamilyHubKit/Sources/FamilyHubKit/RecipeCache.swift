@@ -10,20 +10,20 @@ import Foundation
 ///
 /// An `actor` provides thread-safety since recipe fetches originate from
 /// several `@MainActor` view models and can overlap.
-actor RecipeCache {
+public actor RecipeCache {
     private var list: [Recipe]?
     private var details: [String: Recipe] = [:]
 
-    func cachedList() -> [Recipe]? { list }
+    public func cachedList() -> [Recipe]? { list }
 
-    func cachedDetail(id: String) -> Recipe? { details[id] }
+    public func cachedDetail(id: String) -> Recipe? { details[id] }
 
-    func storeList(_ recipes: [Recipe]) {
+    public func storeList(_ recipes: [Recipe]) {
         list = recipes
     }
 
     /// Store a full recipe and keep the corresponding list entry in sync.
-    func storeDetail(_ recipe: Recipe) {
+    public func storeDetail(_ recipe: Recipe) {
         details[recipe.id] = recipe
         if let index = list?.firstIndex(where: { $0.id == recipe.id }) {
             list?[index] = recipe
@@ -31,7 +31,7 @@ actor RecipeCache {
     }
 
     /// Insert or replace a recipe in both stores (used after a create).
-    func upsert(_ recipe: Recipe) {
+    public func upsert(_ recipe: Recipe) {
         details[recipe.id] = recipe
         if list == nil {
             return
@@ -43,12 +43,12 @@ actor RecipeCache {
         }
     }
 
-    func remove(id: String) {
+    public func remove(id: String) {
         details[id] = nil
         list?.removeAll { $0.id == id }
     }
 
-    func invalidateAll() {
+    public func invalidateAll() {
         list = nil
         details = [:]
     }

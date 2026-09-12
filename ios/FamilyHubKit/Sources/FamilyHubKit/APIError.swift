@@ -1,11 +1,14 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Unified error type for every API call in the app.
 ///
 /// Cases classify failures so the UI can show friendly, non-technical copy and
 /// the networking layer can decide whether a request is worth retrying. Use
 /// ``APIError/from(_:)`` to normalize any thrown `Error` into an `APIError`.
-enum APIError: Error, LocalizedError, Equatable {
+public enum APIError: Error, LocalizedError, Equatable {
     /// Device is offline or the host is unreachable.
     case offline
     /// The request exceeded its timeout.
@@ -40,7 +43,7 @@ enum APIError: Error, LocalizedError, Equatable {
 
     /// Whether automatically retrying the request could plausibly succeed.
     /// Only meaningful for idempotent requests — the caller gates on the HTTP method.
-    var isRetryable: Bool {
+    public var isRetryable: Bool {
         switch self {
         case .offline, .timedOut, .rateLimited:
             return true
@@ -53,7 +56,7 @@ enum APIError: Error, LocalizedError, Equatable {
         }
     }
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .offline:
             return "You're offline. Check your connection and try again."
@@ -80,7 +83,7 @@ enum APIError: Error, LocalizedError, Equatable {
         }
     }
 
-    var recoverySuggestion: String? {
+    public var recoverySuggestion: String? {
         switch self {
         case .offline:
             return "Make sure Wi-Fi or mobile data is turned on."
@@ -93,7 +96,7 @@ enum APIError: Error, LocalizedError, Equatable {
 
     /// Normalize any thrown error into an `APIError`, mapping `URLError` codes to
     /// the appropriate transport case. Already-`APIError` values pass through.
-    static func from(_ error: Error) -> APIError {
+    public static func from(_ error: Error) -> APIError {
         if let apiError = error as? APIError {
             return apiError
         }
@@ -123,7 +126,7 @@ enum APIError: Error, LocalizedError, Equatable {
 
     // MARK: - Equatable
 
-    static func == (lhs: APIError, rhs: APIError) -> Bool {
+    public static func == (lhs: APIError, rhs: APIError) -> Bool {
         switch (lhs, rhs) {
         case (.offline, .offline),
              (.timedOut, .timedOut),

@@ -1,5 +1,6 @@
 import XCTest
 @testable import FamilyHub
+import FamilyHubKit
 
 final class ChoreBadgeTests: XCTestCase {
     func testOverdueLabel() {

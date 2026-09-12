@@ -1,6 +1,6 @@
 import Foundation
 
-enum ViewState<T> {
+public enum ViewState<T> {
     case idle
     case loading
     case loaded(T)
@@ -11,11 +11,11 @@ enum ViewState<T> {
 /// rather than on AuthManager, which is iOS-only: it drives
 /// ASWebAuthenticationSession, which does not exist on watchOS. AnyObject so the
 /// client can hold it weakly and avoid a retain cycle.
-protocol TokenProviding: AnyObject {
+public protocol TokenProviding: AnyObject {
     func validAPIToken() async throws -> String
 }
 
-protocol APIClientProtocol: AnyObject {
+public protocol APIClientProtocol: AnyObject {
     func fetchDashboardStats() async throws -> DashboardStats
     func fetchChores() async throws -> [Chore]
     func completeChore(id: String) async throws
@@ -49,9 +49,9 @@ protocol APIClientProtocol: AnyObject {
     func demoteUser(id: String) async throws -> User
 
     // Categories (admin)
-    func fetchCategories() async throws -> [Category]
-    func createCategory(name: String) async throws -> Category
-    func updateCategory(id: String, name: String) async throws -> Category
+    func fetchCategories() async throws -> [ChoreCategory]
+    func createCategory(name: String) async throws -> ChoreCategory
+    func updateCategory(id: String, name: String) async throws -> ChoreCategory
     func deleteCategory(id: String) async throws
 
     // API tokens (admin)
@@ -71,7 +71,7 @@ protocol APIClientProtocol: AnyObject {
 
 extension APIClientProtocol {
     /// Cache-friendly convenience used by callers that don't force a refresh.
-    func fetchRecipes() async throws -> [Recipe] {
+    public func fetchRecipes() async throws -> [Recipe] {
         try await fetchRecipes(forceRefresh: false)
     }
 }

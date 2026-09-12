@@ -11,6 +11,26 @@ permissions:
   contents: read
 
 jobs:
+  # FamilyHubKit is deliberately Foundation-only, so it builds and tests on Linux
+  # in a fraction of the time a macOS runner takes. It catches the bulk of what
+  # can go wrong in the shared layer long before the Xcode job finishes.
+  package:
+    name: FamilyHubKit (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.2'
+
+      - name: Build
+        run: swift build --package-path ios/FamilyHubKit
+
+      - name: Test
+        run: swift test --package-path ios/FamilyHubKit
+
   test:
     runs-on: macos-15
 

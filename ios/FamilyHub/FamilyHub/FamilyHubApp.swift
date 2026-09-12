@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 @main
 struct FamilyHubApp: App {

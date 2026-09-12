@@ -1,5 +1,6 @@
 import XCTest
 @testable import FamilyHub
+import FamilyHubKit
 
 @MainActor
 final class RecipesViewModelTests: XCTestCase {

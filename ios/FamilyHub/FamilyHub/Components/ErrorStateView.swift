@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 /// Full-page failed state shown when a screen's initial load fails after the
 /// networking layer has exhausted its automatic retries. Surfaces the friendly

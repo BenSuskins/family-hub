@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 /// Add / edit an area: name, icon grid, colour swatches, with a live preview tile.
 struct AreaFormView: View {

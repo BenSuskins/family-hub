@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 /// Rounded-square tinted tile with a white glyph — the area's visual identity.
 /// Used at several sizes (18 inline, 38 list, 52 header, 72 add-area preview).

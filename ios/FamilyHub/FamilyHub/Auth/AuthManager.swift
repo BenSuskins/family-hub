@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import AuthenticationServices
+import FamilyHubKit
 
 @Observable
 @MainActor

@@ -1,4 +1,5 @@
 import Foundation
+import FamilyHubKit
 
 private enum DemoData {
     static let alexID = "demo-user-1"
@@ -13,9 +14,9 @@ private enum DemoData {
         User(id: samID, name: "Sam Demo", email: "sam@demo.example", avatarURL: "", role: "member"),
     ]
 
-    static let categories: [Category] = [
-        Category(id: mainCourseID, name: "Main Course"),
-        Category(id: saladID, name: "Salads"),
+    static let categories: [ChoreCategory] = [
+        ChoreCategory(id: mainCourseID, name: "Main Course"),
+        ChoreCategory(id: saladID, name: "Salads"),
     ]
 
     static let recipes: [Recipe] = [
@@ -159,7 +160,7 @@ final class DemoAPIClient: APIClientProtocol {
     private var chores: [Chore] = DemoData.chores
     private var meals: [MealPlan] = DemoData.meals
     private var recipes: [Recipe] = DemoData.recipes
-    private var categories: [Category] = DemoData.categories
+    private var categories: [ChoreCategory] = DemoData.categories
     private var tokens: [APIToken] = []
     private var areas: [InventoryArea] = DemoData.inventory
 
@@ -334,17 +335,17 @@ final class DemoAPIClient: APIClientProtocol {
         return User(id: user.id, name: user.name, email: user.email, avatarURL: user.avatarURL, role: "member")
     }
 
-    func fetchCategories() async throws -> [Category] { categories }
+    func fetchCategories() async throws -> [ChoreCategory] { categories }
 
-    func createCategory(name: String) async throws -> Category {
-        let category = Category(id: "demo-cat-\(UUID().uuidString)", name: name)
+    func createCategory(name: String) async throws -> ChoreCategory {
+        let category = ChoreCategory(id: "demo-cat-\(UUID().uuidString)", name: name)
         categories.append(category)
         return category
     }
 
-    func updateCategory(id: String, name: String) async throws -> Category {
+    func updateCategory(id: String, name: String) async throws -> ChoreCategory {
         guard let index = categories.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
-        let updated = Category(id: id, name: name)
+        let updated = ChoreCategory(id: id, name: name)
         categories[index] = updated
         return updated
     }

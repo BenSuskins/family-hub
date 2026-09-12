@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 /// Presents a dismissible alert whenever a bound `APIError` becomes non-nil.
 /// Used for mutation failures (create/update/delete) across the app so every

@@ -1,5 +1,5 @@
 import XCTest
-@testable import FamilyHub
+@testable import FamilyHubKit
 
 final class RecipeCacheTests: XCTestCase {
 

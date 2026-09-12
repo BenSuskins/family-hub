@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import FamilyHubKit
 
 struct RecipeFormView: View {
     enum FormMode {

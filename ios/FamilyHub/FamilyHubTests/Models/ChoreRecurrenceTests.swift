@@ -1,5 +1,6 @@
 import XCTest
 @testable import FamilyHub
+import FamilyHubKit
 
 final class ChoreRecurrenceTests: XCTestCase {
     private func chore(recurrenceType: String, recurrenceValue: String = "") -> Chore {

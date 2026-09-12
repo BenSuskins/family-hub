@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A2000004000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000002000000000000001A /* FamilyHubKit */; };
+		A2000005000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001A /* FamilyHubKit */; };
 		A100000D000000000000001A /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1000001000000000000001A /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -103,6 +105,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2000004000000000000001A /* FamilyHubKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +113,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2000005000000000000001A /* FamilyHubKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +177,7 @@
 			);
 			name = FamilyHub;
 			packageProductDependencies = (
+				A2000002000000000000001A /* FamilyHubKit */,
 			);
 			productName = FamilyHub;
 			productReference = 545AC8C92F6361A9009E96B7 /* FamilyHub.app */;
@@ -196,6 +201,7 @@
 			);
 			name = FamilyHubTests;
 			packageProductDependencies = (
+				A2000003000000000000001A /* FamilyHubKit */,
 			);
 			productName = FamilyHubTests;
 			productReference = 545AC8D62F6361A9009E96B7 /* FamilyHubTests.xctest */;
@@ -278,6 +284,9 @@
 			);
 			mainGroup = 545AC8C02F6361A8009E96B7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A2000001000000000000001A /* XCLocalSwiftPackageReference "../FamilyHubKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 545AC8CA2F6361A9009E96B7 /* Products */;
 			projectDirPath = "";
@@ -756,6 +765,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A2000001000000000000001A /* XCLocalSwiftPackageReference "../FamilyHubKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../FamilyHubKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A2000002000000000000001A /* FamilyHubKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FamilyHubKit;
+		};
+		A2000003000000000000001A /* FamilyHubKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FamilyHubKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 545AC8C12F6361A8009E96B7 /* Project object */;
 }

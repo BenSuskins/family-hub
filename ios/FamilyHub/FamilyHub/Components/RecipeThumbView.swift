@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FamilyHubKit
 
 /// Rounded thumbnail for a recipe slot in meal rows.
 ///

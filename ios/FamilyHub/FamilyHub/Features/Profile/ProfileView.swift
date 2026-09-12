@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import FamilyHubKit
 
 struct ProfileView: View {
     let apiClient: any APIClientProtocol

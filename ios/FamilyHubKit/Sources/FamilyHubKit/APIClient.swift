@@ -1,6 +1,9 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
-final class APIClient: APIClientProtocol {
+public final class APIClient: APIClientProtocol {
     // Three deliberately distinct caches, each matched to its data's lifetime:
     //   • recipeCache — an actor for thread-safe recipe metadata reused across
     //     screens (list vs. detail kept separate; see RecipeCache).
@@ -26,14 +29,17 @@ final class APIClient: APIClientProtocol {
     /// HTTP methods that are safe to retry automatically.
     private static let idempotentMethods: Set<String> = ["GET", "PUT", "DELETE"]
 
-    private static let defaultDecoder = JSONDecoder()
-    private static let isoDecoder: JSONDecoder = {
+    // nonisolated because both are used as default arguments, and default
+    // argument expressions are evaluated in the caller's nonisolated context.
+    // Safe: each is immutable and only ever read.
+    nonisolated(unsafe) private static let defaultDecoder = JSONDecoder()
+    nonisolated(unsafe) private static let isoDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
 
-    init(baseURL: URL, session: URLSession = .shared, tokenProvider: any TokenProviding, retryPolicy: RetryPolicy = .default) {
+    public init(baseURL: URL, session: URLSession = .shared, tokenProvider: any TokenProviding, retryPolicy: RetryPolicy = .default) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
@@ -231,37 +237,37 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - APIClientProtocol
 
-    func fetchDashboardStats() async throws -> DashboardStats {
+    public func fetchDashboardStats() async throws -> DashboardStats {
         try await get("api/dashboard")
     }
 
-    func fetchChores() async throws -> [Chore] {
+    public func fetchChores() async throws -> [Chore] {
         try await get("api/chores")
     }
 
-    func completeChore(id: String) async throws {
+    public func completeChore(id: String) async throws {
         try await post("api/chores/\(id)/complete")
     }
 
-    func fetchMeals(week: Date) async throws -> [MealPlan] {
+    public func fetchMeals(week: Date) async throws -> [MealPlan] {
         try await get("api/meals", queryItems: [
             URLQueryItem(name: "week", value: APIDate.dayString(week))
         ])
     }
 
-    func createChore(_ request: ChoreRequest) async throws -> Chore {
+    public func createChore(_ request: ChoreRequest) async throws -> Chore {
         try await post("api/chores", body: request)
     }
 
-    func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore {
+    public func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore {
         try await put("api/chores/\(id)", body: request)
     }
 
-    func deleteChore(id: String) async throws {
+    public func deleteChore(id: String) async throws {
         try await delete("api/chores/\(id)")
     }
 
-    func fetchUserAvatar(id: String) async throws -> Data {
+    public func fetchUserAvatar(id: String) async throws -> Data {
         let key = "avatar-\(id)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
         let (data, _) = try await performValidated(path: "avatar/\(id)", method: "GET")
@@ -269,7 +275,7 @@ final class APIClient: APIClientProtocol {
         return data
     }
 
-    func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] {
+    public func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] {
         if forceRefresh {
             await recipeCache.invalidateAll()
         } else if let cached = await recipeCache.cachedList() {
@@ -280,7 +286,7 @@ final class APIClient: APIClientProtocol {
         return recipes
     }
 
-    func fetchRecipe(id: String) async throws -> Recipe {
+    public func fetchRecipe(id: String) async throws -> Recipe {
         if let cached = await recipeCache.cachedDetail(id: id) {
             return cached
         }
@@ -289,7 +295,7 @@ final class APIClient: APIClientProtocol {
         return recipe
     }
 
-    func fetchRecipeImage(id: String) async throws -> Data {
+    public func fetchRecipeImage(id: String) async throws -> Data {
         let key = "recipe-\(id)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
         let (data, _) = try await performValidated(path: "api/recipes/\(id)/image", method: "GET")
@@ -297,24 +303,24 @@ final class APIClient: APIClientProtocol {
         return data
     }
 
-    func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
+    public func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
         let created: Recipe = try await post("api/recipes", body: request)
         await recipeCache.upsert(created)
         return created
     }
 
-    func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe {
+    public func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe {
         let updated: Recipe = try await put("api/recipes/\(id)", body: request)
         await recipeCache.storeDetail(updated)
         return updated
     }
 
-    func deleteRecipe(id: String) async throws {
+    public func deleteRecipe(id: String) async throws {
         try await delete("api/recipes/\(id)")
         await recipeCache.remove(id: id)
     }
 
-    func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
+    public func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
         var queryItems = [URLQueryItem(name: "view", value: view)]
         if view == "month" {
             queryItems.append(URLQueryItem(name: "month", value: APIDate.monthString(date)))
@@ -324,11 +330,11 @@ final class APIClient: APIClientProtocol {
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }
 
-    func fetchUsers() async throws -> [User] {
+    public func fetchUsers() async throws -> [User] {
         try await get("/api/users")
     }
 
-    func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan {
+    public func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan {
         struct SaveMealBody: Encodable {
             let date: String
             let mealType: String
@@ -338,110 +344,110 @@ final class APIClient: APIClientProtocol {
         return try await post("api/meals", body: SaveMealBody(date: date, mealType: mealType, name: name, recipeID: recipeID))
     }
 
-    func deleteMeal(date: String, mealType: String) async throws {
+    public func deleteMeal(date: String, mealType: String) async throws {
         try await delete("api/meals", queryItems: [
             URLQueryItem(name: "date", value: date),
             URLQueryItem(name: "mealType", value: mealType)
         ])
     }
 
-    func fetchMe() async throws -> User {
+    public func fetchMe() async throws -> User {
         try await get("api/me")
     }
 
     // MARK: - Avatar
 
-    func uploadAvatar(imageData: Data, mimeType: String) async throws -> User {
+    public func uploadAvatar(imageData: Data, mimeType: String) async throws -> User {
         try await uploadMultipart("api/profile/avatar", field: "avatar", data: imageData, mimeType: mimeType)
     }
 
-    func deleteAvatar() async throws {
+    public func deleteAvatar() async throws {
         try await delete("api/profile/avatar")
     }
 
     // MARK: - Settings
 
-    func fetchSettings() async throws -> AppSettings {
+    public func fetchSettings() async throws -> AppSettings {
         try await get("api/settings")
     }
 
-    func updateFamilyName(_ name: String) async throws {
+    public func updateFamilyName(_ name: String) async throws {
         struct Body: Encodable { let family_name: String }
         try await patch("api/settings", body: Body(family_name: name))
     }
 
     // MARK: - User management
 
-    func promoteUser(id: String) async throws -> User {
+    public func promoteUser(id: String) async throws -> User {
         try await post("api/users/\(id)/promote")
     }
 
-    func demoteUser(id: String) async throws -> User {
+    public func demoteUser(id: String) async throws -> User {
         try await post("api/users/\(id)/demote")
     }
 
     // MARK: - Categories
 
-    func fetchCategories() async throws -> [Category] {
+    public func fetchCategories() async throws -> [ChoreCategory] {
         try await get("api/categories")
     }
 
-    func createCategory(name: String) async throws -> Category {
+    public func createCategory(name: String) async throws -> ChoreCategory {
         struct Body: Encodable { let name: String }
         return try await post("api/categories", body: Body(name: name))
     }
 
-    func updateCategory(id: String, name: String) async throws -> Category {
+    public func updateCategory(id: String, name: String) async throws -> ChoreCategory {
         struct Body: Encodable { let name: String }
         return try await put("api/categories/\(id)", body: Body(name: name))
     }
 
-    func deleteCategory(id: String) async throws {
+    public func deleteCategory(id: String) async throws {
         try await delete("api/categories/\(id)")
     }
 
     // MARK: - API tokens
 
-    func fetchTokens() async throws -> [APIToken] {
+    public func fetchTokens() async throws -> [APIToken] {
         try await get("api/tokens", decoder: Self.isoDecoder)
     }
 
-    func createToken(name: String) async throws -> CreatedToken {
+    public func createToken(name: String) async throws -> CreatedToken {
         struct Body: Encodable { let name: String }
         return try await post("api/tokens", body: Body(name: name))
     }
 
-    func deleteToken(id: String) async throws {
+    public func deleteToken(id: String) async throws {
         try await delete("api/tokens/\(id)")
     }
 
     // MARK: - Inventory
 
-    func fetchInventory() async throws -> [InventoryArea] {
+    public func fetchInventory() async throws -> [InventoryArea] {
         try await get("api/inventory")
     }
 
-    func createArea(_ request: AreaRequest) async throws -> InventoryArea {
+    public func createArea(_ request: AreaRequest) async throws -> InventoryArea {
         try await post("api/inventory/areas", body: request)
     }
 
-    func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea {
+    public func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea {
         try await put("api/inventory/areas/\(id)", body: request)
     }
 
-    func deleteArea(id: String) async throws {
+    public func deleteArea(id: String) async throws {
         try await delete("api/inventory/areas/\(id)")
     }
 
-    func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem {
+    public func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem {
         try await post("api/inventory/areas/\(areaID)/items", body: request)
     }
 
-    func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem {
+    public func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem {
         try await put("api/inventory/items/\(id)", body: request)
     }
 
-    func deleteItem(id: String) async throws {
+    public func deleteItem(id: String) async throws {
         try await delete("api/inventory/items/\(id)")
     }
 }

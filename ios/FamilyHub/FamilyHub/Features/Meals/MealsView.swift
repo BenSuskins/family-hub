@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct MealsView: View {
     @State private var viewModel: MealsViewModel

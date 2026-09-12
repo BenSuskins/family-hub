@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct CalendarView: View {
     @State private var viewModel: CalendarViewModel

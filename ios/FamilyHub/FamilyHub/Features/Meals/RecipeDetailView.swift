@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FamilyHubKit
 
 struct RecipeDetailView: View {
     let recipe: Recipe

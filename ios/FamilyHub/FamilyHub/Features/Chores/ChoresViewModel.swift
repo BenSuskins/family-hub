@@ -1,6 +1,7 @@
 // ios/FamilyHub/Features/Chores/ChoresViewModel.swift
 import Foundation
 import Observation
+import FamilyHubKit
 
 @Observable
 @MainActor
@@ -8,7 +9,7 @@ final class ChoresViewModel: MutableListViewModel {
     var state: ViewState<[Chore]> = .idle
     var actionError: APIError?
     var users: [String: User] = [:]
-    var categories: [Category] = []
+    var categories: [ChoreCategory] = []
     var currentUserID: String?
 
     // Derived from loaded chores

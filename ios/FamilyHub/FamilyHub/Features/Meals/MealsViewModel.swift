@@ -1,6 +1,7 @@
 // ios/FamilyHub/Features/Meals/MealsViewModel.swift
 import Foundation
 import Observation
+import FamilyHubKit
 
 @Observable
 @MainActor

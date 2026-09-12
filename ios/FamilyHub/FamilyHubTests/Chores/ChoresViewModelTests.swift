@@ -1,5 +1,6 @@
 import XCTest
 @testable import FamilyHub
+import FamilyHubKit
 
 @MainActor
 final class ChoresViewModelTests: XCTestCase {
@@ -107,8 +108,8 @@ final class ChoresViewModelTests: XCTestCase {
         let fake = FakeAPIClient()
         fake.choresResult = .success([])
         fake.categoriesResult = .success([
-            FamilyHub.Category(id: "cat-1", name: "Kitchen"),
-            FamilyHub.Category(id: "cat-2", name: "Outdoor"),
+            ChoreCategory(id: "cat-1", name: "Kitchen"),
+            ChoreCategory(id: "cat-2", name: "Outdoor"),
         ])
         let viewModel = ChoresViewModel(apiClient: fake)
 

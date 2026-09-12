@@ -1,8 +1,9 @@
 import SwiftUI
+import FamilyHubKit
 
 @Observable
 final class CategoriesViewModel {
-    var categories: [Category] = []
+    var categories: [ChoreCategory] = []
     var isLoading = false
     var actionError: APIError?
 
@@ -31,7 +32,7 @@ final class CategoriesViewModel {
         }
     }
 
-    func rename(category: Category, to name: String) async {
+    func rename(category: ChoreCategory, to name: String) async {
         do {
             let updated = try await apiClient.updateCategory(id: category.id, name: name)
             if let index = categories.firstIndex(where: { $0.id == updated.id }) {
@@ -61,7 +62,7 @@ struct CategoriesView: View {
     @State private var viewModel: CategoriesViewModel
     @State private var showingAddSheet = false
     @State private var newCategoryName = ""
-    @State private var editingCategory: Category?
+    @State private var editingCategory: ChoreCategory?
     @State private var editName = ""
 
     init(apiClient: any APIClientProtocol) {

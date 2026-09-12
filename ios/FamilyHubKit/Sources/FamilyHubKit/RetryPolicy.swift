@@ -5,20 +5,32 @@ import Foundation
 /// Delays follow `baseDelay * 2^(attempt-1)` capped at `maxDelay`, with a small
 /// random jitter to avoid thundering-herd retries. Injected into ``APIClient``
 /// so tests can use near-zero delays or disable retries entirely.
-struct RetryPolicy {
-    var maxAttempts: Int = 3
-    var baseDelay: TimeInterval = 0.5
-    var maxDelay: TimeInterval = 8
+public struct RetryPolicy {
+    public var maxAttempts: Int = 3
+    public var baseDelay: TimeInterval = 0.5
+    public var maxDelay: TimeInterval = 8
     /// Fractional jitter (0...1) applied to each computed delay.
-    var jitter: Double = 0.2
+    public var jitter: Double = 0.2
 
-    static let `default` = RetryPolicy()
-    static let none = RetryPolicy(maxAttempts: 1)
+    public init(
+        maxAttempts: Int = 3,
+        baseDelay: TimeInterval = 0.5,
+        maxDelay: TimeInterval = 8,
+        jitter: Double = 0.2
+    ) {
+        self.maxAttempts = maxAttempts
+        self.baseDelay = baseDelay
+        self.maxDelay = maxDelay
+        self.jitter = jitter
+    }
+
+    public static let `default` = RetryPolicy()
+    public static let none = RetryPolicy(maxAttempts: 1)
 
     /// Delay before the next attempt. `attempt` is 1-based (the attempt that just failed).
     /// When `retryAfter` is supplied (e.g. from a 429 `Retry-After` header) it takes
     /// precedence, capped at `maxDelay`.
-    func delay(forAttempt attempt: Int, retryAfter: TimeInterval? = nil) -> TimeInterval {
+    public func delay(forAttempt attempt: Int, retryAfter: TimeInterval? = nil) -> TimeInterval {
         if let retryAfter {
             return min(retryAfter, maxDelay)
         }
@@ -32,7 +44,7 @@ struct RetryPolicy {
 /// Run `operation`, retrying transient failures per `policy`. Only retries when
 /// `shouldRetry(error)` is true (the caller gates on idempotency + `isRetryable`).
 /// Honors cooperative cancellation between attempts.
-func withRetry<T>(
+public func withRetry<T>(
     policy: RetryPolicy,
     shouldRetry: (APIError) -> Bool,
     operation: () async throws -> T

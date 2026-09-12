@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 /// A meal slot row for recipe-linked plans: thumbnail taps open the edit sheet,
 /// name taps navigate to the recipe detail.

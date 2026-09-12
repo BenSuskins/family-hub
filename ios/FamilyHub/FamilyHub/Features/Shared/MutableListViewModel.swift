@@ -1,4 +1,5 @@
 import Foundation
+import FamilyHubKit
 
 /// Shared CRUD plumbing for view models whose `state` holds a list of identifiable
 /// items. Collapses the repeated "call the API, mutate the loaded array on success,

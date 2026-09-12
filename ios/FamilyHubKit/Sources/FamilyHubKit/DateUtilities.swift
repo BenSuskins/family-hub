@@ -7,22 +7,22 @@ import Foundation
 /// All fixed formats use the POSIX locale so parsing/formatting is stable and
 /// locale-independent — these are wire formats, never user-facing copy. For
 /// human-facing display, views keep their own presentation formatters.
-enum APIDate {
+public enum APIDate {
     /// `yyyy-MM-dd` — day keys for meals, calendar and chore due dates.
-    static let day = fixed("yyyy-MM-dd")
+    public static let day = fixed("yyyy-MM-dd")
     /// `yyyy-MM` — the calendar's month query.
-    static let month = fixed("yyyy-MM")
+    public static let month = fixed("yyyy-MM")
     /// `HH:mm` — chore due times.
-    static let time = fixed("HH:mm")
+    public static let time = fixed("HH:mm")
     /// RFC3339 / ISO8601 timestamps, as returned for chore due dates.
-    static let iso = ISO8601DateFormatter()
+    public static let iso = ISO8601DateFormatter()
 
-    static func dayString(_ date: Date) -> String { day.string(from: date) }
-    static func monthString(_ date: Date) -> String { month.string(from: date) }
+    public static func dayString(_ date: Date) -> String { day.string(from: date) }
+    public static func monthString(_ date: Date) -> String { month.string(from: date) }
 
     /// Parse an API date string that may be a full ISO8601 timestamp or a short
     /// `yyyy-MM-dd` date (only the day component is needed for the latter).
-    static func parse(_ value: String?) -> Date? {
+    public static func parse(_ value: String?) -> Date? {
         guard let value, !value.isEmpty else { return nil }
         return iso.date(from: value) ?? day.date(from: String(value.prefix(10)))
     }

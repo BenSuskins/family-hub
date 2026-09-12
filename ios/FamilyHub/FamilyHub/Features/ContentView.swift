@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 enum AppTab { case home, meals, inventory, recipes, calendar }
 

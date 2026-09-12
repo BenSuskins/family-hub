@@ -1,30 +1,29 @@
 import Foundation
-import SwiftUI
 
-enum ChoreStatus: String, Codable {
+public enum ChoreStatus: String, Codable {
     case pending = "pending"
     case completed = "completed"
     case overdue = "overdue"
 }
 
-struct Chore: Codable, Identifiable {
-    let id: String
-    let name: String
-    let description: String
-    let status: ChoreStatus
-    let dueDate: String?       // RFC3339 timestamp or nil
-    let assignedToUserID: String?
+public struct Chore: Codable, Identifiable {
+    public let id: String
+    public let name: String
+    public let description: String
+    public let status: ChoreStatus
+    public let dueDate: String?       // RFC3339 timestamp or nil
+    public let assignedToUserID: String?
 
     // Series / scheduling detail (mirrors the web chore form options).
-    let categoryID: String?
-    let dueTime: String?           // "HH:mm" or nil
-    let eligibleAssignees: [String]
-    let recurrenceType: String     // none/daily/weekly/monthly/custom
-    let recurrenceValue: String    // JSON config: {interval, unit, days, day_of_month}
-    let recurOnComplete: Bool
-    let seriesID: String?
-    let recurrenceUntil: String?   // "YYYY-MM-DD" or nil
-    let recurrenceCount: Int?
+    public let categoryID: String?
+    public let dueTime: String?           // "HH:mm" or nil
+    public let eligibleAssignees: [String]
+    public let recurrenceType: String     // none/daily/weekly/monthly/custom
+    public let recurrenceValue: String    // JSON config: {interval, unit, days, day_of_month}
+    public let recurOnComplete: Bool
+    public let seriesID: String?
+    public let recurrenceUntil: String?   // "YYYY-MM-DD" or nil
+    public let recurrenceCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case id = "ID"
@@ -44,7 +43,7 @@ struct Chore: Codable, Identifiable {
         case recurrenceCount = "RecurrenceCount"
     }
 
-    init(
+    public init(
         id: String,
         name: String,
         description: String,
@@ -78,7 +77,7 @@ struct Chore: Codable, Identifiable {
         self.recurrenceCount = recurrenceCount
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
@@ -98,46 +97,39 @@ struct Chore: Codable, Identifiable {
     }
 }
 
-enum ChoreBadge: Equatable {
+public enum ChoreBadge: Equatable {
     case overdue
     case dueToday
     case dueSoon
 
-    var label: String {
+    public var label: String {
         switch self {
         case .overdue:  return "Overdue"
         case .dueToday: return "Today"
         case .dueSoon:  return "Due Soon"
         }
     }
-
-    var color: Color {
-        switch self {
-        case .overdue:            return .red
-        case .dueToday, .dueSoon: return .orange
-        }
-    }
 }
 
-struct ChoreRequest: Encodable {
-    var name: String
-    var description: String
-    var assignees: [String]
-    var dueDate: String?
-    var recurrenceType: String?
+public struct ChoreRequest: Encodable {
+    public var name: String
+    public var description: String
+    public var assignees: [String]
+    public var dueDate: String?
+    public var recurrenceType: String?
 
     // Full-parity options (match the JSON tags on the server choreAPIBody).
-    var categoryId: String?
-    var dueTime: String?
-    var recurrenceInterval: Int?
-    var recurrenceDays: [String]?
-    var recurrenceDayOfMonth: Int?
-    var recurrenceUnit: String?
-    var recurrenceUntil: String?
-    var recurrenceCount: Int?
-    var recurOnComplete: Bool
+    public var categoryId: String?
+    public var dueTime: String?
+    public var recurrenceInterval: Int?
+    public var recurrenceDays: [String]?
+    public var recurrenceDayOfMonth: Int?
+    public var recurrenceUnit: String?
+    public var recurrenceUntil: String?
+    public var recurrenceCount: Int?
+    public var recurOnComplete: Bool
 
-    init(
+    public init(
         name: String,
         description: String,
         assignees: [String],
@@ -172,15 +164,15 @@ struct ChoreRequest: Encodable {
 
 /// Decoded form of a chore's `recurrenceValue` JSON config, used to pre-fill the
 /// edit form. Mirrors the server's `recurrenceConfigJSON`.
-struct RecurrenceConfig {
-    var interval: Int = 1
-    var unit: String = "days"
-    var days: [String] = []
-    var dayOfMonth: Int = 1
+public struct RecurrenceConfig {
+    public var interval: Int = 1
+    public var unit: String = "days"
+    public var days: [String] = []
+    public var dayOfMonth: Int = 1
 
-    init() {}
+    public init() {}
 
-    init(json: String) {
+    public init(json: String) {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONDecoder().decode(Raw.self, from: data) else { return }
         if let i = obj.interval, i > 0 { interval = i }
@@ -202,7 +194,7 @@ struct RecurrenceConfig {
 }
 
 extension Chore {
-    var badge: ChoreBadge? {
+    public var badge: ChoreBadge? {
         switch status {
         case .overdue:   return .overdue
         case .completed: return nil
@@ -214,7 +206,7 @@ extension Chore {
 
     /// Returns a copy with a different status, preserving every other field.
     /// Avoids re-listing all stored properties at each call site.
-    func with(status: ChoreStatus) -> Chore {
+    public func with(status: ChoreStatus) -> Chore {
         Chore(
             id: id,
             name: name,
@@ -234,7 +226,7 @@ extension Chore {
         )
     }
 
-    var completed: Chore { with(status: .completed) }
+    public var completed: Chore { with(status: .completed) }
 }
 
 extension Chore {
@@ -244,22 +236,22 @@ extension Chore {
         return f
     }()
 
-    var formattedDueDate: String? {
+    public var formattedDueDate: String? {
         guard let date = APIDate.parse(dueDate) else { return nil }
         return Self.dueDateDisplayFormatter.string(from: date)
     }
 }
 
 extension Chore {
-    var isRecurring: Bool { recurrenceType != "none" && !recurrenceType.isEmpty }
+    public var isRecurring: Bool { recurrenceType != "none" && !recurrenceType.isEmpty }
 
-    var recurrenceConfig: RecurrenceConfig {
+    public var recurrenceConfig: RecurrenceConfig {
         RecurrenceConfig(json: recurrenceValue)
     }
 
     /// Short human-readable recurrence description for list rows,
     /// e.g. "Weekly · Mon, Wed" or "One-time".
-    var recurrenceSummary: String {
+    public var recurrenceSummary: String {
         guard isRecurring else { return "One-time" }
         let config = recurrenceConfig
         let interval = max(config.interval, 1)
@@ -286,9 +278,9 @@ extension Chore {
         }
     }
 
-    static let weekdayKeys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    public static let weekdayKeys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
-    static let dayShortLabels: [String: String] = [
+    public static let dayShortLabels: [String: String] = [
         "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu",
         "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
     ]

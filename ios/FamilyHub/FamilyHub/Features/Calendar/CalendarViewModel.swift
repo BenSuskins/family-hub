@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import FamilyHubKit
 
 enum CalendarViewMode: String, CaseIterable {
     case month = "Month"

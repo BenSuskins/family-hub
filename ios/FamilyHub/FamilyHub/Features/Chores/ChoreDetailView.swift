@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyHubKit
 
 struct ChoreDetailView: View {
     let chore: Chore

@@ -75,6 +75,7 @@ final class AuthManager: NSObject, TokenProviding {
 
     func signOut() {
         keychain.clear()
+        PhoneWatchLink.shared.clearCredentials()
         isAuthenticated = false
         isDemoMode = false
     }
@@ -169,6 +170,10 @@ final class AuthManager: NSObject, TokenProviding {
         }
         let exchangeResponse = try JSONDecoder().decode(ExchangeResponse.self, from: data)
         keychain.saveAPIToken(exchangeResponse.token)
+        PhoneWatchLink.shared.sendCredentials(
+            apiToken: exchangeResponse.token,
+            baseURL: config.baseURL.absoluteString
+        )
         if let user = exchangeResponse.user {
             displayName = user.Name
             email = user.Email

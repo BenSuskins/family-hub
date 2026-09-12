@@ -1,17 +1,20 @@
-//
-//  FamilyHubWatchApp.swift
-//  FamilyHubWatch Watch App
-//
-//  Created by Ben Suskins on 12/09/2026.
-//
-
 import SwiftUI
 
 @main
-struct FamilyHubWatch_Watch_AppApp: App {
+struct FamilyHubWatchApp: App {
+    @State private var session = WatchSessionStore.shared
+    @State private var timers = CookTimerScheduler()
+
+    init() {
+        WatchSessionStore.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            CookRootView()
+                .environment(session)
+                .environment(timers)
+                .task { await timers.requestAuthorization() }
         }
     }
 }

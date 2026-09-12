@@ -49,3 +49,15 @@ jobs:
             -resultBundlePath ios-test-results \
             -skip-testing:FamilyHubUITests \
             CODE_SIGNING_ALLOWED=NO
+
+      # The iOS scheme already builds the watch app, since Embed Watch Content
+      # carries a target dependency. Building it explicitly gives a named signal
+      # when the watch target alone is what broke. A generic destination avoids
+      # pinning a simulator model that may not exist on the runner.
+      - name: Build watch app
+        run: |
+          xcodebuild build \
+            -project ios/FamilyHub/FamilyHub.xcodeproj \
+            -scheme 'FamilyHubWatch Watch App' \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO

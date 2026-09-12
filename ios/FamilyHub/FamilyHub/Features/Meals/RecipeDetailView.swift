@@ -8,6 +8,8 @@ struct RecipeDetailView: View {
     let viewModel: RecipesViewModel
 
     @State private var showCookMode = false
+    @State private var watchLink = PhoneWatchLink.shared
+    @State private var sentToWatch = false
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
     @State private var fetchError = false
@@ -60,6 +62,12 @@ struct RecipeDetailView: View {
                     .disabled(isLoading)
 
                     Menu {
+                        if watchLink.canSendToWatch {
+                            Button { sendToWatch() } label: {
+                                Label("Cook on Watch", systemImage: "applewatch")
+                            }
+                            .disabled(isLoading || (displayRecipe.steps ?? []).isEmpty)
+                        }
                         Button { showEditForm = true } label: {
                             Label("Edit", systemImage: "pencil")
                         }
@@ -75,6 +83,11 @@ struct RecipeDetailView: View {
         }
         .fullScreenCover(isPresented: $showCookMode) {
             CookModeView(recipe: displayRecipe)
+        }
+        .alert("Sent to Apple Watch", isPresented: $sentToWatch) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Open Family Hub on your watch to start cooking.")
         }
         .sheet(isPresented: $showEditForm) {
             if let r = fullRecipe {
@@ -307,6 +320,13 @@ struct RecipeDetailView: View {
     }
 
     // MARK: - Toolbar circle button
+
+    /// Hand the recipe to the watch. Sends the fully-loaded recipe rather than
+    /// the possibly-stub one the row passed in, so the steps and the server's
+    /// step timings travel with it.
+    private func sendToWatch() {
+        sentToWatch = watchLink.send(recipe: displayRecipe)
+    }
 
     private func toolbarCircleButton(systemImage: String) -> some View {
         Image(systemName: systemImage)

@@ -84,10 +84,11 @@ struct RecipeDetailView: View {
         .fullScreenCover(isPresented: $showCookMode) {
             CookModeView(recipe: displayRecipe)
         }
-        .alert("Sent to Apple Watch", isPresented: $sentToWatch) {
+        .alert(watchLink.lastTransferError == nil ? "Sent to Apple Watch" : "Couldn’t send to Watch",
+               isPresented: $sentToWatch) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Open Family Hub on your watch to start cooking.")
+            Text(watchLink.lastTransferError ?? "Open Family Hub on your watch to start cooking.")
         }
         .sheet(isPresented: $showEditForm) {
             if let r = fullRecipe {
@@ -325,7 +326,11 @@ struct RecipeDetailView: View {
     /// the possibly-stub one the row passed in, so the steps and the server's
     /// step timings travel with it.
     private func sendToWatch() {
-        sentToWatch = watchLink.send(recipe: displayRecipe)
+        // Always confirm, even on failure. The previous version set the flag
+        // from the return value, so a refused send produced no feedback at all
+        // and looked identical to a successful one.
+        watchLink.send(recipe: displayRecipe)
+        sentToWatch = true
     }
 
     private func toolbarCircleButton(systemImage: String) -> some View {

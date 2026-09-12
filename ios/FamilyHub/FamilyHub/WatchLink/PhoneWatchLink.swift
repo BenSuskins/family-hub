@@ -24,6 +24,14 @@ final class PhoneWatchLink: NSObject, WCSessionDelegate {
     /// Whether a "Cook on Watch" action is worth showing at all.
     private(set) var canSendToWatch = false
 
+    /// Why the last handoff did not arrive, if it did not.
+    ///
+    /// `transferUserInfo` returns immediately and reports failure later on the
+    /// delegate, so a send that looks successful can still be dropped in
+    /// transit. Without this the phone said "sent" and the watch showed its
+    /// empty screen, with nothing anywhere to say which of the two was wrong.
+    private(set) var lastTransferError: String?
+
     private var session: WCSession? {
         WCSession.isSupported() ? WCSession.default : nil
     }
@@ -84,11 +92,20 @@ final class PhoneWatchLink: NSObject, WCSessionDelegate {
               session.isPaired, session.isWatchAppInstalled else {
             return false
         }
+        lastTransferError = nil
         do {
-            _ = session.transferUserInfo(try CookHandoff(recipe: recipe).watchPayload())
+            let payload = try CookHandoff(recipe: recipe).watchPayload()
+            // WCSession raises rather than throwing when handed a value that is
+            // not a property list, so check before handing it over — a crash in
+            // the kitchen is a worse bug than a failed handoff.
+            guard isWatchTransportable(payload) else {
+                lastTransferError = "This recipe could not be packaged for the watch."
+                return false
+            }
+            _ = session.transferUserInfo(payload)
             return true
         } catch {
-            print("PhoneWatchLink: could not encode recipe handoff — \(error)")
+            lastTransferError = "Could not package the recipe: \(error.localizedDescription)"
             return false
         }
     }
@@ -116,6 +133,20 @@ final class PhoneWatchLink: NSObject, WCSessionDelegate {
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         // Reactivate so the link survives the user switching watches.
         session.activate()
+    }
+
+    /// Reports the outcome of a queued `transferUserInfo`, which is the only
+    /// place a dropped handoff is ever mentioned.
+    nonisolated func session(
+        _ session: WCSession,
+        didFinish userInfoTransfer: WCSessionUserInfoTransfer,
+        error: Error?
+    ) {
+        guard let error else { return }
+        let message = error.localizedDescription
+        Task { @MainActor in
+            self.lastTransferError = "The watch did not receive it: \(message)"
+        }
     }
 
     nonisolated func sessionWatchStateDidChange(_ session: WCSession) {

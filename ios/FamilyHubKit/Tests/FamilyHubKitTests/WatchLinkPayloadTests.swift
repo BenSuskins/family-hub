@@ -12,14 +12,56 @@ final class WatchLinkPayloadTests: XCTestCase {
         XCTAssertEqual(received, sent)
     }
 
-    func testCredentialsPayloadIsAPlainDictionary() throws {
-        // WatchConnectivity rejects anything that is not a property list, so the
-        // encoded form must be plain values.
+    func testCredentialsPayloadCarriesTheJSONAsData() throws {
+        // WatchConnectivity accepts property-list types only, so the payload is
+        // one `Data` value rather than a decomposed dictionary.
         let payload = try WatchCredentials(apiToken: "tok", baseURL: "https://x.test").watchPayload()
 
-        XCTAssertEqual(payload["apiToken"] as? String, "tok")
-        XCTAssertEqual(payload["baseURL"] as? String, "https://x.test")
-        XCTAssertTrue(JSONSerialization.isValidJSONObject(payload))
+        XCTAssertEqual(payload.count, 1)
+        let data = try XCTUnwrap(payload.values.first as? Data)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(json.contains("\"apiToken\":\"tok\""))
+        XCTAssertTrue(isWatchTransportable(payload))
+    }
+
+    // The regression this file exists for. `stepDurations` is `[Int?]`, so a
+    // step with no recognisable timing encoded as JSON `null`, which became
+    // `NSNull` once the payload was decomposed. `NSNull` is not a property-list
+    // type, so WatchConnectivity silently dropped the transfer and the watch sat
+    // on its empty screen while the phone reported the recipe sent.
+    func testHandoffWithUntimedStepsIsStillTransportable() throws {
+        let recipe = Recipe(
+            id: "r1",
+            title: "Soup",
+            steps: ["Chop the onions", "Simmer for 20 minutes", "Season"],
+            ingredients: [IngredientGroup(name: "", items: ["2 onions"])],
+            stepDurations: [nil, 1200, nil]
+        )
+
+        let payload = try CookHandoff(recipe: recipe).watchPayload()
+
+        XCTAssertTrue(isWatchTransportable(payload))
+        let received = try CookHandoff.fromWatchPayload(payload)
+        XCTAssertEqual(received.recipe.stepDurations?.count, 3)
+        XCTAssertEqual(received.recipe.stepDurations?[1], 1200)
+    }
+
+    func testATransportabilityCheckActuallyRejectsNull() {
+        // Guards the guard: a check that returned true for everything would have
+        // let the original bug through.
+        XCTAssertFalse(isWatchTransportable(["a": NSNull()]))
+        XCTAssertFalse(isWatchTransportable(["a": [1, NSNull()]]))
+        XCTAssertTrue(isWatchTransportable(["a": ["b": [1, 2]], "c": Data()]))
+    }
+
+    func testLegacyDecomposedPayloadsStillDecode() throws {
+        // A watch updated ahead of its phone, or one replaying the application
+        // context the previous build left behind.
+        let legacy: [String: Any] = ["apiToken": "tok", "baseURL": "https://x.test"]
+
+        let received = try WatchCredentials.fromWatchPayload(legacy)
+
+        XCTAssertEqual(received, WatchCredentials(apiToken: "tok", baseURL: "https://x.test"))
     }
 
     func testHandoffCarriesEverythingCookModeNeeds() throws {

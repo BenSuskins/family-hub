@@ -11,6 +11,7 @@
 		A100000D000000000000001A /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1000001000000000000001A /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2000004000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000002000000000000001A /* FamilyHubKit */; };
 		A2000005000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001A /* FamilyHubKit */; };
+		A2000007000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000006000000000000001A /* FamilyHubKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -128,6 +129,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2000007000000000000001A /* FamilyHubKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -207,6 +209,7 @@
 			);
 			name = "FamilyHubWatch Watch App";
 			packageProductDependencies = (
+				A2000006000000000000001A /* FamilyHubKit */,
 			);
 			productName = "FamilyHubWatch Watch App";
 			productReference = 543195C03055B9210030BBA7 /* FamilyHubWatch Watch App.app */;
@@ -489,7 +492,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -522,7 +525,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -933,6 +936,10 @@
 			productName = FamilyHubKit;
 		};
 		A2000003000000000000001A /* FamilyHubKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FamilyHubKit;
+		};
+		A2000006000000000000001A /* FamilyHubKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FamilyHubKit;
 		};

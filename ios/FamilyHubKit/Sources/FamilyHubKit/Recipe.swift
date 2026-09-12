@@ -1,6 +1,6 @@
 import Foundation
 
-public struct IngredientGroup: Codable, Hashable {
+public struct IngredientGroup: Codable, Hashable, Sendable {
     public let name: String
     public let items: [String]
 
@@ -10,7 +10,7 @@ public struct IngredientGroup: Codable, Hashable {
     }
 }
 
-public struct Recipe: Codable, Identifiable, Hashable {
+public struct Recipe: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
     public let steps: [String]?           // Go nil slice marshals as null
@@ -22,6 +22,11 @@ public struct Recipe: Codable, Identifiable, Hashable {
     public let sourceURL: String?
     public let categoryID: String?
     public let hasImage: Bool
+    /// Timer hints in seconds, aligned with `steps`, `nil` where a step has no
+    /// recognisable timing. Computed server-side and only sent by the
+    /// single-recipe endpoint — the list endpoint omits `steps`, so there is
+    /// nothing to align against. Optional so older responses still decode.
+    public let stepDurations: [Int?]?
 
     public init(
         id: String,
@@ -34,7 +39,8 @@ public struct Recipe: Codable, Identifiable, Hashable {
         cookTime: String? = nil,
         sourceURL: String? = nil,
         categoryID: String? = nil,
-        hasImage: Bool = false
+        hasImage: Bool = false,
+        stepDurations: [Int?]? = nil
     ) {
         self.id = id
         self.title = title
@@ -47,6 +53,7 @@ public struct Recipe: Codable, Identifiable, Hashable {
         self.sourceURL = sourceURL
         self.categoryID = categoryID
         self.hasImage = hasImage
+        self.stepDurations = stepDurations
     }
 
     enum CodingKeys: String, CodingKey {
@@ -61,6 +68,7 @@ public struct Recipe: Codable, Identifiable, Hashable {
         case sourceURL = "SourceURL"
         case categoryID = "CategoryID"
         case hasImage = "HasImage"
+        case stepDurations = "StepDurations"
     }
 }
 

@@ -7,6 +7,12 @@ struct FamilyHubApp: App {
     @State private var authManager = AuthManager()
     @State private var clientStore = APIClientStore()
 
+    init() {
+        // Activating early means the watch gets its credentials as soon as the
+        // session is ready, without waiting for the user to visit a screen.
+        PhoneWatchLink.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
             if authManager.isDemoMode {

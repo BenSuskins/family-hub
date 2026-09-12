@@ -435,6 +435,137 @@ func TestGetRecipe_API(t *testing.T) {
 	}
 }
 
+// getRecipeJSON creates a recipe, fetches it through the API handler and
+// returns the decoded response.
+func getRecipeJSON(t *testing.T, seed models.Recipe) models.Recipe {
+	t.Helper()
+
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, err := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-" + seed.Title,
+		Email:       "cook@example.com",
+		Name:        "Cook",
+		Role:        models.RoleMember,
+	})
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	seed.CreatedByUserID = user.ID
+	created, err := recipeRepo.Create(ctx, seed)
+	if err != nil {
+		t.Fatalf("creating recipe: %v", err)
+	}
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, "", "", "")
+	router := chi.NewRouter()
+	router.Get("/api/recipes/{id}", handler.GetRecipe)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes/"+created.ID, nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+
+	var recipe models.Recipe
+	if err := json.NewDecoder(recorder.Body).Decode(&recipe); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	return recipe
+}
+
+// Recipes predating the steps column keep their method in Instructions. The web
+// cook mode has always split that blob into steps; the JSON API now does too,
+// so those recipes are cookable on the phone and the watch.
+func TestGetRecipe_API_FallsBackToInstructions(t *testing.T) {
+	recipe := getRecipeJSON(t, models.Recipe{
+		Title:        "Legacy Stew",
+		Instructions: "Brown the beef\nAdd stock\nSimmer for 90 minutes",
+	})
+
+	want := []string{"Brown the beef", "Add stock", "Simmer for 90 minutes"}
+	if len(recipe.Steps) != len(want) {
+		t.Fatalf("got %d steps %q, want %d", len(recipe.Steps), recipe.Steps, len(want))
+	}
+	for i := range want {
+		if recipe.Steps[i] != want[i] {
+			t.Errorf("step %d = %q, want %q", i, recipe.Steps[i], want[i])
+		}
+	}
+}
+
+func TestGetRecipe_API_DoesNotOverrideRealSteps(t *testing.T) {
+	recipe := getRecipeJSON(t, models.Recipe{
+		Title:        "Modern Stew",
+		Instructions: "ignore me\nand me",
+		Steps:        []string{"Brown the beef"},
+	})
+
+	if len(recipe.Steps) != 1 || recipe.Steps[0] != "Brown the beef" {
+		t.Errorf("got steps %q, want the stored steps to win", recipe.Steps)
+	}
+}
+
+func TestGetRecipe_API_PopulatesStepDurations(t *testing.T) {
+	recipe := getRecipeJSON(t, models.Recipe{
+		Title: "Timed Pasta",
+		Steps: []string{"Chop the garlic", "Boil for 11 minutes", "Serve"},
+	})
+
+	if len(recipe.StepDurations) != 3 {
+		t.Fatalf("got %d durations, want 3 aligned with steps", len(recipe.StepDurations))
+	}
+	if recipe.StepDurations[0] != nil {
+		t.Errorf("step 0 got a %d second timer, want none", *recipe.StepDurations[0])
+	}
+	if recipe.StepDurations[1] == nil || *recipe.StepDurations[1] != 660 {
+		t.Errorf("step 1 got %v, want a 660 second timer", recipe.StepDurations[1])
+	}
+	if recipe.StepDurations[2] != nil {
+		t.Errorf("step 2 got a %d second timer, want none", *recipe.StepDurations[2])
+	}
+}
+
+func TestListRecipes_API_OmitsStepDurations(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	recipeRepo := repository.NewRecipeRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	ctx := context.Background()
+
+	user, _ := userRepo.Create(ctx, models.User{
+		OIDCSubject: "sub-list-durations",
+		Email:       "list@example.com",
+		Name:        "List User",
+		Role:        models.RoleMember,
+	})
+	recipeRepo.Create(ctx, models.Recipe{
+		Title:           "Timed Pasta",
+		Steps:           []string{"Boil for 11 minutes"},
+		CreatedByUserID: user.ID,
+	})
+
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, "", "", "")
+	request := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
+	recorder := httptest.NewRecorder()
+	handler.ListRecipes(recorder, request)
+
+	var recipes []models.Recipe
+	json.NewDecoder(recorder.Body).Decode(&recipes)
+	if len(recipes) != 1 {
+		t.Fatalf("got %d recipes, want 1", len(recipes))
+	}
+	// The list query omits steps, so there is nothing to align durations against.
+	if recipes[0].StepDurations != nil {
+		t.Errorf("got %v, want no durations on the list endpoint", recipes[0].StepDurations)
+	}
+}
+
 func TestListRecipes_API_Empty(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)

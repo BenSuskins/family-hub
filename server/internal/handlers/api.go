@@ -521,6 +521,12 @@ func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// Recipes predating the steps column keep their method in Instructions;
+	// fall back so they stay cookable, matching the web cook mode.
+	if len(recipe.Steps) == 0 && recipe.Instructions != "" {
+		recipe.Steps = services.SplitIntoSteps(recipe.Instructions)
+	}
+	recipe.StepDurations = services.StepDurations(recipe.Steps)
 	writeJSON(w, http.StatusOK, recipe)
 }
 

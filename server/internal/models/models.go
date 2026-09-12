@@ -174,6 +174,11 @@ type Recipe struct {
 	SourceURL    *string
 	CategoryID   *string
 	HasImage     bool // computed: image_data != ''
+	// StepDurations is computed, never persisted: a timer hint in seconds per
+	// entry of Steps, positionally aligned, nil where a step has no timing.
+	// Only the single-recipe endpoint populates it — the list endpoint omits
+	// Steps, so there is nothing to align against.
+	StepDurations []*int
 	CreatedByUserID string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

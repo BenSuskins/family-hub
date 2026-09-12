@@ -160,7 +160,7 @@ func (handler *RecipeHandler) EditForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(recipe.Steps) == 0 && recipe.Instructions != "" {
-		recipe.Steps = splitIntoSteps(recipe.Instructions)
+		recipe.Steps = services.SplitIntoSteps(recipe.Instructions)
 	}
 
 	categories, err := handler.categoryRepo.FindAll(ctx)
@@ -289,6 +289,26 @@ func (handler *RecipeHandler) ServeImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// The ETag covers the variant as well as the bytes, so a client holding the
+	// full image is not told its thumbnail is unchanged. Images are private to
+	// the family, hence `private` rather than a shared-cache directive.
+	variant := parseImageVariant(r.URL.Query().Get("size"))
+	etag := imageETag(imageBytes, variant)
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+
+	if etagMatches(r, etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	// A thumbnail that fails to render is not worth a 404 — serve the original.
+	if variant == imageVariantThumb {
+		if thumbBytes, thumbType, rendered := thumbnailFor(etag, imageBytes); rendered {
+			imageBytes, mimeType = thumbBytes, thumbType
+		}
+	}
+
 	w.Header().Set("Content-Type", mimeType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(imageBytes)
@@ -350,7 +370,7 @@ func (handler *RecipeHandler) CookMode(w http.ResponseWriter, r *http.Request) {
 
 	steps := recipe.Steps
 	if len(steps) == 0 && recipe.Instructions != "" {
-		steps = splitIntoSteps(recipe.Instructions)
+		steps = services.SplitIntoSteps(recipe.Instructions)
 	}
 
 	component := pages.RecipeCook(pages.RecipeCookProps{
@@ -454,17 +474,6 @@ func parseSteps(r *http.Request) []string {
 		step = strings.TrimSpace(step)
 		if step != "" {
 			steps = append(steps, step)
-		}
-	}
-	return steps
-}
-
-func splitIntoSteps(text string) []string {
-	var steps []string
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			steps = append(steps, line)
 		}
 	}
 	return steps

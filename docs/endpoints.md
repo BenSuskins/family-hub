@@ -242,7 +242,10 @@ curl -s $BASE_URL/api/dashboard -H "Authorization: Bearer $API_TOKEN" | jq
 ```
 
 ### `GET /api/meals?week=YYYY-MM-DD`
-- **Usecase:** Meal plans for the week containing the given date (snapped to Monday).
+- **Usecase:** Meal plans for the seven days starting at `week`. The date is **not**
+  snapped to a week boundary — the value you pass *is* the first day, and the range
+  is `[week, week+6]`. The web planner and the iOS app both anchor their weeks to
+  the preceding Friday before calling this.
 - **Callers:** iOS app meal planner.
 - **Security:** API token.
 
@@ -285,7 +288,10 @@ curl -s -X POST $BASE_URL/api/recipes/extract \
 ```
 
 ### `GET /api/recipes`
-- **Usecase:** List all recipes.
+- **Usecase:** List all recipes. This is a **summary** response: `Steps` is always
+  `null` and `StepDurations` is absent, because the list query does not select
+  the steps column. Use `GET /api/recipes/{id}` when you need the method.
+  `Ingredients` *is* returned in full on every row.
 - **Callers:** iOS app, meal picker.
 - **Security:** API token.
 
@@ -295,8 +301,17 @@ curl -s $BASE_URL/api/recipes -H "Authorization: Bearer $API_TOKEN" | jq
 
 ### `GET /api/recipes/{id}`
 - **Usecase:** Single recipe with ingredients + steps.
-- **Callers:** iOS app detail/cook mode.
+- **Callers:** iOS app detail/cook mode, watchOS cook mode.
 - **Security:** API token.
+- **Steps fallback:** recipes created before the `steps` column keep their method
+  in the legacy `Instructions` blob. When `Steps` is empty and `Instructions` is
+  not, `Steps` is populated by splitting `Instructions` on newlines, so every
+  recipe is cookable. `Instructions` is still returned unchanged.
+- **`StepDurations`:** a computed, never-persisted array of timer hints in
+  seconds, positionally aligned with `Steps`, `null` where a step has no
+  recognisable timing. Parsed from the step's own prose ("simmer for 20 minutes"
+  → `1200`); a range takes its lower bound and the first duration in a step wins.
+  Clients may ignore it entirely.
 
 ```bash
 curl -s $BASE_URL/api/recipes/<recipeID> -H "Authorization: Bearer $API_TOKEN" | jq
@@ -311,7 +326,7 @@ curl -s $BASE_URL/api/recipes/<recipeID> -H "Authorization: Bearer $API_TOKEN" |
 curl -s -X POST $BASE_URL/api/recipes \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Pasta","steps":["Boil","Drain"],"ingredients":[{"name":"","items":[{"name":"pasta","quantity":"200g"}]}],"mealType":"dinner","servings":2}' | jq
+  -d '{"title":"Pasta","steps":["Boil","Drain"],"ingredients":[{"name":"Main","items":["200g pasta","1 tbsp salt"]}],"mealType":"dinner","servings":2}' | jq
 ```
 
 ### `PUT /api/recipes/{id}`
@@ -335,13 +350,25 @@ curl -s -X PUT $BASE_URL/api/recipes/<recipeID> \
 curl -s -X DELETE $BASE_URL/api/recipes/<recipeID> -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
 
-### `GET /api/recipes/{id}/image`
-- **Usecase:** Serves recipe image bytes.
-- **Callers:** iOS app.
+### `GET /api/recipes/{id}/image[?size=thumb]`
+- **Usecase:** Serves recipe image bytes. `size=thumb` returns a copy scaled to
+  fit a 200px box (aspect ratio preserved, never upscaled) for list rows and
+  small screens; any other `size` value serves the original. PNG sources stay
+  PNG so transparency survives; JPEG, GIF and WebP thumbnails are re-encoded as
+  JPEG.
+- **Callers:** iOS app, watchOS app.
 - **Security:** API token.
+- **Caching:** responds with `ETag` and `Cache-Control: private, max-age=86400`.
+  The ETag covers the variant as well as the bytes, so the full image and its
+  thumbnail never collide. Send `If-None-Match` to get a `304 Not Modified`.
 
 ```bash
 curl -s $BASE_URL/api/recipes/<recipeID>/image -H "Authorization: Bearer $API_TOKEN" -o recipe.jpg
+curl -s "$BASE_URL/api/recipes/<recipeID>/image?size=thumb" -H "Authorization: Bearer $API_TOKEN" -o thumb.jpg
+
+# Revalidate with the ETag from a previous response — expect 304.
+curl -s -o /dev/null -w "%{http_code}\n" $BASE_URL/api/recipes/<recipeID>/image \
+  -H "Authorization: Bearer $API_TOKEN" -H 'If-None-Match: "full-<hash>"'
 ```
 
 ### `GET /api/calendar?view=month|week|day&date=YYYY-MM-DD|month=YYYY-MM`

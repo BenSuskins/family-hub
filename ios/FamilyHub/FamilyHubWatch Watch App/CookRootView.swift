@@ -25,7 +25,11 @@ struct CookRootView: View {
                 UnavailableView(
                     systemImage: "iphone",
                     title: "Nothing to cook",
-                    message: "Open a recipe on your iPhone and choose Cook on Watch."
+                    message: "Open a recipe on your iPhone and choose Cook on Watch.",
+                    // Nothing arriving is indistinguishable from nothing being
+                    // sent, so say which. Only on this screen, and only when
+                    // there is genuinely nothing else to look at.
+                    footnote: session.diagnostics.summary
                 )
             }
         }
@@ -38,19 +42,34 @@ struct UnavailableView: View {
     let systemImage: String
     let title: String
     let message: String
+    var footnote: String?
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(.headline)
-            Text(message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        // Scrollable rather than a bare stack: the diagnostic footnote grows
+        // when something has gone wrong, which is exactly when it must stay
+        // readable on a 40mm screen.
+        ScrollView {
+            VStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(.headline)
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                if let footnote {
+                    Text(footnote)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
         }
-        .padding(.horizontal, 8)
     }
 }

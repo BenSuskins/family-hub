@@ -40,31 +40,65 @@ public struct CookHandoff: Codable, Equatable, Sendable {
 
 // MARK: - Dictionary bridging
 
-// WatchConnectivity speaks [String: Any], so both payloads round-trip through
-// JSON rather than hand-rolling the conversion. Keeping this here means the
-// phone and the watch cannot disagree about the encoding.
+// WatchConnectivity speaks `[String: Any]`, and accepts **property-list types
+// only**. An earlier version of this file decomposed the encoded JSON into a
+// dictionary of plain values with `JSONSerialization.jsonObject`, which looks
+// right and is not: JSON `null` decodes to `NSNull`, and `NSNull` is not a
+// property-list type.
+//
+// `Recipe.stepDurations` is `[Int?]` — a step with no recognisable timing
+// encodes as `null` — so virtually every real recipe produced a payload
+// WatchConnectivity would not carry, and the handoff was dropped in transit
+// while the phone reported success.
+//
+// So the JSON travels as a single `Data` value instead. `Data` *is* a
+// property-list type, which makes the payload valid by construction and
+// independent of whatever optionality the models grow later.
+
+/// The one key both payloads use.
+nonisolated(unsafe) private let watchPayloadKey = "json"
 
 extension Encodable {
     /// Encode to the `[String: Any]` dictionary WatchConnectivity requires.
     public func watchPayload() throws -> [String: Any] {
-        let data = try JSONEncoder.watchLink.encode(self)
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw WatchPayloadError.notADictionary
-        }
-        return object
+        [watchPayloadKey: try JSONEncoder.watchLink.encode(self)]
     }
 }
 
 extension Decodable {
     /// Decode from a WatchConnectivity payload dictionary.
     public static func fromWatchPayload(_ payload: [String: Any]) throws -> Self {
-        let data = try JSONSerialization.data(withJSONObject: payload)
+        let data: Data
+        if let wrapped = payload[watchPayloadKey] as? Data {
+            data = wrapped
+        } else {
+            // A payload in the old decomposed shape. Accepted so a watch that
+            // updates before the phone — or one holding a stored application
+            // context from the previous build — still reads it.
+            data = try JSONSerialization.data(withJSONObject: payload)
+        }
         return try JSONDecoder.watchLink.decode(Self.self, from: data)
     }
 }
 
-public enum WatchPayloadError: Error {
-    case notADictionary
+/// Whether a value is one WatchConnectivity will actually carry.
+///
+/// `WCSession` raises rather than returning an error when handed something
+/// else, so this is worth asserting in tests rather than discovering on a
+/// wrist. Mirrors the property-list type list: string, number, boolean, date,
+/// data, and arrays and dictionaries of those.
+public nonisolated func isWatchTransportable(_ value: Any) -> Bool {
+    switch value {
+    case is String, is Bool, is Int, is Double, is Date, is Data:
+        return true
+    case let array as [Any]:
+        return array.allSatisfy(isWatchTransportable)
+    case let dictionary as [String: Any]:
+        return dictionary.values.allSatisfy(isWatchTransportable)
+    default:
+        // Covers NSNull, and anything else that would raise in transit.
+        return false
+    }
 }
 
 extension JSONEncoder {

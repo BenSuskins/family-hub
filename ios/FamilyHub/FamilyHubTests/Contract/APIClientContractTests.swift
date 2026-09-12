@@ -289,9 +289,9 @@ final class DemoAPIClientContractTests: APIClientContractTests {
 /// Seam for running the same contract against the real `APIClient`.
 ///
 /// TODO: provide an in-memory `URLProtocol` stub server that emulates the REST
-/// endpoints (capitalised JSON keys per the models' `CodingKeys`) plus a fake
-/// `KeychainStore` returning a token, then return
-/// `APIClient(baseURL:session:authManager:)` here. Until then this suite skips,
+/// endpoints (capitalised JSON keys per the models' `CodingKeys`) plus a stub
+/// `TokenProviding` returning a token, then return
+/// `APIClient(baseURL:session:tokenProvider:)` here. Until then this suite skips,
 /// keeping the wiring point visible without standing up the stub server.
 final class LiveAPIClientContractTests: APIClientContractTests {
     override func makeClient() throws -> any APIClientProtocol {

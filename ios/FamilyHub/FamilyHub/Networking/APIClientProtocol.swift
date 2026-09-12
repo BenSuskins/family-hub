@@ -7,6 +7,14 @@ enum ViewState<T> {
     case failed(APIError)
 }
 
+/// Supplies the bearer token for outgoing requests. APIClient depends on this
+/// rather than on AuthManager, which is iOS-only: it drives
+/// ASWebAuthenticationSession, which does not exist on watchOS. AnyObject so the
+/// client can hold it weakly and avoid a retain cycle.
+protocol TokenProviding: AnyObject {
+    func validAPIToken() async throws -> String
+}
+
 protocol APIClientProtocol: AnyObject {
     func fetchDashboardStats() async throws -> DashboardStats
     func fetchChores() async throws -> [Chore]

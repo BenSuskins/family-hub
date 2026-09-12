@@ -4,7 +4,7 @@ import AuthenticationServices
 
 @Observable
 @MainActor
-final class AuthManager: NSObject {
+final class AuthManager: NSObject, TokenProviding {
     private(set) var isAuthenticated = false
     var isDemoMode = false
     var loginError: String?

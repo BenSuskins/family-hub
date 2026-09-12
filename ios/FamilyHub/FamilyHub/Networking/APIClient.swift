@@ -14,7 +14,7 @@ final class APIClient: APIClientProtocol {
     private let baseURL: URL
     private let session: URLSession
     private let retryPolicy: RetryPolicy
-    private weak var authManager: AuthManager?
+    private weak var tokenProvider: (any TokenProviding)?
     private let recipeCache = RecipeCache()
     private let imageCache: NSCache<NSString, NSData> = {
         let c = NSCache<NSString, NSData>()
@@ -33,10 +33,10 @@ final class APIClient: APIClientProtocol {
         return decoder
     }()
 
-    init(baseURL: URL, session: URLSession = .shared, authManager: AuthManager, retryPolicy: RetryPolicy = .default) {
+    init(baseURL: URL, session: URLSession = .shared, tokenProvider: any TokenProviding, retryPolicy: RetryPolicy = .default) {
         self.baseURL = baseURL
         self.session = session
-        self.authManager = authManager
+        self.tokenProvider = tokenProvider
         self.retryPolicy = retryPolicy
     }
 
@@ -156,8 +156,8 @@ final class APIClient: APIClientProtocol {
         body: Data? = nil,
         contentType: String? = nil
     ) async throws -> URLRequest {
-        guard let authManager else { throw APIError.unauthorized }
-        let token = try await authManager.validAPIToken()
+        guard let tokenProvider else { throw APIError.unauthorized }
+        let token = try await tokenProvider.validAPIToken()
 
         guard var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
             throw APIError.network(URLError(.badURL))

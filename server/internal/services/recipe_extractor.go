@@ -25,18 +25,18 @@ type ExtractedRecipe struct {
 }
 
 type RecipeExtractor struct {
-	client            *http.Client
-	validateURL       func(string) error
-	oembedProviders   map[string]string
-	captionEmbedHosts map[string]bool
+	client              *http.Client
+	validateURL         func(string) error
+	oembedProviders     map[string]string
+	captionEmbedOrigins map[string]string
 }
 
 func NewRecipeExtractor() *RecipeExtractor {
 	return &RecipeExtractor{
-		client:            NewSafeHTTPClient(15 * time.Second),
-		validateURL:       ValidateExternalURL,
-		oembedProviders:   defaultOEmbedProviders(),
-		captionEmbedHosts: defaultCaptionEmbedHosts(),
+		client:              NewSafeHTTPClient(15 * time.Second),
+		validateURL:         ValidateExternalURL,
+		oembedProviders:     defaultOEmbedProviders(),
+		captionEmbedOrigins: defaultCaptionEmbedOrigins(),
 	}
 }
 

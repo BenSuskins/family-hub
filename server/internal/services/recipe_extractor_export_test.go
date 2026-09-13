@@ -23,13 +23,14 @@ func (extractor *RecipeExtractor) WithOEmbedProvider(host, endpoint string) *Rec
 	return extractor
 }
 
-// WithCaptionEmbedHost enables the Instagram-style embed fallback for a stub
-// host, so the fallback can be exercised without leaving the test.
-func (extractor *RecipeExtractor) WithCaptionEmbedHost(host string) *RecipeExtractor {
-	if extractor.captionEmbedHosts == nil {
-		extractor.captionEmbedHosts = map[string]bool{}
+// WithCaptionEmbedOrigin enables the Instagram-style embed fallback for a stub
+// host, pointing it at a stub origin (which must end in "/"), so the fallback
+// can be exercised without leaving the test.
+func (extractor *RecipeExtractor) WithCaptionEmbedOrigin(host, origin string) *RecipeExtractor {
+	if extractor.captionEmbedOrigins == nil {
+		extractor.captionEmbedOrigins = map[string]string{}
 	}
-	extractor.captionEmbedHosts[host] = true
+	extractor.captionEmbedOrigins[host] = origin
 	return extractor
 }
 
@@ -37,4 +38,10 @@ func (extractor *RecipeExtractor) WithCaptionEmbedHost(host string) *RecipeExtra
 // host-pinning can be asserted directly.
 func ShortLinkRequestURLForTest(rawURL string) (string, bool) {
 	return shortLinkRequestURL(rawURL)
+}
+
+// CaptionEmbedPathForTest exposes the embed-path builder so its post-id
+// matching can be asserted directly.
+func CaptionEmbedPathForTest(rawURL string) (string, bool) {
+	return captionEmbedPath(rawURL)
 }

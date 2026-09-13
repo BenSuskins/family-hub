@@ -32,10 +32,11 @@ func defaultOEmbedProviders() map[string]string {
 	}
 }
 
-// defaultCaptionEmbedHosts publish a public, server-rendered embed page whose
-// caption is the only place a signed-out client can read the recipe.
-func defaultCaptionEmbedHosts() map[string]bool {
-	return map[string]bool{"instagram.com": true}
+// defaultCaptionEmbedOrigins maps a host that publishes a public,
+// server-rendered embed page — the only place a signed-out client can read the
+// caption — to the constant origin those embeds are fetched from.
+func defaultCaptionEmbedOrigins() map[string]string {
+	return map[string]string{"instagram.com": "https://www.instagram.com/"}
 }
 
 // crawlerUserAgentHosts are served Open Graph tags only when the request looks
@@ -358,15 +359,20 @@ func objectHasType(dict map[string]any, wanted string) bool {
 // page is server rendered and public. It carries the caption and the poster
 // image, which is everything we can hope for from a Reel.
 func (extractor *RecipeExtractor) extractViaCaptionEmbed(ctx context.Context, rawURL string) (ExtractedRecipe, bool) {
-	host := hostOf(rawURL)
-	if !extractor.captionEmbedHosts[host] && !extractor.captionEmbedHosts[registrableHost(host)] {
-		return ExtractedRecipe{}, false
-	}
-
-	embedURL, ok := captionEmbedURL(rawURL)
+	origin, ok := extractor.captionEmbedOriginFor(rawURL)
 	if !ok {
 		return ExtractedRecipe{}, false
 	}
+
+	embedPath, ok := captionEmbedPath(rawURL)
+	if !ok {
+		return ExtractedRecipe{}, false
+	}
+
+	// origin is one of our own constants and ends in "/", and embedPath is
+	// built from a strictly matched post id, so the request cannot be steered
+	// off the platform by the shared link.
+	embedURL := origin + embedPath
 	if err := extractor.validateURL(embedURL); err != nil {
 		return ExtractedRecipe{}, false
 	}
@@ -379,24 +385,33 @@ func (extractor *RecipeExtractor) extractViaCaptionEmbed(ctx context.Context, ra
 	return parseCaptionEmbed(document)
 }
 
-var postPathPattern = regexp.MustCompile(`^/(?:p|reel|reels|tv)/[^/]+`)
+func (extractor *RecipeExtractor) captionEmbedOriginFor(rawURL string) (string, bool) {
+	host := hostOf(rawURL)
+	if origin, ok := extractor.captionEmbedOrigins[host]; ok {
+		return origin, true
+	}
+	origin, ok := extractor.captionEmbedOrigins[registrableHost(host)]
+	return origin, ok
+}
 
-// captionEmbedURL turns ".../p/ABC123/" into ".../p/ABC123/embed/captioned/".
-func captionEmbedURL(rawURL string) (string, bool) {
+// postPathPattern matches an Instagram post path, capturing the post kind (one
+// of four literals) and the shortcode. The shortcode charset is deliberately
+// strict: it is the only part of the shared link that reaches the request.
+var postPathPattern = regexp.MustCompile(`^/(p|reel|reels|tv)/([A-Za-z0-9_-]{1,64})(?:/|$)`)
+
+// captionEmbedPath turns "/p/ABC123/" into "p/ABC123/embed/captioned/", to be
+// appended to a constant origin. Query and fragment are dropped.
+func captionEmbedPath(rawURL string) (string, bool) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return "", false
 	}
 
-	postPath := postPathPattern.FindString(parsed.Path)
-	if postPath == "" {
+	match := postPathPattern.FindStringSubmatch(parsed.EscapedPath())
+	if match == nil {
 		return "", false
 	}
-
-	parsed.Path = postPath + "/embed/captioned/"
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return parsed.String(), true
+	return match[1] + "/" + match[2] + "/embed/captioned/", true
 }
 
 func parseCaptionEmbed(document *html.Node) (ExtractedRecipe, bool) {

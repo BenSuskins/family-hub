@@ -159,7 +159,7 @@ func TestRecipeExtractor_InstagramEmbedFallback(t *testing.T) {
 	defer server.Close()
 
 	extractor := services.NewRecipeExtractorForTest(server.Client()).
-		WithCaptionEmbedHost(hostOfTestServer(t, server.URL))
+		WithCaptionEmbedOrigin(hostOfTestServer(t, server.URL), server.URL+"/")
 
 	got, err := extractor.Extract(context.Background(), server.URL+"/reel/ABC123/")
 	if err != nil {
@@ -203,6 +203,41 @@ func TestShortLinkRequestURL(t *testing.T) {
 			}
 			if ok {
 				assertStringEqual(t, "URL", got, tt.want)
+			}
+		})
+	}
+}
+
+// The embed path is appended to a constant origin, so the only part of a
+// shared link that reaches the request is a strictly matched post id.
+func TestCaptionEmbedPath(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+		ok    bool
+	}{
+		{name: "post", input: "https://www.instagram.com/p/ABC123/", want: "p/ABC123/embed/captioned/", ok: true},
+		{name: "reel", input: "https://www.instagram.com/reel/A-b_c9/", want: "reel/A-b_c9/embed/captioned/", ok: true},
+		{name: "tv", input: "https://www.instagram.com/tv/ABC123/", want: "tv/ABC123/embed/captioned/", ok: true},
+		{name: "no trailing slash", input: "https://www.instagram.com/p/ABC123", want: "p/ABC123/embed/captioned/", ok: true},
+		{name: "tracking query is dropped", input: "https://www.instagram.com/p/ABC123/?igsh=abc123&img_index=2", want: "p/ABC123/embed/captioned/", ok: true},
+		{name: "encoded traversal is rejected", input: "https://www.instagram.com/p/..%2F..%2Fadmin/", ok: false},
+		{name: "plain traversal is rejected", input: "https://www.instagram.com/p/../../etc/passwd", ok: false},
+		{name: "over-long post id is rejected", input: "https://www.instagram.com/p/" + strings.Repeat("A", 65) + "/", ok: false},
+		{name: "empty post id is rejected", input: "https://www.instagram.com/p//", ok: false},
+		{name: "profile page is rejected", input: "https://www.instagram.com/somecook/", ok: false},
+		{name: "explore page is rejected", input: "https://www.instagram.com/explore/tags/food/", ok: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := services.CaptionEmbedPathForTest(tt.input)
+			if ok != tt.ok {
+				t.Fatalf("ok = %v, want %v (got %q)", ok, tt.ok, got)
+			}
+			if ok {
+				assertStringEqual(t, "path", got, tt.want)
 			}
 		})
 	}

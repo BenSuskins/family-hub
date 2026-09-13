@@ -44,22 +44,85 @@ final class ShareViewController: UIViewController {
         host.didMove(toParent: self)
     }
 
+    /// TikTok and Instagram do not hand over a tidy URL attachment: they share a
+    /// blob of text such as "Check out this recipe https://vm.tiktok.com/ZGx…/",
+    /// sometimes alongside a preview image. So take a web URL when one is
+    /// offered, and otherwise dig a link out of whatever text we were given.
     private func extractURL() async -> URL? {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem] else { return nil }
+
+        var textCandidates: [String] = []
+
         for item in items {
             for provider in item.attachments ?? [] {
-                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    if let url = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier) as? URL {
-                        return url
-                    }
+                if let url = await loadWebURL(from: provider) {
+                    return url
                 }
-                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                    if let text = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) as? String,
-                       let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
-                        return url
-                    }
+                if let text = await loadText(from: provider) {
+                    textCandidates.append(text)
                 }
             }
+            if let attributed = item.attributedContentText?.string {
+                textCandidates.append(attributed)
+            }
+            if let titleText = item.attributedTitle?.string {
+                textCandidates.append(titleText)
+            }
+        }
+
+        for text in textCandidates {
+            if let url = Self.firstWebURL(in: text) {
+                return url
+            }
+        }
+        return nil
+    }
+
+    private func loadWebURL(from provider: NSItemProvider) async -> URL? {
+        guard provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) else { return nil }
+        guard let item = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier) else { return nil }
+
+        let url: URL?
+        switch item {
+        case let value as URL: url = value
+        case let value as String: url = URL(string: value)
+        case let value as Data: url = String(data: value, encoding: .utf8).flatMap(URL.init(string:))
+        default: url = nil
+        }
+
+        guard let url, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            return nil
+        }
+        return url
+    }
+
+    private func loadText(from provider: NSItemProvider) async -> String? {
+        for identifier in [UTType.plainText.identifier, UTType.text.identifier, UTType.utf8PlainText.identifier] {
+            guard provider.hasItemConformingToTypeIdentifier(identifier) else { continue }
+            if let text = try? await provider.loadItem(forTypeIdentifier: identifier) as? String, !text.isEmpty {
+                return text
+            }
+        }
+        return nil
+    }
+
+    /// Pulls the first http(s) link out of free text, which is how the social
+    /// apps pass the post along.
+    static func firstWebURL(in text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            return url
+        }
+
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return nil
+        }
+        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+        for match in detector.matches(in: trimmed, options: [], range: range) {
+            guard let url = match.url, let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" else { continue }
+            return url
         }
         return nil
     }
@@ -91,9 +154,9 @@ final class ShareViewController: UIViewController {
             Image(systemName: "link.badge.plus")
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            Text("No URL Found")
+            Text("No Link Found")
                 .font(.headline)
-            Text("Share a web page URL to add it as a recipe.")
+            Text("Share a recipe page, or a TikTok or Instagram post, to add it as a recipe.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

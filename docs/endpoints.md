@@ -276,15 +276,30 @@ curl -s -X DELETE "$BASE_URL/api/meals?date=2026-04-07&mealType=dinner" \
 ```
 
 ### `POST /api/recipes/extract`
-- **Usecase:** Scrape recipe fields from a URL (JSON-LD / microdata).
-- **Callers:** iOS app "import from URL".
-- **Security:** API token. SSRF-hardened (see commit 273c218).
+- **Usecase:** Scrape recipe fields from a URL. Sources are tried in descending
+  order of reliability: JSON-LD → microdata → platform oEmbed (TikTok) →
+  `VideoObject` JSON-LD → Open Graph tags and caption text. Social video posts
+  (TikTok, Instagram) carry no structured recipe data, so they land on the last
+  two: the caption is parsed for `Ingredients:` / `Method:` sections, and when
+  there is nothing to parse the response still carries `title` and `imageURL`.
+- **Response:** always `200` with an `ExtractedRecipe`; every field is
+  best-effort and may be empty. An empty object means nothing at all was found.
+- **Callers:** iOS app "import from URL", iOS share extension.
+- **Security:** API token. SSRF-hardened (see commit 273c218) — the oEmbed and
+  short-link lookups go through the same guarded client, and a redirect target
+  is re-validated before use.
 
 ```bash
 curl -s -X POST $BASE_URL/api/recipes/extract \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com/recipe"}' | jq
+
+# Social post — expect title/imageURL, plus ingredients/steps if the caption lists them
+curl -s -X POST $BASE_URL/api/recipes/extract \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.tiktok.com/@someone/video/123"}' | jq
 ```
 
 ### `GET /api/recipes`

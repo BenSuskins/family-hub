@@ -25,53 +25,152 @@ type ExtractedRecipe struct {
 }
 
 type RecipeExtractor struct {
-	client      *http.Client
-	validateURL func(string) error
+	client              *http.Client
+	validateURL         func(string) error
+	oembedProviders     map[string]string
+	captionEmbedOrigins map[string]string
 }
 
 func NewRecipeExtractor() *RecipeExtractor {
 	return &RecipeExtractor{
-		client:      NewSafeHTTPClient(15 * time.Second),
-		validateURL: ValidateExternalURL,
+		client:              NewSafeHTTPClient(15 * time.Second),
+		validateURL:         ValidateExternalURL,
+		oembedProviders:     defaultOEmbedProviders(),
+		captionEmbedOrigins: defaultCaptionEmbedOrigins(),
 	}
 }
 
+// Extract pulls whatever recipe data a URL will give up, in descending order of
+// reliability: structured data (JSON-LD, then microdata), then a platform
+// oEmbed endpoint, then the page's Open Graph tags and caption text. Social
+// video posts only ever reach the last two, which is why a title and an image
+// alone count as a successful extraction.
 func (extractor *RecipeExtractor) Extract(ctx context.Context, rawURL string) (ExtractedRecipe, error) {
 	if err := extractor.validateURL(rawURL); err != nil {
 		return ExtractedRecipe{}, err
 	}
 
+	targetURL := extractor.resolveShortLink(ctx, rawURL)
+
+	document, finalURL, err := extractor.fetchDocument(ctx, targetURL)
+	if err != nil {
+		// A login wall or a bot block still leaves the oEmbed endpoint, which
+		// is the usual path for a TikTok link.
+		if recipe, found := extractor.extractViaOEmbedFor(ctx, targetURL); found {
+			return recipe, nil
+		}
+		if recipe, found := extractor.extractViaCaptionEmbed(ctx, targetURL); found {
+			return recipe, nil
+		}
+		return ExtractedRecipe{}, err
+	}
+
+	recipe, found := extractStructuredRecipe(document)
+	if found && len(recipe.Ingredients) > 0 && len(recipe.Steps) > 0 {
+		recipe.ImageURL = resolveURL(finalURL, recipe.ImageURL)
+		return recipe, nil
+	}
+
+	if oembedRecipe, ok := extractor.extractViaOEmbedFor(ctx, finalURL); ok {
+		mergeRecipe(&recipe, oembedRecipe)
+	}
+
+	if videoRecipe, ok := extractFromVideoJSONLD(document); ok {
+		mergeRecipe(&recipe, videoRecipe)
+	}
+
+	if embedRecipe, ok := extractor.extractViaCaptionEmbed(ctx, finalURL); ok {
+		mergeRecipe(&recipe, embedRecipe)
+	}
+
+	metadata := extractMetadata(document)
+	if recipe.Title == "" {
+		recipe.Title = cleanSocialCaption(metadata.Title)
+	}
+	if recipe.ImageURL == "" {
+		recipe.ImageURL = metadata.ImageURL
+	}
+	applyCaption(&recipe, cleanSocialCaption(firstNonEmpty(metadata.Description, metadata.Title)))
+
+	recipe.ImageURL = resolveURL(finalURL, recipe.ImageURL)
+
+	return recipe, nil
+}
+
+func (extractor *RecipeExtractor) fetchDocument(ctx context.Context, rawURL string) (*html.Node, string, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return ExtractedRecipe{}, fmt.Errorf("creating request: %w", err)
+		return nil, rawURL, fmt.Errorf("creating request: %w", err)
 	}
-	request.Header.Set("User-Agent", "Mozilla/5.0 (compatible; FamilyHub/1.0)")
+	request.Header.Set("User-Agent", userAgentForURL(rawURL))
+	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	request.Header.Set("Accept-Language", "en-GB,en;q=0.9")
 
 	response, err := extractor.client.Do(request)
 	if err != nil {
-		return ExtractedRecipe{}, fmt.Errorf("fetching URL: %w", err)
+		return nil, rawURL, fmt.Errorf("fetching URL: %w", err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return ExtractedRecipe{}, fmt.Errorf("unexpected status %d", response.StatusCode)
+		return nil, rawURL, fmt.Errorf("unexpected status %d", response.StatusCode)
+	}
+
+	finalURL := rawURL
+	if response.Request != nil && response.Request.URL != nil {
+		finalURL = response.Request.URL.String()
 	}
 
 	limitedBody := io.LimitReader(response.Body, 5*1024*1024)
 	document, err := html.Parse(limitedBody)
 	if err != nil {
-		return ExtractedRecipe{}, fmt.Errorf("parsing HTML: %w", err)
+		return nil, finalURL, fmt.Errorf("parsing HTML: %w", err)
 	}
 
+	return document, finalURL, nil
+}
+
+func (extractor *RecipeExtractor) extractViaOEmbedFor(ctx context.Context, rawURL string) (ExtractedRecipe, bool) {
+	endpoint, ok := extractor.oembedEndpointFor(rawURL)
+	if !ok {
+		return ExtractedRecipe{}, false
+	}
+	return extractor.extractViaOEmbed(ctx, endpoint, rawURL)
+}
+
+func extractStructuredRecipe(document *html.Node) (ExtractedRecipe, bool) {
 	if recipe, found := extractFromJSONLD(document); found {
-		return recipe, nil
+		return recipe, true
 	}
-
 	if recipe, found := extractFromMicrodata(document); found {
-		return recipe, nil
+		return recipe, true
 	}
+	return ExtractedRecipe{}, false
+}
 
-	return ExtractedRecipe{}, nil
+// mergeRecipe copies fields from addition into recipe wherever recipe is empty.
+func mergeRecipe(recipe *ExtractedRecipe, addition ExtractedRecipe) {
+	if recipe.Title == "" {
+		recipe.Title = addition.Title
+	}
+	if len(recipe.Ingredients) == 0 {
+		recipe.Ingredients = addition.Ingredients
+	}
+	if len(recipe.Steps) == 0 {
+		recipe.Steps = addition.Steps
+	}
+	if recipe.ImageURL == "" {
+		recipe.ImageURL = addition.ImageURL
+	}
+	if recipe.PrepTime == "" {
+		recipe.PrepTime = addition.PrepTime
+	}
+	if recipe.CookTime == "" {
+		recipe.CookTime = addition.CookTime
+	}
+	if recipe.Servings == nil {
+		recipe.Servings = addition.Servings
+	}
 }
 
 // --- JSON-LD extraction ---

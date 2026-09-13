@@ -1,0 +1,174 @@
+package services_test
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/bensuskins/family-hub/internal/services"
+)
+
+const tiktokOEmbedBody = `{
+	"title": "Smash Burger Tacos\nIngredients:\n500g beef mince\n6 mini tortillas\nMethod:\n1. Press the mince onto the tortilla.\n2. Fry for 3 minutes.",
+	"author_name": "tacoguy",
+	"thumbnail_url": "https://cdn.example.com/thumb.jpg"
+}`
+
+func TestRecipeExtractor_OEmbedFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		pageBody string
+		status   int
+	}{
+		{
+			name:   "platform blocks the scrape",
+			status: http.StatusForbidden,
+		},
+		{
+			name:     "platform serves a login wall with no metadata",
+			status:   http.StatusOK,
+			pageBody: `<html><head><title>TikTok</title></head><body>Log in to continue</body></html>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var oembedRequests []string
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/oembed" {
+					oembedRequests = append(oembedRequests, r.URL.Query().Get("url"))
+					w.Header().Set("Content-Type", "application/json")
+					w.Write([]byte(tiktokOEmbedBody))
+					return
+				}
+				w.WriteHeader(tt.status)
+				w.Write([]byte(tt.pageBody))
+			}))
+			defer server.Close()
+
+			host := hostOfTestServer(t, server.URL)
+			extractor := services.NewRecipeExtractorForTest(server.Client()).
+				WithOEmbedProvider(host, server.URL+"/oembed")
+
+			videoURL := server.URL + "/@tacoguy/video/123"
+			got, err := extractor.Extract(context.Background(), videoURL)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(oembedRequests) != 1 || oembedRequests[0] != videoURL {
+				t.Fatalf("oEmbed requests = %v, want exactly [%s]", oembedRequests, videoURL)
+			}
+
+			assertStringEqual(t, "Title", got.Title, "Smash Burger Tacos")
+			assertStringSliceEqual(t, "Ingredients", got.Ingredients, []string{"500g beef mince", "6 mini tortillas"})
+			assertStringSliceEqual(t, "Steps", got.Steps, []string{"Press the mince onto the tortilla.", "Fry for 3 minutes."})
+			assertStringEqual(t, "ImageURL", got.ImageURL, "https://cdn.example.com/thumb.jpg")
+		})
+	}
+}
+
+// A caption that is only hype still has to yield a title and an image, since
+// that is all the user needs before filling in the rest by hand.
+func TestRecipeExtractor_TitleAndImageOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oembed" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"title":"the BEST garlic butter prawns you will ever make #seafood","thumbnail_url":"https://cdn.example.com/prawns.jpg"}`))
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	extractor := services.NewRecipeExtractorForTest(server.Client()).
+		WithOEmbedProvider(hostOfTestServer(t, server.URL), server.URL+"/oembed")
+
+	got, err := extractor.Extract(context.Background(), server.URL+"/@cook/video/9")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertStringEqual(t, "Title", got.Title, "the BEST garlic butter prawns you will ever make")
+	assertStringEqual(t, "ImageURL", got.ImageURL, "https://cdn.example.com/prawns.jpg")
+	if len(got.Ingredients) != 0 || len(got.Steps) != 0 {
+		t.Errorf("expected no ingredients or steps, got %v / %v", got.Ingredients, got.Steps)
+	}
+}
+
+func TestRecipeExtractor_ResolvesRelativeImageURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html><head>
+			<meta property="og:title" content="Toad in the Hole">
+			<meta property="og:image" content="/media/toad.jpg">
+		</head><body></body></html>`))
+	}))
+	defer server.Close()
+
+	extractor := services.NewRecipeExtractorForTest(server.Client())
+	got, err := extractor.Extract(context.Background(), server.URL+"/recipes/toad")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := server.URL + "/media/toad.jpg"
+	assertStringEqual(t, "ImageURL", got.ImageURL, want)
+	if !strings.HasPrefix(got.ImageURL, "http") {
+		t.Errorf("ImageURL %q is not absolute", got.ImageURL)
+	}
+}
+
+func hostOfTestServer(t *testing.T, rawURL string) string {
+	t.Helper()
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parsing test server URL: %v", err)
+	}
+	return parsed.Hostname()
+}
+
+// Instagram serves signed-out clients a login wall, so the extractor falls back
+// to the public embed page for the caption and the poster image.
+func TestRecipeExtractor_InstagramEmbedFallback(t *testing.T) {
+	const embedPage = `<html><body>
+		<div class="EmbedFrame">
+			<img class="EmbeddedMediaImage" src="https://scontent.cdninstagram.com/v/reel.jpg">
+			<div class="Caption">
+				<a class="CaptionUsername">weeknight_dinners</a>
+				Chilli Paneer<br>Serves 2<br>
+				Ingredients:<br>250g paneer<br>2 tbsp cornflour<br>1 green chilli<br>
+				Method:<br>1. Toss the paneer in cornflour.<br>2. Fry until golden.<br>
+				<a href="#">#paneer</a>
+			</div>
+		</div>
+	</body></html>`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if strings.HasSuffix(r.URL.Path, "/embed/captioned/") {
+			w.Write([]byte(embedPage))
+			return
+		}
+		w.Write([]byte(`<html><head><title>Instagram</title></head><body>Log in to continue</body></html>`))
+	}))
+	defer server.Close()
+
+	extractor := services.NewRecipeExtractorForTest(server.Client()).
+		WithCaptionEmbedHost(hostOfTestServer(t, server.URL))
+
+	got, err := extractor.Extract(context.Background(), server.URL+"/reel/ABC123/")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertStringEqual(t, "Title", got.Title, "Chilli Paneer")
+	assertStringSliceEqual(t, "Ingredients", got.Ingredients, []string{"250g paneer", "2 tbsp cornflour", "1 green chilli"})
+	assertStringSliceEqual(t, "Steps", got.Steps, []string{"Toss the paneer in cornflour.", "Fry until golden."})
+	assertStringEqual(t, "ImageURL", got.ImageURL, "https://scontent.cdninstagram.com/v/reel.jpg")
+	assertIntPtrEqual(t, "Servings", got.Servings, intPtr(2))
+}

@@ -217,9 +217,58 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 			},
 		},
 		{
-			name: "no recipe data returns empty",
+			name: "no recipe data falls back to the document title",
 			html: `<html><head><title>Blog Post</title></head><body><p>Hello world</p></body></html>`,
-			want: services.ExtractedRecipe{},
+			want: services.ExtractedRecipe{Title: "Blog Post"},
+		},
+		{
+			name: "Open Graph fallback supplies title and image",
+			html: `<html><head>
+				<meta property="og:title" content="Sticky Toffee Pudding">
+				<meta property="og:image" content="https://cdn.example.com/pudding.jpg">
+			</head><body></body></html>`,
+			want: services.ExtractedRecipe{
+				Title:    "Sticky Toffee Pudding",
+				ImageURL: "https://cdn.example.com/pudding.jpg",
+			},
+		},
+		{
+			name: "Instagram style caption yields ingredients and steps",
+			html: `<html><head>
+				<meta property="og:title" content="joe_cooks on Instagram: &quot;Marry Me Chicken&quot;">
+				<meta property="og:image" content="https://cdn.example.com/reel.jpg">
+				<meta property="og:description" content="120K likes, 2,100 comments - joe_cooks on January 3, 2026: &quot;Marry Me Chicken 🍗 Serves 4 Ingredients: 4 chicken thighs 200ml double cream 100g sun-dried tomatoes Method: 1. Sear the chicken. 2. Add the cream and simmer. #dinner #recipe&quot;">
+			</head><body></body></html>`,
+			want: services.ExtractedRecipe{
+				Title:       "Marry Me Chicken",
+				Ingredients: []string{"4 chicken thighs 200ml double cream 100g sun-dried tomatoes"},
+				Steps:       []string{"Sear the chicken.", "Add the cream and simmer."},
+				Servings:    intPtr(4),
+				ImageURL:    "https://cdn.example.com/reel.jpg",
+			},
+		},
+		{
+			name: "prose description does not invent ingredients or steps",
+			html: `<html><head>
+				<meta property="og:title" content="Best Ever Brownies">
+				<meta property="og:description" content="These fudgy brownies are the result of ten years of testing. Read on for my tips and tricks.">
+			</head><body></body></html>`,
+			want: services.ExtractedRecipe{Title: "Best Ever Brownies"},
+		},
+		{
+			name: "VideoObject JSON-LD supplies title and thumbnail",
+			html: `<html><head><script type="application/ld+json">{
+				"@type": "VideoObject",
+				"name": "One Pot Sausage Pasta",
+				"thumbnailUrl": ["https://cdn.example.com/video.jpg"],
+				"description": "One Pot Sausage Pasta\nIngredients:\n6 sausages\n400g pasta\nMethod:\n1. Brown the sausages.\n2. Add the pasta and stock."
+			}</script></head><body></body></html>`,
+			want: services.ExtractedRecipe{
+				Title:       "One Pot Sausage Pasta",
+				Ingredients: []string{"6 sausages", "400g pasta"},
+				Steps:       []string{"Brown the sausages.", "Add the pasta and stock."},
+				ImageURL:    "https://cdn.example.com/video.jpg",
+			},
 		},
 		{
 			name: "microdata fallback",

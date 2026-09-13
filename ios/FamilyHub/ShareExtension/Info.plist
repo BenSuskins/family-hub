@@ -26,6 +26,11 @@
 			<dict>
 				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
 				<integer>1</integer>
+				<!-- TikTok and Instagram share a block of text with the link
+				     inside it rather than a web URL attachment, so the
+				     extension has to accept text to appear in their sheets. -->
+				<key>NSExtensionActivationSupportsText</key>
+				<true/>
 			</dict>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>

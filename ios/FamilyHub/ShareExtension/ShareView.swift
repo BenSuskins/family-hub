@@ -15,8 +15,8 @@ private enum ParseStatus {
     var message: String {
         switch self {
         case .success: "Recipe details extracted"
-        case .partial: "Title found — fill in details manually"
-        case .failed:  "Couldn't parse recipe — fill in manually"
+        case .partial: "Only the title and image — add the rest"
+        case .failed:  "Couldn't read this post — fill in manually"
         }
     }
 
@@ -263,12 +263,19 @@ struct ShareView: View {
         prepTime = result.prepTime
         cookTime = result.cookTime
         servings = result.servings
-        if let imageURL = result.imageURL {
-            ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL)
+        if let imageURL = result.imageURL, !imageURL.isEmpty {
+            ogImageDataURI = await OpenGraphFetcher.fetchImageAsDataURI(from: imageURL, referer: sharedURL)
         }
 
-        let hasContent = !ingredients.isEmpty || !steps.isEmpty
-        showToast(hasContent ? .success : .partial)
+        // Social posts rarely give up more than a caption and a thumbnail, so
+        // a title and an image on their own still count as a useful import.
+        if !ingredients.isEmpty || !steps.isEmpty {
+            showToast(.success)
+        } else if !title.isEmpty || ogImageDataURI != nil {
+            showToast(.partial)
+        } else {
+            showToast(.failed)
+        }
     }
 
     private func showToast(_ status: ParseStatus) {

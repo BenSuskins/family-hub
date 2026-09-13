@@ -12,3 +12,23 @@ func NewRecipeExtractorForTest(client *http.Client) *RecipeExtractor {
 		validateURL: func(string) error { return nil },
 	}
 }
+
+// WithOEmbedProvider points the extractor at a stub oEmbed endpoint for the
+// given host, so the TikTok path can be exercised without leaving the test.
+func (extractor *RecipeExtractor) WithOEmbedProvider(host, endpoint string) *RecipeExtractor {
+	if extractor.oembedProviders == nil {
+		extractor.oembedProviders = map[string]string{}
+	}
+	extractor.oembedProviders[host] = endpoint
+	return extractor
+}
+
+// WithCaptionEmbedHost enables the Instagram-style embed fallback for a stub
+// host, so the fallback can be exercised without leaving the test.
+func (extractor *RecipeExtractor) WithCaptionEmbedHost(host string) *RecipeExtractor {
+	if extractor.captionEmbedHosts == nil {
+		extractor.captionEmbedHosts = map[string]bool{}
+	}
+	extractor.captionEmbedHosts[host] = true
+	return extractor
+}

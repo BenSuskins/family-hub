@@ -38,12 +38,6 @@ func defaultCaptionEmbedHosts() map[string]bool {
 	return map[string]bool{"instagram.com": true}
 }
 
-// shortLinkHosts redirect to a canonical URL that the oEmbed providers accept.
-var shortLinkHosts = map[string]bool{
-	"vm.tiktok.com": true,
-	"vt.tiktok.com": true,
-}
-
 // crawlerUserAgentHosts are served Open Graph tags only when the request looks
 // like a social crawler.
 var crawlerUserAgentHosts = map[string]bool{
@@ -146,15 +140,16 @@ func (extractor *RecipeExtractor) extractViaOEmbed(ctx context.Context, endpoint
 // resolveShortLink follows a share-sheet short link to its canonical URL so the
 // oEmbed providers recognise it.
 func (extractor *RecipeExtractor) resolveShortLink(ctx context.Context, rawURL string) string {
-	if !isShortLink(rawURL) {
+	shortLinkURL, ok := shortLinkRequestURL(rawURL)
+	if !ok {
 		return rawURL
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, shortLinkURL, nil)
 	if err != nil {
 		return rawURL
 	}
-	request.Header.Set("User-Agent", userAgentForURL(rawURL))
+	request.Header.Set("User-Agent", userAgentForURL(shortLinkURL))
 
 	response, err := extractor.client.Do(request)
 	if err != nil {
@@ -173,18 +168,28 @@ func (extractor *RecipeExtractor) resolveShortLink(ctx context.Context, rawURL s
 	return resolved
 }
 
-// isShortLink reports whether a URL needs following before a platform will
-// recognise it: the share-sheet hosts, plus TikTok's own /t/ short paths.
-func isShortLink(rawURL string) bool {
-	host := hostOf(rawURL)
-	if shortLinkHosts[host] {
-		return true
-	}
-	if registrableHost(host) != "tiktok.com" {
-		return false
-	}
+// shortLinkRequestURL reports whether a URL needs following before a platform
+// will recognise it — the share-sheet hosts, plus TikTok's own /t/ short paths —
+// and rebuilds it against a constant origin. Only the path survives, so the
+// request cannot be steered to another host, port or scheme by the caller.
+func shortLinkRequestURL(rawURL string) (string, bool) {
 	parsed, err := url.Parse(rawURL)
-	return err == nil && strings.HasPrefix(parsed.Path, "/t/")
+	if err != nil {
+		return "", false
+	}
+
+	host := strings.TrimPrefix(strings.ToLower(parsed.Hostname()), "www.")
+	path := strings.TrimPrefix(parsed.EscapedPath(), "/")
+
+	switch {
+	case host == "vm.tiktok.com":
+		return "https://vm.tiktok.com/" + path, true
+	case host == "vt.tiktok.com":
+		return "https://vt.tiktok.com/" + path, true
+	case registrableHost(host) == "tiktok.com" && strings.HasPrefix(parsed.EscapedPath(), "/t/"):
+		return "https://www.tiktok.com/" + path, true
+	}
+	return "", false
 }
 
 // --- Open Graph / meta tags ---

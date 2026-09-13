@@ -172,3 +172,38 @@ func TestRecipeExtractor_InstagramEmbedFallback(t *testing.T) {
 	assertStringEqual(t, "ImageURL", got.ImageURL, "https://scontent.cdninstagram.com/v/reel.jpg")
 	assertIntPtrEqual(t, "Servings", got.Servings, intPtr(2))
 }
+
+// The short-link lookup rebuilds the URL against a constant origin, so a
+// crafted link cannot steer the request at another host, port or scheme.
+func TestShortLinkRequestURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+		ok    bool
+	}{
+		{name: "vm short link", input: "https://vm.tiktok.com/ZGeAbCdEf/", want: "https://vm.tiktok.com/ZGeAbCdEf/", ok: true},
+		{name: "vt short link", input: "https://vt.tiktok.com/ZSxYz/", want: "https://vt.tiktok.com/ZSxYz/", ok: true},
+		{name: "tiktok /t/ path", input: "https://www.tiktok.com/t/ZTabc/", want: "https://www.tiktok.com/t/ZTabc/", ok: true},
+		{name: "query string is dropped", input: "https://vm.tiktok.com/ZGe/?redirect=http://169.254.169.254/", want: "https://vm.tiktok.com/ZGe/", ok: true},
+		{name: "credentials are dropped", input: "https://evil.example.com@vm.tiktok.com/ZGe/", want: "https://vm.tiktok.com/ZGe/", ok: true},
+		{name: "port is dropped", input: "https://vm.tiktok.com:8080/ZGe/", want: "https://vm.tiktok.com/ZGe/", ok: true},
+		{name: "scheme is forced to https", input: "http://vm.tiktok.com/ZGe/", want: "https://vm.tiktok.com/ZGe/", ok: true},
+		{name: "lookalike host is rejected", input: "https://vm.tiktok.com.evil.example.com/ZGe/", ok: false},
+		{name: "userinfo lookalike is rejected", input: "https://vm.tiktok.com@evil.example.com/ZGe/", ok: false},
+		{name: "full video URL is not a short link", input: "https://www.tiktok.com/@cook/video/123", ok: false},
+		{name: "other host is not a short link", input: "https://example.com/recipe", ok: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := services.ShortLinkRequestURLForTest(tt.input)
+			if ok != tt.ok {
+				t.Fatalf("ok = %v, want %v (got %q)", ok, tt.ok, got)
+			}
+			if ok {
+				assertStringEqual(t, "URL", got, tt.want)
+			}
+		})
+	}
+}

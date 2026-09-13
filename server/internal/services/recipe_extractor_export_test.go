@@ -32,3 +32,9 @@ func (extractor *RecipeExtractor) WithCaptionEmbedHost(host string) *RecipeExtra
 	extractor.captionEmbedHosts[host] = true
 	return extractor
 }
+
+// ShortLinkRequestURLForTest exposes the short-link canonicaliser so its
+// host-pinning can be asserted directly.
+func ShortLinkRequestURLForTest(rawURL string) (string, bool) {
+	return shortLinkRequestURL(rawURL)
+}

@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import FamilyHubKit
 
 protocol KeychainStoring {
     var accessToken: String? { get }
@@ -36,14 +37,16 @@ final class KeychainStore: KeychainStoring {
 
     func saveAPIToken(_ token: String) {
         write(token, for: .apiToken)
-        UserDefaults(suiteName: "group.uk.co.suskins.familyhub")?.set(token, forKey: "api_token")
+        // Mirrored into the app group so the extensions — which cannot run the
+        // OIDC flow — have a bearer to use. See `SharedContainer`.
+        SharedContainer.defaults?.set(token, forKey: SharedContainer.Key.apiToken)
     }
 
     func clear() {
         delete(.accessToken)
         delete(.refreshToken)
         delete(.apiToken)
-        UserDefaults(suiteName: "group.uk.co.suskins.familyhub")?.removeObject(forKey: "api_token")
+        SharedContainer.defaults?.removeObject(forKey: SharedContainer.Key.apiToken)
     }
 
     private func read(_ key: Key) -> String? {

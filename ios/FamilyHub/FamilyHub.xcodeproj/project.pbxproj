@@ -12,6 +12,8 @@
 		A2000004000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000002000000000000001A /* FamilyHubKit */; };
 		A2000005000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001A /* FamilyHubKit */; };
 		A2000007000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000006000000000000001A /* FamilyHubKit */; };
+		A300000D000000000000001A /* FamilyHubWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A3000001000000000000001A /* FamilyHubWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A3000011000000000000001A /* FamilyHubKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000010000000000000001A /* FamilyHubKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +45,13 @@
 			remoteGlobalIDString = A1000007000000000000001A;
 			remoteInfo = ShareExtension;
 		};
+		A300000B000000000000001A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 545AC8C12F6361A8009E96B7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A3000007000000000000001A;
+			remoteInfo = FamilyHubWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -64,6 +73,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A100000D000000000000001A /* ShareExtension.appex in Embed Foundation Extensions */,
+				A300000D000000000000001A /* FamilyHubWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -76,6 +86,7 @@
 		545AC8D62F6361A9009E96B7 /* FamilyHubTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FamilyHubTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		545AC8E02F6361A9009E96B7 /* FamilyHubUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FamilyHubUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000001000000000000001A /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A3000001000000000000001A /* FamilyHubWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyHubWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -92,6 +103,13 @@
 				Info.plist,
 			);
 			target = A1000007000000000000001A /* ShareExtension */;
+		};
+		A3000003000000000000001A /* Exceptions for "FamilyHubWidgets" folder in "FamilyHubWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A3000007000000000000001A /* FamilyHubWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -120,6 +138,14 @@
 				A1000003000000000000001A /* Exceptions for "ShareExtension" folder in "ShareExtension" target */,
 			);
 			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		A3000002000000000000001A /* FamilyHubWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A3000003000000000000001A /* Exceptions for "FamilyHubWidgets" folder in "FamilyHubWidgets" target */,
+			);
+			path = FamilyHubWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -163,6 +189,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A3000005000000000000001A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A3000011000000000000001A /* FamilyHubKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -172,6 +206,7 @@
 				545AC8CB2F6361A9009E96B7 /* FamilyHub */,
 				545AC8D92F6361A9009E96B7 /* FamilyHubTests */,
 				A1000002000000000000001A /* ShareExtension */,
+				A3000002000000000000001A /* FamilyHubWidgets */,
 				543195C13055B9210030BBA7 /* FamilyHubWatch Watch App */,
 				545AC8CA2F6361A9009E96B7 /* Products */,
 			);
@@ -184,6 +219,7 @@
 				545AC8D62F6361A9009E96B7 /* FamilyHubTests.xctest */,
 				545AC8E02F6361A9009E96B7 /* FamilyHubUITests.xctest */,
 				A1000001000000000000001A /* ShareExtension.appex */,
+				A3000001000000000000001A /* FamilyHubWidgets.appex */,
 				543195C03055B9210030BBA7 /* FamilyHubWatch Watch App.app */,
 			);
 			name = Products;
@@ -229,6 +265,7 @@
 			);
 			dependencies = (
 				A100000C000000000000001A /* PBXTargetDependency */,
+				A300000C000000000000001A /* PBXTargetDependency */,
 				543195C93055B9210030BBA7 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
@@ -308,6 +345,29 @@
 			productReference = A1000001000000000000001A /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A3000007000000000000001A /* FamilyHubWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A300000A000000000000001A /* Build configuration list for PBXNativeTarget "FamilyHubWidgets" */;
+			buildPhases = (
+				A3000004000000000000001A /* Sources */,
+				A3000005000000000000001A /* Frameworks */,
+				A3000006000000000000001A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A3000002000000000000001A /* FamilyHubWidgets */,
+			);
+			name = FamilyHubWidgets;
+			packageProductDependencies = (
+				A3000010000000000000001A /* FamilyHubKit */,
+			);
+			productName = FamilyHubWidgets;
+			productReference = A3000001000000000000001A /* FamilyHubWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -335,6 +395,9 @@
 					A1000007000000000000001A = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					A3000007000000000000001A = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 545AC8C42F6361A8009E96B7 /* Build configuration list for PBXProject "FamilyHub" */;
@@ -358,6 +421,7 @@
 				545AC8D52F6361A9009E96B7 /* FamilyHubTests */,
 				545AC8DF2F6361A9009E96B7 /* FamilyHubUITests */,
 				A1000007000000000000001A /* ShareExtension */,
+				A3000007000000000000001A /* FamilyHubWidgets */,
 				543195BF3055B9210030BBA7 /* FamilyHubWatch Watch App */,
 			);
 		};
@@ -393,6 +457,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A1000006000000000000001A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A3000006000000000000001A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -437,6 +508,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A3000004000000000000001A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -459,6 +537,11 @@
 			isa = PBXTargetDependency;
 			target = A1000007000000000000001A /* ShareExtension */;
 			targetProxy = A100000B000000000000001A /* PBXContainerItemProxy */;
+		};
+		A300000C000000000000001A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A3000007000000000000001A /* FamilyHubWidgets */;
+			targetProxy = A300000B000000000000001A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -864,6 +947,66 @@
 			};
 			name = Release;
 		};
+		A3000008000000000000001A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyHubWidgets/FamilyHubWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = PF88YZ2HU7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FamilyHubWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.suskins.FamilyHub.FamilyHubWidgets;
+				PRODUCT_NAME = FamilyHubWidgets;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A3000009000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FamilyHubWidgets/FamilyHubWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = PF88YZ2HU7;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FamilyHubWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.suskins.FamilyHub.FamilyHubWidgets;
+				PRODUCT_NAME = FamilyHubWidgets;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -921,6 +1064,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A300000A000000000000001A /* Build configuration list for PBXNativeTarget "FamilyHubWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A3000008000000000000001A /* Debug */,
+				A3000009000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -940,6 +1092,10 @@
 			productName = FamilyHubKit;
 		};
 		A2000006000000000000001A /* FamilyHubKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FamilyHubKit;
+		};
+		A3000010000000000000001A /* FamilyHubKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FamilyHubKit;
 		};

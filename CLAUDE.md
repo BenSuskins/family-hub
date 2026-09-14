@@ -18,6 +18,22 @@ update `docs/endpoints.md` in the same change.** Do not let it drift.
 | iOS app | `ios/` | SwiftUI native client |
 | Home Assistant | `home-assistant/` | Custom HACS integration |
 
+### iOS targets
+
+| Target | Directory | Notes |
+|--------|-----------|-------|
+| `FamilyHub` | `ios/FamilyHub/FamilyHub/` | The app |
+| `FamilyHubWidgets` | `ios/FamilyHub/FamilyHubWidgets/` | WidgetKit extension (Today's Chores) |
+| `ShareExtension` | `ios/FamilyHub/ShareExtension/` | Recipe share sheet |
+| `FamilyHubWatch Watch App` | `ios/FamilyHub/FamilyHubWatch Watch App/` | Cook mode on the wrist |
+| `FamilyHubKit` | `ios/FamilyHubKit/` | Shared models + networking, Foundation-only so CI tests it on Linux |
+
+Only the app can run the OIDC flow, so it mirrors the server URL and the
+long-lived API token into the shared app group for the extensions to read — see
+`SharedContainer` in FamilyHubKit. New logic that an extension needs belongs in
+FamilyHubKit, where the Linux CI job tests it in seconds; the widget target
+itself should stay close to pure SwiftUI.
+
 ## Architecture
 
 Request flow: HTTP → Chi router → Middleware → Handler → Service → Repository → SQLite

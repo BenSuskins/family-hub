@@ -1,4 +1,5 @@
 import Foundation
+import FamilyHubKit
 
 @Observable @MainActor
 final class ConfigStore {
@@ -14,9 +15,9 @@ final class ConfigStore {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = UserDefaults(suiteName: "group.uk.co.suskins.familyhub") ?? .standard) {
+    init(defaults: UserDefaults = SharedContainer.defaults ?? .standard) {
         self.defaults = defaults
-        self.baseURL = defaults.string(forKey: "baseURL") ?? ""
+        self.baseURL = defaults.string(forKey: SharedContainer.Key.baseURL) ?? ""
         self.clientID = defaults.string(forKey: "clientID") ?? ""
         self.authorizationEndpoint = defaults.string(forKey: "authorizationEndpoint") ?? ""
         self.tokenEndpoint = defaults.string(forKey: "tokenEndpoint") ?? ""
@@ -29,7 +30,7 @@ final class ConfigStore {
     }
 
     func save() {
-        defaults.set(baseURL, forKey: "baseURL")
+        defaults.set(baseURL, forKey: SharedContainer.Key.baseURL)
         defaults.set(clientID, forKey: "clientID")
         defaults.set(authorizationEndpoint, forKey: "authorizationEndpoint")
         defaults.set(tokenEndpoint, forKey: "tokenEndpoint")

@@ -104,23 +104,29 @@ final class ChoresViewModel: MutableListViewModel {
     }
 
     func createChore(_ request: ChoreRequest) async -> Chore? {
-        await performMutation { try await apiClient.createChore(request) } applying: { created, chores in
+        let created = await performMutation { try await apiClient.createChore(request) } applying: { created, chores in
             chores.append(created)
         }
+        if created != nil { WidgetPublisher.invalidate() }
+        return created
     }
 
     func updateChore(id: String, _ request: ChoreRequest) async -> Chore? {
-        await performMutation { try await apiClient.updateChore(id: id, request) } applying: { updated, chores in
+        let updated = await performMutation { try await apiClient.updateChore(id: id, request) } applying: { updated, chores in
             if let index = chores.firstIndex(where: { $0.id == id }) {
                 chores[index] = updated
             }
         }
+        if updated != nil { WidgetPublisher.invalidate() }
+        return updated
     }
 
     func deleteChore(id: String) async -> Bool {
-        await performDeletion { try await apiClient.deleteChore(id: id) } applying: { chores in
+        let deleted = await performDeletion { try await apiClient.deleteChore(id: id) } applying: { chores in
             chores.removeAll { $0.id == id }
         }
+        if deleted { WidgetPublisher.invalidate() }
+        return deleted
     }
 
     func complete(choreID: String) async -> Bool {
@@ -132,6 +138,7 @@ final class ChoresViewModel: MutableListViewModel {
                     chores[index] = chores[index].completed
                 }
             }
+            WidgetPublisher.completed(choreID: choreID)
             return true
         } catch {
             actionError = .from(error)

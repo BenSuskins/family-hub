@@ -76,6 +76,10 @@ final class AuthManager: NSObject, TokenProviding {
     func signOut() {
         keychain.clear()
         PhoneWatchLink.shared.clearCredentials()
+        // The widget reads from the shared app group, which outlives the app
+        // process — leaving the snapshot there would keep the family's chores
+        // on the Home Screen after signing out.
+        WidgetPublisher.clear()
         isAuthenticated = false
         isDemoMode = false
     }

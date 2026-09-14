@@ -63,9 +63,9 @@ final class PhoneWatchLink: NSObject, WCSessionDelegate {
     /// the keychain itself is not readable from every context, and this value is
     /// always written alongside it.
     func syncStoredCredentials() {
-        let defaults = UserDefaults(suiteName: "group.uk.co.suskins.familyhub")
-        guard let token = defaults?.string(forKey: "api_token"), !token.isEmpty,
-              let baseURL = defaults?.string(forKey: "baseURL"), !baseURL.isEmpty else {
+        let defaults = SharedContainer.defaults
+        guard let token = defaults?.string(forKey: SharedContainer.Key.apiToken), !token.isEmpty,
+              let baseURL = defaults?.string(forKey: SharedContainer.Key.baseURL), !baseURL.isEmpty else {
             return
         }
         sendCredentials(apiToken: token, baseURL: baseURL)

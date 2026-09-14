@@ -27,5 +27,15 @@ struct ContentView: View {
         }
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
+        .onOpenURL { url in
+            // Where the Today's Chores widget links to. There is no Chores tab
+            // — chores live on Home — so that is where a tap lands.
+            //
+            // The OIDC callback shares this scheme but never arrives here:
+            // ASWebAuthenticationSession consumes it, and this view only
+            // exists once the user is signed in.
+            guard url.scheme == "familyhub", url.host == "today" else { return }
+            selectedTab = .home
+        }
     }
 }

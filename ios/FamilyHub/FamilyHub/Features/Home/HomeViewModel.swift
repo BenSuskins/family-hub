@@ -48,8 +48,10 @@ final class HomeViewModel {
             todayEvents = cal.events
             state = .loaded(stats)
             // The widget's own refresh budget is a few dozen a day, so every
-            // dashboard load here is worth far more to it than one of its own.
-            WidgetPublisher.publish(stats: stats, users: users)
+            // load here is worth far more to it than one of its own — and this
+            // is the only place that has the dashboard, the events and the
+            // users together, which is exactly what a day needs.
+            WidgetPublisher.publish(stats: stats, events: cal.events, users: users)
             if silent { completedChoreIDs = [] }
         } catch {
             if !silent { state = .failed(.from(error)) }

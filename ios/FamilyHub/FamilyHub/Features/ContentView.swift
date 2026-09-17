@@ -28,14 +28,20 @@ struct ContentView: View {
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .onOpenURL { url in
-            // Where the Today's Chores widget links to. There is no Chores tab
-            // — chores live on Home — so that is where a tap lands.
+            // Where the Today widget links to: the widget as a whole, and its
+            // chore rows, land on Home — there is no Chores tab — while event
+            // and meal rows open the tab they came from.
             //
             // The OIDC callback shares this scheme but never arrives here:
             // ASWebAuthenticationSession consumes it, and this view only
             // exists once the user is signed in.
-            guard url.scheme == "familyhub", url.host == "today" else { return }
-            selectedTab = .home
+            guard url.scheme == "familyhub" else { return }
+            switch url.host {
+            case "today":    selectedTab = .home
+            case "calendar": selectedTab = .calendar
+            case "meals":    selectedTab = .meals
+            default:         break
+            }
         }
     }
 }

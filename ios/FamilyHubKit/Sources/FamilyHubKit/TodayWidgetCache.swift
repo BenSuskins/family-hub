@@ -11,6 +11,10 @@ import Foundation
 /// server is unreachable, which matters for a self-hosted hub that may only be
 /// on the home network.
 ///
+/// A snapshot written by an older build may no longer decode. That reads back
+/// as "no cache", which is the state that sends the widget to the network, so
+/// a changed snapshot shape needs no migration.
+///
 /// `nonisolated` throughout: a timeline provider reads this off the main actor.
 public enum TodayWidgetCache {
     /// How old a snapshot may be before the widget refetches rather than
@@ -36,7 +40,7 @@ public enum TodayWidgetCache {
     }
 
     /// Drop the snapshot — on sign-out, so a widget can't keep displaying the
-    /// family's chores to whoever holds the phone next.
+    /// family's day to whoever holds the phone next.
     public nonisolated static func clear() {
         clear(from: SharedContainer.defaults)
     }

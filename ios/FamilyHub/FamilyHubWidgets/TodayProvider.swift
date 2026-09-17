@@ -2,13 +2,13 @@ import Foundation
 import WidgetKit
 import FamilyHubKit
 
-/// Supplies entries for the Today's Chores widget.
+/// Supplies entries for the Today widget.
 ///
 /// Reads the app's published snapshot first and only goes to the network when
 /// that is stale. WidgetKit allows a widget a few dozen refreshes a day, while
-/// the app loads the dashboard every time someone opens it — so the cheapest
-/// and freshest source is usually the app's own last load, not a request from
-/// here.
+/// the app loads the dashboard and today's calendar every time someone opens
+/// Home — so the cheapest and freshest source is usually the app's own last
+/// load, not three requests from here.
 struct TodayProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> TodayEntry {
@@ -39,6 +39,8 @@ struct TodayProvider: TimelineProvider {
             return TodayEntry(date: now, data: .blank(at: now), status: .signedOut)
         }
 
+        // A snapshot written by a build with a different shape won't decode
+        // and reads back as nil, which is the same as no cache: fetch.
         let cached = TodayWidgetCache.load()
         if let cached, TodayWidgetCache.isFresh(cached, now: now) {
             return TodayEntry(date: now, data: cached, status: .ok)

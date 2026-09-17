@@ -234,7 +234,7 @@ curl -s $BASE_URL/api/categories -H "Authorization: Bearer $API_TOKEN" | jq
 
 ### `GET /api/dashboard`
 - **Usecase:** Counts + lists for today/overdue chores and today/week meals.
-- **Callers:** iOS app dashboard, HA integration.
+- **Callers:** iOS app dashboard, iOS Today widget, HA integration.
 - **Security:** API token.
 
 ```bash
@@ -388,7 +388,8 @@ curl -s -o /dev/null -w "%{http_code}\n" $BASE_URL/api/recipes/<recipeID>/image 
 
 ### `GET /api/calendar?view=month|week|day&date=YYYY-MM-DD|month=YYYY-MM`
 - **Usecase:** Unified view: chores + iCal events + meals for the range.
-- **Callers:** iOS app calendar tab.
+- **Callers:** iOS app calendar tab; iOS app home screen and the Today widget
+  both use `view=day` for today's events.
 - **Security:** API token.
 
 ```bash

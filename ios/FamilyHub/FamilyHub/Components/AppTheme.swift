@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FamilyHubKit
 
 // MARK: - Design tokens
 
@@ -53,14 +54,14 @@ extension View {
 // MARK: - Color hex init
 
 extension Color {
+    /// Builds a colour from one of the server's `RRGGBB` calendar colours.
+    ///
+    /// The parsing lives in ``HexColor`` in FamilyHubKit so the widget
+    /// extension — which cannot import this target — gets the same behaviour,
+    /// and so the Linux CI job tests it.
     init?(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
-        guard cleaned.count == 6, let rgb = UInt64(cleaned, radix: 16) else { return nil }
-        self.init(
-            red: Double((rgb >> 16) & 0xFF) / 255,
-            green: Double((rgb >> 8) & 0xFF) / 255,
-            blue: Double(rgb & 0xFF) / 255
-        )
+        guard let parsed = HexColor(hex: hex) else { return nil }
+        self.init(red: parsed.red, green: parsed.green, blue: parsed.blue)
     }
 }
 

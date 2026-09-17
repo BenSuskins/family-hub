@@ -35,21 +35,28 @@ enum WidgetEnvironment {
         return client
     }
 
-    /// Fetch a fresh snapshot, or `nil` when unconfigured or the server could
-    /// not be reached. Callers fall back to the cached snapshot; a self-hosted
-    /// hub is often unreachable away from home, so that is an ordinary outcome
-    /// rather than a failure worth surfacing.
+    /// Fetch a fresh day, or `nil` when unconfigured or the server could not be
+    /// reached. Callers fall back to the cached snapshot; a self-hosted hub is
+    /// often unreachable away from home, so that is an ordinary outcome rather
+    /// than a failure worth surfacing.
+    ///
+    /// Three requests in parallel. Only the dashboard is load-bearing: it
+    /// carries the outstanding chores and today's meals, and there is no
+    /// honest day to draw without it. The calendar and the user list each
+    /// degrade a part of the widget rather than the whole of it, so a failure
+    /// in either is swallowed — a day with its events missing still beats
+    /// "can't reach the hub".
     static func fetchSnapshot() async -> TodayWidgetData? {
         guard let client = client() else { return nil }
 
         async let statsTask = client.fetchDashboardStats()
+        async let calendarTask = client.fetchCalendar(view: "day", date: Date())
         async let usersTask = client.fetchUsers()
         do {
             let stats = try await statsTask
-            // Users only supply the name beside each chore, so losing them
-            // degrades a row rather than the whole widget.
+            let events = (try? await calendarTask)?.events ?? []
             let users = (try? await usersTask) ?? []
-            return TodayWidgetData.from(stats: stats, users: users.keyedByID)
+            return TodayWidgetData.from(stats: stats, events: events, users: users.keyedByID)
         } catch {
             return nil
         }

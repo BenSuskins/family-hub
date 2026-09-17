@@ -11,7 +11,7 @@ import FamilyHubKit
 struct CompleteChoreIntent: AppIntent {
     nonisolated static var title: LocalizedStringResource { "Complete Chore" }
     nonisolated static var description: IntentDescription {
-        IntentDescription("Marks a chore as done from the Today's Chores widget.")
+        IntentDescription("Marks a chore as done from the Today widget.")
     }
     nonisolated static var isDiscoverable: Bool { false }
 
@@ -39,7 +39,7 @@ struct CompleteChoreIntent: AppIntent {
         if let cached = TodayWidgetCache.load() {
             TodayWidgetCache.save(cached.removing(choreID: choreID))
         }
-        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKind.todayChores)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKind.today)
 
         return .result()
     }

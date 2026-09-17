@@ -2,7 +2,7 @@ import Foundation
 import WidgetKit
 import FamilyHubKit
 
-/// One rendering of the Today's Chores widget.
+/// One rendering of the Today widget.
 struct TodayEntry: TimelineEntry {
     enum Status: Equatable {
         /// Real data, either fresh from the server or recently published by
@@ -15,8 +15,8 @@ struct TodayEntry: TimelineEntry {
         /// set up, or someone signed out.
         case signedOut
         /// The server is unreachable and there is nothing cached to fall back
-        /// on. Distinct from `ok` with no chores: "we don't know" must never
-        /// be drawn as "nothing to do".
+        /// on. Distinct from `ok` with an empty day: "we don't know" must never
+        /// be drawn as "nothing on".
         case unavailable
     }
 
@@ -24,10 +24,10 @@ struct TodayEntry: TimelineEntry {
     let data: TodayWidgetData
     let status: Status
 
-    /// Whether the entry carries chore data worth drawing.
+    /// Whether the entry carries a day worth drawing.
     var hasData: Bool {
         switch status {
-        case .ok, .cached:            return true
+        case .ok, .cached:             return true
         case .signedOut, .unavailable: return false
         }
     }
@@ -57,13 +57,58 @@ struct TodayEntry: TimelineEntry {
             date: Date(),
             data: TodayWidgetData(
                 items: [
-                    .init(id: "1", name: "Put the bins out", assigneeName: "Ben", assigneeInitials: "B", isOverdue: true, detail: "Sep 12"),
-                    .init(id: "2", name: "Hoover the front room", assigneeName: "Alex", assigneeInitials: "A", detail: "18:00"),
-                    .init(id: "3", name: "Load the dishwasher", assigneeName: "Sam", assigneeInitials: "S"),
-                    .init(id: "4", name: "Walk the dog", assigneeName: "Ben", assigneeInitials: "B", detail: "19:30"),
+                    .init(
+                        id: "chore-1",
+                        kind: .chore,
+                        title: "Put the bins out",
+                        subtitle: "Ben · Sep 15",
+                        timeLabel: "Overdue",
+                        isOverdue: true,
+                        choreID: "1",
+                        initials: "B"
+                    ),
+                    .init(
+                        id: "event-1",
+                        kind: .event,
+                        title: "Swimming lesson",
+                        subtitle: "Leisure centre",
+                        timeLabel: "17:30",
+                        colorHex: "3B82F6"
+                    ),
+                    .init(
+                        id: "chore-2",
+                        kind: .chore,
+                        title: "Hoover the front room",
+                        subtitle: "Alex",
+                        timeLabel: "18:00",
+                        choreID: "2",
+                        initials: "A"
+                    ),
+                    .init(
+                        id: "event-2",
+                        kind: .event,
+                        title: "Book club",
+                        subtitle: "The Crown",
+                        timeLabel: "20:00",
+                        colorHex: "F97316"
+                    ),
+                    .init(
+                        id: "chore-3",
+                        kind: .chore,
+                        title: "Load the dishwasher",
+                        subtitle: "Sam",
+                        choreID: "3",
+                        initials: "S"
+                    ),
                 ],
+                totalItemCount: 5,
                 overdueCount: 1,
-                dueTodayCount: 3,
+                dueTodayCount: 2,
+                eventCount: 2,
+                meals: [
+                    .init(slot: .lunch, name: "Jacket potatoes"),
+                    .init(slot: .dinner, name: "Spaghetti bolognese"),
+                ],
                 capturedAt: Date()
             ),
             status: .ok

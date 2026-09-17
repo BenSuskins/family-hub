@@ -23,7 +23,7 @@ update `docs/endpoints.md` in the same change.** Do not let it drift.
 | Target | Directory | Notes |
 |--------|-----------|-------|
 | `FamilyHub` | `ios/FamilyHub/FamilyHub/` | The app |
-| `FamilyHubWidgets` | `ios/FamilyHub/FamilyHubWidgets/` | WidgetKit extension (Today's Chores) |
+| `FamilyHubWidgets` | `ios/FamilyHub/FamilyHubWidgets/` | WidgetKit extension (Today: the day's events, chores and meals) |
 | `ShareExtension` | `ios/FamilyHub/ShareExtension/` | Recipe share sheet |
 | `FamilyHubWatch Watch App` | `ios/FamilyHub/FamilyHubWatch Watch App/` | Cook mode on the wrist |
 | `FamilyHubKit` | `ios/FamilyHubKit/` | Shared models + networking, Foundation-only so CI tests it on Linux |

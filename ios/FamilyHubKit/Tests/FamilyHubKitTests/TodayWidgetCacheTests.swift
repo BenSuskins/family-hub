@@ -5,9 +5,30 @@ final class TodayWidgetCacheTests: XCTestCase {
 
     private func makeSnapshot(capturedAt: Date) -> TodayWidgetData {
         TodayWidgetData(
-            items: [TodayWidgetData.Item(id: "c1", name: "Bins", assigneeName: "Ben", assigneeInitials: "B")],
+            items: [
+                TodayWidgetData.Item(
+                    id: "chore-c1",
+                    kind: .chore,
+                    title: "Bins",
+                    subtitle: "Ben",
+                    timeLabel: "08:00",
+                    choreID: "c1",
+                    initials: "B"
+                ),
+                TodayWidgetData.Item(
+                    id: "event-e1",
+                    kind: .event,
+                    title: "Swimming",
+                    subtitle: "Pool",
+                    timeLabel: "17:30",
+                    colorHex: "3B82F6"
+                ),
+            ],
+            totalItemCount: 2,
             overdueCount: 1,
             dueTodayCount: 2,
+            eventCount: 1,
+            meals: [TodayWidgetData.Meal(slot: .dinner, name: "Bolognese")],
             capturedAt: capturedAt
         )
     }
@@ -67,7 +88,7 @@ final class TodayWidgetCacheTests: XCTestCase {
         }
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        // nil and "nothing to do" are different states: the first sends the
+        // nil and "nothing on" are different states: the first sends the
         // widget to the network, the second draws an all-clear.
         XCTAssertNil(TodayWidgetCache.load(from: defaults))
     }
@@ -75,31 +96,43 @@ final class TodayWidgetCacheTests: XCTestCase {
     func testLoadingIsNilWhenThereAreNoSharedDefaults() {
         XCTAssertNil(TodayWidgetCache.load(from: nil))
     }
-}
 
-extension TodayWidgetCacheTests {
-
-    func testInvalidatingKeepsTheChoresButMakesThemStale() throws {
+    // A snapshot written by a build with a different shape must read back as
+    // "no cache" rather than throwing or half-decoding: that is what makes a
+    // changed snapshot shape a non-event for anyone upgrading.
+    func testASnapshotInAnUnrecognisedShapeReadsBackAsNoCache() throws {
         let suite = "uk.co.suskins.familyhub.tests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else {
             throw XCTSkip("UserDefaults suites are unavailable on this platform")
         }
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        let snapshot = TodayWidgetData(
-            items: [TodayWidgetData.Item(id: "c1", name: "Bins")],
-            overdueCount: 0,
-            dueTodayCount: 1,
-            capturedAt: Date()
-        )
-        TodayWidgetCache.save(snapshot, to: defaults)
+        // The chores-only snapshot this widget replaced.
+        let legacy = #"{"items":[{"id":"c1","name":"Bins"}],"overdueCount":1,"dueTodayCount":0,"capturedAt":0}"#
+        defaults.set(Data(legacy.utf8), forKey: SharedContainer.Key.todaySnapshot)
+
+        XCTAssertNil(TodayWidgetCache.load(from: defaults))
+    }
+}
+
+extension TodayWidgetCacheTests {
+
+    func testInvalidatingKeepsTheDayButMakesItStale() throws {
+        let suite = "uk.co.suskins.familyhub.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            throw XCTSkip("UserDefaults suites are unavailable on this platform")
+        }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        TodayWidgetCache.save(makeSnapshot(capturedAt: Date()), to: defaults)
 
         TodayWidgetCache.invalidate(in: defaults)
 
         let reloaded = try XCTUnwrap(TodayWidgetCache.load(from: defaults))
-        // The chores survive as an offline fallback; only the freshness goes.
-        XCTAssertEqual(reloaded.items.map(\.id), ["c1"])
-        XCTAssertEqual(reloaded.dueTodayCount, 1)
+        // The day survives as an offline fallback; only the freshness goes.
+        XCTAssertEqual(reloaded.items.map(\.id), ["chore-c1", "event-e1"])
+        XCTAssertEqual(reloaded.dueTodayCount, 2)
+        XCTAssertEqual(reloaded.meals.map(\.name), ["Bolognese"])
         XCTAssertFalse(TodayWidgetCache.isFresh(reloaded))
     }
 

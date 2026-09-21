@@ -1,11 +1,15 @@
 name: iOS CI
 
+# The workflow file is in its own trigger paths on purpose. Without it a change
+# to this file does not run this workflow, so a CI change cannot be tested before
+# it is merged — it first runs on whatever `ios/**` change comes next, by which
+# point a mistake is already on main. That is how this very PR started out.
 on:
   push:
     branches: [main]
-    paths: ['ios/**']
+    paths: ['ios/**', '.github/workflows/ios.yml']
   pull_request:
-    paths: ['ios/**']
+    paths: ['ios/**', '.github/workflows/ios.yml']
 
 permissions:
   contents: read

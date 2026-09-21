@@ -18,12 +18,28 @@ jobs:
     name: FamilyHubKit (Linux)
     runs-on: ubuntu-latest
 
+    # The toolchain arrives as a container image rather than an install step.
+    #
+    # `swift-actions/setup-swift` downloads and unpacks a toolchain on every run,
+    # and in the Races repo — same action, same version — it hung for 26 minutes
+    # without emitting a line: no timeout, no failure, just a stalled step that
+    # never reached Build. The official image is pulled by the runner's own
+    # container machinery, which retries and caches, so there is no third-party
+    # download in the critical path. It is quicker too, since nothing is fetched
+    # and unpacked per run.
+    #
+    # The tag is written out rather than held in a matrix on purpose: a matrix
+    # makes GitHub append its value to the check name, and a renamed check can
+    # break branch protection.
+    container: swift:6.2
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: '6.2'
+      # Cheap, and it puts the exact toolchain in the log — useful when a build
+      # succeeds locally and fails here, or the reverse.
+      - name: Toolchain
+        run: swift --version
 
       - name: Build
         run: swift build --package-path ios/FamilyHubKit
@@ -40,15 +56,72 @@ jobs:
       - name: Select Xcode 26.1
         run: sudo xcode-select -s /Applications/Xcode_26.1.app
 
+      # Resolve the simulator at run time instead of naming a model.
+      #
+      # `name=iPhone 16,OS=latest` reads like a sensible pin and is really a pin
+      # on the runner image's installed device list. It took the Races repo's
+      # main branch red: the image had no iPhone 16 installed, and xcodebuild
+      # could offer only its two placeholder destinations. Nothing about that was
+      # specific to that repo — this workflow has the same exposure.
+      #
+      # The diagnostics matter as much as the fix. The original failure named
+      # only the one device it could not find; this says so plainly and prints
+      # what the runner does have.
+      - name: Pick a simulator
+        id: simulator
+        run: |
+          devices=$(xcrun simctl list devices available -j)
+
+          # Runtime keys look like com.apple.CoreSimulator.SimRuntime.iOS-26-1,
+          # so reverse identifier order is newest-first in practice.
+          udid=$(printf '%s' "$devices" | jq -r '
+            .devices
+            | to_entries
+            | map(select(.key | test("iOS")))
+            | sort_by(.key)
+            | reverse
+            | (.[0].value // [])
+            | map(select(.name | startswith("iPhone")))
+            | (.[0].udid // empty)
+          ')
+
+          if [ -z "$udid" ]; then
+            echo "::error::No iOS simulator is installed on this runner."
+            xcrun simctl list runtimes
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          name=$(printf '%s' "$devices" | jq -r --arg udid "$udid" '
+            [.devices[][] | select(.udid == $udid)] | (.[0].name // "unknown")')
+          echo "Testing on $name ($udid)"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
       - name: Test
         run: |
           xcodebuild test \
             -project ios/FamilyHub/FamilyHub.xcodeproj \
             -scheme FamilyHub \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
             -resultBundlePath ios-test-results \
             -skip-testing:FamilyHubUITests \
             CODE_SIGNING_ALLOWED=NO
+
+      # The result bundle was already being written and then thrown away, so a
+      # red check could not be inspected without reproducing it locally.
+      # `always()` is the point: the bundle matters most when the step above
+      # failed. Both paths because xcodebuild is inconsistent about the
+      # extension.
+      - name: Upload result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            ios-test-results
+            ios-test-results.xcresult
+          retention-days: 7
+          if-no-files-found: warn
 
       # The iOS scheme already builds the watch app, since Embed Watch Content
       # carries a target dependency. Building it explicitly gives a named signal

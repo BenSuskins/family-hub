@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import FamilyHubKit
 
 private enum DemoData {
@@ -169,6 +170,19 @@ final class DemoAPIClient: APIClientProtocol {
     private var tokens: [APIToken] = []
     private var areas: [InventoryArea] = DemoData.inventory
 
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
+            let today = APIDate.dayString(Date())
+            meals = [
+                MealPlan(date: today, mealType: "breakfast", name: "Eggs and toast", notes: "", recipeID: DemoData.chickenRecipeID),
+                MealPlan(date: today, mealType: "lunch", name: "Roasted vegetables with rice and lemon", notes: "", recipeID: nil),
+                MealPlan(date: today, mealType: "dinner", name: "Pasta salad", notes: "", recipeID: DemoData.pastaRecipeID),
+            ]
+        }
+        #endif
+    }
+
     func fetchDashboardStats() async throws -> DashboardStats {
         let overdue = chores.filter { $0.status == .overdue }
         let dueToday = chores.filter { $0.badge == .dueToday }
@@ -269,7 +283,19 @@ final class DemoAPIClient: APIClientProtocol {
         return recipe
     }
 
-    func fetchRecipeImage(id: String) async throws -> Data { Data() }
+    func fetchRecipeImage(id: String) async throws -> Data {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
+            guard id == DemoData.chickenRecipeID else { throw APIError.offline }
+            return UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64)).pngData { context in
+                UIColor.systemOrange.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+                UIImage(systemName: "carrot.fill")?.withTintColor(.white).draw(in: CGRect(x: 12, y: 12, width: 40, height: 40))
+            }
+        }
+        #endif
+        return Data()
+    }
 
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
         let recipe = Recipe(

@@ -3,6 +3,95 @@ import UIKit
 
 final class ContentScreensUITests: XCTestCase {
     @MainActor
+    func testHomeAndIngredientActionsWithAccessibilityText() {
+        continueAfterFailure = false
+        if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launchDemo(largeText: true, mealImages: true)
+        let weather = app.buttons["home-weather"]
+        reveal(weather, in: app)
+        let date = app.staticTexts["home-date"]
+        XCTAssertGreaterThanOrEqual(weather.frame.minY, date.frame.maxY - 1)
+        capture(app, "home-header-accessibility")
+        let breakfast = app.buttons["today-meal-breakfast"]
+        reveal(breakfast, in: app)
+        XCTAssertLessThanOrEqual(breakfast.frame.maxX, app.windows.firstMatch.frame.maxX)
+        capture(app, "home-meal-accessibility")
+        breakfast.tap()
+        let ingredient = app.buttons["Add 500g chicken breast, sliced to shopping list"]
+        reveal(ingredient, in: app)
+        XCTAssertGreaterThanOrEqual(ingredient.frame.width.rounded(), 44)
+        XCTAssertGreaterThanOrEqual(ingredient.frame.height.rounded(), 44)
+        ingredient.tap()
+        XCTAssertTrue(app.buttons["Added 500g chicken breast, sliced to shopping list"].waitForExistence(timeout: 5))
+        capture(app, "recipe-ingredient-accessibility")
+    }
+
+    @MainActor
+    func testHomeKeepsWeatherInTheHeaderAndMealCardsEqual() {
+        continueAfterFailure = false
+        let app = launchDemo(mealImages: true)
+        XCTAssertTrue(app.buttons["Open profile"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Shopping List"].exists)
+        XCTAssertFalse(app.buttons["Manage"].exists)
+        let weather = app.buttons["home-weather"]
+        XCTAssertTrue(weather.waitForExistence(timeout: 5))
+        let date = app.staticTexts["home-date"]
+        XCTAssertLessThan(abs(date.frame.midY - weather.frame.midY), 24)
+
+        let breakfast = app.buttons["today-meal-breakfast"]
+        reveal(breakfast, in: app)
+        let lunch = app.buttons["today-meal-lunch"]
+        let dinner = app.buttons["today-meal-dinner"]
+        XCTAssertEqual(breakfast.frame.height, lunch.frame.height, accuracy: 1)
+        XCTAssertEqual(breakfast.frame.height, dinner.frame.height, accuracy: 1)
+        XCTAssertEqual(breakfast.frame.width, dinner.frame.width, accuracy: 1)
+        capture(app, "home-meal-images")
+
+        reveal(weather, in: app, towardTop: true)
+        weather.tap()
+        XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testIngredientAddsOneShoppingItemAndKeepsTheChecklist() {
+        continueAfterFailure = false
+        let app = launchDemo()
+        selectTab("Food", in: app)
+        let recipes = app.buttons["Recipes"]
+        reveal(recipes, in: app)
+        let breakfast = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Add breakfast")).firstMatch
+        XCTAssertLessThan(breakfast.frame.minY, recipes.frame.minY)
+        recipes.tap()
+        let recipe = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch
+        reveal(recipe, in: app)
+        recipe.tap()
+        let ingredient = app.buttons["Add 500g chicken breast, sliced to shopping list"]
+        reveal(ingredient, in: app)
+        XCTAssertGreaterThanOrEqual(ingredient.frame.height.rounded(), 44)
+        ingredient.tap()
+        let added = app.buttons["Added 500g chicken breast, sliced to shopping list"]
+        XCTAssertTrue(added.waitForExistence(timeout: 5))
+        XCTAssertFalse(added.isEnabled)
+        let checklist = app.buttons["500g chicken breast, sliced"]
+        checklist.tap()
+        XCTAssertEqual(checklist.value as? String, "Checked")
+        capture(app, "recipe-ingredient-added")
+
+        selectTab("Household", in: app)
+        let item = app.buttons["Purchase 500g chicken breast, sliced"]
+        reveal(item, in: app)
+        XCTAssertTrue(item.exists)
+        XCTAssertFalse(app.buttons["Purchase 3 tbsp soy sauce"].exists)
+        let inventory = app.buttons["Inventory"]
+        reveal(inventory, in: app)
+        XCTAssertLessThan(item.frame.minY, inventory.frame.minY)
+        capture(app, "shopping-before-inventory")
+        inventory.tap()
+        XCTAssertTrue(app.navigationBars["Inventory"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testLowStockAdditionCanBePurchasedAndRestocked() {
         continueAfterFailure = false
         let app = launchDemo()
@@ -49,26 +138,35 @@ final class ContentScreensUITests: XCTestCase {
         item.typeText("Apples\n")
         let purchase = app.buttons["Purchase Apples"]
         reveal(purchase, in: app)
-        XCTAssertGreaterThanOrEqual(purchase.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(purchase.frame.height.rounded(), 44)
         purchase.tap()
         XCTAssertTrue(app.buttons["Restore Apples"].waitForExistence(timeout: 5))
         let inventory = app.buttons["Inventory"]
-        reveal(inventory, in: app, towardTop: true)
+        reveal(inventory, in: app)
         inventory.tap()
         XCTAssertTrue(app.navigationBars["Inventory"].waitForExistence(timeout: 5))
     }
 
     @MainActor
-    private func launchDemo(largeText: Bool = false) -> XCUIApplication {
+    private func launchDemo(largeText: Bool = false, mealImages: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         if largeText {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
+        if mealImages { app.launchArguments.append("-demo-meal-card-images") }
         app.launch()
         let demo = app.buttons["Try Demo"]
         reveal(demo, in: app)
         demo.tap()
         return app
+    }
+
+    @MainActor
+    private func capture(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor

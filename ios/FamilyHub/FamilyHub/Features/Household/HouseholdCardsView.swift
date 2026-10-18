@@ -2,51 +2,10 @@ import SwiftUI
 import FamilyHubKit
 
 struct HouseholdCardsView: View {
-    let apiClient: any APIClientProtocol
-    @State private var model: HouseholdViewModel
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var isVisible = false
-    init(apiClient: any APIClientProtocol) {
-        self.apiClient = apiClient
-        _model = State(wrappedValue: HouseholdViewModel(apiClient: apiClient))
-    }
+    let model: HouseholdViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            NavigationLink {
-                WeatherDetailView(apiClient: apiClient)
-            } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        Text("Weather at home").font(.subheadline.weight(.semibold))
-                    } else {
-                        Label("Weather at home", systemImage: "cloud.sun").font(.subheadline.weight(.semibold))
-                    }
-                    if let weather = model.weather {
-                        if dynamicTypeSize.isAccessibilitySize {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title2.bold())
-                                Text(weather.current.condition).font(.footnote).foregroundStyle(.secondary)
-                            }
-                        } else {
-                            HStack {
-                                Image(systemName: weather.current.symbol).font(.body).accessibilityHidden(true)
-                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title2.bold())
-                                Text(weather.current.condition).font(.footnote).foregroundStyle(.secondary)
-                                Spacer()
-                                Image(systemName: "chevron.right").accessibilityHidden(true)
-                            }
-                        }
-                        Text(weather.advice.joined(separator: " ")).font(.footnote)
-                    } else { Text(model.weatherMessage).foregroundStyle(.secondary) }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .groupedCard(radius: 16)
-            }.buttonStyle(.plain)
-
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 if let departure = model.departures?.items.first(where: { $0.countdown(at: context.date) != nil }) {
                     DepartureCard(departure: departure, now: context.date)
@@ -55,16 +14,6 @@ struct HouseholdCardsView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
-        .onAppear { isVisible = true }
-        .onDisappear { isVisible = false }
-        .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
-            guard shouldRefresh else { return }
-            await model.load(force: true)
-            while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(30)) } catch { return }
-                await model.load()
-            }
-        }
     }
 }
 

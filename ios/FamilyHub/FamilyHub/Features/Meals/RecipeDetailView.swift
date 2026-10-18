@@ -96,6 +96,7 @@ struct RecipeDetailView: View {
             if let r = fullRecipe {
                 RecipeFormView(mode: .edit(r), viewModel: viewModel, apiClient: apiClient) { updated in
                     fullRecipe = updated
+                    viewModel.beginRecipeVisit()
                     if updated.hasImage {
                         Task { imageData = try? await apiClient.fetchRecipeImage(id: updated.id) }
                     } else {
@@ -119,7 +120,10 @@ struct RecipeDetailView: View {
             Text("This recipe will be permanently deleted.")
         }
         .errorAlert($viewModel.actionError)
-        .task { await loadRecipe() }
+        .task {
+            viewModel.beginRecipeVisit()
+            await loadRecipe()
+        }
     }
 
     private func loadRecipe() async {
@@ -238,7 +242,7 @@ struct RecipeDetailView: View {
                 .padding(.top, 24)
                 .padding(.bottom, 12)
 
-            ForEach(groups, id: \.name) { group in
+            ForEach(Array(groups.enumerated()), id: \.offset) { groupIndex, group in
                 if !group.name.isEmpty && group.name != "Main" {
                     Text(group.name)
                         .font(.footnote.weight(.semibold))
@@ -251,8 +255,12 @@ struct RecipeDetailView: View {
                 }
 
                 VStack(spacing: 0) {
-                    ForEach(Array(group.items.enumerated()), id: \.element) { index, item in
-                        IngredientRow(item: item, showDivider: index > 0)
+                    ForEach(Array(group.items.enumerated()), id: \.offset) { itemIndex, item in
+                        let index = IngredientIndex(group: groupIndex, item: itemIndex)
+                        IngredientRow(item: item, showDivider: itemIndex > 0,
+                                      shoppingState: viewModel.ingredientShoppingState(at: index)) {
+                            Task { await viewModel.addIngredient(item, at: index) }
+                        }
                     }
                 }
                 .groupedCard(radius: 12)
@@ -321,6 +329,8 @@ struct RecipeDetailView: View {
 private struct IngredientRow: View {
     let item: String
     let showDivider: Bool
+    let shoppingState: RecipesViewModel.IngredientShoppingState
+    let addToShopping: () -> Void
     @State private var checked = false
 
     var body: some View {
@@ -328,36 +338,57 @@ private struct IngredientRow: View {
             if showDivider {
                 Divider().padding(.leading, 46)
             }
-            Button {
-                withAnimation(.spring(duration: 0.2)) { checked.toggle() }
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .strokeBorder(checked ? Color.accentColor : Color(UIColor.tertiaryLabel), lineWidth: 1.5)
-                            .frame(width: 20, height: 20)
-                        if checked {
+            HStack(spacing: 0) {
+                Button {
+                    withAnimation(.spring(duration: 0.2)) { checked.toggle() }
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
                             Circle()
-                                .fill(Color.accentColor)
+                                .strokeBorder(checked ? Color.accentColor : Color(UIColor.tertiaryLabel), lineWidth: 1.5)
                                 .frame(width: 20, height: 20)
-                            Image(systemName: "checkmark")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
+                            if checked {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 20, height: 20)
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        Text(item)
+                            .font(.subheadline)
+                            .foregroundStyle(checked ? .tertiary : .primary)
+                            .strikethrough(checked, color: .secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.leading, 14)
+                    .padding(.vertical, 11)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item)
+                .accessibilityValue(checked ? "Checked" : "Not checked")
+                .sensoryFeedback(.selection, trigger: checked)
+
+                Button(action: addToShopping) {
+                    Group {
+                        if shoppingState == .adding {
+                            ProgressView()
+                        } else {
+                            Image(systemName: shoppingState == .added ? "checkmark" : "cart.badge.plus")
                         }
                     }
-                    Text(item)
-                        .font(.subheadline)
-                        .foregroundStyle(checked ? .tertiary : .primary)
-                        .strikethrough(checked, color: .secondary)
-                    Spacer()
+                    .frame(width: 44, height: 44)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .frame(minHeight: 44)
+                .buttonStyle(.borderless)
+                .padding(.trailing, 6)
+                .disabled(shoppingState != .ready)
+                .accessibilityLabel(shoppingState == .added ? "Added \(item) to shopping list" : "Add \(item) to shopping list")
+                .accessibilityValue(shoppingState == .adding ? "Adding" : "")
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(checked ? "Checked" : "Not checked")
-            .sensoryFeedback(.selection, trigger: checked)
         }
     }
 }

@@ -44,13 +44,13 @@ final class MealsViewModel {
 
     func nextWeek() {
         currentWeek = Calendar.current.date(byAdding: .day, value: 7, to: currentWeek)!
-        selectedDay = Calendar.current.date(byAdding: .day, value: 7, to: selectedDay)!
+        selectedDay = currentWeek
         Task { await load() }
     }
 
     func previousWeek() {
         currentWeek = Calendar.current.date(byAdding: .day, value: -7, to: currentWeek)!
-        selectedDay = Calendar.current.date(byAdding: .day, value: -7, to: selectedDay)!
+        selectedDay = weekDays.last ?? currentWeek
         Task { await load() }
     }
 

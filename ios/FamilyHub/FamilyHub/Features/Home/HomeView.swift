@@ -5,6 +5,9 @@ struct HomeView: View {
     @State private var viewModel: HomeViewModel
     @State private var mealsViewModel: MealsViewModel
     @State private var recipesViewModel: RecipesViewModel
+    @State private var householdViewModel: HouseholdViewModel
+    @State private var isVisible = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var activeSheet: ActiveSheet?
 
     private enum ActiveSheet: Identifiable {
@@ -27,6 +30,7 @@ struct HomeView: View {
         _viewModel = State(wrappedValue: HomeViewModel(apiClient: apiClient))
         _mealsViewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
         _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
+        _householdViewModel = State(wrappedValue: HouseholdViewModel(apiClient: apiClient))
     }
 
     var body: some View {
@@ -34,33 +38,34 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        homeHeader
                         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
-                            Text(Date.now.formatted(date: .complete, time: .omitted))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 20)
                             agendaSection
                             mealsSection(stats)
                             choresSection(stats)
                         }
-                        HomeSectionHeader(title: "Household") { EmptyView() }
-                        Button {
-                            navigation.householdPath = [.shopping]
-                            navigation.selectedTab = .household
-                        } label: {
-                            Label("Shopping List", systemImage: "cart")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(16)
-                                .groupedCard()
+                        if householdViewModel.departures?.items.isEmpty == false {
+                            HomeSectionHeader(title: "Household") { EmptyView() }
+                            HouseholdCardsView(model: householdViewModel)
                         }
-                        .buttonStyle(.borderless)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-                        HouseholdCardsView(apiClient: apiClient)
                     }
                     .padding(.bottom, 24)
                 }
-                .refreshable { await viewModel.load() }
+                .refreshable {
+                    async let dashboard: Void = viewModel.load()
+                    async let household: Void = householdViewModel.load(force: true)
+                    _ = await (dashboard, household)
+                }
+                .onAppear { isVisible = true }
+                .onDisappear { isVisible = false }
+                .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
+                    guard shouldRefresh else { return }
+                    await householdViewModel.load(force: true)
+                    while !Task.isCancelled {
+                        do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                        await householdViewModel.load()
+                    }
+                }
             }
             .groupedBackground()
             .navigationBarTitleDisplayMode(.inline)
@@ -88,6 +93,58 @@ struct HomeView: View {
             }
         }
         .task { await viewModel.load() }
+    }
+
+    private var homeHeader: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedHeader
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        homeDate.fixedSize()
+                        Spacer(minLength: 0)
+                        weatherLink.fixedSize()
+                    }
+                    stackedHeader
+                }
+            }
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 20)
+    }
+
+    private var stackedHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            homeDate
+            weatherLink
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var homeDate: some View {
+        Text(Date.now.formatted(date: .complete, time: .omitted))
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("home-date")
+    }
+
+    private var weatherLink: some View {
+        NavigationLink {
+            WeatherDetailView(apiClient: apiClient)
+        } label: {
+            Group {
+                if let weather = householdViewModel.weather {
+                    Label("\(weather.current.temperature, specifier: "%.0f")°C", systemImage: weather.current.symbol)
+                        .accessibilityLabel("Weather at home: \(weather.current.temperature, specifier: "%.0f") degrees Celsius, \(weather.current.condition)")
+                } else {
+                    Label(householdViewModel.weatherMessage == "Loading weather…" ? "Loading weather…" : "Weather unavailable",
+                          systemImage: "cloud.sun")
+                }
+            }
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("home-weather")
     }
 
     // MARK: - Agenda
@@ -165,6 +222,7 @@ struct HomeView: View {
                     }
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
         }
     }
@@ -175,15 +233,7 @@ struct HomeView: View {
         let allDue = (stats.choresOverdueList + stats.choresDueTodayList)
             .filter { !viewModel.completedChoreIDs.contains($0.id) }
         return VStack(alignment: .leading, spacing: 0) {
-            HomeSectionHeader(title: "Today's chores") {
-                Button {
-                    navigation.selectedTab = .tasks
-                } label: {
-                    Text("Manage")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
+            HomeSectionHeader(title: "Today's chores") { EmptyView() }
 
             if allDue.isEmpty {
                 HStack(spacing: 8) {
@@ -253,7 +303,6 @@ private struct TodayMealCard: View {
 
 
     private var hasContent: Bool { !(mealPlan?.name ?? "").isEmpty }
-    private var hasRecipe: Bool { mealPlan?.recipeID != nil }
 
     private var mealIcon: String {
         switch mealType {
@@ -266,24 +315,24 @@ private struct TodayMealCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                if hasRecipe {
-                    RecipeThumbView(recipeID: mealPlan?.recipeID, apiClient: apiClient, size: 64)
-                        .accessibilityHidden(true)
-                }
+                RecipeThumbView(recipeID: mealPlan?.recipeID, apiClient: apiClient, size: 64, placeholderSymbol: mealIcon)
+                    .accessibilityHidden(true)
                 Label(mealType.capitalized, systemImage: mealIcon)
                     .font(.caption)
                     .foregroundStyle(Color.secondary)
                 Text(hasContent ? mealPlan!.name : "Add meal")
                     .font(.body.weight(.medium))
+                    .multilineTextAlignment(.leading)
                     .foregroundStyle(Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 124, maxHeight: .infinity, alignment: .topLeading)
             .groupedCard()
         }
         .buttonStyle(.borderless)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("today-meal-\(mealType)")
     }
 }
 

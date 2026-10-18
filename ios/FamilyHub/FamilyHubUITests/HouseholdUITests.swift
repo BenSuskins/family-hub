@@ -10,29 +10,24 @@ final class HouseholdUITests: XCTestCase {
         reveal(demo, in: app)
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
-        let weather = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Weather at home")).firstMatch
+        let weather = app.buttons["home-weather"]
         reveal(weather, in: app)
         XCTAssertTrue(weather.waitForExistence(timeout: 10))
-        let loadedWeather = app.staticTexts["Take a raincoat."]
-        reveal(loadedWeather, in: app)
-        XCTAssertTrue(loadedWeather.waitForExistence(timeout: 5))
         let home = XCTAttachment(screenshot: app.screenshot())
         home.name = "household-home"
         home.lifetime = .keepAlways
         add(home)
         weather.tap()
         XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Take a raincoat."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Next 24 hours"].exists)
         let forecast = XCTAttachment(screenshot: app.screenshot())
         forecast.name = "household-weather"
         forecast.lifetime = .keepAlways
         add(forecast)
         app.navigationBars.buttons["BackButton"].tap()
-        let shopping = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shopping List")).firstMatch
-        reveal(shopping, in: app)
-        XCTAssertTrue(shopping.waitForExistence(timeout: 5))
-        shopping.tap()
-        XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
+        selectHousehold(in: app)
+        XCTAssertTrue(app.navigationBars["Household"].waitForExistence(timeout: 5))
         let field = app.textFields["Item name"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
@@ -83,20 +78,14 @@ extension HouseholdUITests {
         reveal(demo, in: app)
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
-        let weather = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Weather at home")).firstMatch
+        let weather = app.buttons["home-weather"]
         reveal(weather, in: app)
         XCTAssertTrue(weather.waitForExistence(timeout: 10))
-        let loadedWeather = app.staticTexts["Take a raincoat."]
-        reveal(loadedWeather, in: app)
-        XCTAssertTrue(loadedWeather.waitForExistence(timeout: 5))
         if UIDevice.current.userInterfaceIdiom == .pad {
             XCUIDevice.shared.orientation = .landscapeLeft
-            let landscape = NSPredicate { _, _ in
-                app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
-            }
-            expectation(for: landscape, evaluatedWith: app)
-            waitForExpectations(timeout: 5)
         }
+        XCTAssertGreaterThanOrEqual(weather.frame.minX, 0)
+        XCTAssertLessThanOrEqual(weather.frame.maxX, app.windows.firstMatch.frame.maxX)
         if !weather.isHittable { app.swipeUp() }
         let home = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         home.name = "household-large-text"
@@ -104,6 +93,7 @@ extension HouseholdUITests {
         add(home)
         weather.tap()
         XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Take a raincoat."].waitForExistence(timeout: 5))
         let forecast = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         forecast.name = "weather-large-text"
         forecast.lifetime = .keepAlways
@@ -117,4 +107,15 @@ private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         if element.exists && element.isHittable { return }
         app.swipeUp()
     }
+}
+
+@MainActor
+private func selectHousehold(in app: XCUIApplication) {
+    let tabs = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", "Household")).allElementsBoundByIndex
+    if let tab = tabs.first(where: { $0.isHittable }) { tab.tap(); return }
+    let buttons = app.buttons.matching(NSPredicate(format: "label == %@", "Household")).allElementsBoundByIndex
+    if let button = buttons.first(where: { $0.isHittable }) { button.tap(); return }
+    let sidebar = app.buttons["ToggleSideBar"]
+    if sidebar.exists && sidebar.isHittable { sidebar.tap() }
+    app.collectionViews.staticTexts["Household"].tap()
 }

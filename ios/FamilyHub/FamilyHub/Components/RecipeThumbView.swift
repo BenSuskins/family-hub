@@ -14,6 +14,7 @@ struct RecipeThumbView: View {
     var size: CGFloat = 48
     var cornerRadius: CGFloat = 10
     var placeholderText: String? = nil
+    var placeholderSymbol: String? = nil
 
     @State private var imageData: Data?
 
@@ -23,6 +24,13 @@ struct RecipeThumbView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+            } else if let placeholderSymbol {
+                Color(.quaternarySystemFill)
+                    .overlay {
+                        Image(systemName: placeholderSymbol)
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
             } else if recipeID != nil {
                 Color(.quaternarySystemFill)
             } else if let initial = placeholderText?.first.map(String.init), !initial.isEmpty {

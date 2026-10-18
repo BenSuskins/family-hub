@@ -18,9 +18,6 @@ struct MealsView: View {
 
     var body: some View {
         List {
-            if isFoodHome {
-                Section { recipesEntry }
-            }
             Section {
                 weekControls
                 if isFoodHome { dayPicker }
@@ -54,6 +51,9 @@ struct MealsView: View {
                     }
                     .textCase(nil)
                 }
+            }
+            if isFoodHome {
+                Section { recipesEntry }
             }
         }
         .listStyle(.insetGrouped)

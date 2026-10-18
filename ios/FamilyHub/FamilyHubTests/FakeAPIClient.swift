@@ -14,11 +14,13 @@ final class FakeAPIClient: APIClientProtocol {
     var shoppingItems: [ShoppingItem] = []
     var shoppingError: Error?
     var addShoppingError: Error?
+    var beforeAddShopping: (() async -> Void)?
     func fetchShopping() async throws -> [ShoppingItem] {
         if let shoppingError { throw shoppingError }
         return shoppingItems
     }
     func addShopping(name: String, inventoryItemID: String?) async throws -> ShoppingItem {
+        await beforeAddShopping?()
         if let addShoppingError { throw addShoppingError }
         let item = ShoppingItem(id: UUID().uuidString, name: name, inventoryItemID: inventoryItemID)
         shoppingItems.append(item)
@@ -43,6 +45,7 @@ final class FakeAPIClient: APIClientProtocol {
     var fetchUserAvatarResult: Result<Data, Error> = .success(Data())
     var mealsResult: Result<[MealPlan], Error> = .success([])
     var mealsByWeek: [String: [MealPlan]] = [:]
+    var beforeFetchMeals: ((Date) async -> Void)?
     var recipesResult: Result<[Recipe], Error> = .success([])
     var recipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var recipeImageResult: Result<Data, Error> = .success(Data())
@@ -83,6 +86,7 @@ final class FakeAPIClient: APIClientProtocol {
     func deleteChore(id: String) async throws { try deleteChoreResult.get() }
     func fetchUserAvatar(id: String) async throws -> Data { try fetchUserAvatarResult.get() }
     func fetchMeals(week: Date) async throws -> [MealPlan] {
+        await beforeFetchMeals?(week)
         if !mealsByWeek.isEmpty { return mealsByWeek[APIDate.dayString(week)] ?? [] }
         return try mealsResult.get()
     }

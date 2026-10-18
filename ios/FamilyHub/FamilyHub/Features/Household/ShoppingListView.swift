@@ -34,15 +34,6 @@ struct ShoppingListView: View {
 
     var body: some View {
         List {
-            if isHouseholdHome {
-                Section {
-                    NavigationLink(value: HouseholdDestination.inventory) {
-                        FeatureEntryLabel(title: "Inventory", subtitle: inventorySummary, systemImage: "cabinet")
-                    }
-                    .accessibilityLabel("Inventory")
-                    .accessibilityHint(inventorySummary)
-                }
-            }
             if !model.canEdit {
                 Section {
                     if let date = model.capturedAt {
@@ -88,6 +79,15 @@ struct ShoppingListView: View {
                     ForEach(model.items.filter(\.purchased)) { row($0) }
                     Button("Clear purchased items", role: .destructive) { confirmClear = true }
                         .disabled(!model.canEdit || model.isChanging)
+                }
+            }
+            if isHouseholdHome {
+                Section {
+                    NavigationLink(value: HouseholdDestination.inventory) {
+                        FeatureEntryLabel(title: "Inventory", subtitle: inventorySummary, systemImage: "cabinet")
+                    }
+                    .accessibilityLabel("Inventory")
+                    .accessibilityHint(inventorySummary)
                 }
             }
             if isHouseholdHome {

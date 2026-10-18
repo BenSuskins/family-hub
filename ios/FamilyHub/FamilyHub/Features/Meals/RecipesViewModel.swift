@@ -6,6 +6,10 @@ import FamilyHubKit
 @Observable
 @MainActor
 final class RecipesViewModel: @MainActor MutableListViewModel {
+    enum IngredientShoppingState { case ready, adding, added }
+
+    private var ingredientShoppingStates: [IngredientIndex: IngredientShoppingState] = [:]
+    private var recipeVisitID = UUID()
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
     var selectedMealType: String? = nil
@@ -40,6 +44,32 @@ final class RecipesViewModel: @MainActor MutableListViewModel {
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
+    }
+
+    func beginRecipeVisit() {
+        recipeVisitID = UUID()
+        ingredientShoppingStates = [:]
+    }
+
+    func ingredientShoppingState(at index: IngredientIndex) -> IngredientShoppingState {
+        ingredientShoppingStates[index] ?? .ready
+    }
+
+    func addIngredient(_ ingredient: String, at index: IngredientIndex) async {
+        guard ingredientShoppingState(at: index) == .ready,
+              !ingredient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        ingredientShoppingStates[index] = .adding
+        let visitID = recipeVisitID
+        do {
+            _ = try await apiClient.addShopping(name: ingredient, inventoryItemID: nil)
+            guard visitID == recipeVisitID else { return }
+            ingredientShoppingStates[index] = .added
+            actionError = nil
+        } catch {
+            guard visitID == recipeVisitID else { return }
+            ingredientShoppingStates[index] = .ready
+            actionError = .from(error)
+        }
     }
 
     func load(forceRefresh: Bool = false) async {

@@ -84,6 +84,9 @@ struct AreaDetailView: View {
             }
         }
         .errorAlert($viewModel.actionError)
+        .alert("Shopping List", isPresented: Binding(get: { viewModel.shoppingMessage != nil }, set: { if !$0 { viewModel.shoppingMessage = nil } })) {
+            Button("OK") { viewModel.shoppingMessage = nil }
+        } message: { Text(viewModel.shoppingMessage ?? "") }
     }
 
     // MARK: - Header
@@ -145,6 +148,13 @@ struct AreaDetailView: View {
             }
             .buttonStyle(.plain)
 
+            Button {
+                Task { await viewModel.addToShopping(item) }
+            } label: {
+                Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Add \(item.name) to shopping list")
             switch item.trackingMode {
             case .count:
                 QuantityStepper(
@@ -161,6 +171,11 @@ struct AreaDetailView: View {
         .padding(.trailing, 14)
         .padding(.vertical, 12)
         .frame(minHeight: 64)
+        .contextMenu {
+            Button("Add to shopping list", systemImage: "cart.badge.plus") {
+                Task { await viewModel.addToShopping(item) }
+            }
+        }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 Task { await viewModel.deleteItem(areaID: areaID, id: item.id) }

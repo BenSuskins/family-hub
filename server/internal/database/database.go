@@ -22,6 +22,9 @@ func Open(databasePath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
+	// SQLite pragmas apply per connection. Keep foreign keys active for every request.
+	connection.SetMaxOpenConns(1)
+
 	if _, err := connection.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		return nil, fmt.Errorf("setting WAL mode: %w", err)
 	}

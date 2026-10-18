@@ -1,11 +1,25 @@
 # Privacy Policy
 
-Family Hub does not collect, store, or share any personal data.
+Family Hub connects to a server you host and control. Your server stores users,
+chores, meals, recipes, calendar events, inventory, shopping items, and the home
+location. The app developer has no access to this server data.
 
-The app connects exclusively to a server you host and control. All data
-(users, chores, meals, recipes, calendar events) is stored on your own
-infrastructure. The app developer has no access to it.
+An admin can use the device location to set the home location. The app requests
+location access for that action. It does not track household members or send
+continuous location updates.
 
-No analytics, no crash reporting, no third-party SDKs.
+Your server sends the home coordinates to Open-Meteo for weather forecasts.
+It sends event destination addresses to Google for address lookup. It sends the
+home coordinates and resolved destinations to Google for driving estimates.
+Provider requests use the credentials configured by the server operator.
 
-Last updated: May 2026
+The app stores a copy of the shopping list on the device for offline reads.
+The copy is separate for each server and account. Sign-out removes these copies.
+
+The app has no analytics or third-party crash reporting.
+
+Google Maps Platform use is subject to the [Google Maps terms of service](https://cloud.google.com/maps-platform/terms)
+and the [Google Privacy Policy](https://policies.google.com/privacy).
+Weather data comes from [Open-Meteo](https://open-meteo.com/).
+
+Last updated: 18 October 2026

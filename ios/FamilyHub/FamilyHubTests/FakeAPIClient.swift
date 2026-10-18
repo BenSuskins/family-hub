@@ -3,6 +3,28 @@ import Foundation
 import FamilyHubKit
 
 final class FakeAPIClient: APIClientProtocol {
+    var weatherResult: Result<HouseholdWeather, Error> = .failure(APIError.offline)
+    var shoppingItems: [ShoppingItem] = []
+    var shoppingError: Error?
+    var addShoppingError: Error?
+    func fetchShopping() async throws -> [ShoppingItem] {
+        if let shoppingError { throw shoppingError }
+        return shoppingItems
+    }
+    func addShopping(name: String, inventoryItemID: String?) async throws -> ShoppingItem {
+        if let addShoppingError { throw addShoppingError }
+        let item = ShoppingItem(id: UUID().uuidString, name: name, inventoryItemID: inventoryItemID)
+        shoppingItems.append(item)
+        return item
+    }
+    func updateShopping(id: String, change: ShoppingChange) async throws -> ShoppingItem {
+        guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let old = shoppingItems[index]
+        let purchased = change.purchased ?? old.purchased
+        let item = ShoppingItem(id: id, name: change.name ?? old.name, inventoryItemID: old.inventoryItemID, purchased: purchased, purchaseID: purchased ? UUID().uuidString : nil, version: old.version + 1)
+        shoppingItems[index] = item
+        return item
+    }
     var dashboardResult: Result<DashboardStats, Error> = .success(
         DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
     )
@@ -84,4 +106,15 @@ final class FakeAPIClient: APIClientProtocol {
     func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem { try createItemResult.get() }
     func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem { try updateItemResult.get() }
     func deleteItem(id: String) async throws { try deleteItemResult.get() }
+}
+
+extension FakeAPIClient {
+    var serverIdentifier: String? { nil }
+    func fetchHomeInfo() async throws -> HomeInfo { HomeInfo() }
+    func updateHomeInfo(_ home: HomeInfo) async throws {}
+    func fetchWeather() async throws -> HouseholdWeather { try weatherResult.get() }
+    func fetchDepartures() async throws -> HouseholdDepartures { throw APIError.offline }
+    func deleteShopping(id: String) async throws { shoppingItems.removeAll { $0.id == id } }
+    func clearPurchasedShopping() async throws { shoppingItems.removeAll(where: \.purchased) }
+    func restockShopping(id: String, request: ShoppingRestock) async throws -> ShoppingItem { throw APIError.notFound }
 }

@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	GoogleMapsAPIKey     string
 	DatabasePath         string
 	OIDCIssuer           string
 	OIDCClientID         string
@@ -14,14 +15,15 @@ type Config struct {
 	SessionSecret        string
 	SessionEncryptionKey string
 
-	BaseURL              string
-	LogLevel             string
-	Port                 string
-	DevMode              bool
+	BaseURL  string
+	LogLevel string
+	Port     string
+	DevMode  bool
 }
 
 func Load() (Config, error) {
 	config := Config{
+		GoogleMapsAPIKey:     os.Getenv("GOOGLE_MAPS_API_KEY"),
 		DatabasePath:         envOrDefault("DATABASE_PATH", "./data/family-hub.db"),
 		OIDCIssuer:           os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("OIDC_CLIENT_ID"),
@@ -30,10 +32,10 @@ func Load() (Config, error) {
 		SessionSecret:        os.Getenv("SESSION_SECRET"),
 		SessionEncryptionKey: os.Getenv("SESSION_ENCRYPTION_KEY"),
 
-		BaseURL:              envOrDefault("BASE_URL", "http://localhost:8080"),
-		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
-		Port:                 envOrDefault("PORT", "8080"),
-		DevMode:              os.Getenv("DEV_MODE") == "true",
+		BaseURL:  envOrDefault("BASE_URL", "http://localhost:8080"),
+		LogLevel: envOrDefault("LOG_LEVEL", "info"),
+		Port:     envOrDefault("PORT", "8080"),
+		DevMode:  os.Getenv("DEV_MODE") == "true",
 	}
 
 	if config.SessionSecret == "" {

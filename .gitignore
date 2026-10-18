@@ -50,6 +50,7 @@ family-hub
 
 # Git worktrees
 .worktrees/
+plans/
 
 # iOS build artefacts
 .DS_Store

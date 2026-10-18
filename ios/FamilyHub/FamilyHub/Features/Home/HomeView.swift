@@ -48,6 +48,7 @@ struct HomeView: View {
                 greetingHeader
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        HouseholdCardsView(apiClient: apiClient)
                         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
                             agendaSection
                             mealsSection(stats)
@@ -101,6 +102,7 @@ struct HomeView: View {
                 UserAvatar(user: viewModel.currentUser, size: 44, apiClient: apiClient)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open profile")
             .padding(.top, 4)
         }
         .padding(.horizontal, 20)
@@ -129,7 +131,11 @@ struct HomeView: View {
                         if index > 0 {
                             Divider().padding(.leading, 20)
                         }
-                        EventRow(event: event, timeFormatter: Self.timeFormatter)
+                        NavigationLink {
+                            EventDetailsView(event: event, apiClient: apiClient)
+                        } label: {
+                            EventRow(event: event, timeFormatter: Self.timeFormatter)
+                        }.buttonStyle(.plain)
                     }
                 }
                 .glassCard(radius: 16)

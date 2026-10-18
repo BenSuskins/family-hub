@@ -145,3 +145,32 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 ## License
 
 [MIT](../LICENSE)
+
+## iOS household features
+
+- **Home Info** — admins save a confirmed device location under Profile → Admin
+  → Home Info. The arrival margin starts at 10 minutes.
+- **Weather** — Open-Meteo supplies current conditions and a 24-hour forecast.
+  Advice uses forecast rules. The free service assumes non-commercial use.
+- **Departures** — Google supplies current traffic-aware driving estimates from
+  home for located events. Configure `GOOGLE_MAPS_API_KEY` at runtime. Enable
+  Geocoding API and Routes API in the Google Cloud project. Restrict the key to
+  those APIs and set provider quotas. Google requires a billing account even
+  when requests fit its free allowance. No Google result is stored offline.
+- **Shopping** — open the list from Home or Inventory. Add inventory items with
+  the Add to shopping list action. Purchase offers a separate restock action.
+  Cached shopping lists remain readable without a server connection.
+
+The API additions preserve older client contracts. The new iOS features show an
+unavailable state when connected to an older server. Install the server before
+the new app. No production rollout is included in this change.
+
+Run the optional provider check with public London locations:
+
+```bash
+cd server
+RUN_HOUSEHOLD_PROVIDER_CHECK=1 go test ./internal/services -run TestHouseholdProvidersLive -count=1 -v
+```
+
+The check calls Open-Meteo. It also checks Google when `GOOGLE_MAPS_API_KEY` is
+present in the test process environment. It never prints the key.

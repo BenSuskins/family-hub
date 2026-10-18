@@ -25,6 +25,10 @@ struct ProfileView: View {
                 profileSection
                 appSection
                 if isAdmin { adminSection }
+                Section("About") {
+                    Link("Privacy Policy", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/PRIVACY.md")!)
+                    Link("Terms of Use", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/TERMS.md")!)
+                }
                 accountSection
             }
             .listStyle(.insetGrouped)
@@ -118,6 +122,9 @@ struct ProfileView: View {
 
     private var adminSection: some View {
         Section("Admin") {
+            NavigationLink("Home Info") {
+                HomeInfoView(apiClient: apiClient)
+            }
             NavigationLink("Family Name") {
                 FamilyNameView(apiClient: apiClient)
             }

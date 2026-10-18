@@ -30,6 +30,13 @@ struct InventoryHomeView: View {
             StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        NavigationLink {
+                            ShoppingListView(apiClient: apiClient)
+                        } label: {
+                            Label("Shopping List", systemImage: "cart")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(16).glassCard(radius: 16)
+                        }.padding(.horizontal, 16).padding(.vertical, 8)
                         subtitle
 
                         if !viewModel.runningLow.isEmpty {
@@ -64,6 +71,9 @@ struct InventoryHomeView: View {
                 }
             }
             .errorAlert($viewModel.actionError)
+            .alert("Shopping List", isPresented: Binding(get: { viewModel.shoppingMessage != nil }, set: { if !$0 { viewModel.shoppingMessage = nil } })) {
+                Button("OK") { viewModel.shoppingMessage = nil }
+            } message: { Text(viewModel.shoppingMessage ?? "") }
         }
         .task { await viewModel.load() }
     }
@@ -85,10 +95,18 @@ struct InventoryHomeView: View {
             VStack(spacing: 0) {
                 ForEach(Array(viewModel.runningLow.enumerated()), id: \.element.id) { index, entry in
                     if index > 0 { Divider().padding(.leading, 30) }
-                    NavigationLink(value: entry.area.id) {
-                        runningLowRow(entry)
+                    HStack(spacing: 0) {
+                        NavigationLink(value: entry.area.id) {
+                            runningLowRow(entry)
+                        }.buttonStyle(.plain)
+                        Button {
+                            Task { await viewModel.addToShopping(entry.item) }
+                        } label: {
+                            Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Add \(entry.item.name) to shopping list")
+                        .padding(.trailing, 8)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .glassCard(radius: 16)

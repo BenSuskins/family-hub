@@ -114,6 +114,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		B40000010000000000000003 /* FamilyHubUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FamilyHubUITests;
+			sourceTree = "<group>";
+		};
 		543195C13055B9210030BBA7 /* FamilyHubWatch Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "FamilyHubWatch Watch App";
@@ -203,6 +208,7 @@
 		545AC8C02F6361A8009E96B7 = {
 			isa = PBXGroup;
 			children = (
+				B40000010000000000000003 /* FamilyHubUITests */,
 				545AC8CB2F6361A9009E96B7 /* FamilyHub */,
 				545AC8D92F6361A9009E96B7 /* FamilyHubTests */,
 				A1000002000000000000001A /* ShareExtension */,
@@ -315,6 +321,9 @@
 			);
 			dependencies = (
 				545AC8E22F6361A9009E96B7 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B40000010000000000000003 /* FamilyHubUITests */,
 			);
 			name = FamilyHubUITests;
 			packageProductDependencies = (

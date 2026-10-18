@@ -747,3 +747,140 @@ authed user (no admin gate).
 
 All login-adjacent routes (`/login`, `/auth/callback`, `/api/auth/exchange`) carry an
 additional 10-req/min per-IP limit on top of the global 100/min limit.
+
+## Household location and weather
+
+These endpoints require a session cookie or Bearer API token. The iOS app calls
+them. Existing clients do not need to call them.
+
+### `GET /api/home-info`
+
+Return `latitude`, `longitude`, `timezone`, and `arrivalMarginMinutes`. Coordinates
+are null before setup. The default margin is 10 minutes.
+
+```bash
+curl -s "$BASE_URL/api/home-info" -H "Authorization: Bearer $API_TOKEN"
+```
+
+### `PATCH /api/home-info`
+
+Admin only. Save confirmed device coordinates, an IANA timezone, and an integer
+arrival margin from 0 to 120 minutes. Return the saved home information. Return
+400 for invalid values and 403 for a member. Unspecified properties retain their
+current values. Initial setup requires both coordinates.
+
+```bash
+curl -s -X PATCH "$BASE_URL/api/home-info" \
+  -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"latitude":51.8,"longitude":0.7,"timezone":"Europe/London","arrivalMarginMinutes":10}'
+```
+
+### `GET /api/weather`
+
+Return `status`, `fetchedAt`, `current`, `high`, `low`, `hours`, and `advice`.
+Each weather hour contains `time`, `temperature`, `code`, `rainProbability`, and
+`windSpeed`. Times use RFC 3339. Units are Celsius, percent, and km/h.
+
+Return `setup_required` before the home location is set. Return 502 when the
+provider fails or returns an incomplete forecast. Reuse successful forecasts
+for 15 minutes by home coordinates and timezone. Never return expired forecasts.
+Open-Meteo supplies the data. Advice uses fixed rules for the next six hours.
+
+```bash
+curl -s "$BASE_URL/api/weather" -H "Authorization: Bearer $API_TOKEN"
+```
+
+### `GET /api/departures`
+
+Return `status`, `items`, and `selectedEventID`. Each item contains `eventID`,
+`title`, `destination`, `startTime`, `leaveAt`, `drivingSeconds`, and `fetchedAt`.
+Times use RFC 3339. Select today's next eligible event by start time in the home
+timezone. `selectedEventID` is null when there are no eligible events.
+
+Use current traffic-aware Google driving estimates from home. Subtract the
+arrival margin from the event start. Skip all-day, started, online, unresolved,
+and ambiguous events. Address resolution requires one complete, numbered address
+match. A vague location such as School does not receive a countdown.
+
+Return `setup_required` before location setup. Return 502 for provider failure,
+including a missing `GOOGLE_MAPS_API_KEY`. An empty list is a successful result.
+Return `Cache-Control: no-store`. Do not persist Google route responses.
+
+```bash
+curl -s "$BASE_URL/api/departures" -H "Authorization: Bearer $API_TOKEN"
+```
+
+## Shared shopping list
+
+All shopping endpoints require a session cookie or Bearer API token. All members
+can change the shared household list. The iOS app calls these routes.
+
+An item has `id`, `name`, `inventoryItemID`, `purchased`, `purchaseID`, `restocked`,
+and `version`. Names contain 1–200 UTF-8 bytes after whitespace removal at the
+edges. There are no shopping quantities or notes.
+
+### `GET /api/shopping`
+
+Return every active and purchased item as an array. Return `[]` for an empty list.
+
+```bash
+curl -s "$BASE_URL/api/shopping" -H "Authorization: Bearer $API_TOKEN"
+```
+
+### `POST /api/shopping/items`
+
+Accept `name` and an optional `inventoryItemID`. Return 201 and the item. If an
+active item already links to that inventory item, return the existing item.
+Return 400 for an invalid name and 404 for a missing inventory item.
+
+```bash
+curl -s -X POST "$BASE_URL/api/shopping/items" \
+  -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Milk"}'
+```
+
+### `PATCH /api/shopping/items/{id}`
+
+Accept `version`, an optional `name`, and an optional `purchased` boolean. Return
+the updated item. Return 409 for a stale version or a duplicate active inventory
+link. Each new purchase receives a new `purchaseID`. Restore does not reverse a
+confirmed restock.
+
+```bash
+curl -s -X PATCH "$BASE_URL/api/shopping/items/$ITEM_ID" \
+  -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"version":0,"purchased":true}'
+```
+
+### `DELETE /api/shopping/items/{id}`
+
+Delete one item and its purchase records. Return 204, or 404 if it is absent.
+
+```bash
+curl -s -X DELETE "$BASE_URL/api/shopping/items/$ITEM_ID" -H "Authorization: Bearer $API_TOKEN"
+```
+
+### `DELETE /api/shopping/purchased`
+
+Clear all purchased items and their purchase records. Return 204.
+
+```bash
+curl -s -X DELETE "$BASE_URL/api/shopping/purchased" -H "Authorization: Bearer $API_TOKEN"
+```
+
+### `POST /api/shopping/items/{id}/restock`
+
+Accept `purchaseID` and either `quantity` for a count item or `level` for a level
+item. Quantity adds 1–1,000,000 units. Level sets an integer percentage from 0 to
+100. Return the updated shopping item. Reject the wrong tracking mode with 400.
+Return 409 if the item is not purchased or the purchase identifier is stale.
+
+Apply the inventory update and record the restock in one transaction. Repeated
+requests for the same purchase return success without applying stock twice.
+Deleting linked inventory preserves the shopping item and removes its link.
+
+```bash
+curl -s -X POST "$BASE_URL/api/shopping/items/$ITEM_ID/restock" \
+  -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"purchaseID":"purchase-id","quantity":2}'
+```

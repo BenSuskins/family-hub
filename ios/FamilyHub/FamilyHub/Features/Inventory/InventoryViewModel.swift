@@ -14,6 +14,14 @@ final class InventoryViewModel: MutableListViewModel {
         self.apiClient = apiClient
     }
 
+    var shoppingMessage: String?
+    func addToShopping(_ item: InventoryItem) async {
+        do {
+            _ = try await apiClient.addShopping(name: item.name, inventoryItemID: item.id)
+            shoppingMessage = "Added \(item.name) to the shopping list."
+        } catch { actionError = .from(error) }
+    }
+
     // MARK: - Derived
 
     var areas: [InventoryArea] {

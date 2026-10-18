@@ -59,6 +59,18 @@ public protocol APIClientProtocol: AnyObject {
     func createToken(name: String) async throws -> CreatedToken
     func deleteToken(id: String) async throws
 
+    var serverIdentifier: String? { get }
+    func fetchHomeInfo() async throws -> HomeInfo
+    func updateHomeInfo(_ home: HomeInfo) async throws
+    func fetchWeather() async throws -> HouseholdWeather
+    func fetchDepartures() async throws -> HouseholdDepartures
+    func fetchShopping() async throws -> [ShoppingItem]
+    func addShopping(name: String, inventoryItemID: String?) async throws -> ShoppingItem
+    func updateShopping(id: String, change: ShoppingChange) async throws -> ShoppingItem
+    func deleteShopping(id: String) async throws
+    func clearPurchasedShopping() async throws
+    func restockShopping(id: String, request: ShoppingRestock) async throws -> ShoppingItem
+
     // Inventory
     func fetchInventory() async throws -> [InventoryArea]
     func createArea(_ request: AreaRequest) async throws -> InventoryArea

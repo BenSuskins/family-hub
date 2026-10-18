@@ -51,7 +51,7 @@ final class ChoreSetupUITests: XCTestCase {
     @MainActor
     private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<20 {
-            let bottom = app.tabBars.firstMatch.frame.minY
+            let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.windows.firstMatch.frame.maxY
             if element.exists && element.isHittable && element.frame.midY < bottom { return }
             let towardTop = element.exists && element.frame.midY < 0
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.4 : 0.7))

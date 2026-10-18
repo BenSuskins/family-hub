@@ -97,6 +97,66 @@ middleware handles both. The `curl` examples use Bearer for brevity; swap in
 
 ### JSON API routes
 
+### `GET /api/commute/trains`
+
+- **Use case:** Return upcoming trains between Kelvedon (`KEL`) and London Liverpool Street (`LST`).
+- **Callers:** The iPad display and other authenticated clients.
+- **Security:** Session cookie or Bearer API token. The provider token stays on the server.
+- **Parameters:** `direction=to_work` (default) or `to_home`; `count=1..10` (default: `5`).
+- **Window:** The provider returns up to the requested count within the next two hours. This is not an all-day timetable.
+- **Order:** Scheduled departure order, including cancelled trains. Return `trains: []` when no trains are available.
+- **Times:** Train times use `HH:mm` in `Europe/London`. Arrival means arrival at the commute destination, including intermediate stops.
+- **Platform:** The departure platform. Unknown platforms and times are `null`.
+- **Status:** `on_time`, `delayed`, `cancelled`, or `unknown`. A cancelled destination stop means a cancelled commute.
+- **Estimates:** An "On time" estimate uses the scheduled time. An unspecified estimate is `null`. Cancelled trains have null estimates.
+- **Freshness:** Successful results use a 30-second cache for each direction and count. Expired results are never returned.
+- **Timestamps:** `generatedAt` comes from the provider. `fetchedAt` records the server fetch. Both use RFC 3339.
+- **Errors:** `400` for invalid parameters; `503` for an absent provider token; `502` for provider failures; `504` for provider timeouts.
+- **Configuration:** Set `HUXLEY_ACCESS_TOKEN` to the National Rail token. `HUXLEY_BASE_URL` defaults to `https://huxley2.azurewebsites.net`.
+
+```bash
+curl -s "$BASE_URL/api/commute/trains?direction=to_work&count=5" \
+  -H "Authorization: Bearer $API_TOKEN" | jq
+
+curl -s "$BASE_URL/api/commute/trains?direction=to_home&count=3" \
+  -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+Example response:
+
+```json
+{
+  "direction": "to_work",
+  "origin": {"code": "KEL", "name": "Kelvedon"},
+  "destination": {"code": "LST", "name": "London Liverpool Street"},
+  "generatedAt": "2026-10-18T08:00:00+01:00",
+  "fetchedAt": "2026-10-18T07:00:01Z",
+  "timezone": "Europe/London",
+  "trains": [{
+    "serviceId": "example-service",
+    "operator": "Greater Anglia",
+    "platform": "1",
+    "status": "on_time",
+    "scheduledDeparture": "08:15",
+    "expectedDeparture": "08:15",
+    "scheduledArrival": "09:10",
+    "expectedArrival": "09:10",
+    "cancellationReason": null,
+    "delayReason": null
+  }]
+}
+```
+
+The server uses [Huxley expanded departures](https://huxley2.azurewebsites.net/) to read destination arrival times.
+The default instance is a public demo. Its availability depends on the provider.
+
+To check the live provider outside CI, set the token in the environment and run:
+
+```bash
+cd server
+COMMUTE_LIVE_TEST=true go test ./internal/services -run TestHuxleyLive -count=1 -v
+```
+
 ### `GET /api/me`
 - **Usecase:** Current user profile for the token holder.
 - **Callers:** iOS app.

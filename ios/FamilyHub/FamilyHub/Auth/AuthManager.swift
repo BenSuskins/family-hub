@@ -80,6 +80,7 @@ final class AuthManager: NSObject, TokenProviding {
         // process — leaving the snapshot there would keep the family's chores
         // on the Home Screen after signing out.
         WidgetPublisher.clear()
+        ShoppingCache().clear()
         isAuthenticated = false
         isDemoMode = false
     }

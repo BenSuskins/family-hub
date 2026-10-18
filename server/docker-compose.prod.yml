@@ -12,6 +12,7 @@ services:
       - OIDC_REDIRECT_URL=${OIDC_REDIRECT_URL}
       - SESSION_SECRET=${SESSION_SECRET}
       - HA_API_TOKEN=${HA_API_TOKEN}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - LOG_LEVEL=info
       - HUXLEY_BASE_URL=${HUXLEY_BASE_URL:-https://huxley2.azurewebsites.net}
       - HUXLEY_ACCESS_TOKEN=${HUXLEY_ACCESS_TOKEN:-}

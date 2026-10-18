@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/handlers"
@@ -50,6 +51,11 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	recipeHandler := handlers.NewRecipeHandler(recipeRepo, categoryRepo, mealPlanRepo, recipeExtractor)
 	mealHandler := handlers.NewMealHandler(mealPlanRepo, recipeRepo)
 	icalSubHandler := handlers.NewICalSubscriptionsHandler(icalSubRepo, icalFetcher)
+	providerClient := services.NewSafeHTTPClient(10 * time.Second)
+	weatherProvider := services.NewOpenMeteo(providerClient, "https://api.open-meteo.com/v1/forecast", time.Now)
+	drivingProvider := services.NewGoogleDriving(providerClient, cfg.GoogleMapsAPIKey, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")
+	departureService := services.NewDepartureService(icalFetcher, drivingProvider, time.Now)
+	householdHandler := handlers.NewHouseholdHandler(settingsRepo, weatherProvider, departureService, repository.NewShoppingRepository(database))
 	profileHandler := handlers.NewProfileHandler(userRepo)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 
@@ -134,6 +140,10 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 
 		// JSON API (primarily called by mobile clients via Bearer, but also
 		// reachable from the browser via session cookie).
+		r.Get("/api/home-info", householdHandler.HomeInfo)
+		r.Get("/api/weather", householdHandler.Weather)
+		r.Get("/api/departures", householdHandler.Departures)
+		householdHandler.RegisterShopping(r)
 		r.Get("/api/me", apiHandler.Me)
 		r.Post("/api/profile/avatar", apiHandler.UploadAvatar)
 		r.Delete("/api/profile/avatar", apiHandler.DeleteAvatar)
@@ -196,6 +206,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/api/users/{id}/promote", apiHandler.PromoteUser)
 			r.Post("/api/users/{id}/demote", apiHandler.DemoteUser)
 			r.Patch("/api/settings", apiHandler.PatchSettings)
+			r.Patch("/api/home-info", householdHandler.UpdateHomeInfo)
 			r.Post("/api/categories", apiHandler.CreateCategory)
 			r.Put("/api/categories/{id}", apiHandler.UpdateCategory)
 			r.Delete("/api/categories/{id}", apiHandler.DeleteCategory)

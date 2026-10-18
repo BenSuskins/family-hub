@@ -218,7 +218,11 @@ struct CalendarView: View {
         }
 
         ForEach(events) { event in
-            eventRow(event)
+            NavigationLink {
+                EventDetailsView(event: event, apiClient: apiClient)
+            } label: {
+                eventRow(event)
+            }.buttonStyle(.plain)
         }
 
         ForEach(chores) { chore in
@@ -327,7 +331,11 @@ struct CalendarView: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(events) { event in
-                            eventRow(event)
+                            NavigationLink {
+                EventDetailsView(event: event, apiClient: apiClient)
+            } label: {
+                eventRow(event)
+            }.buttonStyle(.plain)
                                 .padding(.horizontal)
                                 .padding(.vertical, 8)
                             Divider()

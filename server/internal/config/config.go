@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	GoogleMapsAPIKey     string
 	DatabasePath         string
 	OIDCIssuer           string
 	OIDCClientID         string
@@ -24,6 +25,7 @@ type Config struct {
 
 func Load() (Config, error) {
 	config := Config{
+		GoogleMapsAPIKey:     os.Getenv("GOOGLE_MAPS_API_KEY"),
 		DatabasePath:         envOrDefault("DATABASE_PATH", "./data/family-hub.db"),
 		OIDCIssuer:           os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("OIDC_CLIENT_ID"),

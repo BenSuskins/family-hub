@@ -157,6 +157,8 @@ private enum DemoData {
 
 @MainActor
 final class DemoAPIClient: APIClientProtocol {
+    private var homeInfo = HomeInfo(latitude: 51.8, longitude: 0.7, timezone: "Europe/London")
+    private var shoppingItems = [ShoppingItem(id: "demo-shopping", name: "Milk")]
     private var chores: [Chore] = DemoData.chores
     private var meals: [MealPlan] = DemoData.meals
     private var recipes: [Recipe] = DemoData.recipes
@@ -396,6 +398,8 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func deleteArea(id: String) async throws {
+        let identifiers = Set(areas.filter { $0.id == id }.flatMap(\.items).map(\.id))
+        detachShoppingInventory(identifiers)
         areas.removeAll { $0.id == id }
     }
 
@@ -435,9 +439,17 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func deleteItem(id: String) async throws {
+        detachShoppingInventory([id])
         guard let areaIndex = areas.firstIndex(where: { $0.items.contains(where: { $0.id == id }) }) else { return }
         let newItems = areas[areaIndex].items.filter { $0.id != id }
         areas[areaIndex] = replacingItems(areas[areaIndex], newItems)
+    }
+
+    private func detachShoppingInventory(_ identifiers: Set<String>) {
+        shoppingItems = shoppingItems.map { item in
+            guard let linked = item.inventoryItemID, identifiers.contains(linked) else { return item }
+            return ShoppingItem(id: item.id, name: item.name, purchased: item.purchased, purchaseID: item.purchaseID, restocked: item.restocked, version: item.version)
+        }
     }
 
     private func replacingItems(_ area: InventoryArea, _ items: [InventoryItem]) -> InventoryArea {
@@ -445,3 +457,63 @@ final class DemoAPIClient: APIClientProtocol {
     }
 }
 
+
+extension DemoAPIClient {
+    var serverIdentifier: String? { nil }
+    func fetchHomeInfo() async throws -> HomeInfo { homeInfo }
+    func updateHomeInfo(_ home: HomeInfo) async throws { homeInfo = home }
+    func fetchWeather() async throws -> HouseholdWeather {
+        let now = Date()
+        let hours = (0..<24).map { index -> [String: Any] in
+            let timestamp = APIDate.iso.string(from: now.addingTimeInterval(Double(index) * 3600))
+            let temperature = 14 - index % 6
+            let code = index < 3 ? 3 : 61
+            let rain = index < 3 ? 20 : 70
+            return ["time": timestamp, "temperature": temperature, "code": code, "rainProbability": rain, "windSpeed": 16]
+        }
+        let object: [String: Any] = ["status": "ok", "fetchedAt": APIDate.iso.string(from: now), "current": hours[0], "high": 17, "low": 8, "hours": hours, "advice": ["Take a raincoat."]]
+        return try JSONDecoder().decode(HouseholdWeather.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+    func fetchDepartures() async throws -> HouseholdDepartures {
+        let now = Date()
+        let item: [String: Any] = ["eventID": "demo-event-1", "title": "Family Dinner", "destination": "10 High Street", "startTime": APIDate.iso.string(from: now.addingTimeInterval(2700)), "leaveAt": APIDate.iso.string(from: now.addingTimeInterval(900)), "drivingSeconds": 1200, "fetchedAt": APIDate.iso.string(from: now)]
+        return try JSONDecoder().decode(HouseholdDepartures.self, from: JSONSerialization.data(withJSONObject: ["status": "ok", "items": [item], "selectedEventID": "demo-event-1"]))
+    }
+    func fetchShopping() async throws -> [ShoppingItem] { shoppingItems }
+    func addShopping(name: String, inventoryItemID: String?) async throws -> ShoppingItem {
+        if let inventoryItemID, let existing = shoppingItems.first(where: { !$0.purchased && $0.inventoryItemID == inventoryItemID }) { return existing }
+        let item = ShoppingItem(id: UUID().uuidString, name: name, inventoryItemID: inventoryItemID)
+        shoppingItems.append(item)
+        return item
+    }
+    func updateShopping(id: String, change: ShoppingChange) async throws -> ShoppingItem {
+        guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let old = shoppingItems[index]
+        guard old.version == change.version else { throw APIError.conflict }
+        let purchased = change.purchased ?? old.purchased
+        if !purchased, let linkedID = old.inventoryItemID, shoppingItems.contains(where: { $0.id != id && !$0.purchased && $0.inventoryItemID == linkedID }) { throw APIError.conflict }
+        let changedState = purchased != old.purchased
+        let item = ShoppingItem(id: id, name: change.name ?? old.name, inventoryItemID: old.inventoryItemID, purchased: purchased, purchaseID: changedState ? (purchased ? UUID().uuidString : nil) : old.purchaseID, restocked: changedState ? false : old.restocked, version: old.version + 1)
+        shoppingItems[index] = item
+        return item
+    }
+    func deleteShopping(id: String) async throws { shoppingItems.removeAll { $0.id == id } }
+    func clearPurchasedShopping() async throws { shoppingItems.removeAll( where: \.purchased) }
+    func restockShopping(id: String, request: ShoppingRestock) async throws -> ShoppingItem {
+        guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let old = shoppingItems[index]
+        guard old.purchased, old.purchaseID == request.purchaseID else { throw APIError.conflict }
+        if old.restocked { return old }
+        guard let areaIndex = areas.firstIndex(where: { $0.items.contains(where: { $0.id == old.inventoryItemID }) }),
+              let inventory = areas[areaIndex].items.first(where: { $0.id == old.inventoryItemID }) else { throw APIError.notFound }
+        let updated: InventoryItem
+        if inventory.trackingMode == .count, let quantity = request.quantity, quantity > 0, request.level == nil { updated = inventory.adjusting(by: quantity) }
+        else if inventory.trackingMode == .level, let level = request.level, (0...100).contains(level), request.quantity == nil { updated = inventory.withLevel(level) }
+        else { throw APIError.badRequest(serverMessage: "Enter a valid restock amount.") }
+        let area = areas[areaIndex]
+        areas[areaIndex] = InventoryArea(id: area.id, name: area.name, icon: area.icon, tint: area.tint, items: area.items.map { $0.id == updated.id ? updated : $0 })
+        let item = ShoppingItem(id: id, name: old.name, inventoryItemID: old.inventoryItemID, purchased: true, purchaseID: old.purchaseID, restocked: true, version: old.version + 1)
+        shoppingItems[index] = item
+        return item
+    }
+}

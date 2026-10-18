@@ -20,6 +20,34 @@ class APIClientContractTests: XCTestCase {
         throw XCTSkip("Abstract contract base — no client to exercise.")
     }
 
+    func test_shoppingPurchaseRestockIsAppliedOnce() async throws {
+        let client = try makeClient()
+        let area = try await client.createArea(AreaRequest(name: "Shopping contract", icon: "box", tint: "blue"))
+        let inventory = try await client.createItem(areaID: area.id, ItemRequest(name: "Soap", quantity: 1, unit: "", lowAt: 1))
+        let first = try await client.addShopping(name: "Soap", inventoryItemID: inventory.id)
+        let duplicate = try await client.addShopping(name: "Soap", inventoryItemID: inventory.id)
+        XCTAssertEqual(first.id, duplicate.id)
+        let bought = try await client.updateShopping(id: first.id, change: ShoppingChange(purchased: true, version: first.version))
+        let request = ShoppingRestock(purchaseID: try XCTUnwrap(bought.purchaseID), quantity: 3)
+        _ = try await client.restockShopping(id: first.id, request: request)
+        _ = try await client.restockShopping(id: first.id, request: request)
+        let areas = try await client.fetchInventory()
+        XCTAssertEqual(areas.flatMap(\.items).first { $0.id == inventory.id }?.quantity, 4)
+        let fetched = try await client.fetchShopping()
+        XCTAssertTrue(fetched.first { $0.id == first.id }?.restocked == true)
+    }
+
+    func test_shoppingItemSurvivesInventoryDeletion() async throws {
+        let client = try makeClient()
+        let area = try await client.createArea(AreaRequest(name: "Disposable area", icon: "box", tint: "blue"))
+        let inventory = try await client.createItem(areaID: area.id, ItemRequest(name: "Soap", quantity: 1, unit: "", lowAt: 1))
+        let shopping = try await client.addShopping(name: "Soap", inventoryItemID: inventory.id)
+        try await client.deleteArea(id: area.id)
+        let list = try await client.fetchShopping()
+        let kept = try XCTUnwrap(list.first { $0.id == shopping.id })
+        XCTAssertNil(kept.inventoryItemID)
+    }
+
     // MARK: - Chores
 
     func test_createChore_isReturnedByFetch_asPending() async throws {

@@ -108,7 +108,6 @@ jobs:
             -scheme FamilyHub \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
             -resultBundlePath ios-test-results \
-            -skip-testing:FamilyHubUITests \
             CODE_SIGNING_ALLOWED=NO
 
       # The result bundle was already being written and then thrown away, so a

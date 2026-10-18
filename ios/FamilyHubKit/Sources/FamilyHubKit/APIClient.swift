@@ -451,3 +451,24 @@ public final class APIClient: APIClientProtocol {
         try await delete("api/inventory/items/\(id)")
     }
 }
+
+extension APIClient {
+    public var serverIdentifier: String? { baseURL.absoluteString }
+    public func fetchHomeInfo() async throws -> HomeInfo { try await get("api/home-info") }
+    public func updateHomeInfo(_ home: HomeInfo) async throws { try await patch("api/home-info", body: home) }
+    public func fetchWeather() async throws -> HouseholdWeather { try await get("api/weather") }
+    public func fetchDepartures() async throws -> HouseholdDepartures { try await get("api/departures") }
+    public func fetchShopping() async throws -> [ShoppingItem] { try await get("api/shopping") }
+    public func addShopping(name: String, inventoryItemID: String?) async throws -> ShoppingItem {
+        struct Body: Encodable { let name: String; let inventoryItemID: String? }
+        return try await post("api/shopping/items", body: Body(name: name, inventoryItemID: inventoryItemID))
+    }
+    public func updateShopping(id: String, change: ShoppingChange) async throws -> ShoppingItem {
+        try await send(path: "api/shopping/items/\(id)", method: "PATCH", body: change)
+    }
+    public func deleteShopping(id: String) async throws { try await delete("api/shopping/items/\(id)") }
+    public func clearPurchasedShopping() async throws { try await delete("api/shopping/purchased") }
+    public func restockShopping(id: String, request: ShoppingRestock) async throws -> ShoppingItem {
+        try await post("api/shopping/items/\(id)/restock", body: request)
+    }
+}

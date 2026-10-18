@@ -6,6 +6,10 @@ import (
 )
 
 type Config struct {
+	APNsKeyID            string
+	APNsTeamID           string
+	APNsTopic            string
+	APNsKeyPath          string
 	GoogleMapsAPIKey     string
 	DatabasePath         string
 	OIDCIssuer           string
@@ -25,6 +29,10 @@ type Config struct {
 
 func Load() (Config, error) {
 	config := Config{
+		APNsKeyID:            os.Getenv("APNS_KEY_ID"),
+		APNsTeamID:           os.Getenv("APNS_TEAM_ID"),
+		APNsTopic:            os.Getenv("APNS_TOPIC"),
+		APNsKeyPath:          os.Getenv("APNS_KEY_PATH"),
 		GoogleMapsAPIKey:     os.Getenv("GOOGLE_MAPS_API_KEY"),
 		DatabasePath:         envOrDefault("DATABASE_PATH", "./data/family-hub.db"),
 		OIDCIssuer:           os.Getenv("OIDC_ISSUER"),
@@ -40,6 +48,17 @@ func Load() (Config, error) {
 		LogLevel: envOrDefault("LOG_LEVEL", "info"),
 		Port:     envOrDefault("PORT", "8080"),
 		DevMode:  os.Getenv("DEV_MODE") == "true",
+	}
+
+	pushValues := []string{config.APNsKeyID, config.APNsTeamID, config.APNsTopic, config.APNsKeyPath}
+	pushCount := 0
+	for _, value := range pushValues {
+		if value != "" {
+			pushCount++
+		}
+	}
+	if pushCount != 0 && pushCount != len(pushValues) {
+		return Config{}, fmt.Errorf("APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPIC, and APNS_KEY_PATH must be configured together")
 	}
 
 	if config.SessionSecret == "" {
@@ -62,4 +81,8 @@ func envOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func (config Config) PushConfigured() bool {
+	return config.APNsKeyID != "" && config.APNsTeamID != "" && config.APNsTopic != "" && config.APNsKeyPath != ""
 }

@@ -1,0 +1,9 @@
+services:
+  family-hub:
+    environment:
+      - APNS_KEY_PATH=/run/secrets/apns.p8
+    volumes:
+      - type: bind
+        source: ${APNS_KEY_FILE:?Set APNS_KEY_FILE to the absolute path of the APNs signing key}
+        target: /run/secrets/apns.p8
+        read_only: true

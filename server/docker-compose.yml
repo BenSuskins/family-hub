@@ -11,7 +11,10 @@ services:
       - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
       - OIDC_REDIRECT_URL=${OIDC_REDIRECT_URL:-http://localhost:8080/auth/callback}
       - SESSION_SECRET=${SESSION_SECRET:-dev-secret-change-me-in-production-32chars}
-      - HA_API_TOKEN=${HA_API_TOKEN:-dev-ha-token}
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_TOPIC=${APNS_TOPIC:-}
+      - APNS_KEY_PATH=${APNS_KEY_PATH:-}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - LOG_LEVEL=debug
       - HUXLEY_BASE_URL=${HUXLEY_BASE_URL:-https://huxley2.azurewebsites.net}

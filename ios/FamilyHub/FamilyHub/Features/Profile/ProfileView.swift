@@ -98,10 +98,14 @@ struct ProfileView: View {
 
     private var appSection: some View {
         Section("App") {
+            NavigationLink("Chore Reminders") {
+                ChoreRemindersView(apiClient: apiClient, isAdmin: isAdmin)
+            }
             NavigationLink {
                 ConfigurationFormView(
                     configStore: configStore,
                     discoveryService: URLSessionOIDCDiscoveryService(),
+                    beforeSave: { try await ChoreNotificationManager.shared.disconnect() },
                     onSave: { authManager.signOut() }
                 )
                     .navigationTitle("Server Configuration")
@@ -124,6 +128,9 @@ struct ProfileView: View {
 
     private var adminSection: some View {
         Section("Admin") {
+            NavigationLink("Family Broadcast") {
+                FamilyBroadcastView(apiClient: apiClient)
+            }
             NavigationLink("Home Info") {
                 HomeInfoView(apiClient: apiClient)
             }
@@ -145,8 +152,13 @@ struct ProfileView: View {
     private var accountSection: some View {
         Section {
             Button(role: .destructive) {
-                authManager.signOut()
-                dismiss()
+                Task {
+                    do {
+                        try await ChoreNotificationManager.shared.disconnect()
+                        authManager.signOut()
+                        dismiss()
+                    } catch { avatarError = .from(error) }
+                }
             } label: {
                 Text("Sign Out")
                     .font(.body.weight(.medium))

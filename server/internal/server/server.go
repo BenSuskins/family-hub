@@ -22,7 +22,11 @@ type Server struct {
 	config config.Config
 }
 
-func New(database *sql.DB, cfg config.Config, authService *services.AuthService) *Server {
+func New(database *sql.DB, cfg config.Config, authService *services.AuthService, senders ...services.MessageSender) *Server {
+	var messageSender services.MessageSender
+	if len(senders) > 0 {
+		messageSender = senders[0]
+	}
 	userRepo := repository.NewUserRepository(database)
 	categoryRepo := repository.NewCategoryRepository(database)
 	choreRepo := repository.NewChoreRepository(database)
@@ -56,6 +60,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 	drivingProvider := services.NewGoogleDriving(providerClient, cfg.GoogleMapsAPIKey, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")
 	departureService := services.NewDepartureService(icalFetcher, drivingProvider, time.Now)
 	householdHandler := handlers.NewHouseholdHandler(settingsRepo, weatherProvider, departureService, repository.NewShoppingRepository(database))
+	reminderHandler := handlers.NewChoreReminderHandler(settingsRepo, repository.NewNotificationRepository(database), cfg.PushConfigured() || messageSender != nil)
+	broadcastHandler := handlers.NewBroadcastHandler(services.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)
 	profileHandler := handlers.NewProfileHandler(userRepo)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 
@@ -148,6 +154,9 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 		r.Post("/api/profile/avatar", apiHandler.UploadAvatar)
 		r.Delete("/api/profile/avatar", apiHandler.DeleteAvatar)
 		r.Get("/api/settings", apiHandler.GetSettings)
+		r.Get("/api/chore-reminders", reminderHandler.Settings)
+		r.Put("/api/notification-devices/{id}", reminderHandler.Register)
+		r.Delete("/api/notification-devices/{id}", reminderHandler.Remove)
 		r.Get("/api/chores", apiHandler.ListChores)
 		r.Post("/api/chores", apiHandler.CreateChore)
 		r.Get("/api/chores/{id}", apiHandler.GetChore)
@@ -206,6 +215,8 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService)
 			r.Post("/api/users/{id}/promote", apiHandler.PromoteUser)
 			r.Post("/api/users/{id}/demote", apiHandler.DemoteUser)
 			r.Patch("/api/settings", apiHandler.PatchSettings)
+			r.Patch("/api/chore-reminders", reminderHandler.Update)
+			r.With(httprate.LimitByIP(5, time.Minute)).Post("/api/notifications/broadcast", broadcastHandler.Send)
 			r.Patch("/api/home-info", householdHandler.UpdateHomeInfo)
 			r.Post("/api/categories", apiHandler.CreateCategory)
 			r.Put("/api/categories/{id}", apiHandler.UpdateCategory)

@@ -40,6 +40,13 @@ public protocol APIClientProtocol: AnyObject {
     func uploadAvatar(imageData: Data, mimeType: String) async throws -> User
     func deleteAvatar() async throws
 
+    // Chore reminders
+    func sendFamilyBroadcast(message: String, requestID: String) async throws -> BroadcastResult
+    func fetchChoreReminders() async throws -> ChoreReminders
+    func updateChoreReminders(_ settings: ChoreReminders) async throws
+    func registerNotificationDevice(_ device: NotificationDevice) async throws
+    func removeNotificationDevice(id: String) async throws
+
     // Settings
     func fetchSettings() async throws -> AppSettings
     func updateFamilyName(_ name: String) async throws

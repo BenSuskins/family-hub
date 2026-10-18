@@ -56,6 +56,7 @@ final class HomeViewModel {
             if silent { completedChoreIDs = [] }
         } catch {
             if !silent { state = .failed(.from(error)) }
+            else { actionError = .from(error) }
         }
     }
 
@@ -69,10 +70,21 @@ final class HomeViewModel {
     }
 
     func completeChore(id: String) async -> Bool {
+        await resolveChore(id: id) { try await self.apiClient.completeChore(id: id) }
+    }
+
+    func skipChore(id: String) async -> Bool {
+        await resolveChore(id: id) { try await self.apiClient.skipChore(id: id) }
+    }
+
+    private func resolveChore(id: String, operation: () async throws -> Void) async -> Bool {
+        guard !completedChoreIDs.contains(id) else { return false }
         actionError = nil
         completedChoreIDs.insert(id)
         do {
-            try await apiClient.completeChore(id: id)
+            try await operation()
+            WidgetPublisher.invalidate()
+            NotificationCenter.default.post(name: .familyHubChoresChanged, object: nil)
             await load(silent: true)
             return true
         } catch {

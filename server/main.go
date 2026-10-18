@@ -44,7 +44,7 @@ func main() {
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, services.WithChoreSettings(repository.NewSettingsRepository(db)))
 
 	var reminderSender services.ReminderSender
 	var messageSender services.MessageSender
@@ -62,10 +62,9 @@ func main() {
 		reminderSender = sender
 		messageSender = sender
 	}
-	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender)
+	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender,userRepo)
 	go runChoreReminders(reminderService)
 	go runOverdueChecker(choreService)
-	go runSeriesTopUp(choreService)
 
 	srv := server.New(db, cfg, authService, messageSender)
 	if err := srv.Start(); err != nil {
@@ -82,22 +81,6 @@ func runOverdueChecker(choreService *services.ChoreService) {
 		ctx := context.Background()
 		if err := choreService.UpdateOverdueChores(ctx); err != nil {
 			slog.Error("updating overdue chores", "error", err)
-		}
-		<-ticker.C
-	}
-}
-
-// runSeriesTopUp keeps the bounded materialization window full for every active
-// recurring series so a never-completed chore does not run out of future
-// occurrences. Runs once on startup, then every 6 hours.
-func runSeriesTopUp(choreService *services.ChoreService) {
-	ticker := time.NewTicker(6 * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		ctx := context.Background()
-		if err := choreService.TopUpAllSeries(ctx, services.SeedHorizonFrom(time.Now())); err != nil {
-			slog.Error("topping up recurring series", "error", err)
 		}
 		<-ticker.C
 	}

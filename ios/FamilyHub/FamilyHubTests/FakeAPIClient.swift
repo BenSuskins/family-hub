@@ -35,6 +35,7 @@ final class FakeAPIClient: APIClientProtocol {
     var deleteChoreResult: Result<Void, Error> = .success(())
     var fetchUserAvatarResult: Result<Data, Error> = .success(Data())
     var mealsResult: Result<[MealPlan], Error> = .success([])
+    var mealsByWeek: [String: [MealPlan]] = [:]
     var recipesResult: Result<[Recipe], Error> = .success([])
     var recipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var recipeImageResult: Result<Data, Error> = .success(Data())
@@ -74,7 +75,10 @@ final class FakeAPIClient: APIClientProtocol {
     func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore { try updateChoreResult.get() }
     func deleteChore(id: String) async throws { try deleteChoreResult.get() }
     func fetchUserAvatar(id: String) async throws -> Data { try fetchUserAvatarResult.get() }
-    func fetchMeals(week: Date) async throws -> [MealPlan] { try mealsResult.get() }
+    func fetchMeals(week: Date) async throws -> [MealPlan] {
+        if !mealsByWeek.isEmpty { return mealsByWeek[APIDate.dayString(week)] ?? [] }
+        return try mealsResult.get()
+    }
     func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] { try recipesResult.get() }
     func fetchRecipe(id: String) async throws -> Recipe { try recipeResult.get() }
     func fetchRecipeImage(id: String) async throws -> Data { try recipeImageResult.get() }

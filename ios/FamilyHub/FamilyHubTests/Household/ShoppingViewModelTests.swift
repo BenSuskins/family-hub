@@ -4,6 +4,23 @@ import FamilyHubKit
 
 @MainActor
 final class ShoppingViewModelTests: XCTestCase {
+    func testLowStockAdditionKeepsTheInventoryLinkForRestock() async {
+        let client = FakeAPIClient()
+        let model = ShoppingViewModel(apiClient: client)
+        await model.load()
+        let stock = InventoryItem(id: "softener", areaID: "laundry", name: "Fabric softener",
+                                  quantity: 1, unit: "bottles", lowAt: 2)
+
+        await model.addInventoryItem(stock)
+
+        XCTAssertEqual(model.items.first?.name, "Fabric softener")
+        XCTAssertEqual(model.items.first?.inventoryItemID, "softener")
+        guard let item = model.items.first else { return XCTFail("The shopping item must be available.") }
+        let purchased = await model.toggle(item)
+        XCTAssertNotNil(purchased?.purchaseID)
+        XCTAssertEqual(purchased?.inventoryItemID, "softener")
+    }
+
     func testFailureKeepsShoppingReadOnly() async {
         let client = FakeAPIClient()
         client.shoppingItems = [ShoppingItem(id: "soap", name: "Soap")]

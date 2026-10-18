@@ -51,6 +51,10 @@ final class ShoppingViewModel {
         _ = await change { try await self.apiClient.addShopping(name: name, inventoryItemID: nil) }
     }
 
+    func addInventoryItem(_ item: InventoryItem) async {
+        _ = await change { try await self.apiClient.addShopping(name: item.name, inventoryItemID: item.id) }
+    }
+
     func toggle(_ item: ShoppingItem) async -> ShoppingItem? {
         await change { try await self.apiClient.updateShopping(id: item.id, change: ShoppingChange(purchased: !item.purchased, version: item.version)) }
     }

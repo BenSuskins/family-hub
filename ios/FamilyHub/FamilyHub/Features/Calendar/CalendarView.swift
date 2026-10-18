@@ -116,7 +116,11 @@ struct CalendarView: View {
         List {
             DatePicker("Date", selection: Binding(
                 get: { viewModel.selectedDay ?? viewModel.currentMonth },
-                set: { viewModel.selectedDay = $0 }
+                set: { date in
+                    viewModel.currentDate = date
+                    viewModel.selectedDay = date
+                    Task { await viewModel.load() }
+                }
             ), displayedComponents: .date)
             Section((viewModel.selectedDay ?? viewModel.currentMonth).formatted(date: .complete, time: .omitted)) {
                 dayItemsContent(for: viewModel.selectedDay ?? viewModel.currentMonth)

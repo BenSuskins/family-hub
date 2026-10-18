@@ -12,11 +12,13 @@ import (
 
 type fakeReminderSender struct {
 	counts    []int
+	summaries []ChoreReminderSummary
 	sendError error
 }
 
-func (sender *fakeReminderSender) Send(ctx context.Context, device models.NotificationDevice, count int, deliveryID string, expires time.Time) error {
-	sender.counts = append(sender.counts, count)
+func (sender *fakeReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, deliveryID string, expires time.Time) error {
+	sender.counts = append(sender.counts, summary.Count)
+	sender.summaries = append(sender.summaries, summary)
 	return sender.sendError
 }
 
@@ -50,6 +52,7 @@ func TestChoreReminderSendsFamilyCountOncePerSlotAcrossRestart(t *testing.T) {
 		{Name: "Undated", Status: models.ChoreStatusPending},
 	} {
 		chore.CreatedByUserID = user.ID
+		chore.AssignedToUserID = &user.ID
 		if _, err := chores.Create(ctx, chore); err != nil {
 			t.Fatal(err)
 		}
@@ -57,17 +60,20 @@ func TestChoreReminderSendsFamilyCountOncePerSlotAcrossRestart(t *testing.T) {
 	sender := &fakeReminderSender{}
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	for range 2 {
-		service := NewChoreReminderService(settings, chores, devices, sender)
+		service := NewChoreReminderService(settings, chores, devices, sender, users)
 		if err := service.Check(ctx, now); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if len(sender.counts) != 1 || sender.counts[0] != 3 {
+	if len(sender.counts) != 1 || sender.counts[0] != 4 {
 		t.Fatalf("notifications: %v", sender.counts)
 	}
-	service := NewChoreReminderService(settings, chores, devices, sender)
+	service := NewChoreReminderService(settings, chores, devices, sender, users)
 	if err := service.Check(ctx, now.Add(6*time.Hour+30*time.Minute)); err != nil {
 		t.Fatal(err)
+	}
+	if sender.summaries[0].Tasks[0].Assignee != "Family" || sender.summaries[0].Tasks[0].Name == "" {
+		t.Fatal("missing owner or chore name")
 	}
 	if len(sender.counts) != 2 {
 		t.Fatalf("evening reminder missing: %v", sender.counts)
@@ -267,7 +273,7 @@ func TestChoreReminderRetriesOnlyFailedDevices(t *testing.T) {
 
 type partialReminderSender struct{ attempts map[string]int }
 
-func (sender *partialReminderSender) Send(ctx context.Context, device models.NotificationDevice, count int, identifier string, expires time.Time) error {
+func (sender *partialReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, identifier string, expires time.Time) error {
 	sender.attempts[device.ID]++
 	if device.ID == "retry" && sender.attempts[device.ID] == 1 {
 		return &PushError{Reason: "unavailable", Retry: true}
@@ -276,4 +282,12 @@ func (sender *partialReminderSender) Send(ctx context.Context, device models.Not
 		return &PushError{Reason: "Unregistered", InvalidDevice: true}
 	}
 	return nil
+}
+
+func TestReminderNamesOwnersAndLimitsSummary(t *testing.T) {
+	summary := ChoreReminderSummary{Count: 7, Tasks: []ChoreReminderTask{{Assignee: "Ben", Name: "Empty bins"}, {Assignee: "Alex", Name: "Dishwasher"}, {Assignee: "Ben", Name: "Vacuum"}}}
+	message := summary.Message()
+	if message.Body != "Ben: Empty bins; Alex: Dishwasher; Ben: Vacuum — and 4 more" || message.URL != "familyhub://today" {
+		t.Fatalf("unexpected reminder: %+v", message)
+	}
 }

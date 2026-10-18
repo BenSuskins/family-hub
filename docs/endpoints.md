@@ -195,9 +195,43 @@ curl -s -X DELETE $BASE_URL/api/profile/avatar -H "Authorization: Bearer $API_TO
 curl -s $BASE_URL/api/settings -H "Authorization: Bearer $API_TOKEN" | jq
 ```
 
+### Chore definitions and task history
+
+Home uses the dashboard API for current overdue and today's tasks.
+Current tasks without a due date appear in Today.
+Tasks uses definitions. A definition owns the rule and eligible people.
+Each definition has at most one pending or overdue task.
+
+All routes below accept a session cookie or a Bearer API token.
+Any signed-in family member can create, edit, delete, complete, or skip.
+
+| Route | Behaviour |
+|---|---|
+| `GET /api/chore-definitions?include_inactive=false` | List active definitions. Set `include_inactive=true` to include ended and deleted definitions. |
+| `POST /api/chore-definitions` | Create a definition and its first task. Use the same body as `POST /api/chores`. Return 201. |
+| `GET /api/chore-definitions/{id}` | Return the definition and its current task. Return 404 for an unknown definition. |
+| `PUT /api/chore-definitions/{id}` | Update setup. Keep the current task's owner and due date. Apply repeat rules to successors. Return 409 for a deleted definition. |
+| `DELETE /api/chore-definitions/{id}` | Soft-delete the definition. Remove its task from actionable lists. Keep history. Return 204. |
+| `GET /api/chore-history?definition_id={id}&limit=50&cursor={taskID}` | Return resolved tasks, newest first. The definition filter is optional. Limits are 1–100. |
+| `POST /api/chores/{id}/skip` | Skip the current task and create its successor atomically. Return 204, or 409 for an already resolved task. |
+
+Definition responses use `{ID, Chore, CurrentTask, Active, DeletedAt}`.
+`Chore` contains setup with the definition ID. `CurrentTask` contains the actionable task ID, or null.
+History responses use `{Items, NextCursor}`. An empty cursor ends the list.
+History adds `skipped` and `superseded` states, plus `ResolvedAt` and `ResolvedByUserID`.
+Legacy chore lists exclude these states so older clients still decode them.
+
+Completion and Skip advance rotation from the assigned owner, regardless of the actor.
+The server does not skip people with overdue tasks.
+Completed and skipped tasks count toward repeat limits. Superseded tasks do not.
+Fixed schedules keep their cadence and select the next future date after resolution.
+Completion-based schedules calculate the next date from the action time.
+Calendar forecasts use `IsForecast=true` and provisional names and owners.
+Forecast IDs are display identifiers. They cannot complete or skip a task.
+
 ### `GET /api/chores`
 - **Usecase:** List chores. Optional filters: `status`, `assigned_to`.
-- **Callers:** iOS app chores list.
+- **Callers:** Legacy clients. The current iOS Tasks tab uses chore definitions.
 - **Security:** API token.
 
 ```bash
@@ -236,7 +270,7 @@ curl -s $BASE_URL/api/chores/<choreID> -H "Authorization: Bearer $API_TOKEN" | j
 - **Usecase:** Update chore. Accepts the same body fields as `POST /api/chores`
   (name, description, category, assignees, due date/time, full recurrence config, end
   conditions, recur-on-complete). Editing an occurrence that belongs to a series syncs the
-  series definition. Omitted optional fields are cleared.
+  series definition. The current owner and due date remain unchanged. Omitted optional rule fields are cleared.
 - **Callers:** iOS app edit.
 - **Security:** API token.
 
@@ -248,7 +282,7 @@ curl -s -X PUT $BASE_URL/api/chores/<choreID> \
 ```
 
 ### `DELETE /api/chores/{id}`
-- **Usecase:** Delete chore; also wipes future pending siblings in its series.
+- **Usecase:** Soft-delete the chore definition. Keep task history.
 - **Callers:** iOS app.
 - **Security:** API token.
 
@@ -259,7 +293,7 @@ curl -s -X DELETE $BASE_URL/api/chores/<choreID> -H "Authorization: Bearer $API_
 ### `POST /api/chores/{id}/complete`
 - **Usecase:** Mark chore done by the token's user. Spawns next recurrence.
 - **Callers:** iOS app, shortcuts.
-- **Security:** API token. 409 if already complete.
+- **Security:** API token. 409 if the task is no longer outstanding.
 
 ```bash
 curl -s -X POST $BASE_URL/api/chores/<choreID>/complete -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
@@ -973,7 +1007,9 @@ Use two distinct times in `HH:mm` format. Invalid times return 400.
 Enablement returns 503 when the server has no APNs credentials.
 The response uses the same shape as GET.
 
-At each time, the server counts all unfinished family chores due today or overdue.
+At each time, the server selects current unfinished family chores due today or overdue.
+Each alert names up to three assignees and chores, then shows the remaining count.
+A tap opens Home and loads current chores.
 A chore due later today counts. An undated chore counts only when its status is overdue.
 The server sends nothing when the count is zero.
 

@@ -7,6 +7,7 @@ struct ChoreRowView: View {
     let user: User?
     let apiClient: any APIClientProtocol
     let onComplete: () -> Void
+    var onSkip: (() -> Void)?
     var minHeight: CGFloat = 56
     var showDateWhenOverdue: Bool = false
 
@@ -26,13 +27,11 @@ struct ChoreRowView: View {
                     ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
                     : AnyLayout(HStackLayout(spacing: 4))
                 layout {
-                    if let user {
-                        Text(user.name)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if !dynamicTypeSize.isAccessibilitySize {
-                            Text("·").font(.footnote).foregroundStyle(.secondary)
-                        }
+                    Text(user?.name ?? "Unassigned")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Text("·").font(.footnote).foregroundStyle(.secondary)
                     }
                     if chore.status == .overdue {
                         Text("Overdue")
@@ -52,6 +51,15 @@ struct ChoreRowView: View {
             }
 
             Spacer(minLength: 0)
+
+            if let onSkip {
+                Menu {
+                    Button("Skip this task", systemImage: "forward.end") { onSkip() }
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Actions for \(chore.name)")
+            }
 
             Button(action: onComplete) {
                 CheckCircleView(isSelected: chore.status == .completed)

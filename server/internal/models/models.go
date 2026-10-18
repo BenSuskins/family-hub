@@ -12,9 +12,11 @@ const (
 type ChoreStatus string
 
 const (
-	ChoreStatusPending   ChoreStatus = "pending"
-	ChoreStatusCompleted ChoreStatus = "completed"
-	ChoreStatusOverdue   ChoreStatus = "overdue"
+	ChoreStatusPending    ChoreStatus = "pending"
+	ChoreStatusCompleted  ChoreStatus = "completed"
+	ChoreStatusOverdue    ChoreStatus = "overdue"
+	ChoreStatusSkipped    ChoreStatus = "skipped"
+	ChoreStatusSuperseded ChoreStatus = "superseded"
 )
 
 type RecurrenceType string
@@ -56,15 +58,16 @@ type Category struct {
 }
 
 type Chore struct {
+	IsForecast      bool
 	ID              string
 	Name            string
 	Description     string
 	CreatedByUserID string
 	CategoryID      *string
 
-	AssignedToUserID   *string
-	LastAssignedIndex  int
-	EligibleAssignees  []string
+	AssignedToUserID  *string
+	LastAssignedIndex int
+	EligibleAssignees []string
 
 	DueDate *time.Time
 	DueTime *string
@@ -76,12 +79,14 @@ type Chore struct {
 
 	// Optional end conditions for a recurring series. RecurrenceUntil stops
 	// generating occurrences due after the given instant; RecurrenceCount caps
-	// the total number of occurrences (rows) in the series. Nil means no limit.
+	// the number of completed or skipped tasks in the series. Nil means no limit.
 	RecurrenceUntil *time.Time
 	RecurrenceCount *int
 
-	Status          ChoreStatus
-	CompletedAt     *time.Time
+	Status            ChoreStatus
+	ResolvedAt        *time.Time
+	ResolvedByUserID  *string
+	CompletedAt       *time.Time
 	CompletedByUserID *string
 
 	CreatedAt time.Time
@@ -178,10 +183,10 @@ type Recipe struct {
 	// entry of Steps, positionally aligned, nil where a step has no timing.
 	// Only the single-recipe endpoint populates it — the list endpoint omits
 	// Steps, so there is nothing to align against.
-	StepDurations []*int
+	StepDurations   []*int
 	CreatedByUserID string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type RecipeMealType string

@@ -92,7 +92,13 @@ struct HomeView: View {
                 RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: recipesViewModel)
             }
         }
-        .task { await viewModel.load() }
+        .task(id: navigation.choreRefreshID) { await viewModel.load() }
+        .onChange(of: navigation.selectedTab) { _, tab in
+            if tab == .today { Task { await viewModel.load() } }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && isVisible { Task { await viewModel.load() } }
+        }
     }
 
     private var homeHeader: some View {
@@ -230,42 +236,41 @@ struct HomeView: View {
     // MARK: - Today's Chores
 
     private func choresSection(_ stats: DashboardStats) -> some View {
-        let allDue = (stats.choresOverdueList + stats.choresDueTodayList)
-            .filter { !viewModel.completedChoreIDs.contains($0.id) }
+        let overdue = stats.choresOverdueList.filter { !viewModel.completedChoreIDs.contains($0.id) }
+        let today = stats.choresDueTodayList.filter { !viewModel.completedChoreIDs.contains($0.id) }
         return VStack(alignment: .leading, spacing: 0) {
-            HomeSectionHeader(title: "Today's chores") { EmptyView() }
-
-            if allDue.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.appGreen)
-                    Text("All caught up!")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(allDue.enumerated()), id: \.element.id) { index, chore in
-                        if index > 0 {
-                            Divider().padding(.leading, 64)
-                        }
-                        ChoreRowView(
-                            chore: chore,
-                            user: viewModel.users[chore.assignedToUserID ?? ""],
-                            apiClient: apiClient,
-                            onComplete: {
-                                Task { await viewModel.completeChore(id: chore.id) }
-                            }
-                        )
-                    }
-                }
-                .groupedCard(radius: 16)
-                .padding(.horizontal, 16)
+            if !overdue.isEmpty { choreGroup("Overdue", chores: overdue) }
+            if !today.isEmpty { choreGroup("Today’s chores", chores: today) }
+            if overdue.isEmpty && today.isEmpty {
+                HomeSectionHeader(title: "Chores") { EmptyView() }
+                Label("No chores due", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
             }
         }
     }
+
+    private func choreGroup(_ title: String, chores: [Chore]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HomeSectionHeader(title: title) { EmptyView() }
+            VStack(spacing: 0) {
+                ForEach(Array(chores.enumerated()), id: \.element.id) { index, chore in
+                    if index > 0 { Divider().padding(.leading, 64) }
+                    ChoreRowView(
+                        chore: chore,
+                        user: viewModel.users[chore.assignedToUserID ?? ""],
+                        apiClient: apiClient,
+                        onComplete: { Task { await viewModel.completeChore(id: chore.id) } },
+                        onSkip: { Task { await viewModel.skipChore(id: chore.id) } },
+                        showDateWhenOverdue: true
+                    )
+                }
+            }
+            .groupedCard(radius: 16)
+            .padding(.horizontal, 16)
+        }
+    }
+
 }
 
 // MARK: - HomeSectionHeader

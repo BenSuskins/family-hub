@@ -13,11 +13,13 @@ type Config struct {
 	OIDCUserInfoURL      string
 	SessionSecret        string
 	SessionEncryptionKey string
+	HuxleyBaseURL        string
+	HuxleyAccessToken    string
 
-	BaseURL              string
-	LogLevel             string
-	Port                 string
-	DevMode              bool
+	BaseURL  string
+	LogLevel string
+	Port     string
+	DevMode  bool
 }
 
 func Load() (Config, error) {
@@ -29,11 +31,13 @@ func Load() (Config, error) {
 		OIDCUserInfoURL:      envOrDefault("OIDC_USERINFO_URL", os.Getenv("OIDC_ISSUER")+"/api/oidc/userinfo"),
 		SessionSecret:        os.Getenv("SESSION_SECRET"),
 		SessionEncryptionKey: os.Getenv("SESSION_ENCRYPTION_KEY"),
+		HuxleyBaseURL:        envOrDefault("HUXLEY_BASE_URL", "https://huxley2.azurewebsites.net"),
+		HuxleyAccessToken:    os.Getenv("HUXLEY_ACCESS_TOKEN"),
 
-		BaseURL:              envOrDefault("BASE_URL", "http://localhost:8080"),
-		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
-		Port:                 envOrDefault("PORT", "8080"),
-		DevMode:              os.Getenv("DEV_MODE") == "true",
+		BaseURL:  envOrDefault("BASE_URL", "http://localhost:8080"),
+		LogLevel: envOrDefault("LOG_LEVEL", "info"),
+		Port:     envOrDefault("PORT", "8080"),
+		DevMode:  os.Getenv("DEV_MODE") == "true",
 	}
 
 	if config.SessionSecret == "" {

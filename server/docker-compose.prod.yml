@@ -13,6 +13,8 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - HA_API_TOKEN=${HA_API_TOKEN}
       - LOG_LEVEL=info
+      - HUXLEY_BASE_URL=${HUXLEY_BASE_URL:-https://huxley2.azurewebsites.net}
+      - HUXLEY_ACCESS_TOKEN=${HUXLEY_ACCESS_TOKEN:-}
     volumes:
       - ../data:/data
     restart: unless-stopped

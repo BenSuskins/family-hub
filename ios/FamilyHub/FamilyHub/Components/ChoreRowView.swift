@@ -2,6 +2,7 @@ import SwiftUI
 import FamilyHubKit
 
 struct ChoreRowView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let chore: Chore
     let user: User?
     let apiClient: any APIClientProtocol
@@ -11,35 +12,40 @@ struct ChoreRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            UserAvatar(user: user, size: 32, apiClient: apiClient)
+            if !dynamicTypeSize.isAccessibilitySize {
+                UserAvatar(user: user, size: 32, apiClient: apiClient).accessibilityHidden(true)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(chore.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .strikethrough(chore.status == .completed)
                     .foregroundStyle(chore.status == .completed ? .tertiary : .primary)
-                    .lineLimit(1)
-                HStack(spacing: 4) {
+                    .fixedSize(horizontal: false, vertical: true)
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                    : AnyLayout(HStackLayout(spacing: 4))
+                layout {
                     if let user {
                         Text(user.name)
-                            .font(.system(size: 13))
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Text("·")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
+                        if !dynamicTypeSize.isAccessibilitySize {
+                            Text("·").font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
                     if chore.status == .overdue {
                         Text("Overdue")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.footnote.weight(.semibold))
                             .foregroundStyle(.red)
                         if showDateWhenOverdue, let date = chore.formattedDueDate {
                             Text(date)
-                                .font(.system(size: 13))
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     } else if let date = chore.formattedDueDate {
                         Text(date)
-                            .font(.system(size: 13))
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -49,8 +55,11 @@ struct ChoreRowView: View {
 
             Button(action: onComplete) {
                 CheckCircleView(isSelected: chore.status == .completed)
+                    .frame(width: 44, height: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel(chore.status == .completed ? "Completed \(chore.name)" : "Complete \(chore.name)")
+            .disabled(chore.status == .completed)
             .sensoryFeedback(.success, trigger: chore.status == .completed)
         }
         .padding(.horizontal, 16)

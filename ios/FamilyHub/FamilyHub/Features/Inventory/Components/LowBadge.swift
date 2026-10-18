@@ -4,7 +4,7 @@ import SwiftUI
 struct LowBadge: View {
     var body: some View {
         Text("Low")
-            .font(.system(size: 11, weight: .bold))
+            .font(.caption.weight(.bold))
             .textCase(.uppercase)
             .kerning(0.3)
             .foregroundStyle(InventoryStyle.low)

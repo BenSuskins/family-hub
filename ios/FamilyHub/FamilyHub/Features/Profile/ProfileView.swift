@@ -14,6 +14,7 @@ struct ProfileView: View {
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
     @State private var avatarError: APIError?
+    @State private var confirmRemovePhoto = false
 
     private var displayName: String { currentUser?.name ?? authManager.displayName }
     private var displayEmail: String { currentUser?.email ?? authManager.email }
@@ -40,6 +41,9 @@ struct ProfileView: View {
                 }
             }
             .errorAlert($avatarError)
+            .confirmationDialog("Remove your photo?", isPresented: $confirmRemovePhoto, titleVisibility: .visible) {
+                Button("Remove Photo", role: .destructive) { Task { await removeAvatar() } }
+            }
             .task { currentUser = try? await apiClient.fetchMe() }
             .onChange(of: photoPickerItem) { _, item in
                 guard let item else { return }
@@ -83,7 +87,7 @@ struct ProfileView: View {
 
             if currentUser?.avatarURL.hasPrefix("/avatar/") == true {
                 Button(role: .destructive) {
-                    Task { await removeAvatar() }
+                    confirmRemovePhoto = true
                 } label: {
                     Label("Remove Photo", systemImage: "trash")
                 }
@@ -95,15 +99,13 @@ struct ProfileView: View {
     private var appSection: some View {
         Section("App") {
             NavigationLink {
-                NavigationStack {
-                    ConfigurationFormView(
-                        configStore: configStore,
-                        discoveryService: URLSessionOIDCDiscoveryService(),
-                        onSave: { authManager.signOut() }
-                    )
+                ConfigurationFormView(
+                    configStore: configStore,
+                    discoveryService: URLSessionOIDCDiscoveryService(),
+                    onSave: { authManager.signOut() }
+                )
                     .navigationTitle("Server Configuration")
                     .navigationBarTitleDisplayMode(.inline)
-                }
             } label: {
                 LabeledContent("Server URL") {
                     Text(configStore.baseURL)

@@ -4,212 +4,103 @@ import FamilyHubKit
 struct AreaDetailView: View {
     let areaID: String
     @Bindable var viewModel: InventoryViewModel
-
     @State private var scope: Scope = .all
     @State private var activeSheet: ActiveSheet?
+    @State private var deletingItem: InventoryItem?
 
     enum Scope: Hashable { case all, low }
-
     enum ActiveSheet: Identifiable {
-        case addItem
-        case editItem(InventoryItem)
-
+        case addItem, editItem(InventoryItem)
         var id: String {
             switch self {
-            case .addItem:            return "add"
+            case .addItem: return "add"
             case .editItem(let item): return "edit-\(item.id)"
             }
         }
     }
 
-    private var area: InventoryArea? { viewModel.area(id: areaID) }
-
     var body: some View {
         Group {
-            if let area {
-                content(for: area)
+            if let area = viewModel.area(id: areaID) {
+                List {
+                    Section {
+                        Picker("Show", selection: $scope) {
+                            Text("All items").tag(Scope.all)
+                            Text("Running low (\(area.lowCount))").tag(Scope.low)
+                        }
+                    }
+                    Section("Items") {
+                        let items = scope == .low ? area.lowItems : area.items
+                        if items.isEmpty { Text("No items").foregroundStyle(.secondary) }
+                        ForEach(items) { item in
+                            itemRow(item)
+                                .swipeActions(allowsFullSwipe: false) {
+                                    Button("Delete", role: .destructive) { deletingItem = item }
+                                }
+                        }
+                        Button("Add Item", systemImage: "plus") { activeSheet = .addItem }
+                    }
+                }
+                .navigationTitle(area.name)
             } else {
-                // Area was deleted while open — fall back to the list.
                 ContentUnavailableView("Area not found", systemImage: "shippingbox")
             }
         }
-    }
-
-    private func content(for area: InventoryArea) -> some View {
-        let visibleItems = scope == .low ? area.lowItems : area.items
-
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header(area)
-                scopePicker(area)
-
-                VStack(spacing: 0) {
-                    ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { Divider().padding(.leading, 16) }
-                        itemRow(item)
-                    }
-                    if !area.items.isEmpty { Divider().padding(.leading, 16) }
-                    addItemRow
-                }
-                .glassCard(radius: 16)
-                .padding(.horizontal, 16)
-
-                if visibleItems.isEmpty && scope == .low {
-                    Text("Nothing low here 🎉")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                }
-
-                Spacer(minLength: 24)
-            }
-        }
-        .meshBackground()
-        .navigationTitle(area.name)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { activeSheet = .addItem } label: {
-                    Image(systemName: "plus")
-                }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("New Item", systemImage: "plus") { activeSheet = .addItem }
             }
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
-            case .addItem:
-                ItemFormView(mode: .create(areaID: areaID), viewModel: viewModel)
-            case .editItem(let item):
-                ItemFormView(mode: .edit(item), viewModel: viewModel)
+            case .addItem: ItemFormView(mode: .create(areaID: areaID), viewModel: viewModel)
+            case .editItem(let item): ItemFormView(mode: .edit(item), viewModel: viewModel)
+            }
+        }
+        .confirmationDialog("Delete this item?", isPresented: Binding(
+            get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } }
+        ), titleVisibility: .visible) {
+            if let item = deletingItem {
+                Button("Delete Item", role: .destructive) { Task { await viewModel.deleteItem(areaID: areaID, id: item.id) } }
             }
         }
         .errorAlert($viewModel.actionError)
-        .alert("Shopping List", isPresented: Binding(get: { viewModel.shoppingMessage != nil }, set: { if !$0 { viewModel.shoppingMessage = nil } })) {
-            Button("OK") { viewModel.shoppingMessage = nil }
-        } message: { Text(viewModel.shoppingMessage ?? "") }
+        .alert("Shopping List", isPresented: Binding(
+            get: { viewModel.shoppingMessage != nil }, set: { if !$0 { viewModel.shoppingMessage = nil } }
+        )) { Button("OK") { viewModel.shoppingMessage = nil } }
+        message: { Text(viewModel.shoppingMessage ?? "") }
     }
-
-    // MARK: - Header
-
-    private func header(_ area: InventoryArea) -> some View {
-        HStack(spacing: 14) {
-            AreaIconTile(area: area, size: 52)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(area.name)
-                    .font(.system(size: 24, weight: .bold))
-                HStack(spacing: 4) {
-                    Text("\(area.items.count) items")
-                    if area.lowCount > 0 {
-                        Text("·")
-                        Text("\(area.lowCount) running low")
-                            .foregroundStyle(InventoryStyle.low)
-                            .fontWeight(.semibold)
-                    }
-                }
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 14)
-    }
-
-    private func scopePicker(_ area: InventoryArea) -> some View {
-        Picker("Filter", selection: $scope) {
-            Text("All").tag(Scope.all)
-            Text(area.lowCount > 0 ? "Low · \(area.lowCount)" : "Low").tag(Scope.low)
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 14)
-    }
-
-    // MARK: - Item row
 
     private func itemRow(_ item: InventoryItem) -> some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Button { activeSheet = .editItem(item) } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 7) {
-                        Text(item.name)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.primary)
-                        if item.isLow { LowBadge() }
-                    }
-                    Text(subtitle(for: item))
-                        .font(.system(size: 13))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.name).font(.headline).foregroundStyle(.primary)
+                    Text(item.statusLabel + " · Low at \(item.lowAt)\(item.trackingMode == .level ? "%" : "")")
+                        .font(.subheadline).foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                Task { await viewModel.addToShopping(item) }
-            } label: {
-                Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("Add \(item.name) to shopping list")
-            switch item.trackingMode {
-            case .count:
-                QuantityStepper(
-                    quantity: item.quantity,
-                    isLow: item.isLow,
-                    onDecrement: { Task { await viewModel.adjustQuantity(item: item, by: -1) } },
-                    onIncrement: { Task { await viewModel.adjustQuantity(item: item, by: 1) } }
-                )
-            case .level:
-                LevelBar(level: item.level, isLow: item.isLow)
+            if item.isLow { Label("Running low", systemImage: "exclamationmark.circle").font(.caption) }
+            HStack {
+                Button {
+                    Task { await viewModel.addToShopping(item) }
+                } label: {
+                    Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Add \(item.name) to shopping list")
+                Spacer()
+                switch item.trackingMode {
+                case .count:
+                    QuantityStepper(quantity: item.quantity, isLow: item.isLow, label: item.name,
+                                    onDecrement: { Task { await viewModel.adjustQuantity(item: item, by: -1) } },
+                                    onIncrement: { Task { await viewModel.adjustQuantity(item: item, by: 1) } })
+                case .level: LevelBar(level: item.level, isLow: item.isLow)
+                }
             }
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 14)
-        .padding(.vertical, 12)
-        .frame(minHeight: 64)
-        .contextMenu {
-            Button("Add to shopping list", systemImage: "cart.badge.plus") {
-                Task { await viewModel.addToShopping(item) }
-            }
-        }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                Task { await viewModel.deleteItem(areaID: areaID, id: item.id) }
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-    }
-
-    private func subtitle(for item: InventoryItem) -> String {
-        switch item.trackingMode {
-        case .level:
-            return "low at \(item.lowAt)%"
-        case .count:
-            let unit = item.unit.isEmpty ? "" : " \(item.unit)"
-            return "\(item.quantity)\(unit) · low at \(item.lowAt)"
-        }
-    }
-
-    private var addItemRow: some View {
-        Button { activeSheet = .addItem } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .semibold))
-                Text("Add item")
-                    .font(.system(size: 16))
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(Color.accentColor)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(minHeight: 52)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        .padding(.vertical, 4)
     }
 }

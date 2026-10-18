@@ -5,6 +5,7 @@ import FamilyHubKit
 @Observable
 @MainActor
 final class HomeViewModel {
+    var actionError: APIError?
     var state: ViewState<DashboardStats> = .idle
     var users: [String: User] = [:]
     var currentUser: User?
@@ -68,12 +69,14 @@ final class HomeViewModel {
     }
 
     func completeChore(id: String) async -> Bool {
+        actionError = nil
         completedChoreIDs.insert(id)
         do {
             try await apiClient.completeChore(id: id)
             await load(silent: true)
             return true
         } catch {
+            actionError = .from(error)
             completedChoreIDs.remove(id)
             return false
         }

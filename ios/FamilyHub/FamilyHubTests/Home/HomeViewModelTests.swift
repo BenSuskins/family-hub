@@ -91,5 +91,7 @@ final class HomeViewModelTests: XCTestCase {
         let result = await viewModel.completeChore(id: "c1")
 
         XCTAssertFalse(result)
+        XCTAssertNotNil(viewModel.actionError)
+        XCTAssertFalse(viewModel.completedChoreIDs.contains("c1"))
     }
 }

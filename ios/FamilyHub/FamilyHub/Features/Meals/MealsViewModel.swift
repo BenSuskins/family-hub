@@ -6,6 +6,7 @@ import FamilyHubKit
 @Observable
 @MainActor
 final class MealsViewModel {
+    var actionError: APIError?
     var state: ViewState<[MealPlan]> = .idle
     var currentWeek: Date = MealsViewModel.fridayStartOfWeek(for: Date())
 
@@ -50,21 +51,25 @@ final class MealsViewModel {
     }
 
     func saveMeal(date: String, mealType: String, name: String, recipeID: String? = nil) async -> Bool {
+        actionError = nil
         do {
             _ = try await apiClient.saveMeal(date: date, mealType: mealType, name: name, recipeID: recipeID)
             await load()
             return true
         } catch {
+            actionError = .from(error)
             return false
         }
     }
 
     func deleteMeal(date: String, mealType: String) async -> Bool {
+        actionError = nil
         do {
             try await apiClient.deleteMeal(date: date, mealType: mealType)
             await load()
             return true
         } catch {
+            actionError = .from(error)
             return false
         }
     }

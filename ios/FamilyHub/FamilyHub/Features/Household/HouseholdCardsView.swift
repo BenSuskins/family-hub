@@ -44,7 +44,7 @@ struct HouseholdCardsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .glassCard(radius: 16)
+                .groupedCard(radius: 16)
             }.buttonStyle(.plain)
 
             TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -87,8 +87,8 @@ struct DepartureCard: View {
                     .font(.subheadline)
             }
             Text("Current driving estimate, including traffic.").font(.caption).foregroundStyle(.secondary)
-            Text("Google Maps").font(.system(size: 12)).foregroundStyle(.secondary)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(16).glassCard(radius: 16)
+            Text("Google Maps").font(.caption).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(16).groupedCard(radius: 16)
     }
 }
 

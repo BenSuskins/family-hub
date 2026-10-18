@@ -35,4 +35,21 @@ final class MealsViewModelTests: XCTestCase {
         let diff = Calendar.current.dateComponents([.day], from: original, to: viewModel.currentWeek).day
         XCTAssertEqual(diff, 7)
     }
+    func testFailedSaveKeepsLoadedMealsAndReportsError() async {
+        let fake = FakeAPIClient()
+        fake.mealsResult = .success([makeMeal(date: "2026-10-18", mealType: "dinner", name: "Pasta")])
+        fake.saveMealResult = .failure(APIError.server(status: 500, serverMessage: nil))
+        let viewModel = MealsViewModel(apiClient: fake)
+        await viewModel.load()
+
+        let saved = await viewModel.saveMeal(date: "2026-10-18", mealType: "dinner", name: "Soup")
+
+        XCTAssertFalse(saved)
+        XCTAssertNotNil(viewModel.actionError)
+        guard case .loaded(let meals) = viewModel.state else {
+            return XCTFail("The existing meal plan stays available after a failed save.")
+        }
+        XCTAssertEqual(meals.first?.name, "Pasta")
+    }
+
 }

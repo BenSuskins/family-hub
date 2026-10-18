@@ -79,11 +79,13 @@ struct ChoreFormView: View {
                     deleteSection
                 }
             }
+            .disabled(isSaving)
+            .interactiveDismissDisabled(isSaving)
             .navigationTitle(isEditing ? "Edit Chore" : "New Chore")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { dismiss() }.disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
@@ -263,7 +265,7 @@ struct ChoreFormView: View {
                         if isOn { weeklyDays.remove(key) } else { weeklyDays.insert(key) }
                     } label: {
                         Text(label)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(isOn ? Color.accentColor : Color(UIColor.secondarySystemFill),

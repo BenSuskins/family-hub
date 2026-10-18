@@ -6,8 +6,10 @@ struct ChoreDetailView: View {
     let viewModel: ChoresViewModel
     let apiClient: any APIClientProtocol
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
     @State private var isCompleting = false
+    @State private var didComplete = false
     @State private var completionError: String?
     @State private var showEditForm = false
     @State private var showDeleteConfirm = false
@@ -15,8 +17,14 @@ struct ChoreDetailView: View {
     var body: some View {
         List {
             Section {
-                HStack(spacing: 12) {
-                    UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                    : AnyLayout(HStackLayout(spacing: 12))
+                layout {
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        UserAvatar(user: viewModel.users[chore.assignedToUserID ?? ""], size: 32, apiClient: apiClient)
+                            .accessibilityHidden(true)
+                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(viewModel.users[chore.assignedToUserID ?? ""]?.name ?? "Unassigned")
                             .font(.body.weight(.medium))
@@ -26,7 +34,7 @@ struct ChoreDetailView: View {
                                 .foregroundStyle(badge.color)
                         }
                     }
-                    Spacer()
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     if let date = chore.formattedDueDate {
                         Text(date)
                             .font(.subheadline)
@@ -51,7 +59,10 @@ struct ChoreDetailView: View {
                             completionError = nil
                             let success = await viewModel.complete(choreID: chore.id)
                             isCompleting = false
-                            if success { dismiss() } else { completionError = viewModel.actionError?.errorDescription }
+                            if success {
+                                didComplete = true
+                                dismiss()
+                            } else { completionError = viewModel.actionError?.errorDescription }
                         }
                     } label: {
                         HStack {
@@ -90,14 +101,13 @@ struct ChoreDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("Chore actions")
             }
         }
         .sheet(isPresented: $showEditForm) {
             ChoreFormView(mode: .edit(chore), viewModel: viewModel)
         }
-        .sensoryFeedback(.success, trigger: isCompleting) { oldValue, newValue in
-            oldValue && !newValue
-        }
+        .sensoryFeedback(.success, trigger: didComplete)
         .confirmationDialog("Delete Chore?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {

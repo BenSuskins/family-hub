@@ -4,8 +4,8 @@ import SwiftUI
 struct CheckCircleView: View {
     let isSelected: Bool
     var size: CGFloat = 28
-    var color: Color = Color.appGreen
-    var unselectedBorderColor: Color = Color.appGreen
+    var color: Color = .accentColor
+    var unselectedBorderColor: Color = .secondary
 
     var body: some View {
         ZStack {
@@ -19,7 +19,8 @@ struct CheckCircleView: View {
                 .opacity(isSelected ? 1 : 0)
             Image(systemName: "checkmark")
                 .font(.system(size: size * 0.46, weight: .semibold))
-                .foregroundStyle(isSelected ? .white : color)
+                .foregroundStyle(.white)
+                .opacity(isSelected ? 1 : 0)
         }
     }
 }

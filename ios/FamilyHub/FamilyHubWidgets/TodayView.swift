@@ -6,7 +6,10 @@ import FamilyHubKit
 
 struct TodayView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: TodayEntry
+
+    private var usesLargeText: Bool { dynamicTypeSize >= .xxLarge }
 
     var body: some View {
         switch family {
@@ -14,8 +17,8 @@ struct TodayView: View {
         case .accessoryCircular:    CircularView(entry: entry)
         case .accessoryRectangular: RectangularView(entry: entry)
         case .systemSmall:          SmallView(entry: entry)
-        case .systemLarge:          AgendaView(entry: entry, maxRows: 6, showsEveryMeal: true)
-        default:                    AgendaView(entry: entry, maxRows: 3, showsEveryMeal: false)
+        case .systemLarge:          AgendaView(entry: entry, maxRows: usesLargeText ? 2 : 6, showsEveryMeal: !usesLargeText)
+        default:                    AgendaView(entry: entry, maxRows: usesLargeText ? 1 : 3, showsEveryMeal: false)
         }
     }
 }
@@ -60,8 +63,7 @@ private extension TodayWidgetData.Item {
         }
     }
 
-    /// An event belongs to the calendar tab; chores live on Home, since the app
-    /// has no Chores tab.
+    /// Keep the existing widget URLs valid across navigation changes.
     var destination: URL {
         switch kind {
         case .event: return WidgetLink.calendar
@@ -120,7 +122,7 @@ private struct AgendaView: View {
             if let problem = entry.problem {
                 Spacer(minLength: 0)
                 Text(problem)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
             } else if entry.data.isClear {
@@ -129,7 +131,7 @@ private struct AgendaView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Text("Nothing on today")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -141,7 +143,7 @@ private struct AgendaView: View {
 
                 if hiddenCount > 0 {
                     Text("+\(hiddenCount) more")
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -154,14 +156,14 @@ private struct AgendaView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Text("Today")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
             Text(entry.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             if entry.hasData, entry.data.overdueCount > 0 {
                 Text("\(entry.data.overdueCount) overdue")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.red)
             }
             AgeStamp(entry: entry)
@@ -183,14 +185,14 @@ private struct TimelineRow: View {
                     KindMarker(item: item)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(item.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.footnote.weight(.medium))
                             // Explicit, because a Text inside a Link would
                             // otherwise pick up the accent tint.
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         if let subtitle = item.subtitle {
                             Text(subtitle)
-                                .font(.system(size: 10))
+                                .font(.caption2)
                                 .foregroundStyle(item.isOverdue ? Color.red : Color.secondary)
                                 .lineLimit(1)
                         }
@@ -205,7 +207,7 @@ private struct TimelineRow: View {
             if let choreID = item.choreID {
                 Button(intent: CompleteChoreIntent(choreID: choreID)) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.title3.weight(.regular))
                         .foregroundStyle(.green)
                 }
                 .buttonStyle(.plain)
@@ -221,13 +223,15 @@ private struct TimelineRow: View {
 private struct TimeColumn: View {
     let item: TodayWidgetData.Item
 
+    @ScaledMetric(relativeTo: .caption) private var timeWidth = 46
+
     var body: some View {
         Text(item.timeLabel ?? "")
-            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+            .font(.caption.weight(.semibold).monospacedDigit())
             .foregroundStyle(item.isOverdue ? Color.red : Color.secondary)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .frame(width: 46, alignment: .trailing)
+            .frame(width: timeWidth, alignment: .trailing)
     }
 }
 
@@ -263,14 +267,14 @@ private struct MealFooter: View {
                     ForEach(meals) { meal in
                         HStack(spacing: 5) {
                             Image(systemName: "fork.knife")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 11)
                             Text(meal.slot.label)
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             Text(meal.name)
-                                .font(.system(size: 11))
+                                .font(.caption)
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                             Spacer(minLength: 0)
@@ -289,7 +293,7 @@ private struct SmallView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Text(entry.date, format: .dateTime.weekday(.abbreviated).day())
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                 Spacer(minLength: 0)
                 AgeStamp(entry: entry)
             }
@@ -297,13 +301,13 @@ private struct SmallView: View {
             if let problem = entry.problem {
                 Spacer(minLength: 4)
                 Text(problem)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
                 Spacer(minLength: 0)
             } else {
                 Text(daySummary(entry.data))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(entry.data.overdueCount > 0 ? Color.red : Color.secondary)
                     .lineLimit(1)
 
@@ -316,17 +320,17 @@ private struct SmallView: View {
                         HStack(spacing: 5) {
                             KindMarker(item: next)
                             Text(next.timeLabel ?? "Any time")
-                                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                .font(.caption.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(next.isOverdue ? Color.red : Color.secondary)
                                 .lineLimit(1)
                         }
                         Text(next.title)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .lineLimit(2)
                     }
                 } else {
                     Text("Nothing scheduled")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
 
@@ -335,9 +339,9 @@ private struct SmallView: View {
                 if let dinner = entry.data.dinner {
                     HStack(spacing: 5) {
                         Image(systemName: "fork.knife")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                         Text(dinner.name)
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .lineLimit(1)
                     }
                     .foregroundStyle(.secondary)
@@ -359,7 +363,7 @@ private struct AgeStamp: View {
                 Image(systemName: "clock")
                 Text(entry.data.capturedAt, style: .time)
             }
-            .font(.system(size: 10))
+            .font(.caption2)
             .foregroundStyle(.tertiary)
         }
     }
@@ -392,17 +396,17 @@ private struct CircularView: View {
             if !entry.hasData {
                 // Signed out or unreachable: say "unknown", never "all clear".
                 Image(systemName: "questionmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.body.weight(.semibold))
             } else if let badge = entry.circularBadge {
                 VStack(spacing: -2) {
                     Text("\(badge.value)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                     Image(systemName: badge.symbol)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                 }
             } else {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.title3.weight(.semibold))
             }
         }
         .widgetAccentable()

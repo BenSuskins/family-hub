@@ -5,19 +5,20 @@ import FamilyHubKit
 struct RecipeDetailView: View {
     let recipe: Recipe
     let apiClient: any APIClientProtocol
-    let viewModel: RecipesViewModel
+    @Bindable var viewModel: RecipesViewModel
 
     @State private var showCookMode = false
     @State private var watchLink = PhoneWatchLink.shared
     @State private var sentToWatch = false
     @State private var fullRecipe: Recipe?
     @State private var isLoading = true
-    @State private var fetchError = false
+    @State private var loadError: APIError?
     @State private var imageData: Data?
 
     @State private var showEditForm = false
     @State private var showDeleteConfirm = false
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
     @Environment(ConfigStore.self) private var configStore
 
@@ -34,15 +35,14 @@ struct RecipeDetailView: View {
             if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if fetchError && fullRecipe == nil {
-                ContentUnavailableView("Failed to load", systemImage: "exclamationmark.triangle")
+            } else if let loadError, fullRecipe == nil {
+                ErrorStateView(error: loadError) { await loadRecipe() }
             } else {
                 recipeContent(displayRecipe)
             }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 4) {
@@ -52,14 +52,15 @@ struct RecipeDetailView: View {
                             subject: Text(recipe.title),
                             message: Text("Check out this recipe: \(recipe.title)")
                         ) {
-                            toolbarCircleButton(systemImage: "square.and.arrow.up")
+                            Image(systemName: "square.and.arrow.up")
                         }
                     }
 
                     Button { showCookMode = true } label: {
-                        toolbarCircleButton(systemImage: "flame")
+                        Image(systemName: "flame")
                     }
-                    .disabled(isLoading)
+                    .accessibilityLabel("Start Cook Mode")
+                    .disabled(isLoading || fullRecipe == nil)
 
                     Menu {
                         if watchLink.canSendToWatch {
@@ -76,8 +77,9 @@ struct RecipeDetailView: View {
                             Label("Delete", systemImage: "trash")
                         }
                     } label: {
-                        toolbarCircleButton(systemImage: "ellipsis")
+                        Image(systemName: "ellipsis")
                     }
+                    .accessibilityLabel("Recipe actions")
                 }
             }
         }
@@ -116,16 +118,18 @@ struct RecipeDetailView: View {
         } message: {
             Text("This recipe will be permanently deleted.")
         }
-        .task {
-            do {
-                fullRecipe = try await apiClient.fetchRecipe(id: recipe.id)
-            } catch {
-                fetchError = true
-            }
-            isLoading = false
-            if displayRecipe.hasImage {
-                imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
-            }
+        .errorAlert($viewModel.actionError)
+        .task { await loadRecipe() }
+    }
+
+    private func loadRecipe() async {
+        isLoading = true
+        loadError = nil
+        do { fullRecipe = try await apiClient.fetchRecipe(id: recipe.id) }
+        catch { loadError = .from(error) }
+        isLoading = false
+        if displayRecipe.hasImage {
+            imageData = try? await apiClient.fetchRecipeImage(id: recipe.id)
         }
     }
 
@@ -151,9 +155,9 @@ struct RecipeDetailView: View {
                 if let sourceURL = r.sourceURL, !sourceURL.isEmpty, let url = URL(string: sourceURL) {
                     Link(destination: url) {
                         Text("Source · \(sourceURL)")
-                            .font(.system(size: 13))
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
                     }
@@ -162,64 +166,41 @@ struct RecipeDetailView: View {
                 Spacer(minLength: 80)
             }
         }
-        .ignoresSafeArea(edges: .top)
-        .meshBackground()
+        .groupedBackground()
     }
 
     // MARK: - Hero
 
-    private func heroSection(_ r: Recipe) -> some View {
-        ZStack(alignment: .bottom) {
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: 280)
-                .overlay {
-                    if let imageData, let uiImage = UIImage(data: imageData) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .overlay {
-                                Image(systemName: "fork.knife")
-                                    .font(.system(size: 40))
-                                    .foregroundStyle(.tertiary)
-                            }
-                    }
-                }
-                .clipped()
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.65)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-            .frame(height: 160)
-
-            VStack(alignment: .leading, spacing: 4) {
-                if let mealType = r.mealType {
-                    Text(mealType.uppercased())
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .kerning(0.6)
-                }
-                Text(r.title)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(3)
+    private func heroSection(_ recipe: Recipe) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let imageData, let image = UIImage(data: imageData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 280)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                if let mealType = recipe.mealType {
+                    Text(mealType.capitalized).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Text(recipe.title)
+                    .font(.largeTitle.bold())
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+            }
             .padding(.horizontal, 20)
-            .padding(.bottom, 16)
         }
-        .frame(height: 280)
     }
 
     // MARK: - Meta pills
 
     private func metaPillsRow(_ r: Recipe) -> some View {
-        HStack(spacing: 8) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
             if let prep = r.prepTime {
                 metaPill(icon: "clock", label: prep)
             }
@@ -229,22 +210,22 @@ struct RecipeDetailView: View {
             if let servings = r.servings {
                 metaPill(icon: "person.2", label: "\(servings) servings")
             }
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
         }
     }
 
     private func metaPill(icon: String, label: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
         .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+
     }
 
     // MARK: - Ingredients
@@ -252,7 +233,7 @@ struct RecipeDetailView: View {
     private func ingredientsSection(_ groups: [IngredientGroup]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Ingredients")
-                .font(.system(size: 20, weight: .bold))
+                .font(.title3.weight(.bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
                 .padding(.bottom, 12)
@@ -260,7 +241,7 @@ struct RecipeDetailView: View {
             ForEach(groups, id: \.name) { group in
                 if !group.name.isEmpty && group.name != "Main" {
                     Text(group.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.4)
@@ -274,7 +255,7 @@ struct RecipeDetailView: View {
                         IngredientRow(item: item, showDivider: index > 0)
                     }
                 }
-                .glassCard(radius: 12)
+                .groupedCard(radius: 12)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             }
@@ -286,7 +267,7 @@ struct RecipeDetailView: View {
     private func stepsSection(_ steps: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Method")
-                .font(.system(size: 20, weight: .bold))
+                .font(.title3.weight(.bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
                 .padding(.bottom, 12)
@@ -299,13 +280,13 @@ struct RecipeDetailView: View {
                                 .fill(Color.accentColor)
                                 .frame(width: 24, height: 24)
                             Text("\(index + 1)")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.footnote.weight(.bold))
                                 .foregroundStyle(.white)
                         }
                         .padding(.top, 1)
 
                         Text(step)
-                            .font(.system(size: 15))
+                            .font(.subheadline)
                             .lineSpacing(3)
                             .fixedSize(horizontal: false, vertical: true)
 
@@ -313,7 +294,7 @@ struct RecipeDetailView: View {
                     }
                     .padding(14)
                     .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
+
                 }
             }
             .padding(.horizontal, 16)
@@ -333,13 +314,6 @@ struct RecipeDetailView: View {
         sentToWatch = true
     }
 
-    private func toolbarCircleButton(systemImage: String) -> some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 15, weight: .medium))
-            .foregroundStyle(.white)
-            .frame(width: 32, height: 32)
-            .background(.ultraThinMaterial, in: Circle())
-    }
 }
 
 // MARK: - IngredientRow
@@ -367,12 +341,12 @@ private struct IngredientRow: View {
                                 .fill(Color.accentColor)
                                 .frame(width: 20, height: 20)
                             Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.caption2.weight(.bold))
                                 .foregroundStyle(.white)
                         }
                     }
                     Text(item)
-                        .font(.system(size: 15))
+                        .font(.subheadline)
                         .foregroundStyle(checked ? .tertiary : .primary)
                         .strikethrough(checked, color: .secondary)
                     Spacer()
@@ -382,6 +356,7 @@ private struct IngredientRow: View {
                 .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .accessibilityValue(checked ? "Checked" : "Not checked")
             .sensoryFeedback(.selection, trigger: checked)
         }
     }

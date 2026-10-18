@@ -62,7 +62,7 @@ struct UnavailableView: View {
 
                 if let footnote {
                     Text(footnote)
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 4)

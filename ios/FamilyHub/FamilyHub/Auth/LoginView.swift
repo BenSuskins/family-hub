@@ -5,126 +5,56 @@ struct LoginView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(ConfigStore.self) private var configStore
     @State private var isLoading = false
-    @State private var appeared = false
-    @State private var baseURL: String = ""
+    @State private var baseURL = ""
     @State private var discoveryError: String?
     @State private var showingSetupInfo = false
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 24) {
-                Spacer()
-
-                VStack(spacing: 16) {
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.tint)
-                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: isLoading)
-
-                    Text("Family Hub")
-                        .font(.largeTitle.bold())
-
-                    Text(configStore.isConfigured ? "Manage chores, meals, and more." : "Enter your server URL to get started.")
-                        .font(.subheadline)
+        NavigationStack {
+            Form {
+                Section {
+                    Label("Family Hub", systemImage: "house.fill").font(.title.bold())
+                    Text(configStore.isConfigured ? "Manage chores, meals, and more." : "Enter your server URL to connect.")
                         .foregroundStyle(.secondary)
                 }
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 20)
-
-                Spacer()
-
-                VStack(spacing: 12) {
+                Section("Server") {
                     if configStore.isConfigured {
-                        if let error = authManager.loginError {
-                            Text(error)
-                                .foregroundStyle(.red)
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-
-                        Button {
-                            Task {
-                                isLoading = true
-                                await authManager.login(configStore: configStore)
-                                isLoading = false
-                            }
-                        } label: {
-                            if isLoading {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                Text("Sign In")
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(isLoading)
+                        LabeledContent("Server URL", value: configStore.baseURL)
                     } else {
-                        TextField("https://hub.example.com", text: $baseURL)
-                            .textFieldStyle(.roundedBorder)
+                        TextField("Server URL", text: $baseURL, prompt: Text("https://hub.example.com"))
                             .keyboardType(.URL)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
-
-                        if let error = discoveryError {
-                            Text(error)
-                                .foregroundStyle(.red)
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                        }
-
-                        Button {
-                            Task { await connect() }
-                        } label: {
-                            if isLoading {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                Text("Connect")
-                                    .frame(maxWidth: .infinity)
+                            .accessibilityLabel("Server URL")
+                    }
+                    if let error = discoveryError ?? authManager.loginError {
+                        Text(error).foregroundStyle(.red)
+                    }
+                    if isLoading {
+                        ProgressView(configStore.isConfigured ? "Signing in" : "Connecting")
+                    } else {
+                        Button(configStore.isConfigured ? "Sign In" : "Connect") {
+                            Task {
+                                if configStore.isConfigured {
+                                    isLoading = true
+                                    await authManager.login(configStore: configStore)
+                                    isLoading = false
+                                } else { await connect() }
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(isLoading || baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!configStore.isConfigured && baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-
-                    Button("Try Demo") {
-                        isDemoMode = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .foregroundStyle(.secondary)
-                    .disabled(isLoading)
                 }
-                .padding(.horizontal)
-                .opacity(appeared ? 1 : 0)
-            }
-            .padding()
-            .background(.regularMaterial)
-            .onAppear {
-                withAnimation(.spring(duration: 0.6)) {
-                    appeared = true
+                Section {
+                    Button("Try Demo") { isDemoMode = true }
+                    Button("Setup Help", systemImage: "info.circle") { showingSetupInfo = true }
                 }
             }
-
-            if !configStore.isConfigured {
-                Button {
-                    showingSetupInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .opacity(appeared ? 1 : 0)
-                .sheet(isPresented: $showingSetupInfo) {
-                    SetupInfoSheet()
-                }
-            }
+            .disabled(isLoading)
+            .navigationTitle("Welcome")
+            .sheet(isPresented: $showingSetupInfo) { SetupInfoSheet() }
         }
+        .modifier(AccessibleMotionModifier())
     }
 
     @MainActor

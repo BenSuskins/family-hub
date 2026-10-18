@@ -17,62 +17,41 @@ struct HouseholdCardsView: View {
             NavigationLink {
                 WeatherDetailView(apiClient: apiClient)
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     if dynamicTypeSize.isAccessibilitySize {
-                        Text("Weather at home").font(.headline)
+                        Text("Weather at home").font(.subheadline.weight(.semibold))
                     } else {
-                        Label("Weather at home", systemImage: "cloud.sun").font(.headline)
+                        Label("Weather at home", systemImage: "cloud.sun").font(.subheadline.weight(.semibold))
                     }
                     if let weather = model.weather {
                         if dynamicTypeSize.isAccessibilitySize {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title.bold())
-                                Text(weather.current.condition).foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title2.bold())
+                                Text(weather.current.condition).font(.footnote).foregroundStyle(.secondary)
                             }
                         } else {
                             HStack {
-                                Image(systemName: weather.current.symbol).font(.title2).accessibilityHidden(true)
-                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title.bold())
-                                Text(weather.current.condition).foregroundStyle(.secondary)
+                                Image(systemName: weather.current.symbol).font(.body).accessibilityHidden(true)
+                                Text("\(weather.current.temperature, specifier: "%.0f")°C").font(.title2.bold())
+                                Text(weather.current.condition).font(.footnote).foregroundStyle(.secondary)
                                 Spacer()
                                 Image(systemName: "chevron.right").accessibilityHidden(true)
                             }
                         }
-                        Text(weather.advice.joined(separator: " ")).font(.subheadline)
-                        Text("Weather data: Open-Meteo").font(.caption).foregroundStyle(.secondary)
+                        Text(weather.advice.joined(separator: " ")).font(.footnote)
                     } else { Text(model.weatherMessage).foregroundStyle(.secondary) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(16).glassCard(radius: 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .glassCard(radius: 16)
             }.buttonStyle(.plain)
 
             TimelineView(.periodic(from: .now, by: 30)) { context in
-                if let departure = model.departures?.items.first(where: { $0.countdown(at: context.date) != nil }), departure.countdown(at: context.date) != nil {
+                if let departure = model.departures?.items.first(where: { $0.countdown(at: context.date) != nil }) {
                     DepartureCard(departure: departure, now: context.date)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Departure", systemImage: "car").font(.headline)
-                        Text(model.departureMessage).foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(16).glassCard(radius: 16)
                 }
             }
-
-            NavigationLink {
-                ShoppingListView(apiClient: apiClient)
-            } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        Text("Shopping List").font(.headline)
-                        if let count = model.shoppingCount { Text("\(count) to buy").foregroundStyle(.secondary) }
-                    } else {
-                        HStack {
-                            Label("Shopping List", systemImage: "cart").font(.headline)
-                            Spacer()
-                            if let count = model.shoppingCount { Text("\(count) to buy").foregroundStyle(.secondary) }
-                            Image(systemName: "chevron.right").accessibilityHidden(true)
-                        }
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(16).frame(minHeight: 52).glassCard(radius: 16)
-            }.buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)

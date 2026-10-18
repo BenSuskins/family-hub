@@ -56,14 +56,4 @@ final class HouseholdViewModelTests: XCTestCase {
         XCTAssertEqual(model.weatherMessage, "Unavailable")
     }
 
-    func testProviderFailuresDoNotPreventShoppingSummary() async {
-        let client = FakeAPIClient()
-        client.shoppingItems = [ShoppingItem(id: "soap", name: "Soap")]
-        let model = HouseholdViewModel(apiClient: client)
-        await model.load(force: true)
-        XCTAssertNil(model.weather)
-        XCTAssertNil(model.departures)
-        XCTAssertEqual(model.shoppingCount, 1)
-        XCTAssertEqual(model.weatherMessage, "Unavailable")
-    }
 }

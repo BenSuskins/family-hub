@@ -9,7 +9,6 @@ struct ChoreRowView: View {
     let onComplete: () -> Void
     var onSkip: (() -> Void)?
     var minHeight: CGFloat = 56
-    var showDateWhenOverdue: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -23,30 +22,17 @@ struct ChoreRowView: View {
                     .strikethrough(chore.status == .completed)
                     .foregroundStyle(chore.status == .completed ? .tertiary : .primary)
                     .fixedSize(horizontal: false, vertical: true)
-                let layout = dynamicTypeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                    : AnyLayout(HStackLayout(spacing: 4))
-                layout {
-                    Text(user?.name ?? "Unassigned")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    if !dynamicTypeSize.isAccessibilitySize {
-                        Text("·").font(.footnote).foregroundStyle(.secondary)
-                    }
-                    if chore.status == .overdue {
-                        Text("Overdue")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.red)
-                        if showDateWhenOverdue, let date = chore.formattedDueDate {
-                            Text(date)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if let date = chore.formattedDueDate {
-                        Text(date)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                Text(user?.name ?? "Unassigned")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if let date = chore.formattedDueDate {
+                    Text("Due \(date)")
+                        .font(.caption)
+                        .foregroundStyle(chore.status == .overdue ? .red : .secondary)
+                } else if chore.status == .overdue {
+                    Text("Overdue")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
                 }
             }
 

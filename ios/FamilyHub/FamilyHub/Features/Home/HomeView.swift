@@ -261,8 +261,7 @@ struct HomeView: View {
                         user: viewModel.users[chore.assignedToUserID ?? ""],
                         apiClient: apiClient,
                         onComplete: { Task { await viewModel.completeChore(id: chore.id) } },
-                        onSkip: { Task { await viewModel.skipChore(id: chore.id) } },
-                        showDateWhenOverdue: true
+                        onSkip: { Task { await viewModel.skipChore(id: chore.id) } }
                     )
                 }
             }

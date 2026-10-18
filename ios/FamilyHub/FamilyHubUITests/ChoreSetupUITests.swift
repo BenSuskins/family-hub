@@ -17,17 +17,21 @@ final class ChoreSetupUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
         app.launch()
-        XCTAssertTrue(app.buttons["Try Demo"].waitForExistence(timeout: 10))
-        app.buttons["Try Demo"].tap()
+        let demo = app.buttons["Try Demo"]
+        _ = demo.waitForExistence(timeout: 5)
+        scrollTo(demo, in: app)
+        XCTAssertTrue(demo.waitForExistence(timeout: 10))
+        demo.tap()
         app.tabBars.buttons["Tasks"].tap()
         XCTAssertTrue(app.staticTexts["Configured chores"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Complete Vacuum living room"].exists)
         let vacuum = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Vacuum living room")).firstMatch
+        scrollTo(vacuum, in: app)
         XCTAssertTrue(vacuum.waitForExistence(timeout: 5))
         capture(app, name: "chore-setup-list")
         vacuum.tap()
         let edit = app.buttons["Edit Chore"]
-        for _ in 0..<20 where !edit.isHittable { app.swipeUp() }
+        scrollTo(edit, in: app)
         XCTAssertTrue(edit.exists)
         capture(app, name: "chore-setup-detail")
         edit.tap()
@@ -36,12 +40,24 @@ final class ChoreSetupUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.tabBars.buttons["Today"].tap()
         let complete = app.buttons["Complete Vacuum living room"]
-        for _ in 0..<20 where !complete.isHittable { app.swipeUp() }
+        scrollTo(complete, in: app)
         XCTAssertTrue(complete.exists)
         capture(app, name: "home-chores")
         app.buttons["Actions for Vacuum living room"].tap()
         app.buttons["Skip this task"].tap()
         XCTAssertFalse(complete.exists)
+    }
+
+    @MainActor
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<20 {
+            let bottom = app.tabBars.firstMatch.frame.minY
+            if element.exists && element.isHittable && element.frame.midY < bottom { return }
+            let towardTop = element.exists && element.frame.midY < 0
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.4 : 0.7))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.7 : 0.4))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
     }
 
     @MainActor

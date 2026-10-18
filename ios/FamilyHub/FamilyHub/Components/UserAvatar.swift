@@ -59,7 +59,7 @@ struct UserAvatar: View {
     private var initialsLabel: some View {
         Text(user?.initials ?? "?")
             .font(.system(size: size * 0.38, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.primary)
     }
 }
 

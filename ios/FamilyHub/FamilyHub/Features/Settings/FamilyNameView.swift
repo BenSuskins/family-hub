@@ -13,7 +13,7 @@ struct FamilyNameView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Family Name", text: $familyName)
+                TextField("Family Name", text: $familyName, axis: .vertical)
                     .autocorrectionDisabled()
             } footer: {
                 Text("Displayed in the app header for all family members.")

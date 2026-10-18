@@ -15,34 +15,9 @@ private enum ParseStatus {
     var message: String {
         switch self {
         case .success: "Recipe details extracted"
-        case .partial: "Only the title and image — add the rest"
-        case .failed:  "Couldn't read this post — fill in manually"
+        case .partial: "Only the title and image are available."
+        case .failed:  "The import fails. Enter a title or retry the import."
         }
-    }
-
-    var color: Color {
-        switch self {
-        case .success: .green
-        case .partial: .orange
-        case .failed:  .red
-        }
-    }
-}
-
-private struct ParseToast: View {
-    let status: ParseStatus
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: status.icon)
-                .foregroundStyle(status.color)
-            Text(status.message)
-                .font(.subheadline.weight(.medium))
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
     }
 }
 
@@ -103,9 +78,7 @@ struct ShareView: View {
     @State private var isLoadingOG = true
     @State private var isSaving = false
     @State private var errorMessage: String?
-    @State private var savedSuccessfully = false
     @State private var parseStatus: ParseStatus?
-    @State private var showParseToast = false
 
     var body: some View {
         NavigationStack {
@@ -117,6 +90,22 @@ struct ShareView: View {
                             Text("Fetching page info…")
                                 .foregroundStyle(.secondary)
                                 .padding(.leading, 8)
+                        }
+                    }
+                }
+
+                if let status = parseStatus {
+                    Section("Import") {
+                        Label(status.message, systemImage: status.icon)
+                        if status != .success {
+                            Button("Retry Import") {
+                                Task {
+                                    isLoadingOG = true
+                                    await extractRecipeFromServer()
+                                    isLoadingOG = false
+                                }
+                            }
+                            .disabled(isLoadingOG)
                         }
                     }
                 }
@@ -193,7 +182,7 @@ struct ShareView: View {
                     Text(sharedURL.absoluteString)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let errorMessage {
@@ -204,34 +193,28 @@ struct ShareView: View {
                     }
                 }
             }
+            .disabled(isSaving)
+            .interactiveDismissDisabled(isSaving)
             .navigationTitle("Add Recipe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onDismiss() }
+                    Button("Cancel") { onDismiss() }.disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         Task { await save() }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving || isLoadingOG)
-                    .overlay {
-                        if isSaving { ProgressView().scaleEffect(0.7) }
-                    }
+                }
+                ToolbarItem(placement: .status) {
+                    if isSaving { ProgressView("Saving recipe") }
                 }
             }
             .task {
                 await extractRecipeFromServer()
                 isLoadingOG = false
             }
-            .overlay(alignment: .bottom) {
-                if showParseToast, let status = parseStatus {
-                    ParseToast(status: status)
-                        .padding(.bottom, 24)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.spring(duration: 0.35), value: showParseToast)
         }
     }
 
@@ -251,11 +234,11 @@ struct ShareView: View {
               (200...299).contains(http.statusCode),
               let result = try? JSONDecoder().decode(ExtractedRecipeResponse.self, from: data)
         else {
-            showToast(.failed)
+            setImportStatus(.failed)
             return
         }
 
-        if let extractedTitle = result.title, !extractedTitle.isEmpty {
+        if title.isEmpty, let extractedTitle = result.title, !extractedTitle.isEmpty {
             title = extractedTitle
         }
         ingredients = result.ingredients ?? []
@@ -270,21 +253,16 @@ struct ShareView: View {
         // Social posts rarely give up more than a caption and a thumbnail, so
         // a title and an image on their own still count as a useful import.
         if !ingredients.isEmpty || !steps.isEmpty {
-            showToast(.success)
+            setImportStatus(.success)
         } else if !title.isEmpty || ogImageDataURI != nil {
-            showToast(.partial)
+            setImportStatus(.partial)
         } else {
-            showToast(.failed)
+            setImportStatus(.failed)
         }
     }
 
-    private func showToast(_ status: ParseStatus) {
+    private func setImportStatus(_ status: ParseStatus) {
         parseStatus = status
-        withAnimation { showParseToast = true }
-        Task {
-            try? await Task.sleep(for: .seconds(3))
-            withAnimation { showParseToast = false }
-        }
     }
 
     private func save() async {

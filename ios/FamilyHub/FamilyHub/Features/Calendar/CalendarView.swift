@@ -4,6 +4,7 @@ import FamilyHubKit
 struct CalendarView: View {
     @State private var viewModel: CalendarViewModel
     private let apiClient: any APIClientProtocol
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     private let weekdaySymbols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -25,24 +26,20 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                monthAccentHeader
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-
                 Picker("View", selection: $viewModel.viewMode) {
                     ForEach(CalendarViewMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
+                .modifier(AdaptivePickerStyle(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
 
                 Group {
                     switch viewModel.viewMode {
                     case .month:
-                        monthView
+                        if dynamicTypeSize.isAccessibilitySize { accessibleMonthView }
+                        else { monthView }
                     case .week:
                         weekView
                     case .day:
@@ -51,23 +48,29 @@ struct CalendarView: View {
                 }
                 .animation(.spring(duration: 0.3), value: viewModel.viewMode)
             }
-            .meshBackground()
+            .groupedBackground()
             .refreshable { await viewModel.load(forceRefresh: true) }
             .navigationTitle("Calendar")
+            .safeAreaInset(edge: .top) {
+                Text(navigationTitle).font(.headline).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity).background(Color(.systemBackground))
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { navigateBack() } label: {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "chevron.left").frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Previous period")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {
                         Button("Today") { viewModel.goToToday() }
                             .font(.subheadline)
                         Button { navigateForward() } label: {
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "chevron.right").frame(width: 44, height: 44)
                         }
+                        .accessibilityLabel("Next period")
                     }
                 }
             }
@@ -77,34 +80,6 @@ struct CalendarView: View {
             Task { await viewModel.load() }
         }
     }
-
-    private var monthAccentHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(monthName)
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(Color.accentColor)
-            Text(yearName)
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.primary)
-            Spacer()
-        }
-    }
-
-    private var monthName: String {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: viewModel.currentDate)
-    }
-
-    private var yearName: String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: viewModel.currentDate)
-    }
-
-    // MARK: - Navigation
 
     private var navigationTitle: String {
         switch viewModel.viewMode {
@@ -137,6 +112,18 @@ struct CalendarView: View {
 
     // MARK: - Month View
 
+    private var accessibleMonthView: some View {
+        List {
+            DatePicker("Date", selection: Binding(
+                get: { viewModel.selectedDay ?? viewModel.currentMonth },
+                set: { viewModel.selectedDay = $0 }
+            ), displayedComponents: .date)
+            Section((viewModel.selectedDay ?? viewModel.currentMonth).formatted(date: .complete, time: .omitted)) {
+                dayItemsContent(for: viewModel.selectedDay ?? viewModel.currentMonth)
+            }
+        }
+    }
+
     private var monthView: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -158,22 +145,27 @@ struct CalendarView: View {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
             }
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, day in
                     if let day {
-                        DayCell(
-                            date: day,
-                            isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
-                            isToday: Calendar.current.isDateInToday(day),
-                            hasItems: viewModel.hasItems(for: day)
-                        )
-                        .onTapGesture { viewModel.selectedDay = day }
+                        Button { viewModel.selectedDay = day } label: {
+                            DayCell(
+                                date: day,
+                                isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
+                                isToday: Calendar.current.isDateInToday(day),
+                                hasItems: viewModel.hasItems(for: day)
+                            )
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
+                        .accessibilityValue(viewModel.hasItems(for: day) ? "Has items" : "No items")
+                        .accessibilityAddTraits(Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast) ? .isSelected : [])
                     } else {
-                        Color.clear.frame(height: 36)
+                        Color.clear.frame(height: 44)
                     }
                 }
             }
@@ -400,6 +392,8 @@ private struct DayCell: View {
                 .fill(hasItems ? .orange : Color.clear)
                 .frame(width: 4, height: 4)
         }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .contentShape(Rectangle())
     }
 }
 

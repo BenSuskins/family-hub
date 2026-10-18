@@ -17,9 +17,7 @@ struct TodayWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: TodayProvider()) { entry in
             TodayView(entry: entry)
-                // The app has no Chores tab — chores and the day's agenda both
-                // live on Home — so that is where a tap on the widget lands.
-                // Individual rows override this with their own destination.
+                // Preserve the existing URL when the app's navigation changes.
                 .widgetURL(URL(string: "familyhub://today"))
                 .containerBackground(.fill.tertiary, for: .widget)
         }

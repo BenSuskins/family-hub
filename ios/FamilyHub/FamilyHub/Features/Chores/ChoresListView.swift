@@ -5,29 +5,18 @@ struct ChoresListView: View {
     @State private var viewModel: ChoresViewModel
     @State private var mode: Mode = .all
     @State private var scope: Scope = .all
-    private let apiClient: any APIClientProtocol
     @State private var activeSheet: ActiveSheet?
+    @State private var deletingChore: Chore?
+    private let apiClient: any APIClientProtocol
 
-    enum Mode: String, CaseIterable {
-        case all = "All Chores"
-        case manage = "Manage"
-    }
-
-    enum Scope: String, CaseIterable {
-        case all = "All"
-        case mine = "Mine"
-        case overdue = "Overdue"
-    }
-
-    /// Single sheet driver. Stacking multiple `.sheet` modifiers on one view is a
-    /// known SwiftUI pitfall, so create/edit share one enum-driven presentation.
+    enum Mode: String, CaseIterable { case all = "Chores", manage = "Manage" }
+    enum Scope: String, CaseIterable { case all = "All", mine = "Mine", overdue = "Overdue" }
     enum ActiveSheet: Identifiable {
         case create
         case edit(Chore)
-
         var id: String {
             switch self {
-            case .create:          return "create"
+            case .create: return "create"
             case .edit(let chore): return "edit-\(chore.id)"
             }
         }
@@ -39,239 +28,133 @@ struct ChoresListView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                SegmentedControl(options: Mode.allCases, selection: $mode) { $0.rawValue }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
-
-                if case .failed(let error) = viewModel.state {
-                    ErrorStateView(error: error) { await viewModel.load() }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
+        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
+            List {
+                Section {
+                    Picker("Mode", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    if mode == .all {
+                        Picker("Show", selection: $scope) {
+                            ForEach(Scope.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }
+                    }
                 }
-
-                switch mode {
-                case .all:
-                    SegmentedControl(
-                        options: Scope.allCases,
-                        selection: $scope,
-                        label: { $0.rawValue },
-                        badge: { $0 == .overdue ? viewModel.overdueChores.count : nil }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
-                    choresContent
-                case .manage:
-                    manageContent
+                if mode == .manage {
+                    Section("Chores") {
+                        if viewModel.series.isEmpty {
+                            ContentUnavailableView("No chores yet", systemImage: "checklist")
+                        }
+                        ForEach(viewModel.series) { chore in
+                            Button { activeSheet = .edit(chore) } label: { manageRow(chore) }
+                                .buttonStyle(.borderless)
+                                .swipeActions {
+                                    Button("Delete", role: .destructive) { deletingChore = chore }
+                                }
+                        }
+                    }
+                } else if scope == .mine {
+                    choreSection("Mine", chores: pendingChores.filter { $0.assignedToUserID == viewModel.currentUserID })
+                } else if scope == .overdue {
+                    choreSection("Overdue", chores: viewModel.overdueChores)
+                } else {
+                    if pendingChores.isEmpty {
+                        ContentUnavailableView("No chores due", systemImage: "checkmark.circle")
+                    }
+                    if !viewModel.overdueChores.isEmpty { choreSection("Overdue", chores: viewModel.overdueChores) }
+                    if !viewModel.todayChores.isEmpty { choreSection("Today", chores: viewModel.todayChores) }
+                    if !viewModel.upcomingChores.isEmpty { choreSection("Upcoming", chores: viewModel.upcomingChores) }
                 }
-
-                Spacer(minLength: 24)
             }
+            .refreshable { await viewModel.load() }
         }
-        .meshBackground()
-        .navigationTitle("Manage Chores")
+        .navigationTitle("Chores")
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { activeSheet = .create } label: {
-                    Image(systemName: "plus")
-                }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("New Chore", systemImage: "plus") { activeSheet = .create }
             }
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
-            case .create:
-                ChoreFormView(mode: .create, viewModel: viewModel)
-            case .edit(let chore):
-                ChoreFormView(mode: .edit(chore), viewModel: viewModel)
+            case .create: ChoreFormView(mode: .create, viewModel: viewModel)
+            case .edit(let chore): ChoreFormView(mode: .edit(chore), viewModel: viewModel)
             }
         }
-        .refreshable { await viewModel.load() }
+        .errorAlert($viewModel.actionError)
+        .confirmationDialog("Delete this chore?", isPresented: Binding(
+            get: { deletingChore != nil }, set: { if !$0 { deletingChore = nil } }
+        ), titleVisibility: .visible) {
+            if let chore = deletingChore {
+                Button("Delete Chore", role: .destructive) {
+                    Task { await viewModel.deleteChore(id: chore.id) }
+                }
+            }
+        }
         .task { await viewModel.load() }
     }
 
-    // MARK: - All Chores content
-
-    @ViewBuilder
-    private var choresContent: some View {
-        switch scope {
-        case .all:
-            allContent
-        case .mine:
-            mineContent
-        case .overdue:
-            overdueOnlyContent
-        }
-    }
-
-    private var allContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !viewModel.overdueChores.isEmpty {
-                SectionHeaderLabel(text: "Overdue", color: .red)
-                choreSection(viewModel.overdueChores)
-                    .padding(.bottom, 16)
-            }
-            if !viewModel.todayChores.isEmpty {
-                SectionHeaderLabel(text: "Today")
-                choreSection(viewModel.todayChores)
-                    .padding(.bottom, 16)
-            }
-            if !viewModel.upcomingChores.isEmpty {
-                SectionHeaderLabel(text: "Upcoming")
-                choreSection(viewModel.upcomingChores)
-            }
-            if viewModel.overdueChores.isEmpty && viewModel.todayChores.isEmpty && viewModel.upcomingChores.isEmpty {
-                if case .loaded = viewModel.state {
-                    ContentUnavailableView("All caught up!", systemImage: "checkmark.circle.fill")
-                        .padding(.top, 40)
-                }
-            }
-        }
-    }
-
-    private var mineContent: some View {
-        let myChores = allPendingChores.filter { $0.assignedToUserID == viewModel.currentUserID }
-        return Group {
-            if myChores.isEmpty {
-                if case .loaded = viewModel.state {
-                    ContentUnavailableView("Nothing assigned to you", systemImage: "checkmark.circle")
-                        .padding(.top, 40)
-                }
-            } else {
-                choreSection(myChores)
-                    .padding(.top, 8)
-            }
-        }
-    }
-
-    private var overdueOnlyContent: some View {
-        Group {
-            if viewModel.overdueChores.isEmpty {
-                if case .loaded = viewModel.state {
-                    ContentUnavailableView("No overdue chores", systemImage: "clock.badge.checkmark")
-                        .padding(.top, 40)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    SectionHeaderLabel(text: "Overdue", color: .red)
-                    choreSection(viewModel.overdueChores)
-                }
-            }
-        }
-    }
-
-    private var allPendingChores: [Chore] {
+    private var pendingChores: [Chore] {
         viewModel.overdueChores + viewModel.todayChores + viewModel.upcomingChores
     }
 
-    // MARK: - Chore section card
-
-    private func choreSection(_ chores: [Chore]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(chores.enumerated()), id: \.element.id) { index, chore in
-                if index > 0 {
-                    Divider().padding(.leading, 64)
-                }
-                NavigationLink {
-                    ChoreDetailView(chore: chore, viewModel: viewModel, apiClient: apiClient)
-                } label: {
-                    ChoreRowView(
-                        chore: chore,
-                        user: viewModel.users[chore.assignedToUserID ?? ""],
-                        apiClient: apiClient,
-                        onComplete: {
-                            Task {
-                                await viewModel.complete(choreID: chore.id)
-                            }
-                        },
-                        minHeight: 60,
-                        showDateWhenOverdue: true
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .glassCard(radius: 16)
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Manage content
-
-    @ViewBuilder
-    private var manageContent: some View {
-        let series = viewModel.series
-        if series.isEmpty {
-            if case .loaded = viewModel.state {
-                ContentUnavailableView {
-                    Label("No chores yet", systemImage: "checklist")
-                } description: {
-                    Text("Create a chore to start managing your family's tasks.")
-                } actions: {
-                    Button("New Chore") { activeSheet = .create }
-                        .buttonStyle(.borderedProminent)
-                }
-                .padding(.top, 24)
-            }
-        } else {
-            manageSection(series)
-        }
-    }
-
-    private func manageSection(_ chores: [Chore]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(chores.enumerated()), id: \.element.id) { index, chore in
-                if index > 0 {
-                    Divider().padding(.leading, 16)
-                }
-                Button {
-                    activeSheet = .edit(chore)
-                } label: {
-                    manageRow(chore)
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button { activeSheet = .edit(chore) } label: {
-                        Label("Edit", systemImage: "pencil")
-                    }
-                    Button(role: .destructive) {
-                        Task { await viewModel.deleteChore(id: chore.id) }
+    private func choreSection(_ title: String, chores: [Chore]) -> some View {
+        Section(title) {
+            if chores.isEmpty { Text("No chores due").foregroundStyle(.secondary) }
+            ForEach(chores) { chore in
+                HStack(spacing: 12) {
+                    NavigationLink {
+                        ChoreDetailView(chore: chore, viewModel: viewModel, apiClient: apiClient)
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(chore.name).font(.body)
+                            if let user = viewModel.users[chore.assignedToUserID ?? ""] {
+                                Text(user.name).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            if let date = chore.formattedDueDate {
+                                Text(date).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
+                    Button {
+                        Task { await viewModel.complete(choreID: chore.id) }
+                    } label: {
+                        CheckCircleView(isSelected: chore.status == .completed)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Complete \(chore.name)")
                 }
             }
         }
-        .glassCard(radius: 16)
-        .padding(.horizontal, 16)
     }
 
     private func manageRow(_ chore: Chore) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(chore.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
                     Label(chore.recurrenceSummary, systemImage: chore.isRecurring ? "repeat" : "calendar")
                         .labelStyle(.titleAndIcon)
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                     if let category = viewModel.categoryName(chore.categoryID) {
                         Text("· \(category)")
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 if !chore.eligibleAssignees.isEmpty {
                     Text(assigneeSummary(chore))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.tertiary)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

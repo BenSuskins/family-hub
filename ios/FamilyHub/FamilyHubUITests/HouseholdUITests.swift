@@ -7,11 +7,14 @@ final class HouseholdUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         let demo = app.buttons["Try Demo"]
+        reveal(demo, in: app)
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
         let weather = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Weather at home")).firstMatch
+        reveal(weather, in: app)
         XCTAssertTrue(weather.waitForExistence(timeout: 10))
         let loadedWeather = app.staticTexts["Take a raincoat."]
+        reveal(loadedWeather, in: app)
         XCTAssertTrue(loadedWeather.waitForExistence(timeout: 5))
         let home = XCTAttachment(screenshot: app.screenshot())
         home.name = "household-home"
@@ -24,9 +27,9 @@ final class HouseholdUITests: XCTestCase {
         forecast.name = "household-weather"
         forecast.lifetime = .keepAlways
         add(forecast)
-        app.navigationBars.buttons.firstMatch.tap()
+        app.navigationBars.buttons["BackButton"].tap()
         let shopping = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shopping List")).firstMatch
-        if !shopping.isHittable { app.swipeUp() }
+        reveal(shopping, in: app)
         XCTAssertTrue(shopping.waitForExistence(timeout: 5))
         shopping.tap()
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
@@ -55,6 +58,7 @@ extension HouseholdUITests {
         XCTAssertTrue(app.buttons["Open profile"].waitForExistence(timeout: 5))
         app.buttons["Open profile"].tap()
         let homeInfo = app.buttons["Home Info"]
+        reveal(homeInfo, in: app)
         XCTAssertTrue(homeInfo.waitForExistence(timeout: 5))
         if !homeInfo.isHittable { app.swipeUp() }
         homeInfo.tap()
@@ -76,12 +80,14 @@ extension HouseholdUITests {
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         let demo = app.buttons["Try Demo"]
+        reveal(demo, in: app)
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
-        if !demo.isHittable { app.swipeUp() }
         demo.tap()
         let weather = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Weather at home")).firstMatch
+        reveal(weather, in: app)
         XCTAssertTrue(weather.waitForExistence(timeout: 10))
         let loadedWeather = app.staticTexts["Take a raincoat."]
+        reveal(loadedWeather, in: app)
         XCTAssertTrue(loadedWeather.waitForExistence(timeout: 5))
         if UIDevice.current.userInterfaceIdiom == .pad {
             XCUIDevice.shared.orientation = .landscapeLeft
@@ -102,5 +108,13 @@ extension HouseholdUITests {
         forecast.name = "weather-large-text"
         forecast.lifetime = .keepAlways
         add(forecast)
+    }
+}
+
+@MainActor
+private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+    for _ in 0..<12 {
+        if element.exists && element.isHittable { return }
+        app.swipeUp()
     }
 }

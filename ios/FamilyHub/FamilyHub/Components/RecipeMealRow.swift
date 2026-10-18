@@ -4,6 +4,7 @@ import FamilyHubKit
 /// A meal slot row for recipe-linked plans: thumbnail taps open the edit sheet,
 /// name taps navigate to the recipe detail.
 struct RecipeMealRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let mealType: String
     let plan: MealPlan
     let apiClient: any APIClientProtocol
@@ -32,14 +33,18 @@ struct RecipeMealRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 0))
+        layout {
             Button(action: onEdit) {
                 RecipeThumbView(recipeID: plan.recipeID, apiClient: apiClient, size: thumbSize, cornerRadius: thumbCornerRadius)
                     .padding(.leading, 14)
                     .padding(.vertical, 12)
                     .padding(.trailing, 12)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Edit \(mealType) meal")
 
             NavigationLink {
                 RecipeDetailView(recipe: stub, apiClient: apiClient, viewModel: recipesViewModel)
@@ -47,13 +52,13 @@ struct RecipeMealRow: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(mealType.uppercased())
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .kerning(0.4)
                         Text(plan.name)
-                            .font(.system(size: nameFontSize, weight: nameFontWeight))
+                            .font(.body.weight(nameFontWeight))
                             .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")

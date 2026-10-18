@@ -45,10 +45,10 @@ final class CategoriesViewModel {
 
     func delete(at offsets: IndexSet) async {
         let toDelete = offsets.map { categories[$0] }
-        categories.remove(atOffsets: offsets)
         for category in toDelete {
             do {
                 try await apiClient.deleteCategory(id: category.id)
+                categories.removeAll { $0.id == category.id }
             } catch {
                 actionError = .from(error)
             }
@@ -60,9 +60,19 @@ struct CategoriesView: View {
     let apiClient: any APIClientProtocol
 
     @State private var viewModel: CategoriesViewModel
-    @State private var showingAddSheet = false
+    @State private var pendingDeletion: IndexSet?
+    @State private var activeSheet: CategorySheet?
+
+    private enum CategorySheet: Identifiable {
+        case create, edit(ChoreCategory)
+        var id: String {
+            switch self {
+            case .create: return "create"
+            case .edit(let category): return category.id
+            }
+        }
+    }
     @State private var newCategoryName = ""
-    @State private var editingCategory: ChoreCategory?
     @State private var editName = ""
 
     init(apiClient: any APIClientProtocol) {
@@ -77,13 +87,13 @@ struct CategoriesView: View {
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) {
-                                Task { await viewModel.delete(at: IndexSet([index])) }
+                                pendingDeletion = IndexSet([index])
                             }
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
                         Button {
-                            editingCategory = category
+                            activeSheet = .edit(category)
                             editName = category.name
                         } label: {
                             Label("Rename", systemImage: "pencil")
@@ -96,9 +106,10 @@ struct CategoriesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showingAddSheet = true } label: {
+                Button { activeSheet = .create } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("New Category")
             }
         }
         .overlay {
@@ -108,27 +119,32 @@ struct CategoriesView: View {
                 ContentUnavailableView("No Categories", systemImage: "tag", description: Text("Tap + to add a category."))
             }
         }
-        .alert("New Category", isPresented: $showingAddSheet) {
-            TextField("Name", text: $newCategoryName)
-            Button("Add") {
-                let name = newCategoryName
-                newCategoryName = ""
-                Task { await viewModel.create(name: name) }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .create:
+                NameEntrySheet(title: "New Category", name: $newCategoryName) { name in
+                    viewModel.actionError = nil
+                    await viewModel.create(name: name)
+                    let error = viewModel.actionError
+                    viewModel.actionError = nil
+                    return error
+                }
+            case .edit(let category):
+                NameEntrySheet(title: "Rename Category", name: $editName) { name in
+                    viewModel.actionError = nil
+                    await viewModel.rename(category: category, to: name)
+                    let error = viewModel.actionError
+                    viewModel.actionError = nil
+                    return error
+                }
             }
-            Button("Cancel", role: .cancel) { newCategoryName = "" }
         }
-        .alert("Rename", isPresented: Binding(
-            get: { editingCategory != nil },
-            set: { if !$0 { editingCategory = nil } }
-        )) {
-            TextField("Name", text: $editName)
-            Button("Save") {
-                guard let category = editingCategory else { return }
-                let name = editName
-                editingCategory = nil
-                Task { await viewModel.rename(category: category, to: name) }
+        .confirmationDialog("Delete this category?", isPresented: Binding(
+            get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }
+        ), titleVisibility: .visible) {
+            if let offsets = pendingDeletion {
+                Button("Delete", role: .destructive) { Task { await viewModel.delete(at: offsets) } }
             }
-            Button("Cancel", role: .cancel) { editingCategory = nil }
         }
         .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }

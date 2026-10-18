@@ -7,6 +7,8 @@ struct ShoppingListView: View {
     @State private var newName = ""
     @State private var activeSheet: ShoppingSheet?
     @State private var confirmClear = false
+    @State private var deletingItem: ShoppingItem?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
 
@@ -69,6 +71,13 @@ struct ShoppingListView: View {
         .confirmationDialog("Clear purchased items?", isPresented: $confirmClear) {
             Button("Clear purchased items", role: .destructive) { Task { await model.clearPurchased() } }
         }
+        .confirmationDialog("Delete this shopping item?", isPresented: Binding(
+            get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } }
+        ), titleVisibility: .visible) {
+            if let item = deletingItem {
+                Button("Delete Item", role: .destructive) { Task { await model.remove(item) } }
+            }
+        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .rename(let item): ShoppingNameView(item: item, model: model)
@@ -95,7 +104,10 @@ struct ShoppingListView: View {
     }
 
     private func row(_ item: ShoppingItem) -> some View {
-        HStack {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             Button {
                 Task {
                     if let updated = await model.toggle(item), updated.purchased, updated.inventoryItemID != nil, !updated.restocked {
@@ -120,7 +132,7 @@ struct ShoppingListView: View {
             }
             Menu {
                 Button("Rename") { activeSheet = .rename(item) }
-                Button("Delete", role: .destructive) { Task { await model.remove(item) } }
+                Button("Delete", role: .destructive) { deletingItem = item }
             } label: {
                 Image(systemName: "ellipsis").frame(width: 44, height: 44)
             }

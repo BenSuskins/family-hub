@@ -53,11 +53,13 @@ struct RecipeFormView: View {
                 ingredientGroupsSection
                 stepsSection
             }
+            .disabled(isSaving)
+            .interactiveDismissDisabled(isSaving)
             .navigationTitle(isEditing ? "Edit Recipe" : "New Recipe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { dismiss() }.disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -151,7 +153,9 @@ struct RecipeFormView: View {
                                 Image(systemName: "minus.circle.fill")
                                     .foregroundStyle(.red)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderless)
+                            .frame(width: 44, height: 44)
+                            .accessibilityLabel("Remove ingredient group")
                         }
                     }
                     TextEditor(text: $group.items)
@@ -198,8 +202,9 @@ struct RecipeFormView: View {
                             Image(systemName: "minus.circle.fill")
                                 .foregroundStyle(.red)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
+                        .buttonStyle(.borderless)
+                        .frame(width: 44, height: 44)
+                        .accessibilityLabel("Remove step \(index + 1)")
                     }
                 }
             }
@@ -230,7 +235,7 @@ struct RecipeFormView: View {
                             .overlay {
                                 VStack(spacing: 8) {
                                     Image(systemName: "photo")
-                                        .font(.system(size: 28))
+                                        .font(.title)
                                         .foregroundStyle(.secondary)
                                     Text("Tap to change photo")
                                         .font(.subheadline)
@@ -244,7 +249,7 @@ struct RecipeFormView: View {
                             .overlay {
                                 VStack(spacing: 8) {
                                     Image(systemName: "photo.badge.plus")
-                                        .font(.system(size: 32))
+                                        .font(.largeTitle)
                                         .foregroundStyle(.secondary)
                                     Text("Add recipe photo")
                                         .font(.subheadline)

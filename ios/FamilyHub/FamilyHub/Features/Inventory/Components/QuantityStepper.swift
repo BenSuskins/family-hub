@@ -7,6 +7,7 @@ import SwiftUI
 struct QuantityStepper: View {
     let quantity: Int
     var isLow: Bool = false
+    var label = "Quantity"
     let onDecrement: () -> Void
     let onIncrement: () -> Void
 
@@ -15,7 +16,7 @@ struct QuantityStepper: View {
             stepButton(systemName: "minus", tint: Color(.secondaryLabel), disabled: quantity <= 0, action: onDecrement)
 
             Text("\(quantity)")
-                .font(.system(size: 19, weight: .semibold))
+                .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(isLow ? InventoryStyle.low : Color(.label))
                 .frame(minWidth: 28)
@@ -28,9 +29,9 @@ struct QuantityStepper: View {
     private func stepButton(systemName: String, tint: Color, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.body.weight(.semibold))
                 .foregroundStyle(tint)
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .background(
                     Circle()
                         .fill(Color(.secondarySystemGroupedBackground))
@@ -41,6 +42,7 @@ struct QuantityStepper: View {
         }
         .buttonStyle(.borderless)
         .disabled(disabled)
+        .accessibilityLabel("\(systemName == "minus" ? "Decrease" : "Increase") \(label)")
         .sensoryFeedback(.selection, trigger: quantity)
     }
 }

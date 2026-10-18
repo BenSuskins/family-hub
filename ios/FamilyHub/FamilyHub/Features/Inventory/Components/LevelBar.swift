@@ -24,7 +24,7 @@ struct LevelBar: View {
             .frame(width: 64, height: 8)
 
             Text("\(level)%")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(tint)
                 .frame(minWidth: 38, alignment: .trailing)

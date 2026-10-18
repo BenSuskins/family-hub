@@ -47,6 +47,7 @@ final class FamilyMembersViewModel {
 }
 
 struct FamilyMembersView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let apiClient: any APIClientProtocol
     let currentUserID: String
 
@@ -60,13 +61,18 @@ struct FamilyMembersView: View {
 
     var body: some View {
         List(viewModel.users) { user in
-            HStack {
-                UserAvatar(user: user, size: 36, apiClient: apiClient)
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout())
+            layout {
+                if !dynamicTypeSize.isAccessibilitySize {
+                    UserAvatar(user: user, size: 36, apiClient: apiClient).accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(user.name).font(.body)
                     Text(user.email).font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 if user.isAdmin {
                     Text("Admin")
                         .font(.caption.weight(.medium))

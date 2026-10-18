@@ -118,7 +118,7 @@ struct TimerControl: View {
                         Task { await timers.cancel() }
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                    .controlSize(.regular)
                 }
             } else {
                 Button {
@@ -127,7 +127,7 @@ struct TimerControl: View {
                     Label(describeDuration(duration), systemImage: "timer")
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
+                .controlSize(.regular)
             }
         }
         .onReceive(tick) { date in
@@ -199,7 +199,9 @@ struct IngredientChecklistView: View {
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
+            .frame(minHeight: 44)
         }
+        .accessibilityValue(checked ? "Checked" : "Not checked")
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: checked)
     }

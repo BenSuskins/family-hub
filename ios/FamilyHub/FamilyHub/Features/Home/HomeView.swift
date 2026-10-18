@@ -5,109 +5,89 @@ struct HomeView: View {
     @State private var viewModel: HomeViewModel
     @State private var mealsViewModel: MealsViewModel
     @State private var recipesViewModel: RecipesViewModel
-    @State private var showProfile = false
-    @State private var editingMeal: EditingMeal?
+    @State private var activeSheet: ActiveSheet?
+
+    private enum ActiveSheet: Identifiable {
+        case profile, meal(EditingMeal)
+        var id: String {
+            switch self {
+            case .profile: return "profile"
+            case .meal(let meal): return meal.id
+            }
+        }
+    }
     @State private var selectedRecipe: Recipe?
-    @Binding var selectedTab: AppTab
+    @Bindable var navigation: AppNavigation
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let apiClient: any APIClientProtocol
 
-    private static let dayDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE · MMMM d"
-        return f
-    }()
-    private static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "h:mm a"
-        f.amSymbol = "AM"; f.pmSymbol = "PM"
-        return f
-    }()
-
-    init(apiClient: any APIClientProtocol, selectedTab: Binding<AppTab>) {
+    init(apiClient: any APIClientProtocol, navigation: AppNavigation) {
         self.apiClient = apiClient
-        _selectedTab = selectedTab
+        self.navigation = navigation
         _viewModel = State(wrappedValue: HomeViewModel(apiClient: apiClient))
         _mealsViewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
         _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
     }
 
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Good morning," }
-        if hour < 17 { return "Good afternoon," }
-        return "Good evening,"
-    }
-
-    private var firstName: String {
-        viewModel.currentUser?.name.components(separatedBy: " ").first ?? "there"
-    }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                greetingHeader
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        HouseholdCardsView(apiClient: apiClient)
                         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
+                            Text(Date.now.formatted(date: .complete, time: .omitted))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
                             agendaSection
                             mealsSection(stats)
                             choresSection(stats)
                         }
+                        HomeSectionHeader(title: "Household") { EmptyView() }
+                        Button {
+                            navigation.householdPath = [.shopping]
+                            navigation.selectedTab = .household
+                        } label: {
+                            Label("Shopping List", systemImage: "cart")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(16)
+                                .groupedCard()
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                        HouseholdCardsView(apiClient: apiClient)
                     }
                     .padding(.bottom, 24)
                 }
                 .refreshable { await viewModel.load() }
             }
-            .meshBackground()
+            .groupedBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showProfile) {
-                ProfileView(apiClient: apiClient)
+            .navigationTitle("Today")
+            .errorAlert($viewModel.actionError)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { activeSheet = .profile } label: {
+                        UserAvatar(user: viewModel.currentUser, size: 32, apiClient: apiClient)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Open profile")
+                }
             }
-            .sheet(item: $editingMeal, onDismiss: {
+            .sheet(item: $activeSheet, onDismiss: {
                 Task { await viewModel.load() }
-            }) { meal in
-                MealEditSheet(meal: meal, viewModel: mealsViewModel, apiClient: apiClient)
+            }) { sheet in
+                switch sheet {
+                case .profile: ProfileView(apiClient: apiClient)
+                case .meal(let meal): MealEditSheet(meal: meal, viewModel: mealsViewModel, apiClient: apiClient)
+                }
             }
             .navigationDestination(item: $selectedRecipe) { recipe in
                 RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: recipesViewModel)
             }
         }
         .task { await viewModel.load() }
-    }
-
-    // MARK: - Greeting Header
-
-    private var greetingHeader: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Self.dayDateFormatter.string(from: Date()).uppercased())
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .kerning(0.5)
-                    .padding(.bottom, 2)
-                Text(greeting)
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
-                Text(firstName)
-                    .font(.system(size: 36, weight: .black))
-                    .foregroundStyle(.primary)
-                    .tracking(-0.5)
-            }
-            Spacer()
-            Button {
-                showProfile = true
-            } label: {
-                UserAvatar(user: viewModel.currentUser, size: 44, apiClient: apiClient)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open profile")
-            .padding(.top, 4)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
     }
 
     // MARK: - Agenda
@@ -118,10 +98,10 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HomeSectionHeader(title: "Agenda") {
                     Button {
-                        selectedTab = .calendar
+                        navigation.selectedTab = .calendar
                     } label: {
                         Text("Calendar")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(.plain)
@@ -134,11 +114,11 @@ struct HomeView: View {
                         NavigationLink {
                             EventDetailsView(event: event, apiClient: apiClient)
                         } label: {
-                            EventRow(event: event, timeFormatter: Self.timeFormatter)
+                            EventRow(event: event)
                         }.buttonStyle(.plain)
                     }
                 }
-                .glassCard(radius: 16)
+                .groupedCard(radius: 16)
                 .padding(.horizontal, 16)
             }
         }
@@ -151,15 +131,18 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Today's meals") {
                 Button {
-                    selectedTab = .meals
+                    navigation.openMealPlan()
                 } label: {
                     Text("Plan")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
             }
-            HStack(spacing: 12) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 12))
+                : AnyLayout(HStackLayout(spacing: 12))
+            layout {
                 ForEach(["breakfast", "lunch", "dinner"], id: \.self) { mealType in
                     let plan = stats.todayMeals.first(where: { $0.mealType == mealType })
                     TodayMealCard(mealType: mealType, mealPlan: plan, apiClient: apiClient) {
@@ -172,12 +155,12 @@ struct HomeView: View {
                                 sourceURL: nil, categoryID: nil, hasImage: true
                             )
                         } else {
-                            editingMeal = EditingMeal(
+                            activeSheet = .meal(EditingMeal(
                                 date: todayKey,
                                 mealType: mealType,
                                 name: plan?.name ?? "",
                                 recipeID: plan?.recipeID
-                            )
+                            ))
                         }
                     }
                 }
@@ -193,11 +176,11 @@ struct HomeView: View {
             .filter { !viewModel.completedChoreIDs.contains($0.id) }
         return VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Today's chores") {
-                NavigationLink {
-                    ChoresListView(apiClient: apiClient)
+                Button {
+                    navigation.selectedTab = .tasks
                 } label: {
                     Text("Manage")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -228,7 +211,7 @@ struct HomeView: View {
                         )
                     }
                 }
-                .glassCard(radius: 16)
+                .groupedCard(radius: 16)
                 .padding(.horizontal, 16)
             }
         }
@@ -238,17 +221,22 @@ struct HomeView: View {
 // MARK: - HomeSectionHeader
 
 private struct HomeSectionHeader<Action: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     @ViewBuilder var action: () -> Action
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+        layout {
             Text(title)
-                .font(.system(size: 22, weight: .bold))
+                .font(.title2.weight(.bold))
                 .foregroundStyle(.primary)
-            Spacer()
-            action()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+            action().frame(minHeight: 44)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.top, 28)
         .padding(.bottom, 10)
@@ -263,11 +251,9 @@ private struct TodayMealCard: View {
     let apiClient: any APIClientProtocol
     var onTap: () -> Void
 
-    @State private var recipeImageData: Data?
 
     private var hasContent: Bool { !(mealPlan?.name ?? "").isEmpty }
     private var hasRecipe: Bool { mealPlan?.recipeID != nil }
-    private var hasTextOnly: Bool { hasContent && !hasRecipe }
 
     private var mealIcon: String {
         switch mealType {
@@ -277,136 +263,86 @@ private struct TodayMealCard: View {
         }
     }
 
-    private var iconTint: Color {
-        switch mealType {
-        case "breakfast": return .orange
-        case "lunch":     return .teal
-        default:          return .indigo
-        }
-    }
-
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 0) {
-                iconBadge
-                Spacer(minLength: 12)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(mealType.uppercased())
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.tertiary))
-                        .kerning(0.8)
-                    Text(hasContent ? mealPlan!.name : "–")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(hasRecipe ? AnyShapeStyle(.white) : (hasTextOnly ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)))
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.85)
+            VStack(alignment: .leading, spacing: 8) {
+                if hasRecipe {
+                    RecipeThumbView(recipeID: mealPlan?.recipeID, apiClient: apiClient, size: 64)
+                        .accessibilityHidden(true)
                 }
+                Label(mealType.capitalized, systemImage: mealIcon)
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+                Text(hasContent ? mealPlan!.name : "Add meal")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
-            .background(cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
+            .groupedCard()
         }
-        .buttonStyle(.plain)
-        .task(id: mealPlan?.recipeID) {
-            recipeImageData = nil
-            guard let id = mealPlan?.recipeID else { return }
-            recipeImageData = try? await apiClient.fetchRecipeImage(id: id)
-        }
-    }
-
-    @ViewBuilder
-    private var iconBadge: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7)
-                .fill(hasRecipe ? Color.white.opacity(0.2) : iconTint.opacity(0.16))
-                .frame(width: 22, height: 22)
-            Image(systemName: mealIcon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(hasRecipe ? .white : iconTint)
-        }
-    }
-
-    @ViewBuilder
-    private var cardBackground: some View {
-        if hasRecipe {
-            if let data = recipeImageData, let uiImage = UIImage(data: data) {
-                ZStack {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                    Color.black.opacity(0.35)
-                }
-            } else {
-                LinearGradient(
-                    colors: [iconTint.opacity(0.7), iconTint.opacity(0.4)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        } else if hasTextOnly {
-            LinearGradient(
-                colors: [iconTint.opacity(0.18), iconTint.opacity(0.08)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            Color(UIColor.secondarySystemGroupedBackground)
-        }
+        .buttonStyle(.borderless)
+        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - EventRow
 
 private struct EventRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let event: CalendarEvent
-    let timeFormatter: DateFormatter
 
     private var dotColor: Color {
         Color(hex: event.color) ?? .accentColor
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+        layout {
             // Time block
             VStack(alignment: .trailing, spacing: 1) {
                 if event.allDay {
                     Text("All day")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
                 } else {
-                    Text(timeFormatter.string(from: event.startTime))
-                        .font(.system(size: 15, weight: .bold).monospacedDigit())
+                    Text(event.startTime, style: .time)
+                        .font(.subheadline.weight(.bold).monospacedDigit())
                     if let end = event.endTime {
-                        Text(timeFormatter.string(from: end))
-                            .font(.system(size: 12).monospacedDigit())
+                        Text(end, style: .time)
+                            .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            .frame(width: 62, alignment: .trailing)
+            .frame(minWidth: 62, alignment: .trailing)
 
             // Colored dot
-            Circle()
-                .fill(dotColor)
-                .frame(width: 8, height: 8)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Circle().fill(dotColor).frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+            }
 
             // Title + calendar name
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 if !event.description.isEmpty {
                     Text(event.description)
-                        .font(.system(size: 13))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            Spacer(minLength: 0)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
     }

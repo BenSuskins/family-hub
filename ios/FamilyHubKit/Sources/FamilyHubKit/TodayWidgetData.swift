@@ -20,18 +20,18 @@ import Foundation
 /// The encoding is not compatible with the chores-only snapshot this replaced.
 /// That needs no migration: a snapshot that won't decode reads back as "no
 /// cache", which is exactly the state that sends the widget to the network.
-public struct TodayWidgetData: Codable, Equatable {
+public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
 
     /// What a timeline row is. Decides the row's tint, and whether it carries a
     /// tick button — an iCal event is someone else's to change.
-    public enum Kind: String, Codable {
+    public enum Kind: String, Codable, Sendable {
         case chore
         case event
     }
 
     /// One row of the day's timeline, flattened so no lookups happen at render
     /// time.
-    public struct Item: Codable, Equatable, Identifiable {
+    public struct Item: Codable, Equatable, Identifiable, Sendable {
         /// Namespaced by kind, because a chore and an event can share a raw id
         /// and `ForEach` would silently drop one of the two.
         public let id: String
@@ -75,6 +75,7 @@ public struct TodayWidgetData: Codable, Equatable {
             self.colorHex = colorHex
         }
 
+        @MainActor
         public static func chore(_ chore: Chore, user: User?, isOverdue: Bool) -> Item {
             Item(
                 id: "chore-\(chore.id)",
@@ -90,6 +91,7 @@ public struct TodayWidgetData: Codable, Equatable {
             )
         }
 
+        @MainActor
         public static func event(_ event: CalendarEvent) -> Item {
             Item(
                 id: "event-\(event.id)",
@@ -105,6 +107,7 @@ public struct TodayWidgetData: Codable, Equatable {
 
         /// "Ben · Sep 12" for an overdue chore, and just the assignee for one
         /// due today, whose time already sits in the time column.
+        @MainActor
         private static func choreSubtitle(_ chore: Chore, user: User?, isOverdue: Bool) -> String? {
             var parts: [String] = []
             if let name = user?.name { parts.append(name) }
@@ -124,8 +127,8 @@ public struct TodayWidgetData: Codable, Equatable {
     /// dinner is the slot people actually check — pinning it below the agenda
     /// keeps it visible however full the day is, rather than letting breakfast
     /// win the last row at eight in the morning.
-    public struct Meal: Codable, Equatable, Identifiable {
-        public enum Slot: String, Codable {
+    public struct Meal: Codable, Equatable, Identifiable, Sendable {
+        public enum Slot: String, Codable, Sendable {
             case breakfast
             case lunch
             case dinner
@@ -233,6 +236,7 @@ public struct TodayWidgetData: Codable, Equatable {
     /// `GET /api/calendar?view=day` returns — and is not filtered again here.
     /// Both callers ask for today, and a snapshot that outlives its day goes
     /// stale by ``capturedAt`` long before its contents mislead anyone.
+    @MainActor
     public static func from(
         stats: DashboardStats,
         events: [CalendarEvent] = [],
@@ -361,6 +365,7 @@ public struct TodayWidgetData: Codable, Equatable {
 
     /// Due date ascending, with undated chores last so they never displace one
     /// that has a real deadline, and id as a tie-break.
+    @MainActor
     private static func earliestFirst(_ lhs: Chore, _ rhs: Chore) -> Bool {
         switch (APIDate.parse(lhs.dueDate), APIDate.parse(rhs.dueDate)) {
         case let (left?, right?): return left == right ? lhs.id < rhs.id : left < right
@@ -372,6 +377,7 @@ public struct TodayWidgetData: Codable, Equatable {
 
     // MARK: - Building blocks
 
+    @MainActor
     private static func assignee(of chore: Chore, in users: [String: User]) -> User? {
         chore.assignedToUserID.flatMap { users[$0] }
     }
@@ -379,6 +385,7 @@ public struct TodayWidgetData: Codable, Equatable {
     /// Today's meals as the widget draws them, breakfast first. Slots the
     /// server doesn't recognise, and blank names, are dropped rather than
     /// rendered as an empty row.
+    @MainActor
     private static func plannedMeals(from plans: [MealPlan]) -> [Meal] {
         plans.compactMap { plan -> Meal? in
             guard let slot = Meal.Slot(rawValue: plan.mealType.lowercased()) else { return nil }
@@ -397,6 +404,7 @@ public struct TodayWidgetData: Codable, Equatable {
 
     /// Minutes from midnight for an `HH:mm` chore due time, or nil when the
     /// chore has no time of day and belongs in the untimed band.
+    @MainActor
     private static func minutesFromMidnight(clock value: String?) -> Int? {
         guard let value, !value.isEmpty, let date = APIDate.time.date(from: value) else { return nil }
         return minutesFromMidnight(date)
@@ -418,6 +426,7 @@ public struct TodayWidgetData: Codable, Equatable {
 
     /// Re-writes a chore's wire-format `HH:mm` due time in the phone's clock
     /// format, falling back to the raw value if it won't parse.
+    @MainActor
     fileprivate static func clockLabel(clock value: String?) -> String? {
         guard let value, !value.isEmpty else { return nil }
         guard let date = APIDate.time.date(from: value) else { return value }

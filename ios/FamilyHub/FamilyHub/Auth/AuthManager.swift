@@ -15,9 +15,8 @@ final class AuthManager: NSObject, TokenProviding {
 
     private let keychain: KeychainStore
     private var cachedConfig: OIDCConfig?
-    // Observer token is set once in init and removed once in deinit. deinit is a
-    // nonisolated context, so this opaque token must be reachable from there.
-    nonisolated(unsafe) private var unauthorizedObserver: NSObjectProtocol?
+    @ObservationIgnored private var unauthorizedObserver: NSObjectProtocol?
+    private var authenticationAnchor: ASPresentationAnchor?
 
     init(keychain: KeychainStore = .shared) {
         self.keychain = keychain
@@ -37,7 +36,7 @@ final class AuthManager: NSObject, TokenProviding {
         }
     }
 
-    deinit {
+    isolated deinit {
         if let unauthorizedObserver {
             NotificationCenter.default.removeObserver(unauthorizedObserver)
         }
@@ -89,6 +88,12 @@ final class AuthManager: NSObject, TokenProviding {
     // MARK: - Private helpers
 
     private func performLogin(config: OIDCConfig) async throws {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first else { throw AuthError.noPresentationWindow }
+        authenticationAnchor = scenes.flatMap(\.windows).first(where: { $0.isKeyWindow })
+            ?? ASPresentationAnchor(windowScene: scene)
+        defer { authenticationAnchor = nil }
+
         let (codeVerifier, codeChallenge) = generatePKCE()
         let state = UUID().uuidString
 
@@ -207,14 +212,10 @@ final class AuthManager: NSObject, TokenProviding {
 // MARK: - ASWebAuthenticationPresentationContextProviding
 extension AuthManager: ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        if let keyWindow = scenes.flatMap(\.windows).first(where: { $0.isKeyWindow }) {
-            return keyWindow
+        guard let authenticationAnchor else {
+            preconditionFailure("Authentication requires a presentation window.")
         }
-        if let scene = scenes.first {
-            return ASPresentationAnchor(windowScene: scene)
-        }
-        return ASPresentationAnchor()
+        return authenticationAnchor
     }
 }
 
@@ -223,6 +224,7 @@ enum AuthError: Error {
     case cancelled
     case invalidCallback
     case invalidConfiguration
+    case noPresentationWindow
 }
 
 private struct TokenResponse: Decodable {

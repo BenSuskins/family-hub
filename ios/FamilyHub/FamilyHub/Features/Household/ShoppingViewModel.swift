@@ -15,9 +15,9 @@ final class ShoppingViewModel {
     private let cache: ShoppingCache
     private var userID: String?
 
-    init(apiClient: any APIClientProtocol, cache: ShoppingCache = ShoppingCache()) {
+    init(apiClient: any APIClientProtocol, cache: ShoppingCache? = nil) {
         self.apiClient = apiClient
-        self.cache = cache
+        self.cache = cache ?? ShoppingCache()
     }
 
     func load() async {

@@ -56,7 +56,7 @@ public struct CookHandoff: Codable, Equatable, Sendable {
 // independent of whatever optionality the models grow later.
 
 /// The one key both payloads use.
-nonisolated(unsafe) private let watchPayloadKey = "json"
+nonisolated private let watchPayloadKey = "json"
 
 extension Encodable {
     /// Encode to the `[String: Any]` dictionary WatchConnectivity requires.

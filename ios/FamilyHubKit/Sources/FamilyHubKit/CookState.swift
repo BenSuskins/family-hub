@@ -6,7 +6,7 @@ import Foundation
 /// checklist on `"\(group.name)-\(item)"` (`CookModeView.swift`), which collides
 /// whenever a group repeats an item — "1 tbsp olive oil" listed twice ticks both
 /// boxes at once. Indices cannot collide.
-public struct IngredientIndex: Hashable, Sendable {
+public nonisolated struct IngredientIndex: Hashable, Sendable {
     public let group: Int
     public let item: Int
 

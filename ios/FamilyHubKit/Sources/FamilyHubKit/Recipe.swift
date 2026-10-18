@@ -1,6 +1,6 @@
 import Foundation
 
-public struct IngredientGroup: Codable, Hashable, Sendable {
+public nonisolated struct IngredientGroup: Codable, Hashable, Sendable {
     public let name: String
     public let items: [String]
 
@@ -10,7 +10,7 @@ public struct IngredientGroup: Codable, Hashable, Sendable {
     }
 }
 
-public struct Recipe: Codable, Identifiable, Hashable, Sendable {
+public nonisolated struct Recipe: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
     public let steps: [String]?           // Go nil slice marshals as null

@@ -25,7 +25,7 @@ struct CompleteChoreIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        guard let client = WidgetEnvironment.client() else {
+        guard let client = await WidgetEnvironment.client() else {
             // Signed out. The widget is already showing a "open the app"
             // state, so there is nothing useful to throw at the user here.
             return .result()

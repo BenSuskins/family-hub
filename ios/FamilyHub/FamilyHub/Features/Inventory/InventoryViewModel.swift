@@ -4,7 +4,7 @@ import FamilyHubKit
 
 @Observable
 @MainActor
-final class InventoryViewModel: MutableListViewModel {
+final class InventoryViewModel: @MainActor MutableListViewModel {
     var state: ViewState<[InventoryArea]> = .idle
     var actionError: APIError?
 

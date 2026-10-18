@@ -5,7 +5,7 @@ import FamilyHubKit
 
 @Observable
 @MainActor
-final class RecipesViewModel: MutableListViewModel {
+final class RecipesViewModel: @MainActor MutableListViewModel {
     var state: ViewState<[Recipe]> = .idle
     var searchQuery: String = ""
     var selectedMealType: String? = nil

@@ -50,7 +50,8 @@ final class WatchSessionStore: NSObject, WCSessionDelegate {
 
     private let store: WatchCredentialStore
 
-    init(store: WatchCredentialStore = WatchCredentialStore()) {
+    init(store: WatchCredentialStore? = nil) {
+        let store = store ?? WatchCredentialStore()
         self.store = store
         super.init()
         self.credentials = store.load()

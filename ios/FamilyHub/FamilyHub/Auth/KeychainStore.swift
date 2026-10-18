@@ -12,7 +12,7 @@ protocol KeychainStoring {
 }
 
 final class KeychainStore: KeychainStoring {
-    nonisolated(unsafe) static let shared = KeychainStore()
+    nonisolated static let shared = KeychainStore()
 
     private let service: String
 

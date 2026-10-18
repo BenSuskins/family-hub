@@ -32,8 +32,8 @@ public final class APIClient: APIClientProtocol {
     // nonisolated because both are used as default arguments, and default
     // argument expressions are evaluated in the caller's nonisolated context.
     // Safe: each is immutable and only ever read.
-    nonisolated(unsafe) private static let defaultDecoder = JSONDecoder()
-    nonisolated(unsafe) private static let isoDecoder: JSONDecoder = {
+    nonisolated private static let defaultDecoder = JSONDecoder()
+    nonisolated private static let isoDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder

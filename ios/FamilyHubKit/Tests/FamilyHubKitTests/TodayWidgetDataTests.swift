@@ -1,6 +1,7 @@
 import XCTest
 @testable import FamilyHubKit
 
+@MainActor
 final class TodayWidgetDataTests: XCTestCase {
 
     private func makeChore(
@@ -73,7 +74,7 @@ final class TodayWidgetDataTests: XCTestCase {
     // MARK: - Ordering
 
     // The whole point of the redesign: one list, in the order the day happens.
-    func testTheDayIsOverdueThenAllDayThenTimedThenUntimed() {
+    func testTheDayIsOverdueThenAllDayThenTimedThenUntimed() async {
         let stats = makeStats(
             overdue: [makeChore(id: "late", dueDate: "2026-09-11")],
             dueToday: [
@@ -94,7 +95,7 @@ final class TodayWidgetDataTests: XCTestCase {
         )
     }
 
-    func testTimedChoresAndEventsInterleaveByTimeOfDay() {
+    func testTimedChoresAndEventsInterleaveByTimeOfDay() async {
         let stats = makeStats(dueToday: [
             makeChore(id: "bins", name: "Bins", dueTime: "08:00"),
             makeChore(id: "dinner-prep", name: "Dinner prep", dueTime: "17:00"),
@@ -113,7 +114,7 @@ final class TodayWidgetDataTests: XCTestCase {
     }
 
     // Somewhere you have to be outranks something you could do whenever.
-    func testAnEventBeatsAChoreAtTheSameMinute() {
+    func testAnEventBeatsAChoreAtTheSameMinute() async {
         let stats = makeStats(dueToday: [makeChore(id: "c", name: "Chore", dueTime: "18:00")])
         let events = [makeEvent(id: "e", title: "Event", at: 18)]
 
@@ -122,7 +123,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.items.map(\.id), ["event-e", "chore-c"])
     }
 
-    func testOverdueChoresAreEarliestFirst() {
+    func testOverdueChoresAreEarliestFirst() async {
         let stats = makeStats(overdue: [
             makeChore(id: "late-b", dueDate: "2026-09-11"),
             makeChore(id: "late-a", dueDate: "2026-09-09"),
@@ -139,7 +140,7 @@ final class TodayWidgetDataTests: XCTestCase {
     // `sorted(by:)` is not stable, and a recurring set can put several chores
     // on the same minute, so the order has to be settled by something. Rows
     // shuffling between refreshes would look like a bug to the user.
-    func testRowsSharingAMinuteAreOrderedDeterministically() {
+    func testRowsSharingAMinuteAreOrderedDeterministically() async {
         let stats = makeStats(dueToday: [
             makeChore(id: "3", name: "Cleaning", dueTime: "09:00"),
             makeChore(id: "1", name: "Bins", dueTime: "09:00"),
@@ -153,7 +154,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Row kinds
 
-    func testAChoreRowCarriesItsIDForTheTickButtonAndAnEventRowDoesNot() {
+    func testAChoreRowCarriesItsIDForTheTickButtonAndAnEventRowDoesNot() async {
         let stats = makeStats(dueToday: [makeChore(id: "c1", dueTime: "10:00")])
 
         let data = TodayWidgetData.from(stats: stats, events: [makeEvent(id: "e1", at: 11)])
@@ -166,7 +167,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // Namespacing matters: the two ids collide often enough in practice, and a
     // `ForEach` over duplicates silently drops a row.
-    func testAChoreAndAnEventSharingARawIDStillGetDistinctRowIDs() {
+    func testAChoreAndAnEventSharingARawIDStillGetDistinctRowIDs() async {
         let stats = makeStats(dueToday: [makeChore(id: "same", dueTime: "10:00")])
 
         let data = TodayWidgetData.from(stats: stats, events: [makeEvent(id: "same", at: 11)])
@@ -174,7 +175,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(Set(data.items.map(\.id)).count, 2)
     }
 
-    func testAnEventKeepsItsCalendarColourAndPrefersLocationForItsSubtitle() {
+    func testAnEventKeepsItsCalendarColourAndPrefersLocationForItsSubtitle() async {
         let event = makeEvent(id: "e1", location: "Leisure centre", description: "Bring goggles", color: "#FF8800")
 
         let data = TodayWidgetData.from(stats: makeStats(), events: [event])
@@ -183,7 +184,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.items.first?.subtitle, "Leisure centre")
     }
 
-    func testAnEventWithNoLocationFallsBackToItsDescription() {
+    func testAnEventWithNoLocationFallsBackToItsDescription() async {
         let event = makeEvent(id: "e1", location: "   ", description: "Bring goggles")
 
         let data = TodayWidgetData.from(stats: makeStats(), events: [event])
@@ -191,7 +192,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.items.first?.subtitle, "Bring goggles")
     }
 
-    func testAnAllDayEventSaysSoInsteadOfShowingAMisleadingMidnight() {
+    func testAnAllDayEventSaysSoInsteadOfShowingAMisleadingMidnight() async {
         let data = TodayWidgetData.from(stats: makeStats(), events: [makeEvent(id: "e1", allDay: true)])
 
         XCTAssertEqual(data.items.first?.timeLabel, "All day")
@@ -199,7 +200,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Chore labelling
 
-    func testAssigneeNameAndInitialsAreResolvedAtBuildTime() {
+    func testAssigneeNameAndInitialsAreResolvedAtBuildTime() async {
         let stats = makeStats(dueToday: [makeChore(id: "c1", assignedTo: "u1")])
 
         let data = TodayWidgetData.from(stats: stats, users: ["u1": ben])
@@ -208,7 +209,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.items.first?.initials, "BS")
     }
 
-    func testUnknownOrMissingAssigneeLeavesTheFieldsEmpty() {
+    func testUnknownOrMissingAssigneeLeavesTheFieldsEmpty() async {
         let stats = makeStats(dueToday: [
             makeChore(id: "c1", assignedTo: "ghost"),
             makeChore(id: "c2", assignedTo: nil),
@@ -222,7 +223,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // How long ago it was due matters more than what time of day it was, so an
     // overdue chore trades its clock time for the date it slipped.
-    func testAnOverdueChoreShowsOverdueAndKeepsItsDateInTheSubtitle() {
+    func testAnOverdueChoreShowsOverdueAndKeepsItsDateInTheSubtitle() async {
         let stats = makeStats(
             overdue: [makeChore(id: "o1", dueDate: "2026-09-09", dueTime: "18:30", assignedTo: "u1")]
         )
@@ -235,7 +236,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.items.first?.subtitle?.hasPrefix("Ben Suskins · "), true)
     }
 
-    func testAChoreWithNoDueTimeHasNoTimeLabel() {
+    func testAChoreWithNoDueTimeHasNoTimeLabel() async {
         let data = TodayWidgetData.from(stats: makeStats(dueToday: [makeChore(id: "c1")]))
 
         XCTAssertNil(data.items.first?.timeLabel)
@@ -243,7 +244,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Meals
 
-    func testMealsAreKeptOutOfTheTimelineAndOrderedThroughTheDay() {
+    func testMealsAreKeptOutOfTheTimelineAndOrderedThroughTheDay() async {
         let stats = makeStats(meals: [
             makeMeal("dinner", "Bolognese"),
             makeMeal("breakfast", "Porridge"),
@@ -256,7 +257,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.dinner?.name, "Bolognese")
     }
 
-    func testBlankAndUnrecognisedMealSlotsAreDroppedRatherThanDrawnEmpty() {
+    func testBlankAndUnrecognisedMealSlotsAreDroppedRatherThanDrawnEmpty() async {
         let stats = makeStats(meals: [
             makeMeal("dinner", "   "),
             makeMeal("brunch", "Eggs"),
@@ -269,7 +270,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertNil(data.dinner)
     }
 
-    func testMealSlotIsReadCaseInsensitively() {
+    func testMealSlotIsReadCaseInsensitively() async {
         let data = TodayWidgetData.from(stats: makeStats(meals: [makeMeal("Dinner", "Bolognese")]))
 
         XCTAssertEqual(data.dinner?.name, "Bolognese")
@@ -277,7 +278,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Counts
 
-    func testCountsComeFromTheFullListsNotTheCappedRows() {
+    func testCountsComeFromTheFullListsNotTheCappedRows() async {
         let overdue = (1...6).map { makeChore(id: "o\($0)", dueDate: "2026-09-0\($0)") }
         let dueToday = (1...5).map { makeChore(id: "t\($0)", dueTime: "0\($0):00") }
         let events = (1...4).map { makeEvent(id: "e\($0)", at: 10 + $0) }
@@ -294,7 +295,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertFalse(data.isClear)
     }
 
-    func testAViewShowingFewerRowsThanTheSnapshotHoldsGetsTheRestAsHidden() {
+    func testAViewShowingFewerRowsThanTheSnapshotHoldsGetsTheRestAsHidden() async {
         let dueToday = (1...5).map { makeChore(id: "t\($0)", dueTime: "0\($0):00") }
 
         let data = TodayWidgetData.from(stats: makeStats(dueToday: dueToday))
@@ -303,7 +304,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.hiddenCount(shown: 99), 0)
     }
 
-    func testAnEmptyDayIsClear() {
+    func testAnEmptyDayIsClear() async {
         let data = TodayWidgetData.from(stats: makeStats())
 
         XCTAssertTrue(data.isClear)
@@ -314,7 +315,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // A day with nothing to do but something to cook still has something to
     // say, so it must not render as the all-clear.
-    func testADayWithOnlyAMealPlannedIsNotClear() {
+    func testADayWithOnlyAMealPlannedIsNotClear() async {
         let data = TodayWidgetData.from(stats: makeStats(meals: [makeMeal("dinner", "Bolognese")]))
 
         XCTAssertFalse(data.isClear)
@@ -322,7 +323,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Optimistic removal
 
-    func testRemovingADueTodayChoreDropsItsRowAndItsCounts() {
+    func testRemovingADueTodayChoreDropsItsRowAndItsCounts() async {
         let stats = makeStats(
             overdue: [makeChore(id: "o1", dueDate: "2026-09-09")],
             dueToday: [makeChore(id: "t1", dueTime: "09:00")]
@@ -338,7 +339,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(after.eventCount, 1)
     }
 
-    func testRemovingAnOverdueChoreDecrementsTheOverdueCount() {
+    func testRemovingAnOverdueChoreDecrementsTheOverdueCount() async {
         let stats = makeStats(
             overdue: [makeChore(id: "o1", dueDate: "2026-09-09")],
             dueToday: [makeChore(id: "t1", dueTime: "09:00")]
@@ -354,7 +355,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // A double-tap on the widget, or a tick for a chore that only ever existed
     // in the uncapped tail, must not drive a count below zero.
-    func testRemovingAnUnknownChoreIsANoOp() {
+    func testRemovingAnUnknownChoreIsANoOp() async {
         let data = TodayWidgetData.from(stats: makeStats(dueToday: [makeChore(id: "t1")]))
 
         XCTAssertEqual(data.removing(choreID: "nope"), data)
@@ -363,7 +364,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // Events aren't the widget's to complete, so an event id must never be
     // mistaken for a tickable chore.
-    func testRemovingCannotTouchAnEventRow() {
+    func testRemovingCannotTouchAnEventRow() async {
         let data = TodayWidgetData.from(stats: makeStats(), events: [makeEvent(id: "e1")])
 
         XCTAssertEqual(data.removing(choreID: "e1"), data)
@@ -372,7 +373,7 @@ final class TodayWidgetDataTests: XCTestCase {
 
     // MARK: - Encoding
 
-    func testSnapshotSurvivesAJSONRoundTrip() throws {
+    func testSnapshotSurvivesAJSONRoundTrip() async throws {
         let stats = makeStats(
             overdue: [makeChore(id: "o1", name: "Bins", dueDate: "2026-09-09", assignedTo: "u1")],
             dueToday: [makeChore(id: "t1", name: "Hoovering", dueTime: "18:00")],
@@ -390,7 +391,7 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
-    func testMarkedStaleKeepsEverythingButTheTimestamp() {
+    func testMarkedStaleKeepsEverythingButTheTimestamp() async {
         let original = TodayWidgetData.from(
             stats: makeStats(dueToday: [makeChore(id: "t1")], meals: [makeMeal("dinner", "Bolognese")]),
             events: [makeEvent(id: "e1")]

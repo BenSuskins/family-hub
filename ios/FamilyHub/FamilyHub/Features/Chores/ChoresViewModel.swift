@@ -5,7 +5,7 @@ import FamilyHubKit
 
 @Observable
 @MainActor
-final class ChoresViewModel: MutableListViewModel {
+final class ChoresViewModel: @MainActor MutableListViewModel {
     var state: ViewState<[Chore]> = .idle
     var actionError: APIError?
     var users: [String: User] = [:]

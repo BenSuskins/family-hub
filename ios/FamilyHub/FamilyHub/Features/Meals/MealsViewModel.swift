@@ -9,6 +9,11 @@ final class MealsViewModel {
     var actionError: APIError?
     var state: ViewState<[MealPlan]> = .idle
     var currentWeek: Date = MealsViewModel.fridayStartOfWeek(for: Date())
+    private(set) var selectedDay: Date = Date()
+
+    var weekDays: [Date] {
+        (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: currentWeek) }
+    }
 
     private let apiClient: any APIClientProtocol
 
@@ -17,27 +22,41 @@ final class MealsViewModel {
     }
 
     func load() async {
+        let week = currentWeek
         state = .loading
         do {
-            let meals = try await apiClient.fetchMeals(week: currentWeek)
+            let meals = try await apiClient.fetchMeals(week: week)
+            guard week == currentWeek else { return }
             state = .loaded(meals)
         } catch {
+            guard week == currentWeek else { return }
             state = .failed(.from(error))
         }
     }
 
+    func selectDay(_ date: Date) async {
+        selectedDay = date
+        let week = Self.fridayStartOfWeek(for: date)
+        guard !Calendar.current.isDate(week, inSameDayAs: currentWeek) else { return }
+        currentWeek = week
+        await load()
+    }
+
     func nextWeek() {
         currentWeek = Calendar.current.date(byAdding: .day, value: 7, to: currentWeek)!
+        selectedDay = Calendar.current.date(byAdding: .day, value: 7, to: selectedDay)!
         Task { await load() }
     }
 
     func previousWeek() {
         currentWeek = Calendar.current.date(byAdding: .day, value: -7, to: currentWeek)!
+        selectedDay = Calendar.current.date(byAdding: .day, value: -7, to: selectedDay)!
         Task { await load() }
     }
 
     func goToCurrentWeek() {
         currentWeek = MealsViewModel.fridayStartOfWeek(for: Date())
+        selectedDay = Date()
         Task { await load() }
     }
 

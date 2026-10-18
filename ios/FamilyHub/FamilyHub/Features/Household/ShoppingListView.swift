@@ -4,6 +4,8 @@ import FamilyHubKit
 struct ShoppingListView: View {
     let apiClient: any APIClientProtocol
     @State private var model: ShoppingViewModel
+    @State private var inventoryModel: InventoryViewModel
+    private let isHouseholdHome: Bool
     @State private var newName = ""
     @State private var activeSheet: ShoppingSheet?
     @State private var confirmClear = false
@@ -23,13 +25,24 @@ struct ShoppingListView: View {
         }
     }
 
-    init(apiClient: any APIClientProtocol) {
+    init(apiClient: any APIClientProtocol, isHouseholdHome: Bool = false) {
         self.apiClient = apiClient
+        self.isHouseholdHome = isHouseholdHome
         _model = State(wrappedValue: ShoppingViewModel(apiClient: apiClient))
+        _inventoryModel = State(wrappedValue: InventoryViewModel(apiClient: apiClient))
     }
 
     var body: some View {
         List {
+            if isHouseholdHome {
+                Section {
+                    NavigationLink(value: HouseholdDestination.inventory) {
+                        FeatureEntryLabel(title: "Inventory", subtitle: inventorySummary, systemImage: "cabinet")
+                    }
+                    .accessibilityLabel("Inventory")
+                    .accessibilityHint(inventorySummary)
+                }
+            }
             if !model.canEdit {
                 Section {
                     if let date = model.capturedAt {
@@ -42,20 +55,33 @@ struct ShoppingListView: View {
                     Button("Refresh") { Task { await model.load() } }
                 }
             }
-            Section("Add an item") {
+            Section {
                 HStack {
-                    TextField("Item name", text: $newName)
+                    TextField("Item name", text: $newName, prompt: Text("Add an item…"))
+                        .accessibilityLabel("Item name")
+                        .accessibilityIdentifier("Item name")
+                        .submitLabel(.done)
                         .onSubmit { add() }
-                    Button(action: add) { Image(systemName: "plus") }
+                    Button(action: add) { Image(systemName: "plus.circle.fill").font(.title2) }
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityLabel("Add item")
                         .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .disabled(!model.canEdit || model.isChanging)
-            }
-            Section("To buy") {
                 if model.items.allSatisfy(\.purchased) { Text("The list is empty.").foregroundStyle(.secondary) }
                 ForEach(model.items.filter { !$0.purchased }) { row($0) }
+            } header: {
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                    : AnyLayout(HStackLayout())
+                layout {
+                    Text("Shopping list").font(.title3.bold())
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+                    Text("\(model.items.filter { !$0.purchased }.count) to buy")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .textCase(nil)
             }
             if model.items.contains(where: \.purchased) {
                 Section("Purchased") {
@@ -64,9 +90,18 @@ struct ShoppingListView: View {
                         .disabled(!model.canEdit || model.isChanging)
                 }
             }
+            if isHouseholdHome {
+                inventorySection
+            }
         }
-        .navigationTitle("Shopping List")
-        .refreshable { await model.load() }
+        .listStyle(.insetGrouped)
+        .navigationTitle(isHouseholdHome ? "Household" : "Shopping List")
+        .toolbar {
+            if isHouseholdHome {
+                ToolbarItem(placement: .topBarTrailing) { FeatureProfileButton(apiClient: apiClient) }
+            }
+        }
+        .refreshable { await refresh() }
         .errorAlert($model.error)
         .confirmationDialog("Clear purchased items?", isPresented: $confirmClear) {
             Button("Clear purchased items", role: .destructive) { Task { await model.clearPurchased() } }
@@ -78,7 +113,9 @@ struct ShoppingListView: View {
                 Button("Delete Item", role: .destructive) { Task { await model.remove(item) } }
             }
         }
-        .sheet(item: $activeSheet) { sheet in
+        .sheet(item: $activeSheet, onDismiss: {
+            Task { if isHouseholdHome { await inventoryModel.load() } }
+        }) { sheet in
             switch sheet {
             case .rename(let item): ShoppingNameView(item: item, model: model)
             case .restock(let item): ShoppingRestockView(item: item, model: model, apiClient: apiClient)
@@ -89,10 +126,83 @@ struct ShoppingListView: View {
         .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
             guard shouldRefresh else { return }
             while !Task.isCancelled {
-                await model.load()
+                await refresh()
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
             }
         }
+    }
+
+    private var inventorySummary: String {
+        switch inventoryModel.state {
+        case .idle, .loading: return "Checking stock…"
+        case .failed: return "Stock unavailable"
+        case .loaded:
+            let count = inventoryModel.totalRunningLow
+            if inventoryModel.areas.isEmpty { return "Track stock around your home" }
+            return count == 0 ? "All items in stock" : "\(count) \(count == 1 ? "item" : "items") running low"
+        }
+    }
+
+    @ViewBuilder
+    private var inventorySection: some View {
+        switch inventoryModel.state {
+        case .idle, .loading:
+            Section { ProgressView("Checking stock") }
+        case .failed:
+            Section("Inventory") {
+                Text("Stock unavailable. Retry to check stock.")
+                    .foregroundStyle(.secondary)
+                Button("Retry inventory") { Task { await inventoryModel.load() } }
+            }
+        case .loaded:
+            if !inventoryModel.runningLow.isEmpty {
+                Section("Running low") {
+                    ForEach(inventoryModel.runningLow.prefix(4)) { entry in
+                        lowStockRow(entry)
+                    }
+                    NavigationLink("View inventory", value: HouseholdDestination.inventory)
+                        .frame(minHeight: 44)
+                }
+            }
+        }
+    }
+
+    private func lowStockRow(_ entry: RunningLowItem) -> some View {
+        let isOnList = model.items.contains { !$0.purchased && $0.inventoryItemID == entry.item.id }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
+            NavigationLink {
+                AreaDetailView(areaID: entry.area.id, viewModel: inventoryModel)
+            } label: {
+                HStack(spacing: 12) {
+                    AreaIconTile(area: entry.area).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.item.name).foregroundStyle(.primary)
+                        Text(entry.area.name + " · " + entry.item.statusLabel + " · Low")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Button {
+                Task { await model.addInventoryItem(entry.item) }
+            } label: {
+                Image(systemName: isOnList ? "checkmark.circle" : "plus.circle.fill")
+                    .font(.title2)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(isOnList ? "\(entry.item.name) is on the shopping list" : "Add \(entry.item.name) to shopping list")
+            .disabled(isOnList || !model.canEdit || model.isChanging)
+        }
+    }
+
+    private func refresh() async {
+        await model.load()
+        if isHouseholdHome { await inventoryModel.load() }
     }
 
     private func add() {

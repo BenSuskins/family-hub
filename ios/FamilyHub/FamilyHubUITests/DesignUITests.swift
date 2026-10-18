@@ -69,13 +69,11 @@ final class DesignUITests: XCTestCase {
         tap(app.buttons["Cancel"], in: app)
 
         select("Food", in: app)
-        tap(app.buttons["Meal Plan"], in: app)
         capture(app, "meal-plan")
-        let meal = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Add meal")).firstMatch
+        let meal = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Add breakfast")).firstMatch
         tap(meal, in: app)
         capture(app, "meal-form")
         tap(app.buttons["Cancel"], in: app)
-        back(app)
         tap(app.buttons["Recipes"], in: app)
         capture(app, "recipes")
         tap(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch, in: app)
@@ -92,9 +90,7 @@ final class DesignUITests: XCTestCase {
         tap(app.buttons["Cancel"], in: app)
 
         select("Household", in: app)
-        tap(app.buttons["Shopping List"], in: app)
         capture(app, "shopping")
-        back(app)
         tap(app.buttons["Inventory"], in: app)
         capture(app, "inventory")
         tap(app.buttons["New Area"], in: app)
@@ -132,11 +128,13 @@ final class DesignUITests: XCTestCase {
 
     @MainActor
     private func tap(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<12 {
-            if element.exists && element.isHittable { break }
-            let list = app.collectionViews.firstMatch
-            if list.exists { list.swipeUp() }
-            else { app.swipeUp() }
+        for _ in 0..<20 {
+            let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.windows.firstMatch.frame.maxY
+            if element.exists && element.isHittable && element.frame.midY < bottom { break }
+            let towardTop = element.exists && element.frame.midY < 0
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.4 : 0.7))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.7 : 0.4))
+            start.press(forDuration: 0.1, thenDragTo: end)
         }
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         element.tap()

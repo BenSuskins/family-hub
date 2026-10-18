@@ -4,6 +4,26 @@ import FamilyHubKit
 
 @MainActor
 final class MealsViewModelTests: XCTestCase {
+    func testSelectingADayLoadsItsFridayWeek() async {
+        let client = FakeAPIClient()
+        client.mealsByWeek = [
+            "2026-10-16": [makeMeal(date: "2026-10-18", mealType: "dinner", name: "Pasta")],
+            "2026-10-23": [makeMeal(date: "2026-10-24", mealType: "dinner", name: "Soup")],
+        ]
+        let model = MealsViewModel(apiClient: client)
+        model.currentWeek = APIDate.parse("2026-10-16T12:00:00Z")!
+        await model.load()
+
+        await model.selectDay(APIDate.parse("2026-10-24T12:00:00Z")!)
+
+        XCTAssertEqual(APIDate.dayString(model.currentWeek), "2026-10-23")
+        XCTAssertEqual(APIDate.dayString(model.selectedDay), "2026-10-24")
+        guard case .loaded(let meals) = model.state else {
+            return XCTFail("The selected week must load.")
+        }
+        XCTAssertEqual(meals.first?.name, "Soup")
+    }
+
     private func makeMeal(date: String, mealType: String, name: String) -> MealPlan {
         MealPlan(date: date, mealType: mealType, name: name, notes: "", recipeID: nil)
     }

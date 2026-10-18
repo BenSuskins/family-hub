@@ -46,11 +46,7 @@ struct ContentView: View {
             }
             Tab("Food", systemImage: "fork.knife", value: AppTab.food) {
                 NavigationStack(path: $navigation.foodPath) {
-                    List {
-                        NavigationLink("Meal Plan", value: FoodDestination.mealPlan)
-                        NavigationLink("Recipes", value: FoodDestination.recipes)
-                    }
-                    .navigationTitle("Food")
+                    MealsView(apiClient: apiClient, isFoodHome: true)
                     .navigationDestination(for: FoodDestination.self) { destination in
                         switch destination {
                         case .mealPlan: MealsView(apiClient: apiClient)
@@ -61,11 +57,7 @@ struct ContentView: View {
             }
             Tab("Household", systemImage: "cabinet", value: AppTab.household) {
                 NavigationStack(path: $navigation.householdPath) {
-                    List {
-                        NavigationLink("Shopping List", value: HouseholdDestination.shopping)
-                        NavigationLink("Inventory", value: HouseholdDestination.inventory)
-                    }
-                    .navigationTitle("Household")
+                    ShoppingListView(apiClient: apiClient, isHouseholdHome: true)
                     .navigationDestination(for: HouseholdDestination.self) { destination in
                         switch destination {
                         case .shopping: ShoppingListView(apiClient: apiClient)

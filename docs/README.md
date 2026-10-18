@@ -15,11 +15,12 @@ recurring schedules and random assignment, a weekly meal planner backed by a
 recipe library, unified calendar view with external iCal subscriptions, and
 a per-user dashboard. The Go server serves both an HTMX/Templ web UI and a
 SwiftUI iOS app from the same REST API. Auth is OIDC via a single public
-PKCE client shared across web, iOS, and the Home Assistant integration.
+PKCE client shared across web and iOS.
 
 ## Features
 
 - **Chores** — recurring schedules (daily/weekly/monthly/cron), random assignment, overdue tracking
+- **Notifications** — two daily chore reminders and admin family messages on enabled iPhones; see [setup](chore-reminders.md)
 - **Dashboard** — today's chores, overdue items, upcoming events, completion stats, household leaderboard
 - **Calendar** — unified view of chores, family events, and external iCal subscriptions
 - **iCal subscriptions** — admin-managed feeds (school, sports, etc.)
@@ -34,7 +35,6 @@ PKCE client shared across web, iOS, and the Home Assistant integration.
 - **Database:** SQLite (`modernc.org/sqlite` — pure Go, no CGO)
 - **Auth:** OIDC via Authelia (single public PKCE client, no client secret)
 - **iOS:** SwiftUI, MVVM
-- **HA integration:** custom HACS component
 
 ## Project Structure
 
@@ -42,7 +42,6 @@ PKCE client shared across web, iOS, and the Home Assistant integration.
 family-hub/
 ├── server/                  # Go backend (HTTP server, templates, REST API)
 ├── ios/                     # SwiftUI iOS app
-├── home-assistant/          # HACS custom component
 ├── data/                    # Runtime data (SQLite, gitignored)
 └── docs/                    # README, ARCHITECTURE, TROUBLESHOOTING, OIDC setup, endpoints
 ```

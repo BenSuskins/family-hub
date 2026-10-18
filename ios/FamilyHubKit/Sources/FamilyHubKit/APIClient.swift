@@ -454,6 +454,28 @@ public final class APIClient: APIClientProtocol {
 
 extension APIClient {
     public var serverIdentifier: String? { baseURL.absoluteString }
+    public func sendFamilyBroadcast(message: String, requestID: String) async throws -> BroadcastResult {
+        struct Request: Encodable { let message: String; let requestID: String }
+        return try await post("api/notifications/broadcast", body: Request(message: message, requestID: requestID))
+    }
+
+    public func fetchChoreReminders() async throws -> ChoreReminders {
+        try await get("api/chore-reminders")
+    }
+
+    public func updateChoreReminders(_ settings: ChoreReminders) async throws {
+        struct Request: Encodable { let enabled: Bool; let times: [String] }
+        try await patch("api/chore-reminders", body: Request(enabled: settings.enabled, times: settings.times))
+    }
+
+    public func registerNotificationDevice(_ device: NotificationDevice) async throws {
+        try await sendVoid(path: "api/notification-devices/\(device.id)", method: "PUT", body: device)
+    }
+
+    public func removeNotificationDevice(id: String) async throws {
+        try await delete("api/notification-devices/\(id)")
+    }
+
     public func fetchHomeInfo() async throws -> HomeInfo { try await get("api/home-info") }
     public func updateHomeInfo(_ home: HomeInfo) async throws { try await patch("api/home-info", body: home) }
     public func fetchWeather() async throws -> HouseholdWeather { try await get("api/weather") }

@@ -7,6 +7,7 @@ enum HouseholdDestination: Hashable { case shopping, inventory }
 
 @Observable
 final class AppNavigation {
+    var choreRefreshID = UUID()
     var selectedTab: AppTab = .today
     var foodPath: [FoodDestination] = []
     var householdPath: [HouseholdDestination] = []
@@ -19,6 +20,9 @@ final class AppNavigation {
     func open(_ url: URL) {
         guard url.scheme == "familyhub" else { return }
         switch url.host {
+        case "chores":
+            choreRefreshID = UUID()
+            selectedTab = .tasks
         case "today": selectedTab = .today
         case "calendar": selectedTab = .calendar
         case "meals": openMealPlan()
@@ -30,6 +34,8 @@ final class AppNavigation {
 struct ContentView: View {
     let apiClient: any APIClientProtocol
     @State private var navigation = AppNavigation()
+    @State private var notifications = ChoreNotificationManager.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
@@ -43,6 +49,7 @@ struct ContentView: View {
                 NavigationStack {
                     ChoresListView(apiClient: apiClient)
                 }
+                .id(navigation.choreRefreshID)
             }
             Tab("Food", systemImage: "fork.knife", value: AppTab.food) {
                 NavigationStack(path: $navigation.foodPath) {
@@ -70,5 +77,21 @@ struct ContentView: View {
         .modifier(AdaptiveTabStyle())
         .modifier(AccessibleMotionModifier())
         .onOpenURL { navigation.open($0) }
+        .task {
+            if apiClient.serverIdentifier != nil { try? await notifications.configure(apiClient: apiClient) }
+            openNotification()
+        }
+        .onChange(of: notifications.pendingNotificationURL) { _, _ in openNotification() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && apiClient.serverIdentifier != nil {
+                Task { try? await notifications.configure(apiClient: apiClient) }
+            }
+        }
     }
+    private func openNotification() {
+        guard let url = notifications.pendingNotificationURL else { return }
+        notifications.pendingNotificationURL = nil
+        navigation.open(url)
+    }
+
 }

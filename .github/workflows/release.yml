@@ -41,14 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create HA zip
-        run: |
-          cd home-assistant
-          zip -r ../family_hub.zip custom_components/family_hub/
-
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: family_hub.zip
           generate_release_notes: true

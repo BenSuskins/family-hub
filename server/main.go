@@ -46,10 +46,28 @@ func main() {
 	seriesRepo := repository.NewChoreSeriesRepository(db)
 	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
 
+	var reminderSender services.ReminderSender
+	var messageSender services.MessageSender
+	if cfg.PushConfigured() {
+		key, err := os.ReadFile(cfg.APNsKeyPath)
+		if err != nil {
+			slog.Error("reading APNs signing key failed")
+			os.Exit(1)
+		}
+		sender, err := services.NewAPNsSender(cfg.APNsKeyID, cfg.APNsTeamID, cfg.APNsTopic, key, nil)
+		if err != nil {
+			slog.Error("configuring APNs", "error", err)
+			os.Exit(1)
+		}
+		reminderSender = sender
+		messageSender = sender
+	}
+	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender)
+	go runChoreReminders(reminderService)
 	go runOverdueChecker(choreService)
 	go runSeriesTopUp(choreService)
 
-	srv := server.New(db, cfg, authService)
+	srv := server.New(db, cfg, authService, messageSender)
 	if err := srv.Start(); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
@@ -81,6 +99,19 @@ func runSeriesTopUp(choreService *services.ChoreService) {
 		if err := choreService.TopUpAllSeries(ctx, services.SeedHorizonFrom(time.Now())); err != nil {
 			slog.Error("topping up recurring series", "error", err)
 		}
+		<-ticker.C
+	}
+}
+
+func runChoreReminders(service *services.ChoreReminderService) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		if err := service.Check(ctx, time.Now()); err != nil {
+			slog.Error("sending chore reminders", "error", err)
+		}
+		cancel()
 		<-ticker.C
 	}
 }

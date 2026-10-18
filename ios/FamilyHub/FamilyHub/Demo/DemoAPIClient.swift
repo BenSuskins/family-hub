@@ -157,6 +157,9 @@ private enum DemoData {
 
 @MainActor
 final class DemoAPIClient: APIClientProtocol {
+    var choreReminders = ChoreReminders(pushAvailable: true)
+    var notificationDevices: [String: NotificationDevice] = [:]
+
     private var homeInfo = HomeInfo(latitude: 51.8, longitude: 0.7, timezone: "Europe/London")
     private var shoppingItems = [ShoppingItem(id: "demo-shopping", name: "Milk")]
     private var chores: [Chore] = DemoData.chores
@@ -460,6 +463,14 @@ final class DemoAPIClient: APIClientProtocol {
 
 extension DemoAPIClient {
     var serverIdentifier: String? { nil }
+    func sendFamilyBroadcast(message: String, requestID: String) async throws -> BroadcastResult {
+        BroadcastResult(accepted: notificationDevices.count, failed: 0)
+    }
+    func fetchChoreReminders() async throws -> ChoreReminders { choreReminders }
+    func updateChoreReminders(_ settings: ChoreReminders) async throws { choreReminders = settings }
+    func registerNotificationDevice(_ device: NotificationDevice) async throws { notificationDevices[device.id] = device }
+    func removeNotificationDevice(id: String) async throws { notificationDevices.removeValue(forKey: id) }
+
     func fetchHomeInfo() async throws -> HomeInfo { homeInfo }
     func updateHomeInfo(_ home: HomeInfo) async throws { homeInfo = home }
     func fetchWeather() async throws -> HouseholdWeather {

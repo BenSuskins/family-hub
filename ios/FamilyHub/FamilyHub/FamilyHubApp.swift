@@ -3,6 +3,7 @@ import FamilyHubKit
 
 @main
 struct FamilyHubApp: App {
+    @UIApplicationDelegateAdaptor(NotificationAppDelegate.self) private var appDelegate
     @State private var configStore = ConfigStore()
     @State private var authManager = AuthManager()
     @State private var clientStore = APIClientStore()

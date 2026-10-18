@@ -639,7 +639,7 @@ curl -s $BASE_URL/api/tokens -H "Authorization: Bearer $API_TOKEN" | jq
 curl -s -X POST $BASE_URL/api/tokens \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Home Assistant"}' | jq
+  -d '{"name":"API Client"}' | jq
 ```
 
 ### `DELETE /api/tokens/{id}`
@@ -944,3 +944,80 @@ curl -s -X POST "$BASE_URL/api/shopping/items/$ITEM_ID/restock" \
   -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
   -d '{"purchaseID":"purchase-id","quantity":2}'
 ```
+
+
+## Chore reminders and notification devices
+
+All endpoints use the existing session or Bearer authentication.
+
+### `GET /api/chore-reminders`
+
+Return the family schedule and the server push status. All users can read it.
+
+```json
+{"enabled":false,"times":["10:00","16:30"],"timezone":"Europe/London","pushAvailable":false}
+```
+
+The timezone comes from Home Info. The default timezone is `Europe/London`.
+`pushAvailable` reports whether the server has APNs credentials configured.
+
+### `PATCH /api/chore-reminders`
+
+Admin only. Replace the enabled flag and both reminder times.
+
+```json
+{"enabled":true,"times":["10:00","16:30"]}
+```
+
+Use two distinct times in `HH:mm` format. Invalid times return 400.
+Enablement returns 503 when the server has no APNs credentials.
+The response uses the same shape as GET.
+
+At each time, the server counts all unfinished family chores due today or overdue.
+A chore due later today counts. An undated chore counts only when its status is overdue.
+The server sends nothing when the count is zero.
+
+### `PUT /api/notification-devices/{id}`
+
+Register or update the authenticated user's installation. Return 204.
+
+```json
+{"token":"<hexadecimal APNs device token>","environment":"production"}
+```
+
+Use a stable installation identifier of at most 128 characters.
+The environment is `sandbox` or `production`.
+A device identifier or token owned by another user returns 409.
+Bearer registrations stop receiving reminders when their API token expires or is revoked.
+
+### `DELETE /api/notification-devices/{id}`
+
+Remove the authenticated user's installation. Return 204, including when it is absent.
+This endpoint does not remove another user's registration.
+
+See [Chore reminder setup](chore-reminders.md) for Apple credentials and device checks.
+
+### `POST /api/notifications/broadcast`
+
+Admin only. Send a plain-text message to all enabled family iPhones.
+The family chore schedule does not need to be enabled.
+
+```json
+{"requestID":"4f2e6250-1821-4c0f-b566-3769a534f0c2","message":"Dinner is ready."}
+```
+
+Use a UUID for `requestID`. Reuse that UUID when you retry the same message.
+Use a new UUID for a new message. Reusing a UUID with different text returns 409.
+The trimmed message must contain 1 to 500 Unicode code points. Invalid input returns 400.
+Missing push configuration returns 503. The endpoint permits five requests per minute per IP address.
+
+```json
+{"accepted":2,"failed":0}
+```
+
+`accepted` counts notifications accepted by Apple. It does not prove presentation on an iPhone.
+`failed` includes pending deliveries and rejected deliveries.
+A retry attempts transient failures within five minutes of the first request.
+It does not resend accepted notifications. Expired requests do not send.
+The notification title is “Family message”. Tap it to open Today.
+The server retains messages and delivery results for 30 days, then removes them on the next broadcast request.

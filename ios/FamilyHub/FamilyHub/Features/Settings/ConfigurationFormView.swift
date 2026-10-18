@@ -4,6 +4,7 @@ struct ConfigurationFormView: View {
     let configStore: ConfigStore
     let discoveryService: OIDCDiscoveryService
     let onSave: () -> Void
+    let beforeSave: () async throws -> Void
 
     @State private var baseURL: String
     @State private var isDiscovering = false
@@ -11,10 +12,11 @@ struct ConfigurationFormView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    init(configStore: ConfigStore, discoveryService: OIDCDiscoveryService, onSave: @escaping () -> Void) {
+    init(configStore: ConfigStore, discoveryService: OIDCDiscoveryService, beforeSave: @escaping () async throws -> Void = {}, onSave: @escaping () -> Void) {
         self.configStore = configStore
         self.discoveryService = discoveryService
         self.onSave = onSave
+        self.beforeSave = beforeSave
         _baseURL = State(initialValue: configStore.baseURL)
     }
 
@@ -72,6 +74,7 @@ struct ConfigurationFormView: View {
 
         do {
             let result = try await discoveryService.discover(baseURL: url)
+            try await beforeSave()
             configStore.baseURL = url.absoluteString
             configStore.applyDiscovery(result)
             configStore.save()

@@ -5,9 +5,8 @@
 ## Overview
 
 A single Go binary serves both a server-rendered web UI (Templ + HTMX +
-Tailwind) and a JSON REST API consumed by a SwiftUI iOS app and a Home
-Assistant HACS integration. All three clients share the same OIDC auth flow
-via a public PKCE client. SQLite is the system of record; the iOS app caches
+Tailwind) and a JSON REST API consumed by a SwiftUI iOS app.
+Both clients share the same OIDC auth flow via a public PKCE client. SQLite is the system of record; the iOS app caches
 in SwiftData but has no offline write path.
 
 ## Diagram
@@ -16,11 +15,12 @@ in SwiftData but has no offline write path.
 flowchart LR
     Web[Web Browser] -->|HTMX, session cookie| Server
     iOS[iOS App] -->|JSON + Bearer| Server
-    HA[Home Assistant] -->|JSON + Bearer| Server
     OIDC[OIDC Provider<br/>Authelia / Keycloak / Auth0] <-.->|PKCE| Server
     Web -.->|public PKCE| OIDC
     iOS -.->|public PKCE| OIDC
     Server --> DB[(SQLite)]
+    Server -->|chore alerts and family messages| APNs[Apple Push Notification service]
+    APNs --> iOS
     Server -.->|fetch| External[External iCal / Recipe URLs]
 ```
 
@@ -34,13 +34,12 @@ flowchart LR
 | Templates | Templ pages, layouts, components (compiled to Go) | `server/templates/` |
 | Migrations | Auto-run on startup | `server/internal/database/migrations/` |
 | iOS app | SwiftUI client (SwiftData cache, no offline writes) | `ios/` |
-| HA integration | Custom HACS component | `home-assistant/` |
 
 ## Request Flow
 
 ```mermaid
 sequenceDiagram
-    participant C as Client (Web/iOS/HA)
+    participant C as Client (Web/iOS)
     participant R as Chi Router
     participant M as Middleware (RequireUser)
     participant H as Handler

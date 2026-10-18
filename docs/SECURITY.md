@@ -8,4 +8,4 @@ We will acknowledge the report and provide an expected timeline for a fix. Once 
 
 ## Scope
 
-This policy covers code in this repository: the Go server (`server/`), the iOS app (`ios/`), and the Home Assistant integration (`home-assistant/`). Misconfiguration of a self-hosted deployment (exposed service without auth, misconfigured reverse proxy, misconfigured OIDC provider) is the operator's responsibility.
+This policy covers code in this repository: the Go server (`server/`) and the iOS app (`ios/`). Misconfiguration of a self-hosted deployment (exposed service without auth, misconfigured reverse proxy, misconfigured OIDC provider) is the operator's responsibility.

@@ -3,6 +3,13 @@ import Foundation
 import FamilyHubKit
 
 final class FakeAPIClient: APIClientProtocol {
+    var serverIdentifier: String?
+    var removeNotificationDeviceError: Error?
+    var registerNotificationDeviceError: Error?
+
+    var choreReminders = ChoreReminders(pushAvailable: true)
+    var notificationDevices: [String: NotificationDevice] = [:]
+
     var weatherResult: Result<HouseholdWeather, Error> = .failure(APIError.offline)
     var shoppingItems: [ShoppingItem] = []
     var shoppingError: Error?
@@ -113,7 +120,21 @@ final class FakeAPIClient: APIClientProtocol {
 }
 
 extension FakeAPIClient {
-    var serverIdentifier: String? { nil }
+
+    func sendFamilyBroadcast(message: String, requestID: String) async throws -> BroadcastResult {
+        BroadcastResult(accepted: notificationDevices.count, failed: 0)
+    }
+    func fetchChoreReminders() async throws -> ChoreReminders { choreReminders }
+    func updateChoreReminders(_ settings: ChoreReminders) async throws { choreReminders = settings }
+    func registerNotificationDevice(_ device: NotificationDevice) async throws {
+        if let registerNotificationDeviceError { throw registerNotificationDeviceError }
+        notificationDevices[device.id] = device
+    }
+    func removeNotificationDevice(id: String) async throws {
+        if let removeNotificationDeviceError { throw removeNotificationDeviceError }
+        notificationDevices.removeValue(forKey: id)
+    }
+
     func fetchHomeInfo() async throws -> HomeInfo { HomeInfo() }
     func updateHomeInfo(_ home: HomeInfo) async throws {}
     func fetchWeather() async throws -> HouseholdWeather { try weatherResult.get() }

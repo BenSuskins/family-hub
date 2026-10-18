@@ -74,6 +74,7 @@ final class AuthManager: NSObject, TokenProviding {
     }
 
     func signOut() {
+        ChoreNotificationManager.shared.signedOut()
         keychain.clear()
         PhoneWatchLink.shared.clearCredentials()
         // The widget reads from the shared app group, which outlives the app

@@ -89,12 +89,17 @@ func (service *ChoreService) DueTasks(ctx context.Context) (today, overdue []mod
 		return nil, nil, err
 	}
 	for _, task := range tasks {
-		if task.Status == models.ChoreStatusOverdue || repository.IsOverdue(task, now) {
+		if taskIsOverdue(task, now) {
 			task.Status = models.ChoreStatusOverdue
 			overdue = append(overdue, task)
 		} else if task.DueDate == nil || task.DueDate.Format("2006-01-02") == now.Format("2006-01-02") {
+			task.Status = models.ChoreStatusPending
 			today = append(today, task)
 		}
 	}
 	return today, overdue, nil
+}
+
+func taskIsOverdue(task models.Chore, now time.Time) bool {
+	return repository.IsOverdue(task, now) || task.DueDate == nil && task.Status == models.ChoreStatusOverdue
 }

@@ -125,9 +125,7 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 			}
 			sort.SliceStable(chores, func(first, second int) bool {
 				a, b := chores[first], chores[second]
-				overdue := func(task models.Chore) bool {
-					return task.Status == models.ChoreStatusOverdue || task.DueDate != nil && task.DueDate.Format("2006-01-02") < local.Format("2006-01-02")
-				}
+				overdue := func(task models.Chore) bool { return taskIsOverdue(task, local) }
 				if overdue(a) != overdue(b) {
 					return overdue(a)
 				}
@@ -145,7 +143,7 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 					continue
 				}
 				// Chore due dates store calendar dates, rather than instants in the household timezone.
-				if chore.Status == models.ChoreStatusOverdue || chore.DueDate == nil || chore.DueDate.Format("2006-01-02") <= local.Format("2006-01-02") {
+				if chore.DueDate == nil || chore.DueDate.Format("2006-01-02") <= local.Format("2006-01-02") {
 					summary.Count++
 					if len(summary.Tasks) < 3 {
 						name := "Unassigned"

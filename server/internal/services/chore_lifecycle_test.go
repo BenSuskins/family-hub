@@ -45,6 +45,9 @@ func TestCurrentTaskResolvesOnceAndRotatesFromOwner(t *testing.T) {
 	if successes != 1 {
 		t.Fatalf("successful actions: %d", successes)
 	}
+	if err := chores.SetOutstandingStatus(context.Background(), task.ID, models.ChoreStatusPending); err != nil {
+		t.Fatal(err)
+	}
 	current, err := chores.FindAll(context.Background(), repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		t.Fatal(err)
@@ -204,5 +207,41 @@ func TestUndatedTasksAppearOnHomeAndCanRepeat(t *testing.T) {
 	}
 	if len(pending) != 1 || pending[0].DueDate == nil {
 		t.Fatal("undated repeating task has no successor")
+	}
+}
+
+func TestHomeUsesTheHouseholdDateAndReconcilesOldStatus(t *testing.T) {
+	connection := testutil.NewTestDatabase(t)
+	chores := repository.NewChoreRepository(connection)
+	people := repository.NewUserRepository(connection)
+	settings := repository.NewSettingsRepository(connection)
+	if err := settings.Set(context.Background(), "home_info", `{"timezone":"America/New_York"}`); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 19, 2, 30, 0, 0, time.UTC)
+	service := services.NewChoreService(chores, repository.NewChoreAssignmentRepository(connection), people, repository.NewChoreSeriesRepository(connection), services.WithChoreClock(func() time.Time { return now }), services.WithChoreSettings(settings))
+	users := createUsers(t, people, 1)
+	due := time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
+	dueTime := "23:00"
+	task, err := chores.Create(context.Background(), models.Chore{Name: "Still today", CreatedByUserID: users[0].ID, DueDate: &due, DueTime: &dueTime, Status: models.ChoreStatusOverdue})
+	if err != nil {
+		t.Fatal(err)
+	}
+	today, overdue, err := service.DueTasks(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(today) != 1 || len(overdue) != 0 || today[0].Status != models.ChoreStatusPending {
+		t.Fatalf("household date ignored: today=%+v overdue=%+v", today, overdue)
+	}
+	if err := service.UpdateOverdueChores(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := chores.FindByID(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != models.ChoreStatusPending {
+		t.Fatal("old server-time status was not corrected")
 	}
 }

@@ -219,6 +219,7 @@ Definition responses use `{ID, Chore, CurrentTask, Active, DeletedAt}`.
 `Chore` contains setup with the definition ID. `CurrentTask` contains the actionable task ID, or null.
 History responses use `{Items, NextCursor}`. An empty cursor ends the list.
 History adds `skipped` and `superseded` states, plus `ResolvedAt` and `ResolvedByUserID`.
+A deleted definition also retains its unfinished task snapshot in history.
 Legacy chore lists exclude these states so older clients still decode them.
 
 Completion and Skip advance rotation from the assigned owner, regardless of the actor.

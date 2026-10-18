@@ -43,6 +43,7 @@ type ChoreRepository interface {
 	Delete(ctx context.Context, id string) error
 	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
 	MarkOverdue(ctx context.Context, choreID string) error
+	SetOutstandingStatus(context.Context, string, models.ChoreStatus) error
 	FindDueToday(ctx context.Context) ([]models.Chore, error)
 	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
@@ -291,14 +292,16 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 // status guard makes the call idempotent so a chore already marked overdue is
 // left untouched (no needless updated_at churn).
 func (repository *SQLiteChoreRepository) MarkOverdue(ctx context.Context, choreID string) error {
-	_, err := repository.database.ExecContext(ctx,
-		"UPDATE chores SET status = 'overdue', updated_at = ? WHERE id = ? AND status = 'pending'",
-		time.Now(), choreID,
-	)
-	if err != nil {
-		return fmt.Errorf("marking chore overdue: %w", err)
+	return repository.SetOutstandingStatus(ctx, choreID, models.ChoreStatusOverdue)
+}
+
+// Keep completion and Skip final when the checker races an action.
+func (repository *SQLiteChoreRepository) SetOutstandingStatus(ctx context.Context, choreID string, status models.ChoreStatus) error {
+	if status != models.ChoreStatusPending && status != models.ChoreStatusOverdue {
+		return fmt.Errorf("invalid outstanding status: %s", status)
 	}
-	return nil
+	_, err := repository.database.ExecContext(ctx, "UPDATE chores SET status=?,updated_at=? WHERE id=? AND status IN ('pending','overdue') AND status!=?", status, time.Now(), choreID, status)
+	return err
 }
 
 func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]models.Chore, error) {

@@ -498,23 +498,25 @@ func (service *ChoreService) DeleteSeriesDefinition(ctx context.Context, seriesI
 }
 
 func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
-	overdueChores, err := service.choreRepo.FindOverdueChores(ctx)
+	now, err := service.householdNow(ctx)
 	if err != nil {
-		return fmt.Errorf("finding overdue chores: %w", err)
+		return err
 	}
-
-	for _, chore := range overdueChores {
-		// FindOverdueChores returns rows already marked overdue too; skip them
-		// so we don't rewrite unchanged rows every cycle. MarkOverdue is
-		// additionally guarded by status = 'pending' in SQL.
-		if chore.Status == models.ChoreStatusOverdue {
-			continue
+	tasks, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	if err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		status := models.ChoreStatusPending
+		if taskIsOverdue(task, now) {
+			status = models.ChoreStatusOverdue
 		}
-		if err := service.choreRepo.MarkOverdue(ctx, chore.ID); err != nil {
-			return fmt.Errorf("updating overdue chore %s: %w", chore.ID, err)
+		if status != task.Status {
+			if err := service.choreRepo.SetOutstandingStatus(ctx, task.ID, status); err != nil {
+				return err
+			}
 		}
 	}
-
 	return nil
 }
 

@@ -339,7 +339,8 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
-        CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
+        if CalendarDemoData.isEnabled { return CalendarDemoData.response(view: view, date: date) }
+        return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
     }
 
     func fetchUsers() async throws -> [User] { DemoData.users }

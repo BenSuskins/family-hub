@@ -448,6 +448,8 @@ curl -s -o /dev/null -w "%{http_code}\n" $BASE_URL/api/recipes/<recipeID>/image 
 
 ### `GET /api/calendar?view=month|week|day&date=YYYY-MM-DD|month=YYYY-MM`
 - **Usecase:** Unified view: chores + iCal events + meals for the range.
+  Periods use UTC dates, with an inclusive start and an exclusive end.
+  Events include any overlap with the period. Month results include the full last day.
 - **Callers:** iOS app calendar tab; iOS app home screen and the Today widget
   both use `view=day` for today's events.
 - **Security:** API token.

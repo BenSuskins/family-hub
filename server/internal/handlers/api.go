@@ -422,7 +422,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		offset := (int(date.Weekday()) + 6) % 7
-		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.Local)
+		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.UTC)
 		end = start.AddDate(0, 0, 7)
 
 	case "day":
@@ -432,7 +432,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 				date = d
 			}
 		}
-		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 		end = start.AddDate(0, 0, 1)
 
 	default: // "month"
@@ -446,12 +446,13 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		start = monthStart
-		end = monthStart.AddDate(0, 1, -1)
+		end = monthStart.AddDate(0, 1, 0)
 	}
 
+	lastInstant := end.Add(-time.Nanosecond)
 	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
 		DueAfter:  &start,
-		DueBefore: &end,
+		DueBefore: &lastInstant,
 	})
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load chores")
@@ -478,7 +479,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	if handler.mealPlanRepo != nil {
 		fetchedMeals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
 			DateFrom: start.Format(DateFormat),
-			DateTo:   end.Format(DateFormat),
+			DateTo:   end.AddDate(0, 0, -1).Format(DateFormat),
 		})
 		if err != nil {
 			slog.Error("fetching meals for calendar API", "error", err)

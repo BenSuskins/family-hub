@@ -27,6 +27,8 @@ struct ChoresListView: View {
         _viewModel = State(wrappedValue: ChoresViewModel(apiClient: apiClient))
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
             List {
@@ -91,6 +93,8 @@ struct ChoresListView: View {
             }
         }
         .task { await viewModel.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await viewModel.load() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await viewModel.load() } } }
     }
 
     private var pendingChores: [Chore] {

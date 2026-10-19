@@ -8,6 +8,7 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -240,4 +241,25 @@ func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Re
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *APIHandler) UpdateInventoryStock(w http.ResponseWriter, r *http.Request) {
+	var change models.InventoryStockChange
+	if !decodeJSONBody(w, r, &change) {
+		return
+	}
+	item, err := handler.inventoryRepo.UpdateStock(r.Context(), chi.URLParam(r, "id"), change)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSONError(w, http.StatusNotFound, "item not found")
+		case errors.Is(err, repository.ErrInvalidStockChange):
+			writeJSONError(w, http.StatusBadRequest, "supply one valid stock value for the item's tracking mode")
+		default:
+			slog.Error("updating inventory stock via API", "error", err)
+			writeJSONError(w, http.StatusInternalServerError, "failed to update stock")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }

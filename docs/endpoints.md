@@ -1021,3 +1021,32 @@ A retry attempts transient failures within five minutes of the first request.
 It does not resend accepted notifications. Expired requests do not send.
 The notification title is “Family message”. Tap it to open Today.
 The server retains messages and delivery results for 30 days, then removes them on the next broadcast request.
+
+### `PATCH /api/inventory/items/{id}/stock`
+
+Change stock without replacing the item's name, area, unit, tracking mode, or
+low-stock threshold. Use the same session or bearer authentication as the other
+inventory endpoints. Siri uses this endpoint for stock updates.
+
+Supply exactly one integer field:
+
+| Field | Tracking mode | Behavior |
+| --- | --- | --- |
+| `quantity` | `count` | Set a nonnegative count. |
+| `quantityDelta` | `count` | Add a signed count. Clamp the result at zero. |
+| `level` | `level` | Set a percentage from 0 to 100. |
+
+The server applies count adjustments atomically and returns the saved
+`InventoryItem` with status `200`. It returns `400` for invalid values,
+multiple fields, a tracking-mode mismatch, or count overflow. It returns `404`
+when the item does not exist. Existing full-item endpoints remain compatible.
+
+Do not automatically retry a relative change after an uncertain response.
+Read the current stock before the user submits another change.
+
+```sh
+curl -s -X PATCH "$BASE_URL/api/inventory/items/$ITEM_ID/stock" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"quantityDelta":-1}'
+```

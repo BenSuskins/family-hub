@@ -38,6 +38,9 @@ final class FakeAPIClient: APIClientProtocol {
         DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: [])
     )
     var choresResult: Result<[Chore], Error> = .success([])
+    var completeChoreErrors: [String: Error] = [:]
+    var afterCompleteChore: ((String) -> Void)?
+    var homeInfo = HomeInfo()
     var completeChoreResult: Result<Void, Error> = .success(())
     var createChoreResult: Result<Chore, Error> = .failure(APIError.notFound)
     var updateChoreResult: Result<Chore, Error> = .failure(APIError.notFound)
@@ -70,6 +73,7 @@ final class FakeAPIClient: APIClientProtocol {
     var tokensResult: Result<[APIToken], Error> = .success([])
     var createTokenResult: Result<CreatedToken, Error> = .success(CreatedToken(id: "1", name: "Test", plaintext: "abc123"))
     var deleteTokenResult: Result<Void, Error> = .success(())
+    var changeStockError: Error?
     var inventoryResult: Result<[InventoryArea], Error> = .success([])
     var createAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
     var updateAreaResult: Result<InventoryArea, Error> = .success(InventoryArea(id: "1", name: "Area", icon: "box", tint: "blue", items: []))
@@ -80,7 +84,12 @@ final class FakeAPIClient: APIClientProtocol {
 
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
-    func completeChore(id: String) async throws { try completeChoreResult.get() }
+    func completeChore(id: String) async throws {
+        if let error = completeChoreErrors[id] { throw error }
+        try completeChoreResult.get()
+        choresResult = .success(try choresResult.get().map { $0.id == id ? $0.completed : $0 })
+        afterCompleteChore?(id)
+    }
     func createChore(_ request: ChoreRequest) async throws -> Chore { try createChoreResult.get() }
     func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore { try updateChoreResult.get() }
     func deleteChore(id: String) async throws { try deleteChoreResult.get() }
@@ -120,6 +129,17 @@ final class FakeAPIClient: APIClientProtocol {
     func deleteArea(id: String) async throws { try deleteAreaResult.get() }
     func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem { try createItemResult.get() }
     func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem { try updateItemResult.get() }
+    func changeStock(id: String, change: InventoryStockChange) async throws -> InventoryItem {
+        guard let item = try inventoryResult.get().flatMap(\.items).first(where: { $0.id == id }) else { throw APIError.notFound }
+        let saved = try change.applying(to: item)
+        inventoryResult = .success(try inventoryResult.get().map { area in
+            InventoryArea(id: area.id, name: area.name, icon: area.icon, tint: area.tint,
+                          items: area.items.map { $0.id == id ? saved : $0 })
+        })
+        if let changeStockError { throw changeStockError }
+        return saved
+    }
+
     func deleteItem(id: String) async throws { try deleteItemResult.get() }
 }
 
@@ -139,7 +159,7 @@ extension FakeAPIClient {
         notificationDevices.removeValue(forKey: id)
     }
 
-    func fetchHomeInfo() async throws -> HomeInfo { HomeInfo() }
+    func fetchHomeInfo() async throws -> HomeInfo { homeInfo }
     func updateHomeInfo(_ home: HomeInfo) async throws {}
     func fetchWeather() async throws -> HouseholdWeather { try weatherResult.get() }
     func fetchDepartures() async throws -> HouseholdDepartures { throw APIError.offline }

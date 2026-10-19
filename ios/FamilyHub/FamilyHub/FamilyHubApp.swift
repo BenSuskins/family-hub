@@ -12,6 +12,7 @@ struct FamilyHubApp: App {
         // Activating early means the watch gets its credentials as soon as the
         // session is ready, without waiting for the user to visit a screen.
         PhoneWatchLink.shared.activate()
+        SiriEnvironment.refreshSuggestions()
     }
 
     var body: some Scene {

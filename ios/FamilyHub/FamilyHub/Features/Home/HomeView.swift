@@ -60,6 +60,7 @@ struct HomeView: View {
                 .onDisappear { isVisible = false }
                 .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
                     guard shouldRefresh else { return }
+                    await viewModel.load()
                     await householdViewModel.load(force: true)
                     while !Task.isCancelled {
                         do { try await Task.sleep(for: .seconds(30)) } catch { return }
@@ -71,6 +72,7 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("Today")
             .errorAlert($viewModel.actionError)
+            .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await viewModel.load() } }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .profile } label: {

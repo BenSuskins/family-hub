@@ -83,6 +83,7 @@ final class AuthManager: NSObject, TokenProviding {
         ShoppingCache().clear()
         isAuthenticated = false
         isDemoMode = false
+        SiriEnvironment.refreshSuggestions()
     }
 
     // MARK: - Private helpers
@@ -191,6 +192,7 @@ final class AuthManager: NSObject, TokenProviding {
             avatarURL = user.AvatarURL
         }
         isAuthenticated = true
+        SiriEnvironment.refreshSuggestions()
     }
 
     private func generatePKCE() -> (verifier: String, challenge: String) {

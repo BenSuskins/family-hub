@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -23,6 +25,7 @@ type InventoryRepository interface {
 	CreateItem(ctx context.Context, item models.InventoryItem) (models.InventoryItem, error)
 	UpdateItem(ctx context.Context, item models.InventoryItem) error
 	DeleteItem(ctx context.Context, id string) error
+	UpdateStock(ctx context.Context, id string, change models.InventoryStockChange) (models.InventoryItem, error)
 }
 
 type SQLiteInventoryRepository struct {
@@ -236,7 +239,7 @@ func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context
 	return items, rows.Err()
 }
 
-func scanItem(rows *sql.Rows, item *models.InventoryItem) error {
+func scanItem(rows interface{ Scan(...any) error }, item *models.InventoryItem) error {
 	if err := rows.Scan(
 		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
 		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
@@ -273,4 +276,58 @@ func atLeast(value, low int) int {
 
 func clamp(value, low, high int) int {
 	return atLeast(min(value, high), low)
+}
+
+var ErrInvalidStockChange = errors.New("invalid stock change")
+
+func (repository *SQLiteInventoryRepository) UpdateStock(ctx context.Context, id string, change models.InventoryStockChange) (models.InventoryItem, error) {
+	count := 0
+	for _, value := range []*int64{change.Quantity, change.QuantityDelta, change.Level} {
+		if value != nil {
+			count++
+		}
+	}
+	if count != 1 {
+		return models.InventoryItem{}, ErrInvalidStockChange
+	}
+	field, expression, mode := "quantity", "?", models.TrackingModeCount
+	var value int64
+	condition := ""
+	arguments := []any{}
+	switch {
+	case change.Quantity != nil:
+		value = *change.Quantity
+		if value < 0 {
+			return models.InventoryItem{}, ErrInvalidStockChange
+		}
+	case change.QuantityDelta != nil:
+		value = *change.QuantityDelta
+		expression = "MAX(0, quantity + ?)"
+		if value > 0 {
+			condition = " AND quantity <= ?"
+		}
+	case change.Level != nil:
+		field, mode, value = "level", models.TrackingModeLevel, *change.Level
+		if value < 0 || value > 100 {
+			return models.InventoryItem{}, ErrInvalidStockChange
+		}
+	}
+	arguments = append(arguments, value, time.Now(), id, mode)
+	if condition != "" {
+		arguments = append(arguments, int64(math.MaxInt64)-value)
+	}
+	row := repository.database.QueryRowContext(ctx,
+		"UPDATE inventory_items SET "+field+" = "+expression+", updated_at = ? WHERE id = ? AND tracking_mode = ?"+condition+
+			" RETURNING id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at", arguments...)
+	var item models.InventoryItem
+	if err := scanItem(row, &item); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			if _, findError := repository.FindItemByID(ctx, id); findError != nil {
+				return models.InventoryItem{}, findError
+			}
+			return models.InventoryItem{}, ErrInvalidStockChange
+		}
+		return models.InventoryItem{}, err
+	}
+	return item, nil
 }

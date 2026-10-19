@@ -85,6 +85,7 @@ public protocol APIClientProtocol: AnyObject {
     func deleteArea(id: String) async throws
     func createItem(areaID: String, _ request: ItemRequest) async throws -> InventoryItem
     func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem
+    func changeStock(id: String, change: InventoryStockChange) async throws -> InventoryItem
     func deleteItem(id: String) async throws
 }
 

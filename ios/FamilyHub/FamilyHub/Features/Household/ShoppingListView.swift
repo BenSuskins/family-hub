@@ -101,6 +101,7 @@ struct ShoppingListView: View {
                 ToolbarItem(placement: .topBarTrailing) { FeatureProfileButton(apiClient: apiClient) }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await refresh() } }
         .refreshable { await refresh() }
         .errorAlert($model.error)
         .confirmationDialog("Clear purchased items?", isPresented: $confirmClear) {

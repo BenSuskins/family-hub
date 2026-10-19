@@ -467,6 +467,11 @@ final class DemoAPIClient: APIClientProtocol {
         return updated
     }
 
+    func changeStock(id: String, change: InventoryStockChange) async throws -> InventoryItem {
+        guard let item = areas.flatMap(\.items).first(where: { $0.id == id }) else { throw APIError.notFound }
+        return try await updateItem(id: id, change.applying(to: item).asRequest)
+    }
+
     func deleteItem(id: String) async throws {
         detachShoppingInventory([id])
         guard let areaIndex = areas.firstIndex(where: { $0.items.contains(where: { $0.id == id }) }) else { return }

@@ -193,6 +193,7 @@ func New(database *sql.DB, cfg config.Config, authService *services.AuthService,
 		r.Delete("/api/inventory/areas/{id}", apiHandler.DeleteInventoryArea)
 		r.Post("/api/inventory/areas/{id}/items", apiHandler.CreateInventoryItem)
 		r.Put("/api/inventory/items/{id}", apiHandler.UpdateInventoryItem)
+		r.Patch("/api/inventory/items/{id}/stock", apiHandler.UpdateInventoryStock)
 		r.Delete("/api/inventory/items/{id}", apiHandler.DeleteInventoryItem)
 
 		// Admin-only surface.

@@ -447,6 +447,10 @@ public final class APIClient: APIClientProtocol {
         try await put("api/inventory/items/\(id)", body: request)
     }
 
+    public func changeStock(id: String, change: InventoryStockChange) async throws -> InventoryItem {
+        try await send(path: "api/inventory/items/\(id)/stock", method: "PATCH", body: change)
+    }
+
     public func deleteItem(id: String) async throws {
         try await delete("api/inventory/items/\(id)")
     }

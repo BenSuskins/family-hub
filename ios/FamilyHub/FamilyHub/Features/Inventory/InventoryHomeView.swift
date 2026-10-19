@@ -21,6 +21,8 @@ struct InventoryHomeView: View {
         _viewModel = State(wrappedValue: InventoryViewModel(apiClient: apiClient))
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
             List {
@@ -104,5 +106,7 @@ struct InventoryHomeView: View {
         )) { Button("OK") { viewModel.shoppingMessage = nil } }
         message: { Text(viewModel.shoppingMessage ?? "") }
         .task { await viewModel.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await viewModel.load() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await viewModel.load() } } }
     }
 }

@@ -16,6 +16,8 @@ struct MealsView: View {
         _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         List {
             Section {
@@ -71,6 +73,8 @@ struct MealsView: View {
             MealEditSheet(meal: meal, viewModel: viewModel, apiClient: apiClient)
         }
         .task { await viewModel.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await viewModel.load() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await viewModel.load() } } }
         .task { if isFoodHome { await recipesViewModel.load() } }
     }
 

@@ -48,6 +48,21 @@ class APIClientContractTests: XCTestCase {
         XCTAssertNil(kept.inventoryItemID)
     }
 
+    func test_stockChangesPreserveDetailsAndRejectWrongMode() async throws {
+        let client = try makeClient()
+        let area = try await client.createArea(AreaRequest(name: "Stock contract", icon: "box", tint: "blue"))
+        let item = try await client.createItem(areaID: area.id, ItemRequest(name: "Pods", quantity: 12, unit: "pods", lowAt: 3))
+        let changed = try await client.changeStock(id: item.id, change: .quantityDelta(-2))
+        XCTAssertEqual(changed.quantity, 10)
+        XCTAssertEqual(changed.unit, "pods")
+        XCTAssertEqual(changed.lowAt, 3)
+        let empty = try await client.changeStock(id: item.id, change: .quantityDelta(-20))
+        XCTAssertEqual(empty.quantity, 0)
+        await assertThrows { _ = try await client.changeStock(id: item.id, change: .level(50)) }
+        let fetched = try await client.fetchInventory()
+        XCTAssertEqual(fetched.flatMap(\.items).first { $0.id == item.id }?.quantity, 0)
+    }
+
     // MARK: - Chores
 
     func test_createChore_isReturnedByFetch_asPending() async throws {

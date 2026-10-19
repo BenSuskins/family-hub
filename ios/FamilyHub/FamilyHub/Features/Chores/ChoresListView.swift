@@ -11,6 +11,8 @@ struct ChoresListView: View {
         _viewModel = State(wrappedValue: ChoresViewModel(apiClient: apiClient))
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { definitions in
             List {
@@ -49,6 +51,12 @@ struct ChoresListView: View {
         }
         .errorAlert($viewModel.actionError)
         .task(id: viewModel.showInactive) { await viewModel.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in
+            Task { await viewModel.load(refresh: true) }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await viewModel.load(refresh: true) } }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .familyHubChoresChanged)) { _ in
             Task { await viewModel.load(refresh: true) }
         }

@@ -36,5 +36,6 @@ final class ConfigStore {
         defaults.set(tokenEndpoint, forKey: "tokenEndpoint")
         // The watch holds its own copy of the server URL; refresh it.
         PhoneWatchLink.shared.syncStoredCredentials()
+        SiriEnvironment.refreshSuggestions()
     }
 }

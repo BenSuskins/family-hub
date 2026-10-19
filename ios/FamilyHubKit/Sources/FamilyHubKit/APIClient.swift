@@ -323,9 +323,9 @@ public final class APIClient: APIClientProtocol {
     public func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
         var queryItems = [URLQueryItem(name: "view", value: view)]
         if view == "month" {
-            queryItems.append(URLQueryItem(name: "month", value: APIDate.monthString(date)))
+            queryItems.append(URLQueryItem(name: "month", value: CalendarSchedule().monthKey(date)))
         } else {
-            queryItems.append(URLQueryItem(name: "date", value: APIDate.dayString(date)))
+            queryItems.append(URLQueryItem(name: "date", value: CalendarSchedule().dayKey(date)))
         }
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }
@@ -496,5 +496,34 @@ extension APIClient {
     public func clearPurchasedShopping() async throws { try await delete("api/shopping/purchased") }
     public func restockShopping(id: String, request: ShoppingRestock) async throws -> ShoppingItem {
         try await post("api/shopping/items/\(id)/restock", body: request)
+    }
+}
+
+extension APIClient {
+    public func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
+        try await get("api/chore-definitions", queryItems: [URLQueryItem(name: "include_inactive", value: String(includeInactive))])
+    }
+
+    public func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
+        try await post("api/chore-definitions", body: request)
+    }
+
+    public func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
+        try await put("api/chore-definitions/\(id)", body: request)
+    }
+
+    public func deleteChoreDefinition(id: String) async throws {
+        try await delete("api/chore-definitions/\(id)")
+    }
+
+    public func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage {
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "definition_id", value: definitionID)]
+        if let cursor { components.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("api/chore-history", queryItems: components.queryItems ?? [])
+    }
+
+    public func skipChore(id: String) async throws {
+        try await post("api/chores/\(id)/skip")
     }
 }

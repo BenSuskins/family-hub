@@ -651,7 +651,7 @@ func TestListCalendar_API(t *testing.T) {
 		Status:          models.ChoreStatusPending,
 	})
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -680,7 +680,7 @@ func TestListCalendar_API_InvalidMonthParam(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -698,7 +698,7 @@ func TestListCalendar_API_DefaultsToCurrentMonth(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -716,7 +716,7 @@ func TestListCalendar_API_EmptyResult(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	choreRepo := repository.NewChoreRepository(database)
 
-	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, nil, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -749,7 +749,7 @@ func TestDashboardStats_EmptyListsAreNotNull(t *testing.T) {
 	choreRepo := repository.NewChoreRepository(database)
 	userRepo := repository.NewUserRepository(database)
 
-	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), userRepo, repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/dashboard", handler.DashboardStats)
@@ -896,7 +896,7 @@ func TestDashboardStats_IncludesChores(t *testing.T) {
 		Status:          models.ChoreStatusOverdue,
 	})
 
-	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "", "")
+	handler := NewAPIHandler(choreRepo, userRepo, nil, nil, nil, nil, services.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), userRepo, repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, "", "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/dashboard", handler.DashboardStats)

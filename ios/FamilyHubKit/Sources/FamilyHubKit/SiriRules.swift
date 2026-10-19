@@ -56,7 +56,8 @@ public struct SiriDateRules {
     public func eligibleChores(_ chores: [Chore], userID: String, now: Date) -> [Chore] {
         guard let today = try? day(nil, now: now).key else { return [] }
         return chores.filter { chore in
-            guard chore.assignedToUserID == userID, chore.status != .completed,
+            guard chore.assignedToUserID == userID, !chore.isForecast,
+                  chore.status == .pending || chore.status == .overdue,
                   let due = chore.dueDate, !due.isEmpty else { return false }
             if chore.status == .overdue { return true }
             // The server stores the due day as a timestamp and compares its calendar components.

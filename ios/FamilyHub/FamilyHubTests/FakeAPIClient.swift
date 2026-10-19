@@ -56,6 +56,9 @@ final class FakeAPIClient: APIClientProtocol {
     var updateRecipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var deleteRecipeResult: Result<Void, Error> = .success(())
     var calendarResult: Result<CalendarResponse, Error> = .success(CalendarResponse(chores: [], events: [], meals: []))
+    var calendarsByMonth: [String: CalendarResponse] = [:]
+    var beforeFetchCalendar: ((Date) async throws -> Void)?
+    var calendarRequests: [String] = []
     var usersResult: Result<[User], Error> = .success([])
     var saveMealResult: Result<MealPlan, Error> = .success(MealPlan(date: "", mealType: "", name: "", notes: "", recipeID: nil))
     var deleteMealResult: Result<Void, Error> = .success(())
@@ -82,6 +85,32 @@ final class FakeAPIClient: APIClientProtocol {
     var updateItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", lowAt: 0))
     var deleteItemResult: Result<Void, Error> = .success(())
 
+    var choreDefinitions: [ChoreDefinition] = []
+    var skipChoreResult: Result<Void, Error> = .success(())
+    var historyPage = ChoreHistoryPage(items: [])
+    func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
+        choreDefinitions.filter { includeInactive || $0.active }
+    }
+    func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
+        let chore = try createChoreResult.get()
+        let definition = ChoreDefinition(id: chore.id, chore: chore, currentTask: chore, active: true)
+        choreDefinitions.append(definition)
+        return definition
+    }
+    func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
+        let chore = try updateChoreResult.get()
+        let definition = ChoreDefinition(id: id, chore: chore, currentTask: chore, active: true)
+        choreDefinitions.removeAll { $0.id == id }
+        choreDefinitions.append(definition)
+        return definition
+    }
+    func deleteChoreDefinition(id: String) async throws {
+        try deleteChoreResult.get()
+        choreDefinitions.removeAll { $0.id == id }
+    }
+    func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage { historyPage }
+    func skipChore(id: String) async throws { try skipChoreResult.get() }
+
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
     func completeChore(id: String) async throws {
@@ -105,7 +134,14 @@ final class FakeAPIClient: APIClientProtocol {
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe { try createRecipeResult.get() }
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe { try updateRecipeResult.get() }
     func deleteRecipe(id: String) async throws { try deleteRecipeResult.get() }
-    func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse { try calendarResult.get() }
+    func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
+        calendarRequests.append(APIDate.monthString(date))
+        try await beforeFetchCalendar?(date)
+        if !calendarsByMonth.isEmpty {
+            return calendarsByMonth[APIDate.monthString(date)] ?? CalendarResponse(chores: [], events: [], meals: [])
+        }
+        return try calendarResult.get()
+    }
     func fetchUsers() async throws -> [User] { try usersResult.get() }
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan { try saveMealResult.get() }
     func deleteMeal(date: String, mealType: String) async throws { try deleteMealResult.get() }

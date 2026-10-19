@@ -66,7 +66,7 @@ func TestAPNsSendsSignedAlertAndClassifiesRejections(t *testing.T) {
 		if err := json.Unmarshal(data, &payload); err != nil {
 			t.Error(err)
 		}
-		if payload.APS.Alert.Title != "Chore reminder" || !strings.Contains(payload.APS.Alert.Body, "3 unfinished family chores") || payload.URL != "familyhub://chores" {
+		if payload.APS.Alert.Title != "Chore reminder" || !strings.Contains(payload.APS.Alert.Body, "Ben: Empty bins") || payload.URL != "familyhub://today" {
 			t.Errorf("payload: %s", data)
 		}
 		w.WriteHeader(status)
@@ -83,7 +83,7 @@ func TestAPNsSendsSignedAlertAndClassifiesRejections(t *testing.T) {
 	}
 	sender.endpoint = func(string) string { return server.URL }
 	device := models.NotificationDevice{Token: "abcdef", Environment: "sandbox"}
-	if err := sender.Send(context.Background(), device, 3, "delivery-id", expires); err != nil {
+	if err := sender.Send(context.Background(), device, ChoreReminderSummary{Count: 3, Tasks: []ChoreReminderTask{{Assignee: "Ben", Name: "Empty bins"}}}, "delivery-id", expires); err != nil {
 		t.Fatal(err)
 	}
 	for _, example := range []struct {
@@ -92,7 +92,7 @@ func TestAPNsSendsSignedAlertAndClassifiesRejections(t *testing.T) {
 		invalid, retry bool
 	}{{410, "Unregistered", true, false}, {400, "BadDeviceToken", true, false}, {403, "InvalidProviderToken", false, false}, {429, "TooManyRequests", false, true}, {503, "ServiceUnavailable", false, true}} {
 		status, reason = example.status, example.reason
-		err := sender.Send(context.Background(), device, 3, "delivery-id", expires)
+		err := sender.Send(context.Background(), device, ChoreReminderSummary{Count: 3, Tasks: []ChoreReminderTask{{Assignee: "Ben", Name: "Empty bins"}}}, "delivery-id", expires)
 		failure, ok := err.(*PushError)
 		if !ok || failure.InvalidDevice != example.invalid || failure.Retry != example.retry {
 			t.Fatalf("%s: %v", reason, err)

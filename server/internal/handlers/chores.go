@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -255,39 +256,10 @@ func (handler *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		chore.DueTime = &dueTime
 	}
 
-	created, err := handler.choreRepo.Create(ctx, chore)
-	if err != nil {
+	if _, err := handler.choreService.CreateChore(ctx, chore, r.Form["assignees"]); err != nil {
 		slog.Error("creating chore", "error", err)
-		http.Error(w, "Error creating chore", http.StatusInternalServerError)
+		http.Error(w, "Error creating chore", 500)
 		return
-	}
-
-	assignees := r.Form["assignees"]
-	if len(assignees) > 0 {
-		if err := handler.choreRepo.SetEligibleAssignees(ctx, created.ID, assignees); err != nil {
-			slog.Error("setting eligible assignees", "error", err)
-		}
-	}
-
-	assigned, err := handler.choreService.AssignNextUser(ctx, created)
-	if err != nil {
-		slog.Error("assigning chore", "error", err)
-	}
-
-	// Recurring chores (including RecurOnComplete) own their rule in a
-	// chore_series row, which must exist before chores.series_id references it.
-	if created.RecurrenceType != models.RecurrenceNone {
-		seriesID := created.ID
-		assigned.SeriesID = &seriesID
-		if err := handler.choreService.SyncSeriesDefinition(ctx, assigned, assignees); err != nil {
-			slog.Error("creating series definition for new chore", "error", err)
-		} else if err := handler.choreRepo.Update(ctx, assigned); err != nil {
-			slog.Error("setting series_id on new chore", "error", err)
-		} else if !created.RecurOnComplete {
-			if err := handler.choreService.SeedFutureOccurrences(ctx, assigned, services.SeedHorizonFrom(time.Now())); err != nil {
-				slog.Error("seeding future occurrences for new chore", "error", err)
-			}
-		}
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)
@@ -356,10 +328,6 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldRecurrenceType := chore.RecurrenceType
-	oldRecurrenceValue := chore.RecurrenceValue
-	oldRecurrenceEnd := recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount)
-
 	recurrenceType := models.RecurrenceType(r.FormValue("recurrence_type"))
 	recurrenceValue := buildRecurrenceValue(recurrenceType, r)
 
@@ -391,34 +359,13 @@ func (handler *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		chore.DueTime = nil
 	}
 
-	if err := handler.choreRepo.Update(ctx, chore); err != nil {
+	if chore.SeriesID == nil {
+		chore.SeriesID = &chore.ID
+	}
+	if err := handler.choreService.UpdateDefinition(ctx, chore, r.Form["assignees"]); err != nil {
 		slog.Error("updating chore", "error", err)
-		http.Error(w, "Error updating chore", http.StatusInternalServerError)
+		http.Error(w, "Error updating chore", 500)
 		return
-	}
-
-	assignees := r.Form["assignees"]
-	if err := handler.choreRepo.SetEligibleAssignees(ctx, chore.ID, assignees); err != nil {
-		slog.Error("setting eligible assignees", "error", err)
-	}
-
-	// Keep the series definition (rule + eligible pool) in step with the edit so
-	// the change applies to every occurrence, not just this row.
-	if chore.SeriesID != nil {
-		if err := handler.choreService.SyncSeriesDefinition(ctx, chore, assignees); err != nil {
-			slog.Error("syncing series definition on update", "error", err)
-		}
-	}
-
-	recurrenceChanged := recurrenceType != oldRecurrenceType ||
-		recurrenceValue != oldRecurrenceValue ||
-		recurrenceEndKey(chore.RecurrenceUntil, chore.RecurrenceCount) != oldRecurrenceEnd
-	if recurrenceChanged && chore.SeriesID != nil && !chore.RecurOnComplete {
-		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
-			slog.Error("deleting stale future instances", "error", err)
-		} else if err := handler.choreService.SeedFutureOccurrences(ctx, chore, services.SeedHorizonFrom(time.Now())); err != nil {
-			slog.Error("re-seeding after recurrence change", "error", err)
-		}
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)
@@ -435,18 +382,10 @@ func (handler *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if chore.SeriesID != nil {
-		if err := handler.choreRepo.DeleteFuturePendingBySeries(ctx, *chore.SeriesID); err != nil {
-			slog.Error("deleting future pending siblings", "error", err)
-		}
 		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
-			slog.Error("soft-deleting series definition", "error", err)
+			http.Error(w, "Error deleting chore", 500)
+			return
 		}
-	}
-
-	if err := handler.choreRepo.Delete(ctx, choreID); err != nil {
-		slog.Error("deleting chore", "error", err)
-		http.Error(w, "Error deleting chore", http.StatusInternalServerError)
-		return
 	}
 
 	http.Redirect(w, r, "/chores", http.StatusFound)
@@ -498,6 +437,12 @@ func (handler *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *ChoreHandler) Detail(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(chi.URLParam(r, "id"), "forecast:") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte("<p>This date and assignee are provisional. Complete the current task on Home.</p>"))
+		return
+	}
+
 	ctx := r.Context()
 	choreID := chi.URLParam(r, "id")
 

@@ -17,19 +17,25 @@ const (
 )
 
 type ChoreFilter struct {
-	Status             *models.ChoreStatus
-	Statuses           []models.ChoreStatus
-	RecurrenceTypes    []models.RecurrenceType
-	AssignedToUser     *string
-	CategoryID         *string
-	DueBefore          *time.Time
-	DueAfter           *time.Time
-	OrderBy            string
-	Limit              int
-	OnlyNextPerSeries  bool
+	Status            *models.ChoreStatus
+	Statuses          []models.ChoreStatus
+	RecurrenceTypes   []models.RecurrenceType
+	AssignedToUser    *string
+	CategoryID        *string
+	DueBefore         *time.Time
+	DueAfter          *time.Time
+	OrderBy           string
+	Limit             int
+	OnlyNextPerSeries bool
+	IncludeHistory    bool
+	HistoryOnly       bool
+	SeriesID          *string
+	AfterID           string
 }
 
 type ChoreRepository interface {
+	Transact(context.Context, func(ChoreRepository, ChoreAssignmentRepository, UserRepository, ChoreSeriesRepository) error) error
+
 	FindByID(ctx context.Context, id string) (models.Chore, error)
 	FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error)
 	Create(ctx context.Context, chore models.Chore) (models.Chore, error)
@@ -41,14 +47,12 @@ type ChoreRepository interface {
 	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
-	DeleteFuturePendingBySeries(ctx context.Context, seriesID string) error
-	FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error)
 	CountBySeries(ctx context.Context, seriesID string) (int, error)
 	DeleteCompletedByName(ctx context.Context, name string) error
 }
 
 type SQLiteChoreRepository struct {
-	database *sql.DB
+	database queryConnection
 }
 
 func NewChoreRepository(database *sql.DB) *SQLiteChoreRepository {
@@ -65,7 +69,7 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 		&chore.DueDate, &chore.DueTime,
 		&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
 		&chore.RecurrenceUntil, &chore.RecurrenceCount,
-		&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
+		&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID, &chore.ResolvedAt, &chore.ResolvedByUserID,
 		&chore.CreatedAt, &chore.UpdatedAt,
 	)
 	if err != nil {
@@ -89,19 +93,35 @@ const choreSelectColumns = `c.id AS id, c.name AS name, c.description AS descrip
 		c.series_id AS series_id,
 		cs.recurrence_until AS recurrence_until, cs.recurrence_count AS recurrence_count,
 		c.status AS status, c.completed_at AS completed_at, c.completed_by_user_id AS completed_by_user_id,
+		c.resolved_at AS resolved_at, c.resolved_by_user_id AS resolved_by_user_id,
 		c.created_at AS created_at, c.updated_at AS updated_at`
 
 const choreColumnNames = `id, name, description, created_by_user_id, category_id,
 		assigned_to_user_id, last_assigned_index, due_date, due_time,
 		recurrence_type, recurrence_value, recur_on_complete, series_id,
-		recurrence_until, recurrence_count, status, completed_at, completed_by_user_id,
+		recurrence_until, recurrence_count, status, completed_at, completed_by_user_id, resolved_at, resolved_by_user_id,
 		created_at, updated_at`
 
 const choreJoin = `FROM chores c LEFT JOIN chore_series cs ON cs.id = c.series_id`
 
 func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
 	where := "WHERE 1=1"
+	if !filter.IncludeHistory {
+		where += " AND cs.deleted_at IS NULL"
+		where += " AND c.status IN ('pending','overdue','completed')"
+	}
 	var args []interface{}
+	if filter.HistoryOnly {
+		where += " AND (c.status IN ('completed','skipped','superseded') OR cs.deleted_at IS NOT NULL)"
+	}
+	if filter.SeriesID != nil {
+		where += " AND c.series_id = ?"
+		args = append(args, *filter.SeriesID)
+	}
+	if filter.AfterID != "" {
+		where += " AND (COALESCE(c.resolved_at,c.created_at),c.id) < (SELECT COALESCE(resolved_at,created_at),id FROM chores WHERE id=?)"
+		args = append(args, filter.AfterID)
+	}
 
 	if filter.Status != nil {
 		where += " AND c.status = ?"
@@ -215,13 +235,13 @@ func (repository *SQLiteChoreRepository) Update(ctx context.Context, chore model
 		`UPDATE chores SET name = ?, description = ?, category_id = ?,
 			assigned_to_user_id = ?, last_assigned_index = ?,
 			due_date = ?, due_time = ?, series_id = ?,
-			status = ?, completed_at = ?, completed_by_user_id = ?,
+			status = ?, completed_at = ?, completed_by_user_id = ?, resolved_at = ?, resolved_by_user_id = ?,
 			updated_at = ?
 		WHERE id = ?`,
 		chore.Name, chore.Description, chore.CategoryID,
 		chore.AssignedToUserID, chore.LastAssignedIndex,
 		chore.DueDate, chore.DueTime, chore.SeriesID,
-		chore.Status, chore.CompletedAt, chore.CompletedByUserID,
+		chore.Status, chore.CompletedAt, chore.CompletedByUserID, chore.ResolvedAt, chore.ResolvedByUserID,
 		chore.UpdatedAt, chore.ID,
 	)
 	if err != nil {
@@ -244,7 +264,7 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 
 	rows, err := repository.database.QueryContext(ctx,
 		fmt.Sprintf(`SELECT %s %s
-		WHERE c.status IN ('pending', 'overdue') AND c.due_date IS NOT NULL AND c.due_date < ?
+		WHERE cs.deleted_at IS NULL AND c.status IN ('pending', 'overdue') AND c.due_date IS NOT NULL AND c.due_date < ?
 		ORDER BY c.due_date ASC`, choreSelectColumns, choreJoin),
 		endOfToday,
 	)
@@ -287,7 +307,7 @@ func (repository *SQLiteChoreRepository) FindDueToday(ctx context.Context) ([]mo
 
 	rows, err := repository.database.QueryContext(ctx,
 		fmt.Sprintf(`SELECT %s %s
-		WHERE c.due_date >= ? AND c.due_date < ? AND c.status = 'pending'
+		WHERE cs.deleted_at IS NULL AND c.due_date >= ? AND c.due_date < ? AND c.status = 'pending'
 		ORDER BY c.due_date ASC`, choreSelectColumns, choreJoin),
 		today, tomorrow,
 	)
@@ -312,26 +332,17 @@ func (repository *SQLiteChoreRepository) CountByStatusAndUser(ctx context.Contex
 }
 
 func (repository *SQLiteChoreRepository) SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer transaction.Rollback()
-
-	if _, err := transaction.ExecContext(ctx, "DELETE FROM chore_eligible_assignees WHERE chore_id = ?", choreID); err != nil {
-		return fmt.Errorf("clearing eligible assignees: %w", err)
-	}
-
-	for _, userID := range userIDs {
-		if _, err := transaction.ExecContext(ctx,
-			"INSERT INTO chore_eligible_assignees (chore_id, user_id) VALUES (?, ?)",
-			choreID, userID,
-		); err != nil {
-			return fmt.Errorf("inserting eligible assignee: %w", err)
+	return withTransaction(ctx, repository.database, func(connection queryConnection) error {
+		if _, err := connection.ExecContext(ctx, "DELETE FROM chore_eligible_assignees WHERE chore_id = ?", choreID); err != nil {
+			return err
 		}
-	}
-
-	return transaction.Commit()
+		for _, userID := range userIDs {
+			if _, err := connection.ExecContext(ctx, "INSERT INTO chore_eligible_assignees (chore_id,user_id) VALUES (?,?)", choreID, userID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (repository *SQLiteChoreRepository) GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error) {
@@ -355,46 +366,11 @@ func (repository *SQLiteChoreRepository) GetEligibleAssignees(ctx context.Contex
 	return userIDs, rows.Err()
 }
 
-func (repository *SQLiteChoreRepository) DeleteFuturePendingBySeries(ctx context.Context, seriesID string) error {
-	_, err := repository.database.ExecContext(ctx,
-		`DELETE FROM chores WHERE series_id = ? AND status = 'pending' AND due_date > CURRENT_TIMESTAMP`,
-		seriesID,
-	)
-	if err != nil {
-		return fmt.Errorf("deleting future pending by series: %w", err)
-	}
-	return nil
-}
-
-func (repository *SQLiteChoreRepository) FindLastFuturePendingInSeries(ctx context.Context, seriesID string) (*models.Chore, error) {
-	rows, err := repository.database.QueryContext(ctx,
-		fmt.Sprintf(`SELECT %s %s
-		WHERE c.series_id = ? AND c.status = 'pending' AND c.due_date > CURRENT_TIMESTAMP
-		ORDER BY c.due_date DESC
-		LIMIT 1`, choreSelectColumns, choreJoin),
-		seriesID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("finding last future pending in series: %w", err)
-	}
-	defer rows.Close()
-
-	chores, err := scanChores(rows)
-	if err != nil {
-		return nil, err
-	}
-	if len(chores) == 0 {
-		return nil, nil
-	}
-	return &chores[0], nil
-}
-
-// CountBySeries returns the total number of chore rows (any status) belonging to
-// the series. Used to enforce a recurrence occurrence cap.
+// Reserve one slot for the current task. Migration duplicates do not consume a slot.
 func (repository *SQLiteChoreRepository) CountBySeries(ctx context.Context, seriesID string) (int, error) {
 	var count int
 	err := repository.database.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM chores WHERE series_id = ?", seriesID,
+		"SELECT COUNT(*) FROM chores WHERE series_id = ? AND status != 'superseded'", seriesID,
 	).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("counting chores by series: %w", err)
@@ -447,7 +423,7 @@ func scanChores(rows *sql.Rows) ([]models.Chore, error) {
 			&chore.DueDate, &chore.DueTime,
 			&chore.RecurrenceType, &chore.RecurrenceValue, &chore.RecurOnComplete, &chore.SeriesID,
 			&chore.RecurrenceUntil, &chore.RecurrenceCount,
-			&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID,
+			&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID, &chore.ResolvedAt, &chore.ResolvedByUserID,
 			&chore.CreatedAt, &chore.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning chore: %w", err)

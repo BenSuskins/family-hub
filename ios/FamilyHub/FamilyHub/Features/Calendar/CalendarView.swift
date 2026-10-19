@@ -4,400 +4,168 @@ import FamilyHubKit
 struct CalendarView: View {
     @State private var viewModel: CalendarViewModel
     private let apiClient: any APIClientProtocol
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.calendar) private var calendar
+    @Environment(\.timeZone) private var timeZone
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
-    private let weekdaySymbols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-    private static let monthFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-    private static let weekTitleFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "d MMM"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-    private static let dayTitleFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "EEEE, d MMMM"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
 
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
-        _viewModel = State(wrappedValue: CalendarViewModel(apiClient: apiClient))
+        _viewModel = State(wrappedValue: CalendarViewModel(
+            apiClient: apiClient,
+            now: CalendarDemoData.isEnabled ? { CalendarDemoData.now } : Date.init,
+            preferences: CalendarDemoData.isEnabled ? nil : .standard
+        ))
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("View", selection: $viewModel.viewMode) {
-                    ForEach(CalendarViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .modifier(AdaptivePickerStyle(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
-
-                Group {
-                    switch viewModel.viewMode {
-                    case .month:
-                        if dynamicTypeSize.isAccessibilitySize { accessibleMonthView }
-                        else { monthView }
-                    case .week:
-                        weekView
-                    case .day:
-                        dayView
-                    }
-                }
-                .animation(.spring(duration: 0.3), value: viewModel.viewMode)
+                status
+                content
             }
-            .groupedBackground()
-            .refreshable { await viewModel.load(forceRefresh: true) }
-            .navigationTitle("Calendar")
-            .safeAreaInset(edge: .top) {
-                Text(navigationTitle).font(.headline).padding(.vertical, 8)
-                    .frame(maxWidth: .infinity).background(Color(.systemBackground))
+            .background(Color(.systemBackground))
+            .overlay(alignment: .top) {
+                if viewModel.isLoading {
+                    ProgressView().controlSize(.small).padding(4)
+                        .accessibilityLabel("Loading calendar")
+                }
             }
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button { navigateBack() } label: {
-                        Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                ToolbarItem(placement: .topBarLeading) {
+                    if viewModel.viewMode != .year {
+                        Button { viewModel.goBack() } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text(viewModel.viewMode == .month
+                                     ? viewModel.selectedDate.formatted(.dateTime.year())
+                                     : viewModel.selectedDate.formatted(.dateTime.month(.abbreviated)))
+                            }
+                        }
+                        .accessibilityLabel(viewModel.viewMode == .month ? "Show year" : "Show month")
                     }
-                    .accessibilityLabel("Previous period")
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 8) {
                         Button("Today") { viewModel.goToToday() }
-                            .font(.subheadline)
-                        Button { navigateForward() } label: {
-                            Image(systemName: "chevron.right").frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("Next period")
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("calendar-today")
+                        viewMenu
                     }
                 }
             }
-        }
-        .task { await viewModel.load() }
-        .onChange(of: viewModel.viewMode) {
-            Task { await viewModel.load() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await viewModel.load(forceRefresh: true) } }
+            }
+            .onChange(of: calendar) { _, _ in updateCalendar() }
+            .onChange(of: timeZone) { _, _ in updateCalendar() }
+            .task(id: viewModel.requestKey) { await viewModel.load() }
+            .onDisappear { viewModel.cancelLoads() }
         }
     }
 
-    private var navigationTitle: String {
+    private func updateCalendar() {
+        var calendar = calendar
+        calendar.timeZone = timeZone
+        viewModel.updateCalendar(calendar)
+    }
+
+    private var title: String {
         switch viewModel.viewMode {
-        case .month:
-            return Self.monthFormatter.string(from: viewModel.currentDate)
-        case .week:
-            let start = viewModel.currentWeekStart
-            let end = Calendar.current.date(byAdding: .day, value: 6, to: start)!
-            return "\(Self.weekTitleFormatter.string(from: start)) – \(Self.weekTitleFormatter.string(from: end))"
-        case .day:
-            return Self.dayTitleFormatter.string(from: viewModel.currentDate)
+        case .year: "Calendar"
+        case .month: "Calendar"
+        default: viewModel.selectedDate.formatted(.dateTime.month(.wide).day())
         }
     }
 
-    private func navigateBack() {
-        switch viewModel.viewMode {
-        case .month: viewModel.previousMonth()
-        case .week: viewModel.previousWeek()
-        case .day: viewModel.previousDay()
-        }
-    }
-
-    private func navigateForward() {
-        switch viewModel.viewMode {
-        case .month: viewModel.nextMonth()
-        case .week: viewModel.nextWeek()
-        case .day: viewModel.nextDay()
-        }
-    }
-
-    // MARK: - Month View
-
-    private var accessibleMonthView: some View {
-        List {
-            DatePicker("Date", selection: Binding(
-                get: { viewModel.selectedDay ?? viewModel.currentMonth },
-                set: { date in
-                    viewModel.currentDate = date
-                    viewModel.selectedDay = date
-                    Task { await viewModel.load() }
-                }
-            ), displayedComponents: .date)
-            Section((viewModel.selectedDay ?? viewModel.currentMonth).formatted(date: .complete, time: .omitted)) {
-                dayItemsContent(for: viewModel.selectedDay ?? viewModel.currentMonth)
+    private var viewMenu: some View {
+        Menu {
+            ForEach(CalendarViewMode.allCases, id: \.self) { mode in
+                Button { viewModel.setView(mode) } label: {
+                    Label(mode.rawValue, systemImage: viewModel.viewMode == mode ? "checkmark" : icon(for: mode))
+                }.accessibilityIdentifier("calendar-mode-\(mode.rawValue)")
             }
+        } label: {
+            Image(systemName: "rectangle.topthird.inset.filled")
+                .frame(minWidth: 44, minHeight: 44)
         }
+        .accessibilityLabel("Calendar view")
+        .accessibilityValue(viewModel.viewMode.rawValue)
+        .accessibilityIdentifier("calendar-view-menu")
     }
 
-    private var monthView: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if case .failed(let error) = viewModel.state {
-                    ErrorStateView(error: error) { await viewModel.load(forceRefresh: true) }
-                        .padding(.vertical, 24)
-                }
-                calendarGrid
-                    .padding(.horizontal)
-                Divider()
-                agendaSection
-            }
+    private func icon(for mode: CalendarViewMode) -> String {
+        switch mode {
+        case .year, .month: "calendar"
+        case .day: "rectangle"
+        case .week: "rectangle.split.3x1"
         }
     }
-
-    private var calendarGrid: some View {
-        VStack(spacing: 4) {
-            LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
-                    Text(symbol)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(Array(daysInMonth.enumerated()), id: \.offset) { _, day in
-                    if let day {
-                        Button { viewModel.selectedDay = day } label: {
-                            DayCell(
-                                date: day,
-                                isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast),
-                                isToday: Calendar.current.isDateInToday(day),
-                                hasItems: viewModel.hasItems(for: day)
-                            )
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
-                        .accessibilityValue(viewModel.hasItems(for: day) ? "Has items" : "No items")
-                        .accessibilityAddTraits(Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDay ?? .distantPast) ? .isSelected : [])
-                    } else {
-                        Color.clear.frame(height: 44)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 10)
-    }
-
-    // MARK: - Week View
-
-    private var weekView: some View {
-        List {
-            ForEach(0..<7, id: \.self) { offset in
-                let date = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.currentWeekStart)!
-                Section(Self.dayTitleFormatter.string(from: date)) {
-                    dayItemsContent(for: date)
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-    }
-
-    // MARK: - Day View
-
-    private var dayView: some View {
-        List {
-            dayItemsContent(for: viewModel.currentDate)
-        }
-        .listStyle(.insetGrouped)
-    }
-
-    // MARK: - Shared Day Items
 
     @ViewBuilder
-    private func dayItemsContent(for date: Date) -> some View {
-        let chores = viewModel.chores(for: date)
-        let events = viewModel.events(for: date)
-        let meals = viewModel.meals(for: date)
-
-        if chores.isEmpty && events.isEmpty && meals.isEmpty {
-            Text("No items")
-                .foregroundStyle(.secondary)
-        }
-
-        ForEach(events) { event in
-            NavigationLink {
-                EventDetailsView(event: event, apiClient: apiClient)
-            } label: {
-                eventRow(event)
-            }.buttonStyle(.plain)
-        }
-
-        ForEach(chores) { chore in
-            choreRow(chore)
-        }
-
-        ForEach(meals) { meal in
-            mealRow(meal)
+    private var status: some View {
+        if let error = viewModel.loadError {
+            HStack {
+                Text(error.localizedDescription).font(.caption)
+                Spacer()
+                Button("Retry") { Task { await viewModel.load(forceRefresh: true) } }
+            }
+            .padding(12).background(Color(.secondarySystemBackground))
+            .accessibilityIdentifier("calendar-error")
         }
     }
 
-    private func eventRow(_ event: CalendarEvent) -> some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color(hex: event.color) ?? Color.accentColor)
-                .frame(width: 4, height: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
-                    .font(.body)
-                HStack(spacing: 6) {
-                    if event.allDay {
-                        Text("All Day")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(event.startTime, style: .time)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if !event.location.isEmpty {
-                        Label(event.location, systemImage: "mappin")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            Spacer()
-            Image(systemName: "calendar.badge.clock")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-        }
-    }
-
-    private func choreRow(_ chore: Chore) -> some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(chore.status == .overdue ? .red : .orange)
-                .frame(width: 4, height: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(chore.name)
-                    .font(.body)
-                HStack(spacing: 6) {
-                    if let badge = chore.badge {
-                        Text(badge.label)
-                            .font(.caption)
-                            .foregroundStyle(badge.color)
-                    }
-                    if let userId = chore.assignedToUserID, let user = viewModel.users[userId] {
-                        Text(user.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer()
-            if let userId = chore.assignedToUserID {
-                UserAvatar(user: viewModel.users[userId], size: 24, apiClient: apiClient)
-            }
-        }
-    }
-
-    private func mealRow(_ meal: MealPlan) -> some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.green)
-                .frame(width: 4, height: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(meal.name)
-                    .font(.body)
-                Text(meal.mealType.capitalized)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "fork.knife")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-        }
-    }
-
-    // MARK: - Agenda (Month mode)
-
-    private var agendaSection: some View {
-        Group {
-            if let selectedDay = viewModel.selectedDay {
-                let chores = viewModel.chores(for: selectedDay)
-                let events = viewModel.events(for: selectedDay)
-                let meals = viewModel.meals(for: selectedDay)
-                if chores.isEmpty && events.isEmpty && meals.isEmpty {
-                    ContentUnavailableView(
-                        "No items on this day",
-                        systemImage: "calendar",
-                        description: Text("All clear!")
-                    )
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(events) { event in
-                            NavigationLink {
-                EventDetailsView(event: event, apiClient: apiClient)
-            } label: {
-                eventRow(event)
-            }.buttonStyle(.plain)
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                            Divider()
-                        }
-                        ForEach(chores) { chore in
-                            choreRow(chore)
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                            Divider()
-                        }
-                        ForEach(meals) { meal in
-                            mealRow(meal)
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                            Divider()
-                        }
-                    }
-                }
+    @ViewBuilder
+    private var content: some View {
+        switch viewModel.viewMode {
+        case .year:
+            CalendarYearView(viewModel: viewModel)
+        case .month:
+            if dynamicTypeSize.isAccessibilitySize || voiceOverEnabled {
+                accessibleMonth
             } else {
-                ContentUnavailableView("Select a day", systemImage: "calendar")
+                CalendarMonthsView(viewModel: viewModel)
+            }
+        case .day, .week:
+            if dynamicTypeSize.isAccessibilitySize || voiceOverEnabled {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        datePicker
+                        ForEach(viewModel.timelineDays, id: \.self) { day in
+                            CalendarAgendaView(viewModel: viewModel, day: day, apiClient: apiClient)
+                        }
+                    }.padding()
+                }.refreshable { await viewModel.load(forceRefresh: true) }
+            } else {
+                CalendarTimelineView(viewModel: viewModel, apiClient: apiClient)
             }
         }
     }
 
-    // MARK: - Month Grid Data
+    private var dateSelection: Binding<Date> {
+        Binding(get: { viewModel.selectedDate }, set: { viewModel.selectDate($0) })
+    }
 
-    private var daysInMonth: [Date?] {
-        let calendar = Calendar(identifier: .iso8601)
-        guard let range = calendar.range(of: .day, in: .month, for: viewModel.currentMonth),
-              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: viewModel.currentMonth))
-        else { return [] }
-        let weekdayOffset = (calendar.component(.weekday, from: firstDay) + 5) % 7
-        var days: [Date?] = Array(repeating: nil, count: weekdayOffset)
-        days += range.compactMap { day in
-            calendar.date(byAdding: .day, value: day - 1, to: firstDay)
+    private var datePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Date").font(.headline).accessibilityHidden(true)
+            DatePicker("Date", selection: dateSelection, displayedComponents: .date)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("calendar-date-picker")
         }
-        return days
+    }
+
+    private var accessibleMonth: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                datePicker
+                CalendarAgendaView(viewModel: viewModel, day: viewModel.selectedDate, apiClient: apiClient)
+                Button("Open day") { viewModel.openDay(viewModel.selectedDate) }
+            }.padding()
+        }.refreshable { await viewModel.load(forceRefresh: true) }
     }
 }
-
-// MARK: - Supporting Views
-
-private struct DayCell: View {
-    let date: Date
-    let isSelected: Bool
-    let isToday: Bool
-    let hasItems: Bool
-
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "d"; f.locale = Locale(identifier: "en_US_POSIX"); return f
-    }()
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(Self.dayFormatter.string(from: date))
-                .font(.subheadline)
-                .foregroundStyle(isSelected ? .white : .primary)
-                .frame(width: 30, height: 30)
-                .background(isSelected ? Color.accentColor : (isToday ? Color.accentColor.opacity(0.15) : Color.clear))
-                .clipShape(Circle())
-            Circle()
-                .fill(hasItems ? .orange : Color.clear)
-                .frame(width: 4, height: 4)
-        }
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .contentShape(Rectangle())
-    }
-}
-

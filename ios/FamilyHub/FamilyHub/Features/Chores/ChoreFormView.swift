@@ -70,6 +70,12 @@ struct ChoreFormView: View {
                 detailsSection
                 categorySection
                 assigneesSection
+                if isEditing {
+                    Section {
+                        Text("The current task keeps its assignee and due date. Repeat rule changes apply to the next task.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
                 scheduleSection
                 recurrenceSection
                 if recurrenceType != "none" {
@@ -112,7 +118,7 @@ struct ChoreFormView: View {
                     Task { await delete() }
                 }
             } message: {
-                Text("This permanently deletes \"\(name)\"\(isRecurringSeries ? " and its future occurrences" : "").")
+                Text("This removes \"\(name)\"\(isRecurringSeries ? " and keeps its history" : "").")
             }
         }
     }
@@ -200,9 +206,9 @@ struct ChoreFormView: View {
 
     private var scheduleSection: some View {
         Section("Schedule") {
-            Toggle("Has Due Date", isOn: $hasDueDate)
-            if hasDueDate {
-                DatePicker("Due Date", selection: $dueDate, displayedComponents: .date)
+            if !isEditing {
+                Toggle("Has Due Date", isOn: $hasDueDate)
+                if hasDueDate { DatePicker("Due Date", selection: $dueDate, displayedComponents: .date) }
             }
             Toggle("Has Due Time", isOn: $hasDueTime)
             if hasDueTime {
@@ -308,8 +314,6 @@ struct ChoreFormView: View {
 
         if !chore.eligibleAssignees.isEmpty {
             selectedAssignees = Set(chore.eligibleAssignees)
-        } else if let uid = chore.assignedToUserID {
-            selectedAssignees = [uid]
         }
 
         if let d = parseDate(chore.dueDate) {

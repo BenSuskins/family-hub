@@ -18,6 +18,7 @@ const choreSeriesColumns = `id, name, description, created_by_user_id, category_
 		created_at, updated_at`
 
 type ChoreSeriesRepository interface {
+	FindAll(context.Context) ([]models.ChoreSeries, error)
 	// FindByID returns the series, or (nil, nil) when no such series exists, so
 	// callers can fall back to per-occurrence fields during the migration window.
 	FindByID(ctx context.Context, id string) (*models.ChoreSeries, error)
@@ -30,7 +31,7 @@ type ChoreSeriesRepository interface {
 }
 
 type SQLiteChoreSeriesRepository struct {
-	database *sql.DB
+	database queryConnection
 }
 
 func NewChoreSeriesRepository(database *sql.DB) *SQLiteChoreSeriesRepository {
@@ -137,26 +138,17 @@ func (repository *SQLiteChoreSeriesRepository) MarkDeleted(ctx context.Context, 
 }
 
 func (repository *SQLiteChoreSeriesRepository) SetEligibleAssignees(ctx context.Context, seriesID string, userIDs []string) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer transaction.Rollback()
-
-	if _, err := transaction.ExecContext(ctx, "DELETE FROM chore_series_eligible_assignees WHERE series_id = ?", seriesID); err != nil {
-		return fmt.Errorf("clearing series eligible assignees: %w", err)
-	}
-
-	for _, userID := range userIDs {
-		if _, err := transaction.ExecContext(ctx,
-			"INSERT INTO chore_series_eligible_assignees (series_id, user_id) VALUES (?, ?)",
-			seriesID, userID,
-		); err != nil {
-			return fmt.Errorf("inserting series eligible assignee: %w", err)
+	return withTransaction(ctx, repository.database, func(connection queryConnection) error {
+		if _, err := connection.ExecContext(ctx, "DELETE FROM chore_series_eligible_assignees WHERE series_id = ?", seriesID); err != nil {
+			return err
 		}
-	}
-
-	return transaction.Commit()
+		for _, userID := range userIDs {
+			if _, err := connection.ExecContext(ctx, "INSERT INTO chore_series_eligible_assignees (series_id,user_id) VALUES (?,?)", seriesID, userID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (repository *SQLiteChoreSeriesRepository) GetEligibleAssignees(ctx context.Context, seriesID string) ([]string, error) {
@@ -178,4 +170,36 @@ func (repository *SQLiteChoreSeriesRepository) GetEligibleAssignees(ctx context.
 		userIDs = append(userIDs, userID)
 	}
 	return userIDs, rows.Err()
+}
+
+func (repository *SQLiteChoreSeriesRepository) FindAll(ctx context.Context) ([]models.ChoreSeries, error) {
+	rows, err := repository.database.QueryContext(ctx, "SELECT id FROM chore_series ORDER BY name COLLATE NOCASE,id")
+	if err != nil {
+		return nil, err
+	}
+	identifiers := []string{}
+	for rows.Next() {
+		var identifier string
+		if err := rows.Scan(&identifier); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		identifiers = append(identifiers, identifier)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	result := []models.ChoreSeries{}
+	for _, identifier := range identifiers {
+		definition, err := repository.FindByID(ctx, identifier)
+		if err != nil {
+			return nil, err
+		}
+		if definition != nil {
+			result = append(result, *definition)
+		}
+	}
+	return result, nil
 }

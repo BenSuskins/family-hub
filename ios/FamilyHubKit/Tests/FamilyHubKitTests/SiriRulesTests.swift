@@ -96,3 +96,17 @@ extension SiriRulesTests {
         XCTAssertFalse(summary.contains("Six"))
     }
 }
+
+extension SiriRulesTests {
+    @MainActor
+    func testResolvedAndForecastChoresCannotBeCompletedThroughSiri() throws {
+        let rules = try SiriDateRules(timezone: "Europe/London")
+        let chores = [
+            Chore(id: "due", name: "Due", description: "", status: .pending, dueDate: "2026-10-19", assignedToUserID: "me"),
+            Chore(id: "skipped", name: "Skipped", description: "", status: .skipped, dueDate: "2026-10-18", assignedToUserID: "me"),
+            Chore(id: "superseded", name: "Superseded", description: "", status: .superseded, dueDate: "2026-10-18", assignedToUserID: "me"),
+            Chore(id: "forecast", name: "Forecast", description: "", status: .pending, dueDate: "2026-10-19", assignedToUserID: "me", isForecast: true),
+        ]
+        XCTAssertEqual(rules.eligibleChores(chores, userID: "me", now: APIDate.iso.date(from: "2026-10-19T12:00:00Z")!).map(\.id), ["due"])
+    }
+}

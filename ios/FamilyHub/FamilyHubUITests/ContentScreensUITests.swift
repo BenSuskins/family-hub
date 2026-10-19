@@ -3,6 +3,20 @@ import UIKit
 
 final class ContentScreensUITests: XCTestCase {
     @MainActor
+    func testHomeAgendaLimitsTheDescriptionAndKeepsFullEventDetails() {
+        continueAfterFailure = false
+        let app = launchDemo(layoutFixtures: true)
+        let description = app.staticTexts["home-event-description-demo-event-1"]
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        let fullDescription = description.label
+        capture(app, "home-agenda-description")
+        XCTAssertLessThanOrEqual(description.frame.height, ceil(UIFont.preferredFont(forTextStyle: .footnote).lineHeight) * 2 + 4)
+        app.buttons.containing(.staticText, identifier: "Family Dinner").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Event"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", fullDescription)).firstMatch.exists)
+    }
+
+    @MainActor
     func testHomeAndIngredientActionsWithAccessibilityText() {
         continueAfterFailure = false
         if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
@@ -148,12 +162,13 @@ final class ContentScreensUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchDemo(largeText: Bool = false, mealImages: Bool = false) -> XCUIApplication {
+    private func launchDemo(largeText: Bool = false, mealImages: Bool = false, layoutFixtures: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         if largeText {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
         if mealImages { app.launchArguments.append("-demo-meal-card-images") }
+        if layoutFixtures { app.launchArguments.append("-calendar-layout-fixtures") }
         app.launch()
         let demo = app.buttons["Try Demo"]
         reveal(demo, in: app)

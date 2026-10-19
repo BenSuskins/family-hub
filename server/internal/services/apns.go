@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -81,15 +80,8 @@ func (sender *APNsSender) authorization(now time.Time) (string, error) {
 	return sender.providerToken, nil
 }
 
-func (sender *APNsSender) Send(ctx context.Context, device models.NotificationDevice, count int, deliveryID string, expires time.Time) error {
-	if !time.Now().Before(expires) {
-		return &PushError{Reason: "reminder expired"}
-	}
-	body := fmt.Sprintf("You have %d unfinished family chores due today or overdue.", count)
-	if count == 1 {
-		body = "You have 1 unfinished family chore due today or overdue."
-	}
-	return sender.SendMessage(ctx, device, PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://chores", ThreadID: "chore-reminders"}, deliveryID, expires)
+func (sender *APNsSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, deliveryID string, expires time.Time) error {
+	return sender.SendMessage(ctx, device, summary.Message(), deliveryID, expires)
 }
 
 func (sender *APNsSender) SendMessage(ctx context.Context, device models.NotificationDevice, message PushMessage, deliveryID string, expires time.Time) error {

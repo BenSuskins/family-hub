@@ -21,7 +21,7 @@ type ChoreAssignmentRepository interface {
 }
 
 type SQLiteChoreAssignmentRepository struct {
-	database *sql.DB
+	database queryConnection
 }
 
 func NewChoreAssignmentRepository(database *sql.DB) *SQLiteChoreAssignmentRepository {

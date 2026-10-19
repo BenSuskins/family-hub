@@ -5,9 +5,16 @@ An admin can change both times in Settings → Chore Reminders.
 Family reminders start disabled. Each iPhone also needs notification permission.
 
 The server includes unfinished chores due today and overdue chores.
-It includes chores due later today. It excludes future chores and undated pending chores.
-Each enabled iPhone receives the same count. A zero count produces no notification.
-Tap the notification to open Chores and load current data.
+It includes chores due later today and current tasks without a due date.
+Home treats tasks without a due date as due today. Future tasks are excluded.
+Each enabled iPhone receives the same family summary.
+The summary names up to three assignees and chores, with overdue tasks first.
+An extra count covers the remaining tasks. No due tasks means no notification.
+Tap the notification to open Home and load current data.
+
+Home shows current tasks. Tasks shows configured chores and their rules.
+Complete or skip the current task to advance its owner and repeat rule.
+Future calendar entries are provisional forecasts, not tasks that can be completed.
 
 ## Configure Apple push notifications
 
@@ -67,7 +74,7 @@ Retries reuse the delivery identifier and collapse identifier, but exactly-once 
 Verify a signed build on a physical iPhone before release:
 
 - Check an alert with the app closed and an unfinished chore due today.
-- Check that the alert opens Chores and loads current data.
+- Check that the alert opens Home and loads current data.
 - Complete all due chores before the second time and check that no alert appears.
 - Check another family iPhone and both Apple push environments used for release.
 - Check disablement, sign-out, and a server change.

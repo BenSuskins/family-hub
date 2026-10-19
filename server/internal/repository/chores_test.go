@@ -11,7 +11,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
-func stringPtr(s string) *string { return &s }
+func stringPtr(s string) *string     { return &s }
 func timePtr(t time.Time) *time.Time { return &t }
 
 func TestIsOverdue(t *testing.T) {
@@ -21,9 +21,9 @@ func TestIsOverdue(t *testing.T) {
 	tomorrow := today.AddDate(0, 0, 1)
 
 	tests := []struct {
-		name    string
-		chore   models.Chore
-		want    bool
+		name  string
+		chore models.Chore
+		want  bool
 	}{
 		{
 			name:  "due yesterday no DueTime",
@@ -154,8 +154,10 @@ func TestChoreRepository_CountBySeries(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "S", RecurrenceType: models.RecurrenceDaily})
-	for i := 0; i < 3; i++ {
-		choreRepo.Create(ctx, models.Chore{Name: "S", CreatedByUserID: user.ID, SeriesID: &seriesID})
+	for _, status := range []models.ChoreStatus{models.ChoreStatusCompleted, models.ChoreStatusSkipped, models.ChoreStatusPending, models.ChoreStatusSuperseded} {
+		if _, err := choreRepo.Create(ctx, models.Chore{Name: "S", CreatedByUserID: user.ID, SeriesID: &seriesID, Status: status}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	choreRepo.Create(ctx, models.Chore{Name: "Other", CreatedByUserID: user.ID})
 
@@ -392,96 +394,6 @@ func TestChoreRepository_FindAll_LimitZeroReturnsAll(t *testing.T) {
 	}
 }
 
-func TestChoreRepository_DeleteFuturePendingBySeries(t *testing.T) {
-	db := testutil.NewTestDatabase(t)
-	repo := repository.NewChoreRepository(db)
-	userRepo := repository.NewUserRepository(db)
-	ctx := context.Background()
-
-	user, _ := userRepo.Create(ctx, models.User{OIDCSubject: "sub1", Email: "a@b.com", Name: "A", Role: models.RoleMember})
-	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "Clean", RecurrenceType: models.RecurrenceWeekly})
-
-	past := time.Now().AddDate(0, 0, -1)
-	future1 := time.Now().AddDate(0, 0, 7)
-	future2 := time.Now().AddDate(0, 0, 14)
-
-	completed, _ := repo.Create(ctx, models.Chore{
-		Name: "Clean", CreatedByUserID: user.ID, SeriesID: &seriesID,
-		DueDate: &past, Status: models.ChoreStatusCompleted,
-	})
-	_ = completed
-
-	pending1, _ := repo.Create(ctx, models.Chore{
-		Name: "Clean", CreatedByUserID: user.ID, SeriesID: &seriesID,
-		DueDate: &future1, Status: models.ChoreStatusPending,
-	})
-	pending2, _ := repo.Create(ctx, models.Chore{
-		Name: "Clean", CreatedByUserID: user.ID, SeriesID: &seriesID,
-		DueDate: &future2, Status: models.ChoreStatusPending,
-	})
-	_ = pending1
-	_ = pending2
-
-	if err := repo.DeleteFuturePendingBySeries(ctx, seriesID); err != nil {
-		t.Fatalf("DeleteFuturePendingBySeries: %v", err)
-	}
-
-	remaining, err := repo.FindAll(ctx, repository.ChoreFilter{})
-	if err != nil {
-		t.Fatalf("FindAll: %v", err)
-	}
-	if len(remaining) != 1 {
-		t.Errorf("want 1 chore remaining (completed), got %d", len(remaining))
-	}
-	if remaining[0].Status != models.ChoreStatusCompleted {
-		t.Errorf("remaining chore should be completed, got %s", remaining[0].Status)
-	}
-}
-
-func TestChoreRepository_FindLastFuturePendingInSeries(t *testing.T) {
-	db := testutil.NewTestDatabase(t)
-	repo := repository.NewChoreRepository(db)
-	userRepo := repository.NewUserRepository(db)
-	ctx := context.Background()
-
-	user, _ := userRepo.Create(ctx, models.User{OIDCSubject: "sub2", Email: "b@b.com", Name: "B", Role: models.RoleMember})
-	seriesID := makeChoreSeries(t, db, user.ID, models.ChoreSeries{Name: "Clean", RecurrenceType: models.RecurrenceWeekly})
-
-	t.Run("returns nil when no future pending instances", func(t *testing.T) {
-		result, err := repo.FindLastFuturePendingInSeries(ctx, seriesID)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result != nil {
-			t.Errorf("want nil, got %+v", result)
-		}
-	})
-
-	future1 := time.Now().AddDate(0, 0, 7)
-	future2 := time.Now().AddDate(0, 0, 14)
-	repo.Create(ctx, models.Chore{
-		Name: "Clean", CreatedByUserID: user.ID, SeriesID: &seriesID,
-		DueDate: &future1, Status: models.ChoreStatusPending,
-	})
-	repo.Create(ctx, models.Chore{
-		Name: "Clean", CreatedByUserID: user.ID, SeriesID: &seriesID,
-		DueDate: &future2, Status: models.ChoreStatusPending,
-	})
-
-	t.Run("returns furthest-ahead pending instance", func(t *testing.T) {
-		result, err := repo.FindLastFuturePendingInSeries(ctx, seriesID)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result == nil {
-			t.Fatal("want a chore, got nil")
-		}
-		if !result.DueDate.Equal(future2) {
-			t.Errorf("want due date %v, got %v", future2, result.DueDate)
-		}
-	})
-}
-
 func TestChoreRepository_DeleteCompletedByName(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	repo := repository.NewChoreRepository(db)
@@ -560,9 +472,9 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 		{
 			name: "multiple occurrences in one series returns only earliest",
 			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
-				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusCompleted, RecurrenceType: models.RecurrenceWeekly})
 				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
-				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Vacuum", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day3, Status: models.ChoreStatusCompleted, RecurrenceType: models.RecurrenceWeekly})
 			},
 			wantCount:        1,
 			wantEarliestDate: &day1,
@@ -571,9 +483,9 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 			name: "two separate series each return one row",
 			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
 				mustCreate(t, repo, models.Chore{Name: "Dishes", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
-				mustCreate(t, repo, models.Chore{Name: "Dishes", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Dishes", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusCompleted, RecurrenceType: models.RecurrenceWeekly})
 				mustCreate(t, repo, models.Chore{Name: "Laundry", CreatedByUserID: userID, SeriesID: &seriesB, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
-				mustCreate(t, repo, models.Chore{Name: "Laundry", CreatedByUserID: userID, SeriesID: &seriesB, DueDate: &day4, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Laundry", CreatedByUserID: userID, SeriesID: &seriesB, DueDate: &day4, Status: models.ChoreStatusCompleted, RecurrenceType: models.RecurrenceWeekly})
 			},
 			wantCount: 2,
 		},
@@ -589,7 +501,7 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 			name: "mixed recurring and non-recurring correct deduplication",
 			setup: func(t *testing.T, repo *repository.SQLiteChoreRepository, userID string) {
 				mustCreate(t, repo, models.Chore{Name: "Weekly clean", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day1, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
-				mustCreate(t, repo, models.Chore{Name: "Weekly clean", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceWeekly})
+				mustCreate(t, repo, models.Chore{Name: "Weekly clean", CreatedByUserID: userID, SeriesID: &seriesA, DueDate: &day2, Status: models.ChoreStatusCompleted, RecurrenceType: models.RecurrenceWeekly})
 				mustCreate(t, repo, models.Chore{Name: "Take out trash", CreatedByUserID: userID, DueDate: &day3, Status: models.ChoreStatusPending, RecurrenceType: models.RecurrenceNone})
 			},
 			wantCount: 2,
@@ -621,7 +533,7 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 
 			testCase.setup(t, repo, user.ID)
 
-			results, err := repo.FindAll(ctx, repository.ChoreFilter{OnlyNextPerSeries: true})
+			results, err := repo.FindAll(ctx, repository.ChoreFilter{OnlyNextPerSeries: true, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 			if err != nil {
 				t.Fatalf("FindAll: %v", err)
 			}

@@ -58,14 +58,11 @@ func (handler *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Reques
 	user := middleware.GetUser(ctx)
 	now := time.Now()
 
-	choresDueToday, err := handler.choreRepo.FindDueToday(ctx)
+	choresDueToday, overdueChores, err := handler.choreService.DueTasks(ctx)
 	if err != nil {
-		slog.Error("finding chores due today", "error", err)
-	}
-
-	overdueChores, err := handler.choreRepo.FindOverdueChores(ctx)
-	if err != nil {
-		slog.Error("finding overdue chores", "error", err)
+		slog.Error("finding due chores", "error", err)
+		http.Error(w, "Error loading chores", 500)
+		return
 	}
 
 	seen := make(map[string]bool, len(choresDueToday))

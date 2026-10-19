@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -13,7 +15,7 @@ import (
 )
 
 type ReminderSender interface {
-	Send(context.Context, models.NotificationDevice, int, string, time.Time) error
+	Send(context.Context, models.NotificationDevice, ChoreReminderSummary, string, time.Time) error
 }
 
 type PushError struct {
@@ -29,10 +31,15 @@ type ChoreReminderService struct {
 	chores   repository.ChoreRepository
 	devices  repository.NotificationRepository
 	sender   ReminderSender
+	users    repository.UserRepository
 }
 
-func NewChoreReminderService(settings repository.SettingsRepository, chores repository.ChoreRepository, devices repository.NotificationRepository, sender ReminderSender) *ChoreReminderService {
-	return &ChoreReminderService{settings: settings, chores: chores, devices: devices, sender: sender}
+func NewChoreReminderService(settings repository.SettingsRepository, chores repository.ChoreRepository, devices repository.NotificationRepository, sender ReminderSender, users ...repository.UserRepository) *ChoreReminderService {
+	service := &ChoreReminderService{settings: settings, chores: chores, devices: devices, sender: sender}
+	if len(users) > 0 {
+		service.users = users[0]
+	}
+	return service
 }
 
 func LoadChoreReminders(ctx context.Context, settings repository.SettingsRepository) (models.ChoreReminders, error) {
@@ -102,18 +109,51 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 		}
 		for _, device := range devices {
 			// Read again for each delivery so a retry sees completions from other devices.
-			chores, err := service.chores.FindAll(ctx, repository.ChoreFilter{})
+			chores, err := service.chores.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 			if err != nil {
 				return err
 			}
-			count := 0
+			names := map[string]string{}
+			if service.users != nil {
+				people, err := service.users.FindAll(ctx)
+				if err != nil {
+					return err
+				}
+				for _, person := range people {
+					names[person.ID] = person.Name
+				}
+			}
+			sort.SliceStable(chores, func(first, second int) bool {
+				a, b := chores[first], chores[second]
+				overdue := func(task models.Chore) bool {
+					return task.Status == models.ChoreStatusOverdue || task.DueDate != nil && task.DueDate.Format("2006-01-02") < local.Format("2006-01-02")
+				}
+				if overdue(a) != overdue(b) {
+					return overdue(a)
+				}
+				if a.DueDate != nil && b.DueDate != nil && !a.DueDate.Equal(*b.DueDate) {
+					return a.DueDate.Before(*b.DueDate)
+				}
+				if a.Name != b.Name {
+					return a.Name < b.Name
+				}
+				return a.ID < b.ID
+			})
+			summary := ChoreReminderSummary{}
 			for _, chore := range chores {
 				if chore.Status == models.ChoreStatusCompleted {
 					continue
 				}
 				// Chore due dates store calendar dates, rather than instants in the household timezone.
-				if chore.Status == models.ChoreStatusOverdue || (chore.DueDate != nil && chore.DueDate.Format("2006-01-02") <= local.Format("2006-01-02")) {
-					count++
+				if chore.Status == models.ChoreStatusOverdue || chore.DueDate == nil || chore.DueDate.Format("2006-01-02") <= local.Format("2006-01-02") {
+					summary.Count++
+					if len(summary.Tasks) < 3 {
+						name := "Unassigned"
+						if chore.AssignedToUserID != nil && names[*chore.AssignedToUserID] != "" {
+							name = names[*chore.AssignedToUserID]
+						}
+						summary.Tasks = append(summary.Tasks, ChoreReminderTask{Assignee: name, Name: chore.Name})
+					}
 				}
 			}
 			identifier, err := service.devices.Claim(ctx, device.ID, local.Format("2006-01-02"), slot, now)
@@ -124,8 +164,8 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 				continue
 			}
 			retry := false
-			if count > 0 {
-				err = service.sender.Send(ctx, device, count, identifier, expires)
+			if summary.Count > 0 {
+				err = service.sender.Send(ctx, device, summary, identifier, expires)
 				if err != nil {
 					var pushError *PushError
 					retry = true
@@ -146,4 +186,35 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 		}
 	}
 	return errors.Join(failures...)
+}
+
+type ChoreReminderTask struct {
+	Assignee string
+	Name     string
+}
+type ChoreReminderSummary struct {
+	Count int
+	Tasks []ChoreReminderTask
+}
+
+func (summary ChoreReminderSummary) Message() PushMessage {
+	parts := []string{}
+	shorten := func(value string, limit int) string {
+		characters := []rune(strings.Join(strings.Fields(value), " "))
+		if len(characters) > limit {
+			return string(characters[:limit]) + "…"
+		}
+		return string(characters)
+	}
+	for index, task := range summary.Tasks {
+		if index == 3 {
+			break
+		}
+		parts = append(parts, shorten(task.Assignee, 32)+": "+shorten(task.Name, 80))
+	}
+	body := strings.Join(parts, "; ")
+	if remaining := summary.Count - len(parts); remaining > 0 {
+		body += fmt.Sprintf(" — and %d more", remaining)
+	}
+	return PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://today", ThreadID: "chore-reminders"}
 }

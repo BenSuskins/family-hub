@@ -138,7 +138,10 @@ private enum DemoData {
         let saturday = Calendar.current.date(byAdding: .day, value: daysUntilWeekend(), to: Date())!
         let start = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: saturday)!
         let end = Calendar.current.date(byAdding: .hour, value: 2, to: start)!
-        return CalendarEvent(id: "demo-event-1", title: "Family Dinner", description: "Weekly family get-together", location: "Home", startTime: start, endTime: end, allDay: false, color: "#4CAF50")
+        let description = CalendarDemoData.usesLayoutFixtures
+            ? "Calendar not up to date? Check the calendar subscription for the latest event details.\n\nSupport the calendar provider for more event updates and details."
+            : "Weekly family get-together"
+        return CalendarEvent(id: "demo-event-1", title: "Family Dinner", description: description, location: "Home", startTime: start, endTime: end, allDay: false, color: "#4CAF50")
     }
 
     private static func startOfWeekDate(offset: Int) -> String {
@@ -184,8 +187,8 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func fetchDashboardStats() async throws -> DashboardStats {
-        let overdue = chores.filter { $0.status == .overdue }
-        let dueToday = chores.filter { $0.badge == .dueToday }
+        let overdue = chores.filter { $0.status == .overdue && !deletedDefinitions.contains($0.seriesID ?? $0.id) }
+        let dueToday = chores.filter { $0.status == .pending && ($0.badge == .dueToday || $0.dueDate == nil) && !deletedDefinitions.contains($0.seriesID ?? $0.id) }
         let today = APIDate.dayString(Date())
         let todayMeals = meals.filter { $0.date == today }
         return DashboardStats(
@@ -196,6 +199,44 @@ final class DemoAPIClient: APIClientProtocol {
             mealsThisWeek: meals.count,
             todayMeals: todayMeals
         )
+    }
+
+    private var deletedDefinitions: Set<String> = []
+
+    func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
+        let groups = Dictionary(grouping: chores) { $0.seriesID ?? $0.id }
+        return groups.compactMap { identifier, tasks in
+            let task = tasks.first { $0.status == .pending || $0.status == .overdue }
+            guard let representative = task ?? tasks.first else { return nil }
+            let active = task != nil && !deletedDefinitions.contains(identifier)
+            guard includeInactive || active else { return nil }
+            return ChoreDefinition(id: identifier, chore: representative, currentTask: active ? task : nil, active: active,
+                                   deletedAt: deletedDefinitions.contains(identifier) ? "2026-10-18" : nil)
+        }.sorted { $0.chore.name < $1.chore.name }
+    }
+
+    func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
+        let chore = try await createChore(request)
+        return ChoreDefinition(id: chore.seriesID ?? chore.id, chore: chore, currentTask: chore, active: true)
+    }
+
+    func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
+        guard let task = chores.first(where: { $0.id == id || $0.seriesID == id }) else { throw APIError.notFound }
+        let updated = try await updateChore(id: task.id, request)
+        return ChoreDefinition(id: updated.seriesID ?? updated.id, chore: updated, currentTask: updated, active: true)
+    }
+
+    func deleteChoreDefinition(id: String) async throws {
+        deletedDefinitions.insert(id)
+    }
+
+    func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage {
+        ChoreHistoryPage(items: chores.filter { ($0.seriesID ?? $0.id) == definitionID && $0.status != .pending && $0.status != .overdue })
+    }
+
+    func skipChore(id: String) async throws {
+        guard let index = chores.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        chores[index] = chores[index].with(status: .skipped)
     }
 
     func fetchChores() async throws -> [Chore] { chores }
@@ -339,7 +380,8 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
-        CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
+        if CalendarDemoData.isEnabled { return CalendarDemoData.response(view: view, date: date) }
+        return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
     }
 
     func fetchUsers() async throws -> [User] { DemoData.users }

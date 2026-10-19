@@ -4,6 +4,8 @@ public enum ChoreStatus: String, Codable {
     case pending = "pending"
     case completed = "completed"
     case overdue = "overdue"
+    case skipped = "skipped"
+    case superseded = "superseded"
 }
 
 public struct Chore: Codable, Identifiable {
@@ -11,6 +13,9 @@ public struct Chore: Codable, Identifiable {
     public let name: String
     public let description: String
     public let status: ChoreStatus
+    public let resolvedAt: String?
+    public let resolvedByUserID: String?
+    public let isForecast: Bool
     public let dueDate: String?       // RFC3339 timestamp or nil
     public let assignedToUserID: String?
 
@@ -30,6 +35,9 @@ public struct Chore: Codable, Identifiable {
         case name = "Name"
         case description = "Description"
         case status = "Status"
+        case resolvedAt = "ResolvedAt"
+        case resolvedByUserID = "ResolvedByUserID"
+        case isForecast = "IsForecast"
         case dueDate = "DueDate"
         case assignedToUserID = "AssignedToUserID"
         case categoryID = "CategoryID"
@@ -58,12 +66,18 @@ public struct Chore: Codable, Identifiable {
         recurOnComplete: Bool = false,
         seriesID: String? = nil,
         recurrenceUntil: String? = nil,
-        recurrenceCount: Int? = nil
+        recurrenceCount: Int? = nil,
+        resolvedAt: String? = nil,
+        resolvedByUserID: String? = nil,
+        isForecast: Bool = false
     ) {
         self.id = id
         self.name = name
         self.description = description
         self.status = status
+        self.resolvedAt = resolvedAt
+        self.resolvedByUserID = resolvedByUserID
+        self.isForecast = isForecast
         self.dueDate = dueDate
         self.assignedToUserID = assignedToUserID
         self.categoryID = categoryID
@@ -83,6 +97,9 @@ public struct Chore: Codable, Identifiable {
         name = try c.decode(String.self, forKey: .name)
         description = try c.decodeIfPresent(String.self, forKey: .description) ?? ""
         status = try c.decode(ChoreStatus.self, forKey: .status)
+        resolvedAt = try c.decodeIfPresent(String.self, forKey: .resolvedAt)
+        resolvedByUserID = try c.decodeIfPresent(String.self, forKey: .resolvedByUserID)
+        isForecast = try c.decodeIfPresent(Bool.self, forKey: .isForecast) ?? false
         dueDate = try c.decodeIfPresent(String.self, forKey: .dueDate)
         assignedToUserID = try c.decodeIfPresent(String.self, forKey: .assignedToUserID)
         categoryID = try c.decodeIfPresent(String.self, forKey: .categoryID)
@@ -197,7 +214,7 @@ extension Chore {
     public var badge: ChoreBadge? {
         switch status {
         case .overdue:   return .overdue
-        case .completed: return nil
+        case .completed, .skipped, .superseded: return nil
         case .pending:
             guard let date = APIDate.parse(dueDate) else { return .dueSoon }
             return Calendar.current.isDateInToday(date) ? .dueToday : .dueSoon
@@ -222,7 +239,8 @@ extension Chore {
             recurOnComplete: recurOnComplete,
             seriesID: seriesID,
             recurrenceUntil: recurrenceUntil,
-            recurrenceCount: recurrenceCount
+            recurrenceCount: recurrenceCount,
+            resolvedAt: resolvedAt, resolvedByUserID: resolvedByUserID, isForecast: isForecast
         )
     }
 

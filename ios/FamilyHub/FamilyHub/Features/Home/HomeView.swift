@@ -389,7 +389,9 @@ private struct EventRow: View {
                     Text(event.description)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("home-event-description-\(event.id)")
                 }
             }
 

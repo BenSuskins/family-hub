@@ -138,7 +138,10 @@ private enum DemoData {
         let saturday = Calendar.current.date(byAdding: .day, value: daysUntilWeekend(), to: Date())!
         let start = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: saturday)!
         let end = Calendar.current.date(byAdding: .hour, value: 2, to: start)!
-        return CalendarEvent(id: "demo-event-1", title: "Family Dinner", description: "Weekly family get-together", location: "Home", startTime: start, endTime: end, allDay: false, color: "#4CAF50")
+        let description = CalendarDemoData.usesLayoutFixtures
+            ? "Calendar not up to date? Check the calendar subscription for the latest event details.\n\nSupport the calendar provider for more event updates and details."
+            : "Weekly family get-together"
+        return CalendarEvent(id: "demo-event-1", title: "Family Dinner", description: description, location: "Home", startTime: start, endTime: end, allDay: false, color: "#4CAF50")
     }
 
     private static func startOfWeekDate(offset: Int) -> String {

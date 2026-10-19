@@ -3,6 +3,72 @@ import UIKit
 
 final class CalendarUITests: XCTestCase {
     @MainActor
+    func testWeekEventTitlesWrapInsideTheTimeBlock() {
+        let app = launchCalendar(layoutFixtures: true)
+        app.buttons["calendar-view-menu"].tap()
+        app.buttons["calendar-mode-Week"].tap()
+        let timeline = app.otherElements["calendar-timeline"]
+        XCTAssertTrue(timeline.waitForExistence(timeout: 5))
+        let event = app.buttons["calendar-event-fixture-long-title"]
+        XCTAssertTrue(event.waitForExistence(timeout: 5))
+        for _ in 0..<2 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+                .press(forDuration: 0.1,
+                       thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)),
+                       withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        capture(app, "calendar-week-wrapped-title")
+        XCTAssertTrue(event.isHittable)
+        let titleHeight = titleInkHeight(in: event.screenshot().image)
+        XCTAssertGreaterThan(titleHeight, UIFont.preferredFont(forTextStyle: .caption1).lineHeight * 1.5)
+    }
+
+    @MainActor
+    func testMonthZoomKeepsTheNextHeadingBelowTheLastWeek() {
+        let app = launchCalendar()
+        let months = app.otherElements["calendar-months"]
+        XCTAssertTrue(months.waitForExistence(timeout: 5))
+        for _ in 0..<2 {
+            let zoomTarget = app.staticTexts["March"]
+            XCTAssertTrue(zoomTarget.waitForExistence(timeout: 5))
+            zoomTarget.pinch(withScale: 0.6, velocity: -1)
+            capture(app, "calendar-month-minimum-zoom")
+            let lastDay = app.buttons["calendar-date-2026-03-31"]
+            let april = app.staticTexts["April"]
+            XCTAssertTrue(lastDay.waitForExistence(timeout: 5))
+            XCTAssertTrue(april.waitForExistence(timeout: 5))
+            XCTAssertLessThanOrEqual(lastDay.frame.maxY, april.frame.minY)
+        }
+    }
+
+    private func titleInkHeight(in image: UIImage) -> CGFloat {
+        guard let source = image.cgImage else { return 0 }
+        let width = source.width
+        let height = source.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let rows = pixels.withUnsafeMutableBytes { buffer -> [Int] in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return [] }
+            context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+            let background = (height / 2 * width + width - 1) * 4
+            let usesLightText = Int(buffer[background]) + Int(buffer[background + 1]) + Int(buffer[background + 2]) < 384
+            return (0..<height).filter { row in
+                (Int(7 * image.scale)..<width).contains { column in
+                    let offset = (row * width + column) * 4
+                    let isText = usesLightText
+                        ? buffer[offset] > 180 && buffer[offset + 1] > 180 && buffer[offset + 2] > 180
+                        : buffer[offset] < 100 && buffer[offset + 1] < 100 && buffer[offset + 2] < 100
+                    return isText && buffer[offset + 3] > 0
+                }
+            }
+        }
+        guard let first = rows.first, let last = rows.last else { return 0 }
+        return CGFloat(last - first + 1) / image.scale
+    }
+
+    @MainActor
     func testMonthScrollPerformance() {
         let app = launchCalendar()
         let months = app.otherElements["calendar-months"]
@@ -149,11 +215,12 @@ final class CalendarUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchCalendar(largeText: Bool = false) -> XCUIApplication {
+    private func launchCalendar(largeText: Bool = false, layoutFixtures: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launchArguments = ["-calendar-fixtures"]
+        if layoutFixtures { app.launchArguments.append("-calendar-layout-fixtures") }
         if largeText {
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }

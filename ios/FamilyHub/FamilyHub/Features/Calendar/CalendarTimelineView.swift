@@ -216,7 +216,9 @@ struct CalendarTimelineView: View {
         return HStack(alignment: .top, spacing: 4) {
             Rectangle().fill(color).frame(width: 3)
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.title).font(.caption.weight(.semibold)).lineLimit(days.count > 2 ? 1 : 2)
+                Text(event.title).font(.caption.weight(.semibold))
+                    .lineLimit(days.count > 2 ? nil : 2)
+                    .multilineTextAlignment(.leading)
                 if days.count < 3 {
                     Text(event.startTime.formatted(date: .omitted, time: .shortened)).font(.caption2)
                     if !event.location.isEmpty { Text(event.location).font(.caption2) }

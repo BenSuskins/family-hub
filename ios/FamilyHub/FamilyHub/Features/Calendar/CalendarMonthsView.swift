@@ -107,7 +107,11 @@ private struct CalendarMonthGrid: View {
     let month: Date
     let rowHeight: Double
     let showsTitle: Bool
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+
+    private var weeks: [[Date?]] {
+        let days = viewModel.schedule.monthDays(containing: month)
+        return stride(from: 0, to: days.count, by: 7).map { Array(days[$0..<($0 + 7)]) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -117,12 +121,16 @@ private struct CalendarMonthGrid: View {
                     .padding(.horizontal, 16).frame(height: 60)
                     .accessibilityAddTraits(.isHeader)
             }
-            LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(Array(viewModel.schedule.monthDays(containing: month).enumerated()), id: \.offset) { _, date in
-                    if let date {
-                        CalendarMonthDay(viewModel: viewModel, date: date, height: rowHeight)
-                    } else {
-                        Color.clear.frame(height: rowHeight)
+            VStack(spacing: 0) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 0) {
+                        ForEach(Array(week.enumerated()), id: \.offset) { _, date in
+                            if let date {
+                                CalendarMonthDay(viewModel: viewModel, date: date, height: rowHeight)
+                            } else {
+                                Color.clear.frame(maxWidth: .infinity).frame(height: rowHeight)
+                            }
+                        }
                     }
                 }
             }

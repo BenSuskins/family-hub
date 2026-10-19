@@ -3,6 +3,7 @@ import FamilyHubKit
 
 enum CalendarDemoData {
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-calendar-fixtures") }
+    static var usesLayoutFixtures: Bool { ProcessInfo.processInfo.arguments.contains("-calendar-layout-fixtures") }
     static var now: Date { date(day: 15, hour: 8) }
 
     static func response(view: String, date: Date) -> CalendarResponse {
@@ -16,7 +17,7 @@ enum CalendarDemoData {
         }
         let days = calendar.range(of: .day, in: .month, for: interval.start)!.count
         let dates = (0...days).map { schedule.adding(.day, value: $0, to: interval.start) }.filter { $0 < interval.end }
-        let events = [
+        var events = [
             event("school", "School run", day: 15, hour: 9, duration: 60, color: "#007AFF"),
             event("dentist", "Dentist", day: 15, hour: 9, minute: 30, duration: 90, color: "#AF52DE"),
             event("lunch", "Lunch with Sam", day: 15, hour: 12, duration: 60, color: "#FF9500"),
@@ -30,6 +31,9 @@ enum CalendarDemoData {
                           startTime: self.date(day: 17, hour: 10), endTime: nil, allDay: false, color: "#007AFF")
         ] + (0..<6).map { index in
             event("busy-\(index)", "Family activity \(index + 1)", day: 16, hour: 9 + index, duration: 45, color: "#5856D6")
+        }
+        if usesLayoutFixtures {
+            events.append(event("long-title", "Tottenham Hotspur - Coventry City", day: 12, hour: 13, duration: 90, color: "#007AFF"))
         }
         let chores = [
             Chore(id: "fixture-dishes", name: "Do the dishes", description: "", status: .pending,

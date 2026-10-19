@@ -6,16 +6,7 @@ enum CalendarViewMode: String, CaseIterable {
     case year = "Year"
     case month = "Month"
     case day = "Day"
-    case multiDay = "Multi Day"
     case week = "Week"
-    case list = "List"
-}
-
-enum CalendarMonthDisplay: String, CaseIterable {
-    case compact = "Compact"
-    case stacked = "Stacked"
-    case details = "Details"
-    case list = "List"
 }
 
 @Observable
@@ -26,10 +17,8 @@ final class CalendarViewModel {
     private(set) var loadError: APIError?
     private(set) var selectedDate: Date
     private(set) var viewMode: CalendarViewMode
-    private(set) var monthDisplay: CalendarMonthDisplay
     private(set) var monthScale: Double
     private(set) var hourHeight: Double
-    private(set) var listMonthCount = 1
     private(set) var navigationRevision = 0
     private(set) var users: [String: User] = [:]
     private(set) var schedule: CalendarSchedule
@@ -53,7 +42,6 @@ final class CalendarViewModel {
         self.preferences = preferences
         selectedDate = calendar.startOfDay(for: now())
         viewMode = preferences?.string(forKey: "calendar.view").flatMap(CalendarViewMode.init(rawValue:)) ?? .month
-        monthDisplay = preferences?.string(forKey: "calendar.monthDisplay").flatMap(CalendarMonthDisplay.init(rawValue:)) ?? .details
         monthScale = min(2, max(0.6, preferences?.object(forKey: "calendar.monthScale") as? Double ?? 1))
         hourHeight = min(120, max(44, preferences?.object(forKey: "calendar.hourHeight") as? Double ?? 64))
     }
@@ -61,16 +49,12 @@ final class CalendarViewModel {
     var currentMonth: Date { schedule.monthStart(containing: selectedDate) }
     var currentWeekStart: Date { schedule.weekStart(containing: selectedDate) }
     var today: Date { now() }
-    var requestKey: String { "\(viewMode.rawValue)-\(schedule.dayKey(selectedDate))-\(listMonthCount)-\(schedule.calendar.timeZone.identifier)-\(schedule.calendar.firstWeekday)" }
+    var requestKey: String { "\(viewMode.rawValue)-\(schedule.dayKey(selectedDate))-\(schedule.calendar.timeZone.identifier)-\(schedule.calendar.firstWeekday)" }
 
     var timelineDays: [Date] {
         let start = viewMode == .week ? currentWeekStart : selectedDate
-        let count = viewMode == .week ? 7 : viewMode == .multiDay ? 2 : 1
+        let count = viewMode == .week ? 7 : 1
         return (0..<count).map { schedule.adding(.day, value: $0, to: start) }
-    }
-
-    var listMonths: [Date] {
-        (0..<listMonthCount).map { schedule.adding(.month, value: $0, to: currentMonth) }
     }
 
     func updateCalendar(_ calendar: Calendar) {
@@ -87,13 +71,7 @@ final class CalendarViewModel {
 
     func setView(_ mode: CalendarViewMode) {
         viewMode = mode
-        listMonthCount = 1
         preferences?.set(mode.rawValue, forKey: "calendar.view")
-    }
-
-    func setMonthDisplay(_ display: CalendarMonthDisplay) {
-        monthDisplay = display
-        preferences?.set(display.rawValue, forKey: "calendar.monthDisplay")
     }
 
     func setMonthScale(_ scale: Double) {
@@ -126,7 +104,7 @@ final class CalendarViewModel {
 
     func move(_ direction: Int) {
         let component: Calendar.Component = viewMode == .year ? .year : viewMode == .month ? .month : .day
-        let step = viewMode == .week ? 7 : viewMode == .multiDay ? 2 : 1
+        let step = viewMode == .week ? 7 : 1
         selectDate(schedule.adding(component, value: direction * step, to: selectedDate))
     }
 
@@ -134,8 +112,6 @@ final class CalendarViewModel {
         selectDate(now())
         navigationRevision += 1
     }
-
-    func loadMore() { listMonthCount += 1 }
 
     func hasLoaded(_ month: Date) -> Bool { responses[schedule.monthKey(month)] != nil }
 
@@ -149,21 +125,24 @@ final class CalendarViewModel {
             isLoading = false
             return
         }
-        let visibleMonths = viewMode == .list ? listMonths : timelineDays.map { schedule.monthStart(containing: $0) }
+        let visibleMonths = timelineDays.map { schedule.monthStart(containing: $0) }
         let required = Array(Set(visibleMonths + [currentMonth])).sorted()
-        let adjacent = [schedule.adding(.month, value: -1, to: required.first!),
-                        schedule.adding(.month, value: 1, to: required.last!)]
+        let adjacent = (1...3).flatMap { distance in
+            [schedule.adding(.month, value: -distance, to: required.first!),
+             schedule.adding(.month, value: distance, to: required.last!)]
+        }
         let months = required + adjacent.filter { !required.contains($0) }
         let keys = Set(months.map { schedule.monthKey($0) })
         for key in Array(requests.keys) where !keys.contains(key) || forceRefresh {
             requests.removeValue(forKey: key)?.cancel()
         }
-        isLoading = true
+        isLoading = required.contains { forceRefresh || !hasLoaded($0) }
         if responses.isEmpty { state = .loading }
         defer { if loadIdentifier == identifier { isLoading = false } }
 
         for month in months {
             guard !Task.isCancelled, loadIdentifier == identifier else { return }
+            if !required.contains(month) { isLoading = false }
             let key = schedule.monthKey(month)
             if !forceRefresh, responses[key] != nil { continue }
             let request = requests[key] ?? Task { try await apiClient.fetchCalendar(view: "month", date: month) }
@@ -192,7 +171,6 @@ final class CalendarViewModel {
             } catch { /* Names do not prevent access to the calendar. */ }
         }
         if responses.isEmpty, let loadError { state = .failed(loadError) }
-        else { publish() }
     }
 
     func cancelLoads() {

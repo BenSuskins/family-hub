@@ -26,20 +26,11 @@ struct CalendarView: View {
                 content
             }
             .background(Color(.systemBackground))
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack {
-                    Button("Today") { viewModel.goToToday() }
-                        .frame(minHeight: 44)
-                        .accessibilityIdentifier("calendar-today")
-                    Spacer()
-                    if !dynamicTypeSize.isAccessibilitySize {
-                        Text(viewModel.selectedDate.formatted(.dateTime.month(.wide).year()))
-                            .font(.subheadline).foregroundStyle(.secondary)
-                            .accessibilityHidden(true)
-                    }
+            .overlay(alignment: .top) {
+                if viewModel.isLoading {
+                    ProgressView().controlSize(.small).padding(4)
+                        .accessibilityLabel("Loading calendar")
                 }
-                .padding(.horizontal, 16)
-                .background(.bar)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -57,8 +48,14 @@ struct CalendarView: View {
                         .accessibilityLabel(viewModel.viewMode == .month ? "Show year" : "Show month")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) { viewMenu }
-
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 8) {
+                        Button("Today") { viewModel.goToToday() }
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("calendar-today")
+                        viewMenu
+                    }
+                }
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await viewModel.load(forceRefresh: true) } }
@@ -80,69 +77,36 @@ struct CalendarView: View {
         switch viewModel.viewMode {
         case .year: "Calendar"
         case .month: "Calendar"
-        case .list: "Upcoming"
         default: viewModel.selectedDate.formatted(.dateTime.month(.wide).day())
         }
     }
 
     private var viewMenu: some View {
         Menu {
-            if viewModel.viewMode == .month {
-                Section("Month view") {
-                    ForEach(CalendarMonthDisplay.allCases, id: \.self) { display in
-                        Button {
-                            viewModel.setMonthDisplay(display)
-                        } label: {
-                            Label(display.rawValue, systemImage: viewModel.monthDisplay == display ? "checkmark" : "calendar")
-                        }.accessibilityIdentifier("calendar-month-display-\(display.rawValue)")
-                    }
-                }
+            ForEach(CalendarViewMode.allCases, id: \.self) { mode in
+                Button { viewModel.setView(mode) } label: {
+                    Label(mode.rawValue, systemImage: viewModel.viewMode == mode ? "checkmark" : icon(for: mode))
+                }.accessibilityIdentifier("calendar-mode-\(mode.rawValue)")
             }
-            Menu("Date", systemImage: "calendar.badge.clock") {
-                Button("Previous \(periodName)", systemImage: "chevron.left") { viewModel.move(-1) }
-                Button("Next \(periodName)", systemImage: "chevron.right") { viewModel.move(1) }
-            }
-            Menu("View", systemImage: "calendar") {
-                ForEach(CalendarViewMode.allCases, id: \.self) { mode in
-                    Button { viewModel.setView(mode) } label: {
-                        Label(mode.rawValue, systemImage: viewModel.viewMode == mode ? "checkmark" : icon(for: mode))
-                    }.accessibilityIdentifier("calendar-mode-\(mode.rawValue)")
-                }
-            }.accessibilityIdentifier("calendar-mode-menu")
         } label: {
             Image(systemName: "rectangle.topthird.inset.filled")
                 .frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityLabel("Calendar view")
-        .accessibilityValue(viewModel.viewMode == .month ? viewModel.monthDisplay.rawValue : viewModel.viewMode.rawValue)
+        .accessibilityValue(viewModel.viewMode.rawValue)
         .accessibilityIdentifier("calendar-view-menu")
-    }
-
-    private var periodName: String {
-        switch viewModel.viewMode {
-        case .year: "year"
-        case .month: "month"
-        case .week: "week"
-        default: "day"
-        }
     }
 
     private func icon(for mode: CalendarViewMode) -> String {
         switch mode {
         case .year, .month: "calendar"
         case .day: "rectangle"
-        case .multiDay: "rectangle.split.2x1"
         case .week: "rectangle.split.3x1"
-        case .list: "list.bullet"
         }
     }
 
     @ViewBuilder
     private var status: some View {
-        if viewModel.isLoading {
-            ProgressView().controlSize(.small).frame(maxWidth: .infinity).padding(4)
-                .accessibilityLabel("Loading calendar")
-        }
         if let error = viewModel.loadError {
             HStack {
                 Text(error.localizedDescription).font(.caption)
@@ -163,9 +127,9 @@ struct CalendarView: View {
             if dynamicTypeSize.isAccessibilitySize || voiceOverEnabled {
                 accessibleMonth
             } else {
-                CalendarMonthsView(viewModel: viewModel, apiClient: apiClient)
+                CalendarMonthsView(viewModel: viewModel)
             }
-        case .day, .multiDay, .week:
+        case .day, .week:
             if dynamicTypeSize.isAccessibilitySize || voiceOverEnabled {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -178,8 +142,6 @@ struct CalendarView: View {
             } else {
                 CalendarTimelineView(viewModel: viewModel, apiClient: apiClient)
             }
-        case .list:
-            CalendarUpcomingView(viewModel: viewModel, apiClient: apiClient)
         }
     }
 

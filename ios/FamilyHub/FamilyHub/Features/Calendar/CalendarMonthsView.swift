@@ -3,7 +3,6 @@ import FamilyHubKit
 
 struct CalendarMonthsView: View {
     let viewModel: CalendarViewModel
-    let apiClient: any APIClientProtocol
     @State private var months: [Date] = []
     @State private var visibleMonth: Date?
     @State private var scrollPhase: ScrollPhase = .idle
@@ -11,43 +10,20 @@ struct CalendarMonthsView: View {
     @GestureState private var magnification = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(viewModel: CalendarViewModel, apiClient: any APIClientProtocol) {
+    init(viewModel: CalendarViewModel) {
         self.viewModel = viewModel
-        self.apiClient = apiClient
         _months = State(initialValue: (-12...12).map {
             viewModel.schedule.adding(.month, value: $0, to: viewModel.currentMonth)
         })
         _visibleMonth = State(initialValue: viewModel.currentMonth)
     }
 
-    private var rowHeight: Double {
-        switch viewModel.monthDisplay {
-        case .compact, .list: 48
-        case .stacked: 64 * viewModel.monthScale * magnification
-        case .details: 98 * viewModel.monthScale * magnification
-        }
-    }
+    private var rowHeight: Double { 98 * viewModel.monthScale * magnification }
 
     var body: some View {
         VStack(spacing: 0) {
             CalendarWeekdayHeader(calendar: viewModel.schedule.calendar)
-            if viewModel.monthDisplay == .list {
-                ScrollView {
-                    CalendarMonthGrid(viewModel: viewModel, month: viewModel.currentMonth,
-                                      rowHeight: rowHeight, showsTitle: true)
-                    Divider()
-                    CalendarAgendaView(viewModel: viewModel, day: viewModel.selectedDate, apiClient: apiClient)
-                        .padding(.horizontal)
-                }
-                .refreshable { await viewModel.load(forceRefresh: true) }
-                .gesture(DragGesture(minimumDistance: 40).onEnded { value in
-                    if abs(value.translation.width) > abs(value.translation.height) {
-                        viewModel.move(value.translation.width < 0 ? 1 : -1)
-                    }
-                })
-            } else {
-                scrollingMonths
-            }
+            scrollingMonths
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar-months")
@@ -56,7 +32,7 @@ struct CalendarMonthsView: View {
     private var scrollingMonths: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     ForEach(months, id: \.self) { month in
                         CalendarMonthGrid(viewModel: viewModel, month: month,
                                           rowHeight: max(44, rowHeight), showsTitle: true)
@@ -66,8 +42,14 @@ struct CalendarMonthsView: View {
             }
             .scrollPosition(id: $visibleMonth, anchor: .top)
             .scrollDisabled(isZooming)
-            .onScrollPhaseChange { _, phase in scrollPhase = phase }
-            .task(id: "\(viewModel.monthDisplay)-\(viewModel.monthScale)") {
+            .onScrollPhaseChange { previousPhase, phase in
+                scrollPhase = phase
+                if phase == .idle, previousPhase == .interacting || previousPhase == .decelerating,
+                   let month = visibleMonth, month != viewModel.currentMonth {
+                    viewModel.selectDate(month)
+                }
+            }
+            .task(id: viewModel.monthScale) {
                 await Task.yield()
                 proxy.scrollTo(viewModel.currentMonth, anchor: .top)
             }
@@ -84,7 +66,6 @@ struct CalendarMonthsView: View {
             .onChange(of: visibleMonth) { _, month in
                 guard let month, !isZooming,
                       scrollPhase == .interacting || scrollPhase == .decelerating else { return }
-                if month != viewModel.currentMonth { viewModel.selectDate(month) }
                 if let first = months.first, month <= months[min(2, months.count - 1)] {
                     months.insert(contentsOf: (-12 ... -1).map { viewModel.schedule.adding(.month, value: $0, to: first) }, at: 0)
                 }
@@ -98,17 +79,7 @@ struct CalendarMonthsView: View {
                 isZooming = true
             }.onEnded { value in
                 isZooming = false
-                if viewModel.monthDisplay == .compact, value.magnification > 1.15 {
-                    viewModel.setMonthDisplay(.stacked)
-                } else if viewModel.monthDisplay == .stacked, value.magnification > 1.15 {
-                    viewModel.setMonthDisplay(.details)
-                } else if viewModel.monthDisplay == .stacked, value.magnification < 0.85 {
-                    viewModel.setMonthDisplay(.compact)
-                } else if viewModel.monthDisplay == .details, value.magnification < 0.7, viewModel.monthScale <= 0.8 {
-                    viewModel.setMonthDisplay(.stacked)
-                } else {
-                    viewModel.setMonthScale(viewModel.monthScale * value.magnification)
-                }
+                viewModel.setMonthScale(viewModel.monthScale * value.magnification)
             })
             .refreshable { await viewModel.load(forceRefresh: true) }
         }
@@ -167,40 +138,29 @@ private struct CalendarMonthDay: View {
 
     private var items: [CalendarDisplayItem] { viewModel.items(for: date) }
     private var isToday: Bool { viewModel.schedule.calendar.isDate(date, inSameDayAs: viewModel.today) }
-    private var isSelected: Bool { viewModel.schedule.calendar.isDate(date, inSameDayAs: viewModel.selectedDate) }
     private var limit: Int { max(1, Int((height - 36) / 16)) }
 
     var body: some View {
         Button {
-            if viewModel.monthDisplay == .list { viewModel.selectDate(date) }
-            else { viewModel.openDay(date) }
+            viewModel.openDay(date)
         } label: {
             VStack(spacing: 2) {
                 Text(date.formatted(.dateTime.day()))
                     .font(.body)
-                    .foregroundStyle(isToday || (isSelected && viewModel.monthDisplay == .list) ? Color.white : Color.primary)
+                    .foregroundStyle(isToday ? Color.white : Color.primary)
                     .frame(width: 30, height: 30)
-                    .background(isToday ? Color.red : isSelected && viewModel.monthDisplay == .list ? Color.primary : .clear, in: Circle())
-                switch viewModel.monthDisplay {
-                case .compact, .list:
-                    Capsule().fill(items.first?.color ?? .clear).frame(width: 24, height: 4)
-                case .stacked:
-                    ForEach(items.prefix(limit)) { item in
-                        Capsule().fill(item.color).frame(height: 4).padding(.horizontal, 4)
+                    .background(isToday ? Color.red : .clear, in: Circle())
+                ForEach(items.prefix(limit)) { item in
+                    HStack(spacing: 1) {
+                        if let symbol = item.symbol { Image(systemName: symbol).font(.system(size: 8)) }
+                        Text(item.title).font(.system(size: 10, weight: .medium)).lineLimit(1)
                     }
-                case .details:
-                    ForEach(items.prefix(limit)) { item in
-                        HStack(spacing: 1) {
-                            if let symbol = item.symbol { Image(systemName: symbol).font(.system(size: 8)) }
-                            Text(item.title).font(.system(size: 10, weight: .medium)).lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 2).padding(.vertical, 1)
-                        .foregroundStyle(.primary)
-                        .background(item.color.opacity(0.13), in: RoundedRectangle(cornerRadius: 3))
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 2).padding(.vertical, 1)
+                    .foregroundStyle(.primary)
+                    .background(item.color.opacity(0.13), in: RoundedRectangle(cornerRadius: 3))
                 }
-                if items.count > limit, viewModel.monthDisplay == .details || viewModel.monthDisplay == .stacked {
+                if items.count > limit {
                     Text("+\(items.count - limit)").font(.system(size: 9)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -216,7 +176,7 @@ private struct CalendarMonthDay: View {
         .buttonStyle(.plain)
         .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
         .accessibilityValue("\(items.count) items" + (isToday ? ", Today" : ""))
-        .accessibilityHint(viewModel.monthDisplay == .list ? "Show items for this date" : "Open day timeline")
+        .accessibilityHint("Open day timeline")
         .accessibilityIdentifier("calendar-date-\(viewModel.schedule.dayKey(date))")
     }
 }
@@ -240,7 +200,7 @@ struct CalendarYearView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                LazyVStack(alignment: .leading, spacing: 24) {
                     ForEach(years, id: \.self) { year in
                         VStack(alignment: .leading, spacing: 20) {
                             Text(String(year)).font(.largeTitle.bold()).foregroundStyle(.red).accessibilityAddTraits(.isHeader)
@@ -256,7 +216,14 @@ struct CalendarYearView: View {
                 }.padding().scrollTargetLayout()
             }
             .scrollPosition(id: $visibleYear, anchor: .top)
-            .onScrollPhaseChange { _, phase in scrollPhase = phase }
+            .onScrollPhaseChange { previousPhase, phase in
+                scrollPhase = phase
+                if phase == .idle, previousPhase == .interacting || previousPhase == .decelerating,
+                   let year = visibleYear, year != currentYear,
+                   let date = viewModel.schedule.calendar.date(from: DateComponents(year: year, month: 1, day: 1)) {
+                    viewModel.selectDate(date)
+                }
+            }
             .task {
                 await Task.yield()
                 proxy.scrollTo(currentYear, anchor: .top)
@@ -265,15 +232,12 @@ struct CalendarYearView: View {
                 proxy.scrollTo(currentYear, anchor: .top)
             }
             .onChange(of: currentYear) { _, year in
+                guard visibleYear != year else { return }
                 if !years.contains(year) { years = Array((year - 3)...(year + 3)) }
                 proxy.scrollTo(year, anchor: .top)
             }
             .onChange(of: visibleYear) { _, year in
                 guard let year, scrollPhase == .interacting || scrollPhase == .decelerating else { return }
-                if year != currentYear,
-                   let date = viewModel.schedule.calendar.date(from: DateComponents(year: year, month: 1, day: 1)) {
-                    viewModel.selectDate(date)
-                }
                 if year == years.first { years.insert(contentsOf: (year - 3)..<year, at: 0) }
                 if year == years.last { years += Array((year + 1)...(year + 3)) }
             }

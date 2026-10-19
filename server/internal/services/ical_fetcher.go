@@ -55,7 +55,10 @@ func (fetcher *ICalFetcher) FetchForRange(ctx context.Context, start, end time.T
 			continue
 		}
 		for _, event := range subEvents {
-			inRange := (event.StartTime.Equal(start) || event.StartTime.After(start)) && event.StartTime.Before(end)
+			inRange := !event.StartTime.Before(start) && event.StartTime.Before(end)
+			if event.EndTime != nil && event.EndTime.After(event.StartTime) {
+				inRange = event.StartTime.Before(end) && event.EndTime.After(start)
+			}
 			if inRange {
 				events = append(events, event)
 			}

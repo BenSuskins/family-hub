@@ -53,6 +53,9 @@ final class FakeAPIClient: APIClientProtocol {
     var updateRecipeResult: Result<Recipe, Error> = .failure(APIError.notFound)
     var deleteRecipeResult: Result<Void, Error> = .success(())
     var calendarResult: Result<CalendarResponse, Error> = .success(CalendarResponse(chores: [], events: [], meals: []))
+    var calendarsByMonth: [String: CalendarResponse] = [:]
+    var beforeFetchCalendar: ((Date) async throws -> Void)?
+    var calendarRequests: [String] = []
     var usersResult: Result<[User], Error> = .success([])
     var saveMealResult: Result<MealPlan, Error> = .success(MealPlan(date: "", mealType: "", name: "", notes: "", recipeID: nil))
     var deleteMealResult: Result<Void, Error> = .success(())
@@ -122,7 +125,14 @@ final class FakeAPIClient: APIClientProtocol {
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe { try createRecipeResult.get() }
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe { try updateRecipeResult.get() }
     func deleteRecipe(id: String) async throws { try deleteRecipeResult.get() }
-    func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse { try calendarResult.get() }
+    func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
+        calendarRequests.append(APIDate.monthString(date))
+        try await beforeFetchCalendar?(date)
+        if !calendarsByMonth.isEmpty {
+            return calendarsByMonth[APIDate.monthString(date)] ?? CalendarResponse(chores: [], events: [], meals: [])
+        }
+        return try calendarResult.get()
+    }
     func fetchUsers() async throws -> [User] { try usersResult.get() }
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan { try saveMealResult.get() }
     func deleteMeal(date: String, mealType: String) async throws { try deleteMealResult.get() }

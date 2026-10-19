@@ -323,9 +323,9 @@ public final class APIClient: APIClientProtocol {
     public func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
         var queryItems = [URLQueryItem(name: "view", value: view)]
         if view == "month" {
-            queryItems.append(URLQueryItem(name: "month", value: APIDate.monthString(date)))
+            queryItems.append(URLQueryItem(name: "month", value: CalendarSchedule().monthKey(date)))
         } else {
-            queryItems.append(URLQueryItem(name: "date", value: APIDate.dayString(date)))
+            queryItems.append(URLQueryItem(name: "date", value: CalendarSchedule().dayKey(date)))
         }
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }

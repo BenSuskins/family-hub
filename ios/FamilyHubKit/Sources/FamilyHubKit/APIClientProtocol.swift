@@ -18,6 +18,12 @@ public protocol TokenProviding: AnyObject {
 public protocol APIClientProtocol: AnyObject {
     func fetchDashboardStats() async throws -> DashboardStats
     func fetchChores() async throws -> [Chore]
+    func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition]
+    func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition
+    func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition
+    func deleteChoreDefinition(id: String) async throws
+    func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage
+    func skipChore(id: String) async throws
     func completeChore(id: String) async throws
     func createChore(_ request: ChoreRequest) async throws -> Chore
     func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore

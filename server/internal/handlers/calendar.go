@@ -18,6 +18,7 @@ type CalendarHandler struct {
 	icalFetcher  *services.ICalFetcher
 	userRepo     repository.UserRepository
 	mealPlanRepo repository.MealPlanRepository
+	choreService *services.ChoreService
 }
 
 func NewCalendarHandler(
@@ -25,13 +26,18 @@ func NewCalendarHandler(
 	icalFetcher *services.ICalFetcher,
 	userRepo repository.UserRepository,
 	mealPlanRepo repository.MealPlanRepository,
+	choreServices ...*services.ChoreService,
 ) *CalendarHandler {
-	return &CalendarHandler{
+	handler := &CalendarHandler{
 		choreRepo:    choreRepo,
 		icalFetcher:  icalFetcher,
 		userRepo:     userRepo,
 		mealPlanRepo: mealPlanRepo,
 	}
+	if len(choreServices) > 0 {
+		handler.choreService = choreServices[0]
+	}
+	return handler
 }
 
 func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request) {
@@ -119,6 +125,15 @@ func (handler *CalendarHandler) Calendar(w http.ResponseWriter, r *http.Request)
 		slog.Error("finding chores for calendar", "error", err)
 	}
 
+	if handler.choreService != nil {
+		forecasts, err := handler.choreService.Forecast(ctx, start, end)
+		if err != nil {
+			slog.Error("forecasting chores", "error", err)
+			http.Error(w, "Error loading chores", 500)
+			return
+		}
+		chores = append(chores, forecasts...)
+	}
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
 		slog.Error("finding users for calendar", "error", err)

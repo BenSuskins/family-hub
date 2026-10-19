@@ -12,7 +12,7 @@ final class CalendarScheduleTests: XCTestCase {
 
     private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
 
-    func testEventAppearsOnEachDayItOccupiesWithoutIncludingItsExclusiveEnd() {
+    func testEventAppearsOnEachDayItOccupiesWithoutIncludingItsExclusiveEnd() async {
         let schedule = CalendarSchedule(calendar: calendar)
         let event = CalendarEvent(id: "trip", title: "Trip", description: "", location: "",
                                   startTime: date("2026-04-01T00:00:00Z"),
@@ -21,7 +21,7 @@ final class CalendarScheduleTests: XCTestCase {
         XCTAssertTrue(schedule.contains(event, on: date("2026-04-02T12:00:00Z")))
         XCTAssertFalse(schedule.contains(event, on: date("2026-04-03T12:00:00Z")))
     }
-    func testMonthGridUsesTheLocalWeekStartAndIncludesLeapDay() {
+    func testMonthGridUsesTheLocalWeekStartAndIncludesLeapDay() async {
         let schedule = CalendarSchedule(calendar: calendar)
         let days = schedule.monthDays(containing: date("2024-02-10T12:00:00Z"))
         XCTAssertEqual(days.count, 35)
@@ -32,7 +32,7 @@ final class CalendarScheduleTests: XCTestCase {
         XCTAssertEqual(schedule.dayKey(schedule.weekStart(containing: date("2024-02-10T12:00:00Z"))), "2024-02-05")
     }
 
-    func testTimelinePlacesOverlapsInColumnsAndUsesWallTimeAcrossDaylightSaving() {
+    func testTimelinePlacesOverlapsInColumnsAndUsesWallTimeAcrossDaylightSaving() async {
         let schedule = CalendarSchedule(calendar: calendar)
         let first = CalendarEvent(id: "first", title: "First", description: "", location: "",
                                   startTime: date("2026-03-29T08:00:00Z"), endTime: date("2026-03-29T09:00:00Z"),
@@ -49,7 +49,7 @@ final class CalendarScheduleTests: XCTestCase {
         XCTAssertEqual(placements.map(\.columnCount), [2, 2])
     }
 
-    func testAllDayDatesDoNotShiftWhenTheDeviceTimeZoneChanges() {
+    func testAllDayDatesDoNotShiftWhenTheDeviceTimeZoneChanges() async {
         var pacific = calendar
         pacific.timeZone = TimeZone(identifier: "America/Los_Angeles")!
         let schedule = CalendarSchedule(calendar: pacific)
@@ -61,7 +61,7 @@ final class CalendarScheduleTests: XCTestCase {
         XCTAssertFalse(schedule.contains(event, on: date("2026-04-02T12:00:00Z")))
     }
 
-    func testShortEventsKeepSeparateTouchTargetsAtSmallTimelineScales() {
+    func testShortEventsKeepSeparateTouchTargetsAtSmallTimelineScales() async {
         let schedule = CalendarSchedule(calendar: calendar)
         let first = CalendarEvent(id: "first", title: "First", description: "", location: "",
                                   startTime: date("2026-04-01T08:00:00Z"), endTime: date("2026-04-01T08:10:00Z"),

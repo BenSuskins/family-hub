@@ -494,3 +494,32 @@ extension APIClient {
         try await post("api/shopping/items/\(id)/restock", body: request)
     }
 }
+
+extension APIClient {
+    public func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
+        try await get("api/chore-definitions", queryItems: [URLQueryItem(name: "include_inactive", value: String(includeInactive))])
+    }
+
+    public func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
+        try await post("api/chore-definitions", body: request)
+    }
+
+    public func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
+        try await put("api/chore-definitions/\(id)", body: request)
+    }
+
+    public func deleteChoreDefinition(id: String) async throws {
+        try await delete("api/chore-definitions/\(id)")
+    }
+
+    public func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage {
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "definition_id", value: definitionID)]
+        if let cursor { components.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("api/chore-history", queryItems: components.queryItems ?? [])
+    }
+
+    public func skipChore(id: String) async throws {
+        try await post("api/chores/\(id)/skip")
+    }
+}

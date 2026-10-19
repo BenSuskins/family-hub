@@ -94,8 +94,8 @@ func TestChoreService_AssignNextUser_RoundRobin(t *testing.T) {
 	_ = users
 
 	chore, _ := choreRepo.Create(ctx, models.Chore{
-		Name:            "Test Chore",
-		CreatedByUserID: users[0].ID,
+		Name:              "Test Chore",
+		CreatedByUserID:   users[0].ID,
 		LastAssignedIndex: -1,
 	})
 
@@ -108,8 +108,8 @@ func TestChoreService_AssignNextUser_RoundRobin(t *testing.T) {
 	}
 
 	chore2, _ := choreRepo.Create(ctx, models.Chore{
-		Name:            "Test Chore 2",
-		CreatedByUserID: users[0].ID,
+		Name:              "Test Chore 2",
+		CreatedByUserID:   users[0].ID,
 		LastAssignedIndex: assigned1.LastAssignedIndex,
 	})
 
@@ -307,97 +307,6 @@ func TestChoreService_AssignNextUser_PoolChange(t *testing.T) {
 	}
 }
 
-func TestChoreService_SeedFutureOccurrences(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 2)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1) // due tomorrow
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Weekly Cleanup",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-	seriesID := *chore.SeriesID
-
-	until := now.AddDate(0, 0, 28) // seed 4 weeks ahead
-	if err := service.SeedFutureOccurrences(ctx, chore, until); err != nil {
-		t.Fatalf("SeedFutureOccurrences: %v", err)
-	}
-
-	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
-	})
-	// base chore + 3 seeded instances (4 weeks - 1 already exists = 3 new ones)
-	if len(all) < 3 {
-		t.Errorf("want at least 3 pending chores, got %d", len(all))
-	}
-	for _, c := range all {
-		if c.ID == chore.ID {
-			continue // skip base
-		}
-		if c.Status != models.ChoreStatusPending {
-			t.Errorf("seeded chore %s has status %s, want pending", c.ID, c.Status)
-		}
-		if c.SeriesID == nil || *c.SeriesID != seriesID {
-			t.Errorf("seeded chore %s has wrong series_id", c.ID)
-		}
-		if c.AssignedToUserID == nil {
-			t.Errorf("seeded chore %s has no assignee", c.ID)
-		}
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_RotatesAcrossUsers(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 3)
-	_ = users
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1)
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-	chore, _ = service.AssignNextUser(ctx, chore)
-
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 7)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
-		OrderBy:  repository.OrderByDueDateAsc,
-	})
-
-	seen := map[string]bool{}
-	prev := ""
-	for _, c := range pending {
-		if c.AssignedToUserID == nil {
-			t.Fatalf("occurrence %s left unassigned", c.ID)
-		}
-		seen[*c.AssignedToUserID] = true
-		if prev != "" && prev == *c.AssignedToUserID {
-			t.Errorf("consecutive occurrences both assigned to %s", prev)
-		}
-		prev = *c.AssignedToUserID
-	}
-	if len(seen) != 3 {
-		t.Errorf("expected rotation to cover all 3 users, got %d distinct", len(seen))
-	}
-}
-
 func TestChoreService_AssignNextUser_AllOverdueStillRotates(t *testing.T) {
 	service, choreRepo, _, userRepo := setupChoreService(t)
 	ctx := context.Background()
@@ -431,43 +340,6 @@ func TestChoreService_AssignNextUser_AllOverdueStillRotates(t *testing.T) {
 
 	if *a1.AssignedToUserID == *a2.AssignedToUserID {
 		t.Error("rotation should still advance when every candidate is overdue")
-	}
-}
-
-func TestChoreService_TopUpAllSeries_RefillsExhaustedSeries(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 2)
-
-	// A recurring series whose only row is already in the past: the future
-	// window is exhausted.
-	past := time.Now().AddDate(0, 0, -3)
-	newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &past,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-
-	if err := service.TopUpAllSeries(ctx, time.Now().AddDate(0, 0, 10)); err != nil {
-		t.Fatalf("TopUpAllSeries: %v", err)
-	}
-
-	now := time.Now()
-	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
-	})
-	future := 0
-	for _, c := range pending {
-		if c.DueDate != nil && c.DueDate.After(now) {
-			future++
-		}
-	}
-	if future == 0 {
-		t.Error("top-up should refill future occurrences for an exhausted series")
 	}
 }
 
@@ -558,7 +430,12 @@ func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
 		t.Errorf("rotation cursor should advance to users[1], got %v", series.RotationCursorUserID)
 	}
 
-	// Widen the pool; the next occurrence must continue rotation from the cursor.
+	// Resolve the first task before creating another outstanding task.
+	a1.Status = models.ChoreStatusCompleted
+	if err := choreRepo.Update(ctx, a1); err != nil {
+		t.Fatal(err)
+	}
+	// Widen the pool; the next occurrence continues from the cursor.
 	seriesRepo.SetEligibleAssignees(ctx, seriesID, []string{users[0].ID, users[1].ID, users[2].ID})
 	c2, _ := choreRepo.Create(ctx, models.Chore{
 		Name: "occ2", CreatedByUserID: users[0].ID, SeriesID: &seriesID, LastAssignedIndex: -1,
@@ -569,193 +446,6 @@ func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
 	}
 	if *a2.AssignedToUserID == users[1].ID {
 		t.Errorf("rotation should advance past the cursor user, but stayed on users[1]")
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_StopsAtRecurrenceUntil(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 2)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1)
-	until := now.AddDate(0, 0, 5) // series ends in 5 days
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`, RecurrenceUntil: &until},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-
-	// Ask to seed 30 days ahead; the end date must win.
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 30)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
-	for _, c := range all {
-		if c.DueDate != nil && c.DueDate.After(until) {
-			t.Errorf("occurrence due %v is past recurrence_until %v", c.DueDate, until)
-		}
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_StopsAfterRecurrenceCount(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 2)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1)
-	count := 3
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`, RecurrenceCount: &count},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-	seriesID := *chore.SeriesID
-
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 30)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	total, _ := choreRepo.CountBySeries(ctx, seriesID)
-	if total != count {
-		t.Errorf("expected exactly %d occurrences in capped series, got %d", count, total)
-	}
-
-	// Re-seeding must not exceed the cap.
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 30)); err != nil {
-		t.Fatalf("re-seed: %v", err)
-	}
-	total, _ = choreRepo.CountBySeries(ctx, seriesID)
-	if total != count {
-		t.Errorf("cap breached on re-seed: got %d, want %d", total, count)
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_SkipsPastNoBackfill(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 1)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, -10) // anchor due 10 days ago
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 0, 5)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
-	for _, c := range all {
-		if c.ID == chore.ID {
-			continue // the anchor itself is allowed to be in the past
-		}
-		if c.DueDate != nil && c.DueDate.Before(now) {
-			t.Errorf("seeded occurrence due %v is in the past; catch-up must not back-fill", c.DueDate)
-		}
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_SkipsRecurOnComplete(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 1)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1)
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`, RecurOnComplete: true},
-		models.Chore{
-			Name:            "Ad-hoc",
-			CreatedByUserID: users[0].ID,
-			DueDate:         &base,
-			Status:          models.ChoreStatusPending,
-		})
-
-	if err := service.SeedFutureOccurrences(ctx, chore, now.AddDate(0, 1, 0)); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	all, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{})
-	if len(all) != 1 {
-		t.Errorf("RecurOnComplete chores should not be seeded; want 1 chore, got %d", len(all))
-	}
-}
-
-func TestChoreService_SeedFutureOccurrences_Idempotent(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 1)
-
-	now := time.Now()
-	base := now.AddDate(0, 0, 1)
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceDaily, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Daily",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &base,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-
-	until := now.AddDate(0, 0, 7)
-	service.SeedFutureOccurrences(ctx, chore, until)
-	firstCount, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
-
-	// Seed again — should not create duplicates
-	service.SeedFutureOccurrences(ctx, chore, until)
-	secondCount, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
-
-	if len(firstCount) != len(secondCount) {
-		t.Errorf("seeding twice should be idempotent: first=%d second=%d", len(firstCount), len(secondCount))
-	}
-}
-
-func TestChoreService_CompleteChore_SeedsAhead(t *testing.T) {
-	service, choreRepo, _, userRepo, seriesRepo := setupChoreServiceWithSeries(t)
-	ctx := context.Background()
-	users := createUsers(t, userRepo, 2)
-
-	now := time.Now()
-	dueDate := now.AddDate(0, 0, -1) // overdue
-	chore := newRecurringChore(t, choreRepo, seriesRepo,
-		models.ChoreSeries{RecurrenceType: models.RecurrenceWeekly, RecurrenceValue: `{"interval":1}`},
-		models.Chore{
-			Name:              "Weekly",
-			CreatedByUserID:   users[0].ID,
-			DueDate:           &dueDate,
-			Status:            models.ChoreStatusPending,
-			LastAssignedIndex: -1,
-		})
-	chore, _ = service.AssignNextUser(ctx, chore)
-
-	if err := service.CompleteChore(ctx, chore.ID, users[0].ID); err != nil {
-		t.Fatalf("CompleteChore: %v", err)
-	}
-
-	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
-	})
-	if len(pending) == 0 {
-		t.Error("completing a recurring chore should seed future pending instances")
 	}
 }
 

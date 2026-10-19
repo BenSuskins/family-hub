@@ -23,7 +23,9 @@ final class AppNavigation {
         case "chores":
             choreRefreshID = UUID()
             selectedTab = .tasks
-        case "today": selectedTab = .today
+        case "today":
+            choreRefreshID = UUID()
+            selectedTab = .today
         case "calendar": selectedTab = .calendar
         case "meals": openMealPlan()
         default: break

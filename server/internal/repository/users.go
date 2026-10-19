@@ -25,7 +25,7 @@ type UserRepository interface {
 }
 
 type SQLiteUserRepository struct {
-	database *sql.DB
+	database queryConnection
 }
 
 func NewUserRepository(database *sql.DB) *SQLiteUserRepository {

@@ -10,26 +10,20 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
+	"github.com/google/uuid"
 )
 
 var (
-	ErrUserHasOverdueChores = errors.New("user has overdue chores")
 	ErrChoreAlreadyComplete = errors.New("chore is already completed")
 )
-
-// SeedHorizon is how far ahead fixed-schedule recurring chores are materialized.
-// A background top-up (TopUpAllSeries) keeps this window full, so it stays
-// bounded to keep the row count and per-seed work small rather than a full year.
-const SeedHorizon = 75 * 24 * time.Hour
-
-// SeedHorizonFrom returns the materialization cutoff relative to now.
-func SeedHorizonFrom(now time.Time) time.Time { return now.Add(SeedHorizon) }
 
 type ChoreService struct {
 	choreRepo      repository.ChoreRepository
 	assignmentRepo repository.ChoreAssignmentRepository
 	userRepo       repository.UserRepository
 	seriesRepo     repository.ChoreSeriesRepository
+	now            func() time.Time
+	settings       repository.SettingsRepository
 }
 
 func NewChoreService(
@@ -37,27 +31,26 @@ func NewChoreService(
 	assignmentRepo repository.ChoreAssignmentRepository,
 	userRepo repository.UserRepository,
 	seriesRepo repository.ChoreSeriesRepository,
+	options ...ChoreOption,
 ) *ChoreService {
-	return &ChoreService{
+	service := &ChoreService{
 		choreRepo:      choreRepo,
 		assignmentRepo: assignmentRepo,
 		userRepo:       userRepo,
 		seriesRepo:     seriesRepo,
+		now:            time.Now,
 	}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 func (service *ChoreService) AssignNextUser(ctx context.Context, chore models.Chore) (models.Chore, error) {
 	return service.assignNextUser(ctx, chore, chore.AssignedToUserID)
 }
 
-// assignNextUser assigns the chore to the next user in rotation. Rotation is
-// anchored to lastAssignedUserID — the previous occupant, or the previous
-// occurrence's assignee when seeding a series — so it survives users being
-// added, removed, or renamed. It falls back to the positional LastAssignedIndex
-// only when no previous assignee is known (e.g. the first assignment of a
-// brand-new chore). A user with outstanding overdue chores is skipped within a
-// single lap, but if everyone is overdue the rotation still advances rather than
-// always landing on the same person.
+// Anchor rotation to immutable user IDs so name changes do not change the order.
 func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Chore, lastAssignedUserID *string) (models.Chore, error) {
 	series := service.loadSeries(ctx, chore.SeriesID)
 
@@ -80,19 +73,6 @@ func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Ch
 	start := rotationStart(candidates, lastAssignedUserID, chore.LastAssignedIndex)
 
 	chosenIndex := start
-	for attempts := 0; attempts < len(candidates); attempts++ {
-		candidateIndex := (start + attempts) % len(candidates)
-
-		overdueCount, err := service.choreRepo.CountByStatusAndUser(ctx, models.ChoreStatusOverdue, candidates[candidateIndex].ID)
-		if err != nil {
-			return chore, fmt.Errorf("checking overdue chores: %w", err)
-		}
-
-		if overdueCount == 0 {
-			chosenIndex = candidateIndex
-			break
-		}
-	}
 
 	assignedUser := candidates[chosenIndex]
 
@@ -145,42 +125,157 @@ func rotationStart(candidates []models.User, lastAssignedUserID *string, lastInd
 	return ((lastIndex+1)%n + n) % n
 }
 
-func (service *ChoreService) CompleteChore(ctx context.Context, choreID string, userID string) error {
-	chore, err := service.choreRepo.FindByID(ctx, choreID)
+type ChoreOption func(*ChoreService)
+
+func WithChoreClock(clock func() time.Time) ChoreOption {
+	return func(service *ChoreService) { service.now = clock }
+}
+func WithChoreSettings(settings repository.SettingsRepository) ChoreOption {
+	return func(service *ChoreService) { service.settings = settings }
+}
+
+func (service *ChoreService) CompleteChore(ctx context.Context, choreID, userID string) error {
+	return service.resolve(ctx, choreID, userID, models.ChoreStatusCompleted)
+}
+func (service *ChoreService) SkipChore(ctx context.Context, choreID, userID string) error {
+	return service.resolve(ctx, choreID, userID, models.ChoreStatusSkipped)
+}
+func (service *ChoreService) householdNow(ctx context.Context) (time.Time, error) {
+	timezone := "Europe/London"
+	if service.settings != nil {
+		settings, err := LoadChoreReminders(ctx, service.settings)
+		if err != nil {
+			return time.Time{}, err
+		}
+		timezone = settings.Timezone
+	}
+	location, err := time.LoadLocation(timezone)
 	if err != nil {
-		return fmt.Errorf("finding chore: %w", err)
+		return time.Time{}, err
 	}
-
-	if chore.Status == models.ChoreStatusCompleted {
-		return ErrChoreAlreadyComplete
+	return service.now().In(location), nil
+}
+func (service *ChoreService) resolve(ctx context.Context, choreID, userID string, status models.ChoreStatus) error {
+	now, err := service.householdNow(ctx)
+	if err != nil {
+		return err
 	}
+	return service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+		scoped := *service
+		scoped.choreRepo = chores
+		scoped.assignmentRepo = assignments
+		scoped.userRepo = users
+		scoped.seriesRepo = definitions
+		task, err := chores.FindByID(ctx, choreID)
+		if err != nil {
+			return err
+		}
+		if task.Status != models.ChoreStatusPending && task.Status != models.ChoreStatusOverdue {
+			return ErrChoreAlreadyComplete
+		}
+		var definition *models.ChoreSeries
+		if task.SeriesID != nil {
+			definition, err = definitions.FindByID(ctx, *task.SeriesID)
+			if err != nil {
+				return err
+			}
+		}
+		if definition != nil && definition.DeletedAt != nil {
+			return ErrChoreAlreadyComplete
+		}
+		task.Status = status
+		task.ResolvedAt = &now
+		task.ResolvedByUserID = &userID
+		if status == models.ChoreStatusCompleted {
+			task.CompletedAt = &now
+			task.CompletedByUserID = &userID
+		}
+		if err := chores.Update(ctx, task); err != nil {
+			return err
+		}
+		if status == models.ChoreStatusCompleted {
+			if err := assignments.MarkReassigned(ctx, choreID); err != nil {
+				return err
+			}
+			if _, err := assignments.Create(ctx, models.ChoreAssignment{ChoreID: choreID, UserID: userID, Status: models.AssignmentStatusCompleted, CompletedAt: &now}); err != nil {
+				return err
+			}
+		} else if err := assignments.MarkReassigned(ctx, choreID); err != nil {
+			return err
+		}
+		rule := applySeriesRule(task, definition)
+		if definition != nil {
+			rule.Name = definition.Name
+			rule.Description = definition.Description
+		}
+		next, err := nextTaskDate(rule, now)
+		if err != nil {
+			return err
+		}
+		if next == nil {
+			return nil
+		}
+		if rule.RecurrenceUntil != nil && next.Format("2006-01-02") > rule.RecurrenceUntil.Format("2006-01-02") {
+			return nil
+		}
+		if err := scoped.ensureSeriesID(ctx, &rule); err != nil {
+			return err
+		}
+		if rule.RecurrenceCount != nil {
+			count, err := chores.CountBySeries(ctx, *rule.SeriesID)
+			if err != nil {
+				return err
+			}
+			if count >= *rule.RecurrenceCount {
+				return nil
+			}
+		}
+		if definition != nil && task.AssignedToUserID != nil {
+			if err := definitions.SetRotationCursor(ctx, definition.ID, *task.AssignedToUserID); err != nil {
+				return err
+			}
+		}
+		created, err := chores.Create(ctx, newChoreFromTemplate(rule, next, task.LastAssignedIndex))
+		if err != nil {
+			return err
+		}
+		if definition == nil {
+			if err := scoped.copyEligibleAssignees(ctx, task.ID, created.ID); err != nil {
+				return err
+			}
+		}
+		_, err = scoped.assignNextUser(ctx, created, task.AssignedToUserID)
+		return err
+	})
+}
 
-	now := time.Now()
-	chore.Status = models.ChoreStatusCompleted
-	chore.CompletedAt = &now
-	chore.CompletedByUserID = &userID
-
-	if err := service.choreRepo.Update(ctx, chore); err != nil {
-		return fmt.Errorf("updating chore: %w", err)
+func nextTaskDate(task models.Chore, now time.Time) (*time.Time, error) {
+	if task.RecurrenceType == models.RecurrenceNone || task.RecurrenceType == "" {
+		return nil, nil
 	}
-
-	if err := service.assignmentRepo.MarkCompleted(ctx, choreID, userID); err != nil {
-		return fmt.Errorf("marking assignment completed: %w", err)
+	config, err := parseConfig(task.RecurrenceValue)
+	if err != nil {
+		return nil, err
 	}
-
-	// The series definition is authoritative for the recurrence rule, so a rule
-	// edit is honored even by an in-flight occurrence created before the edit.
-	rule := applySeriesRule(chore, service.loadSeries(ctx, chore.SeriesID))
-
-	if rule.RecurrenceType == models.RecurrenceNone {
-		return nil
+	if task.RecurOnComplete {
+		return CalculateNextDueDate(task, now)
 	}
-
-	if rule.RecurOnComplete {
-		return service.createNextRecurrence(ctx, rule, now)
+	if task.DueDate == nil {
+		task.DueDate = &now
 	}
-	return service.SeedFutureOccurrences(ctx, rule, SeedHorizonFrom(now))
-
+	date := *task.DueDate
+	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, now.Location())
+	for iteration := 0; iteration < 36600; iteration++ {
+		next := advanceToNextOccurrence(date, task.RecurrenceType, config)
+		if !next.After(date) {
+			return nil, errors.New("recurrence does not advance")
+		}
+		date = next
+		if date.Format("2006-01-02") > now.Format("2006-01-02") {
+			return &date, nil
+		}
+	}
+	return nil, errors.New("recurrence exceeds date limit")
 }
 
 // loadSeries returns the chore_series definition for a chore, or nil when there
@@ -209,8 +304,7 @@ func (service *ChoreService) SeriesByID(ctx context.Context, seriesID string) (*
 
 // applySeriesRule overlays the recurrence rule, end conditions and timing from
 // the series definition onto a chore copy, making the series the source of truth
-// for behaviour. Occurrence rule columns remain as a denormalized read cache for
-// display and filtering. No-op when there is no series definition.
+// for behaviour. Historical task names and owners remain unchanged.
 func applySeriesRule(chore models.Chore, series *models.ChoreSeries) models.Chore {
 	if series == nil {
 		return chore
@@ -346,179 +440,6 @@ func newChoreFromTemplate(template models.Chore, dueDate *time.Time, lastAssigne
 	}
 }
 
-func (service *ChoreService) createNextRecurrence(ctx context.Context, chore models.Chore, completedAt time.Time) error {
-	series := service.loadSeries(ctx, chore.SeriesID)
-	chore = applySeriesRule(chore, series)
-
-	nextDueDate, err := CalculateNextDueDate(chore, completedAt)
-	if err != nil {
-		return fmt.Errorf("calculating next due date: %w", err)
-	}
-	if nextDueDate == nil {
-		return nil
-	}
-
-	// Stop the series once it reaches its end date.
-	if chore.RecurrenceUntil != nil && nextDueDate.After(*chore.RecurrenceUntil) {
-		return nil
-	}
-
-	if err := service.ensureSeriesID(ctx, &chore); err != nil {
-		return fmt.Errorf("setting series_id on legacy chore: %w", err)
-	}
-
-	// Stop the series once it reaches its occurrence cap.
-	if chore.RecurrenceCount != nil {
-		existing, err := service.choreRepo.CountBySeries(ctx, *chore.SeriesID)
-		if err != nil {
-			return fmt.Errorf("counting series occurrences: %w", err)
-		}
-		if existing >= *chore.RecurrenceCount {
-			return nil
-		}
-	}
-
-	createdChore, err := service.choreRepo.Create(ctx, newChoreFromTemplate(chore, nextDueDate, chore.LastAssignedIndex))
-	if err != nil {
-		return fmt.Errorf("creating next chore instance: %w", err)
-	}
-
-	// The series owns the eligible pool; only fall back to copying the
-	// per-occurrence pool when there is no series definition yet.
-	if series == nil {
-		if err := service.copyEligibleAssignees(ctx, chore.ID, createdChore.ID); err != nil {
-			return err
-		}
-	}
-
-	_, err = service.assignNextUser(ctx, createdChore, chore.AssignedToUserID)
-	if err != nil {
-		return fmt.Errorf("assigning next user: %w", err)
-	}
-	return nil
-}
-
-// SeedFutureOccurrences creates pending chore instances from the chore's series ahead to `until`.
-// No-op for RecurOnComplete chores (can't predict completion dates) or chores without a DueDate.
-// Idempotent: starts from the last existing future pending instance in the series.
-func (service *ChoreService) SeedFutureOccurrences(ctx context.Context, chore models.Chore, until time.Time) error {
-	series := service.loadSeries(ctx, chore.SeriesID)
-	chore = applySeriesRule(chore, series)
-
-	if chore.RecurrenceType == models.RecurrenceNone || chore.RecurOnComplete || chore.DueDate == nil {
-		return nil
-	}
-
-	if err := service.ensureSeriesID(ctx, &chore); err != nil {
-		return fmt.Errorf("setting series_id: %w", err)
-	}
-
-	startChore := chore
-	lastFuture, err := service.choreRepo.FindLastFuturePendingInSeries(ctx, *chore.SeriesID)
-	if err != nil {
-		return fmt.Errorf("finding last future pending: %w", err)
-	}
-	if lastFuture != nil {
-		startChore = *lastFuture
-	}
-
-	config, err := parseConfig(chore.RecurrenceValue)
-	if err != nil {
-		return fmt.Errorf("parsing recurrence config: %w", err)
-	}
-
-	// Never materialize past the series end date.
-	if chore.RecurrenceUntil != nil && chore.RecurrenceUntil.Before(until) {
-		until = *chore.RecurrenceUntil
-	}
-
-	// Track how many occurrences already exist so we can honor the cap.
-	existing := 0
-	if chore.RecurrenceCount != nil {
-		existing, err = service.choreRepo.CountBySeries(ctx, *chore.SeriesID)
-		if err != nil {
-			return fmt.Errorf("counting series occurrences: %w", err)
-		}
-	}
-
-	current := *startChore.DueDate
-	currentChore := startChore
-	now := time.Now()
-
-	for i := 0; i < maxExpansionIterations; i++ {
-		if chore.RecurrenceCount != nil && existing >= *chore.RecurrenceCount {
-			break
-		}
-
-		nextDate := advanceToNextOccurrence(current, chore.RecurrenceType, config)
-		if !nextDate.Before(until) {
-			break
-		}
-		current = nextDate
-
-		// Catch-up policy: occurrences whose due date has already passed are
-		// skipped, not back-filled. The cursor advances so the series resumes
-		// at the next future date.
-		if nextDate.Before(now) {
-			continue
-		}
-
-		created, err := service.choreRepo.Create(ctx, newChoreFromTemplate(chore, &nextDate, currentChore.LastAssignedIndex))
-		if err != nil {
-			return fmt.Errorf("creating seeded chore instance: %w", err)
-		}
-
-		// The series owns the eligible pool; only fall back to per-occurrence
-		// copies when there is no series definition yet.
-		if series == nil {
-			if err := service.copyEligibleAssignees(ctx, chore.ID, created.ID); err != nil {
-				return err
-			}
-		}
-
-		assigned, err := service.assignNextUser(ctx, created, currentChore.AssignedToUserID)
-		if err != nil {
-			return fmt.Errorf("assigning seeded chore: %w", err)
-		}
-		currentChore = assigned
-		existing++
-	}
-
-	return nil
-}
-
-// TopUpAllSeries refills every active fixed-schedule recurring series up to
-// `until`, so a series that is never completed does not run out of future
-// occurrences (the materialization horizon is bounded). Safe to call repeatedly:
-// SeedFutureOccurrences is idempotent. A failure on one series is logged and
-// does not abort the rest.
-func (service *ChoreService) TopUpAllSeries(ctx context.Context, until time.Time) error {
-	anchors, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{
-		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
-		RecurrenceTypes: []models.RecurrenceType{
-			models.RecurrenceDaily,
-			models.RecurrenceWeekly,
-			models.RecurrenceMonthly,
-			models.RecurrenceCustom,
-			models.RecurrenceCalendar,
-		},
-		OnlyNextPerSeries: true,
-	})
-	if err != nil {
-		return fmt.Errorf("finding series anchors: %w", err)
-	}
-
-	for _, anchor := range anchors {
-		if anchor.RecurOnComplete || anchor.DueDate == nil {
-			continue
-		}
-		if err := service.SeedFutureOccurrences(ctx, anchor, until); err != nil {
-			slog.Error("topping up series", "chore_id", anchor.ID, "error", err)
-		}
-	}
-	return nil
-}
-
 // SyncSeriesDefinition creates or updates the chore_series definition for a
 // chore's series from the chore's current fields and eligible pool. On first
 // creation the rotation cursor is seeded from the chore's current assignee.
@@ -576,7 +497,6 @@ func (service *ChoreService) DeleteSeriesDefinition(ctx context.Context, seriesI
 	return service.seriesRepo.MarkDeleted(ctx, seriesID)
 }
 
-
 func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 	overdueChores, err := service.choreRepo.FindOverdueChores(ctx)
 	if err != nil {
@@ -596,4 +516,55 @@ func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (service *ChoreService) CreateChore(ctx context.Context, task models.Chore, eligible []string) (models.Chore, error) {
+	var created models.Chore
+	err := service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+		scoped := *service
+		scoped.choreRepo = chores
+		scoped.assignmentRepo = assignments
+		scoped.userRepo = users
+		scoped.seriesRepo = definitions
+		identifier := uuid.NewString()
+		task.ID = identifier
+		task.SeriesID = &identifier
+		task.LastAssignedIndex = -1
+		if err := scoped.SyncSeriesDefinition(ctx, task, eligible); err != nil {
+			return err
+		}
+		var err error
+		created, err = chores.Create(ctx, task)
+		if err != nil {
+			return err
+		}
+		created, err = scoped.AssignNextUser(ctx, created)
+		return err
+	})
+	return created, err
+}
+
+func (service *ChoreService) UpdateDefinition(ctx context.Context, task models.Chore, eligible []string) error {
+	return service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+		scoped := *service
+		scoped.choreRepo = chores
+		scoped.seriesRepo = definitions
+		if err := scoped.SyncSeriesDefinition(ctx, task, eligible); err != nil {
+			return err
+		}
+		current, err := chores.FindAll(ctx, repository.ChoreFilter{SeriesID: task.SeriesID, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+		if err != nil {
+			return err
+		}
+		for _, item := range current {
+			item.Name = task.Name
+			item.Description = task.Description
+			item.CategoryID = task.CategoryID
+			item.DueTime = task.DueTime
+			if err := chores.Update(ctx, item); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

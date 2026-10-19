@@ -186,7 +186,7 @@ struct CalendarTimelineView: View {
 
     private func dayColumn(_ day: Date) -> some View {
         GeometryReader { geometry in
-            let placements = viewModel.schedule.placements(for: viewModel.events(for: day), on: day, minimumMinutes: 44 / hourHeight * 60)
+            let placements = viewModel.schedule.placements(for: viewModel.events(for: day), on: day, minimumMinutes: 44 / Double(hourHeight) * 60)
             ZStack(alignment: .topLeading) {
                 if placements.isEmpty, days.count == 1 {
                     Text(viewModel.hasLoaded(day) ? "No timed events" : "Loading items…")

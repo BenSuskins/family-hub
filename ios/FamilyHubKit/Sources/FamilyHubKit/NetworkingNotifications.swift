@@ -5,3 +5,7 @@ extension Notification.Name {
     /// `AuthManager`, which signs the user out and routes back to login.
     public static let familyHubUnauthorized = Notification.Name("familyHubUnauthorized")
 }
+
+extension Notification.Name {
+    public static let familyHubChoresChanged = Notification.Name("familyHubChoresChanged")
+}

@@ -95,3 +95,36 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.completedChoreIDs.contains("c1"))
     }
 }
+
+@MainActor
+final class HomeSkipTests: XCTestCase {
+    func testSkipRefreshesTheDashboard() async {
+        let fake = FakeAPIClient()
+        let model = HomeViewModel(apiClient: fake)
+        await model.load()
+        fake.dashboardResult = .success(DashboardStats(choresDueToday: 0, choresOverdue: 0, choresDueTodayList: [], choresOverdueList: [], mealsThisWeek: 0, todayMeals: []))
+        let success = await model.skipChore(id: "bins")
+        XCTAssertTrue(success)
+        guard case .loaded(let stats) = model.state else { return XCTFail("Expected refreshed dashboard") }
+        XCTAssertEqual(stats.choresOverdue, 0)
+    }
+
+    func testSkipFailureKeepsTheTaskVisible() async {
+        let fake = FakeAPIClient()
+        fake.skipChoreResult = .failure(APIError.offline)
+        let model = HomeViewModel(apiClient: fake)
+        let success = await model.skipChore(id: "bins")
+        XCTAssertFalse(success)
+        XCTAssertFalse(model.completedChoreIDs.contains("bins"))
+        XCTAssertNotNil(model.actionError)
+    }
+
+    func testReminderOpensHomeAndRequestsFreshData() {
+        let navigation = AppNavigation()
+        navigation.selectedTab = .tasks
+        let previous = navigation.choreRefreshID
+        navigation.open(URL(string: "familyhub://today")!)
+        XCTAssertEqual(navigation.selectedTab, .today)
+        XCTAssertNotEqual(navigation.choreRefreshID, previous)
+    }
+}

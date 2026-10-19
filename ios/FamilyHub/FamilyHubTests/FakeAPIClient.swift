@@ -81,6 +81,32 @@ final class FakeAPIClient: APIClientProtocol {
     var updateItemResult: Result<InventoryItem, Error> = .success(InventoryItem(id: "1", areaID: "1", name: "Item", quantity: 1, unit: "pcs", lowAt: 0))
     var deleteItemResult: Result<Void, Error> = .success(())
 
+    var choreDefinitions: [ChoreDefinition] = []
+    var skipChoreResult: Result<Void, Error> = .success(())
+    var historyPage = ChoreHistoryPage(items: [])
+    func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
+        choreDefinitions.filter { includeInactive || $0.active }
+    }
+    func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
+        let chore = try createChoreResult.get()
+        let definition = ChoreDefinition(id: chore.id, chore: chore, currentTask: chore, active: true)
+        choreDefinitions.append(definition)
+        return definition
+    }
+    func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
+        let chore = try updateChoreResult.get()
+        let definition = ChoreDefinition(id: id, chore: chore, currentTask: chore, active: true)
+        choreDefinitions.removeAll { $0.id == id }
+        choreDefinitions.append(definition)
+        return definition
+    }
+    func deleteChoreDefinition(id: String) async throws {
+        try deleteChoreResult.get()
+        choreDefinitions.removeAll { $0.id == id }
+    }
+    func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage { historyPage }
+    func skipChore(id: String) async throws { try skipChoreResult.get() }
+
     func fetchDashboardStats() async throws -> DashboardStats { try dashboardResult.get() }
     func fetchChores() async throws -> [Chore] { try choresResult.get() }
     func completeChore(id: String) async throws { try completeChoreResult.get() }

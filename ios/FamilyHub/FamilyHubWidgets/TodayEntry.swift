@@ -23,6 +23,16 @@ struct TodayEntry: TimelineEntry {
     let date: Date
     let data: TodayWidgetData
     let status: Status
+    let failedChoreID: String?
+    let pendingChoreID: String?
+
+    init(date: Date, data: TodayWidgetData, status: Status, failedChoreID: String? = nil, pendingChoreID: String? = nil) {
+        self.date = date
+        self.data = data
+        self.status = status
+        self.failedChoreID = failedChoreID
+        self.pendingChoreID = pendingChoreID
+    }
 
     /// Whether the entry carries a day worth drawing.
     var hasData: Bool {
@@ -30,6 +40,14 @@ struct TodayEntry: TimelineEntry {
         case .ok, .cached:             return true
         case .signedOut, .unavailable: return false
         }
+    }
+
+    var nextEvent: TodayWidgetData.Item? {
+        hasData ? data.nextTimedEvent(after: date) : nil
+    }
+
+    var chores: [TodayWidgetData.Item] {
+        hasData ? data.chores : []
     }
 
     /// When to ask WidgetKit to come back.
@@ -53,8 +71,11 @@ struct TodayEntry: TimelineEntry {
     /// not depend on the network, or on whether this phone happens to be
     /// signed in.
     static var preview: TodayEntry {
-        TodayEntry(
-            date: Date(),
+        let now = Date()
+        let swimmingStart = now.addingTimeInterval(60 * 60)
+        let bookStart = now.addingTimeInterval(3 * 60 * 60)
+        return TodayEntry(
+            date: now,
             data: TodayWidgetData(
                 items: [
                     .init(
@@ -72,8 +93,11 @@ struct TodayEntry: TimelineEntry {
                         kind: .event,
                         title: "Swimming lesson",
                         subtitle: "Leisure centre",
-                        timeLabel: "17:30",
-                        colorHex: "3B82F6"
+                        timeLabel: swimmingStart.formatted(date: .omitted, time: .shortened),
+                        colorHex: "3B82F6",
+                        eventStart: swimmingStart,
+                        eventEnd: swimmingStart.addingTimeInterval(60 * 60),
+                        isAllDay: false
                     ),
                     .init(
                         id: "chore-2",
@@ -89,8 +113,11 @@ struct TodayEntry: TimelineEntry {
                         kind: .event,
                         title: "Book club",
                         subtitle: "The Crown",
-                        timeLabel: "20:00",
-                        colorHex: "F97316"
+                        timeLabel: bookStart.formatted(date: .omitted, time: .shortened),
+                        colorHex: "F97316",
+                        eventStart: bookStart,
+                        eventEnd: bookStart.addingTimeInterval(60 * 60),
+                        isAllDay: false
                     ),
                     .init(
                         id: "chore-3",
@@ -109,7 +136,7 @@ struct TodayEntry: TimelineEntry {
                     .init(slot: .lunch, name: "Jacket potatoes"),
                     .init(slot: .dinner, name: "Spaghetti bolognese"),
                 ],
-                capturedAt: Date()
+                capturedAt: now
             ),
             status: .ok
         )

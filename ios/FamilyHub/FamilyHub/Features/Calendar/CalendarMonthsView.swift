@@ -117,7 +117,7 @@ private struct CalendarMonthGrid: View {
         VStack(alignment: .leading, spacing: 0) {
             if showsTitle {
                 Text(month.formatted(.dateTime.month(.wide)))
-                    .font(.largeTitle.bold()).foregroundStyle(.red)
+                    .font(.largeTitle.bold()).foregroundStyle(AppTheme.accent)
                     .padding(.horizontal, 16).frame(height: 60)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -155,9 +155,9 @@ private struct CalendarMonthDay: View {
             VStack(spacing: 2) {
                 Text(date.formatted(.dateTime.day()))
                     .font(.body)
-                    .foregroundStyle(isToday ? Color.white : Color.primary)
+                    .foregroundStyle(isToday ? AppTheme.onAccent : AppTheme.ink)
                     .frame(width: 30, height: 30)
-                    .background(isToday ? Color.red : .clear, in: Circle())
+                    .background(isToday ? AppTheme.accent : .clear, in: Circle())
                 ForEach(items.prefix(limit)) { item in
                     HStack(spacing: 1) {
                         if let symbol = item.symbol { Image(systemName: symbol).font(.system(size: 8)) }
@@ -178,7 +178,7 @@ private struct CalendarMonthDay: View {
             .clipped()
             .contentShape(Rectangle())
             .overlay(alignment: .top) {
-                Rectangle().fill(Color(.separator).opacity(0.5)).frame(height: 0.5)
+                Rectangle().fill(AppTheme.border).frame(height: 0.5)
             }
         }
         .buttonStyle(.plain)
@@ -211,7 +211,7 @@ struct CalendarYearView: View {
                 LazyVStack(alignment: .leading, spacing: 24) {
                     ForEach(years, id: \.self) { year in
                         VStack(alignment: .leading, spacing: 20) {
-                            Text(String(year)).font(.largeTitle.bold()).foregroundStyle(.red).accessibilityAddTraits(.isHeader)
+                            Text(String(year)).font(.largeTitle.bold()).foregroundStyle(AppTheme.accent).accessibilityAddTraits(.isHeader)
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 24) {
                                 ForEach(1...12, id: \.self) { month in
                                     if let date = viewModel.schedule.calendar.date(from: DateComponents(year: year, month: month, day: 1)) {
@@ -257,13 +257,13 @@ struct CalendarYearView: View {
     private func miniMonth(_ date: Date) -> some View {
         Button { viewModel.openMonth(date) } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text(date.formatted(.dateTime.month(.wide))).font(.subheadline.bold()).foregroundStyle(.red)
+                Text(date.formatted(.dateTime.month(.wide))).font(.subheadline.bold()).foregroundStyle(AppTheme.accent)
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 5) {
                     ForEach(Array(viewModel.schedule.monthDays(containing: date).enumerated()), id: \.offset) { _, day in
                         if let day {
                             Text(day.formatted(.dateTime.day())).font(.system(size: 9))
                                 .frame(maxWidth: .infinity)
-                                .foregroundStyle(viewModel.schedule.calendar.isDate(day, inSameDayAs: viewModel.today) ? .red : .primary)
+                                .foregroundStyle(viewModel.schedule.calendar.isDate(day, inSameDayAs: viewModel.today) ? AppTheme.accent : AppTheme.ink)
                         } else { Text(" ").font(.system(size: 9)) }
                     }
                 }

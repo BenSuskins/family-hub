@@ -39,6 +39,51 @@ public enum TodayWidgetCache {
         defaults.set(encoded, forKey: SharedContainer.Key.todaySnapshot)
     }
 
+    public nonisolated static func failedChoreID() -> String? {
+        failedChoreID(from: SharedContainer.defaults)
+    }
+
+    public nonisolated static func failedChoreID(from defaults: UserDefaults?) -> String? {
+        defaults?.string(forKey: SharedContainer.Key.widgetChoreFailure)
+    }
+
+    public nonisolated static func recordChoreFailure(_ choreID: String, in defaults: UserDefaults? = SharedContainer.defaults) {
+        defaults?.set(choreID, forKey: SharedContainer.Key.widgetChoreFailure)
+    }
+
+    public nonisolated static func clearChoreFailure(in defaults: UserDefaults? = SharedContainer.defaults) {
+        defaults?.removeObject(forKey: SharedContainer.Key.widgetChoreFailure)
+    }
+
+    public nonisolated static func recordPendingChore(_ choreID: String, at date: Date = Date(), in defaults: UserDefaults? = SharedContainer.defaults) {
+        defaults?.set(choreID, forKey: SharedContainer.Key.widgetChorePending)
+        defaults?.set(date, forKey: SharedContainer.Key.widgetChorePendingAt)
+    }
+
+    public nonisolated static func pendingChoreID(now: Date = Date()) -> String? {
+        pendingChoreID(from: SharedContainer.defaults, now: now)
+    }
+
+    public nonisolated static func pendingChoreID(from defaults: UserDefaults?, now: Date = Date()) -> String? {
+        guard let defaults else { return nil }
+        guard let choreID = defaults.string(forKey: SharedContainer.Key.widgetChorePending),
+              let startedAt = defaults.object(forKey: SharedContainer.Key.widgetChorePendingAt) as? Date else {
+            clearPendingChore(in: defaults)
+            return nil
+        }
+        let age = now.timeIntervalSince(startedAt)
+        guard age >= 0 && age < 3 * 60 else {
+            clearPendingChore(in: defaults)
+            return nil
+        }
+        return choreID
+    }
+
+    public nonisolated static func clearPendingChore(in defaults: UserDefaults? = SharedContainer.defaults) {
+        defaults?.removeObject(forKey: SharedContainer.Key.widgetChorePending)
+        defaults?.removeObject(forKey: SharedContainer.Key.widgetChorePendingAt)
+    }
+
     /// Drop the snapshot — on sign-out, so a widget can't keep displaying the
     /// family's day to whoever holds the phone next.
     public nonisolated static func clear() {
@@ -47,6 +92,8 @@ public enum TodayWidgetCache {
 
     public nonisolated static func clear(from defaults: UserDefaults?) {
         defaults?.removeObject(forKey: SharedContainer.Key.todaySnapshot)
+        clearChoreFailure(in: defaults)
+        clearPendingChore(in: defaults)
     }
 
     /// Stamp the cached snapshot stale without discarding it, so the next

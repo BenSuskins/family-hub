@@ -52,6 +52,10 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
         public let initials: String?
         /// The source calendar's colour as `RRGGBB`, for events.
         public let colorHex: String?
+        /// The absolute event start. Widget selection must not parse a localised label.
+        public let eventStart: Date?
+        public let eventEnd: Date?
+        public let isAllDay: Bool?
 
         public init(
             id: String,
@@ -62,7 +66,10 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
             isOverdue: Bool = false,
             choreID: String? = nil,
             initials: String? = nil,
-            colorHex: String? = nil
+            colorHex: String? = nil,
+            eventStart: Date? = nil,
+            eventEnd: Date? = nil,
+            isAllDay: Bool? = nil
         ) {
             self.id = id
             self.kind = kind
@@ -73,6 +80,9 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
             self.choreID = choreID
             self.initials = initials
             self.colorHex = colorHex
+            self.eventStart = eventStart
+            self.eventEnd = eventEnd
+            self.isAllDay = isAllDay
         }
 
         @MainActor
@@ -101,7 +111,10 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
                 // and "Leisure centre" is the bit you act on.
                 subtitle: nonEmpty(event.location) ?? nonEmpty(event.description),
                 timeLabel: event.allDay ? "All day" : TodayWidgetData.clockLabel(event.startTime),
-                colorHex: nonEmpty(event.color)
+                colorHex: nonEmpty(event.color),
+                eventStart: event.startTime,
+                eventEnd: event.endTime,
+                isAllDay: event.allDay
             )
         }
 
@@ -166,6 +179,10 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
     /// with a clock time in order, then chores with no time. Capped at
     /// ``maxItems``.
     public let items: [Item]
+    /// Chores stay available to the chore-focused widgets on event-heavy days.
+    public let choreItems: [Item]?
+    /// Events stay available to focused widgets when the combined list is full.
+    public let eventItems: [Item]?
     /// How many rows the day holds before the cap, so a view can honestly say
     /// "+3 more".
     public let totalItemCount: Int
@@ -181,6 +198,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
     public let capturedAt: Date
 
     public var choreCount: Int { overdueCount + dueTodayCount }
+    public var chores: [Item] { choreItems ?? items.filter { $0.kind == .chore } }
+    public var events: [Item] { eventItems ?? items.filter { $0.kind == .event } }
 
     /// Nothing planned, nothing outstanding, nothing cooking — the one state
     /// where the widget has nothing to list.
@@ -189,11 +208,30 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
     /// The meal the widget leads with when it has room for only one.
     public var dinner: Meal? { meals.first { $0.slot == .dinner } }
 
+    /// The first future timed event. All-day events and past rows do not count.
+    public func nextTimedEvent(after date: Date) -> Item? {
+        events
+            .filter { $0.kind == .event && $0.isAllDay != true && ($0.eventEnd ?? $0.eventStart ?? .distantPast) > date }
+            .sorted { ($0.eventStart ?? .distantFuture) < ($1.eventStart ?? .distantFuture) }
+            .first
+    }
+
+    /// Event start and end times that can change the current widget summary.
+    public func eventBoundaries(after date: Date, before limit: Date) -> [Date] {
+        events
+            .filter { $0.kind == .event && $0.isAllDay != true }
+            .flatMap { [$0.eventStart, $0.eventEnd].compactMap { $0 } }
+            .filter { $0 > date && $0 < limit }
+            .sorted()
+    }
+
     /// Rows the day holds that a view showing `shown` of them had no room for.
     public func hiddenCount(shown: Int) -> Int { max(0, totalItemCount - shown) }
 
     public init(
         items: [Item],
+        choreItems: [Item]? = nil,
+        eventItems: [Item]? = nil,
         totalItemCount: Int,
         overdueCount: Int,
         dueTodayCount: Int,
@@ -202,6 +240,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
         capturedAt: Date
     ) {
         self.items = items
+        self.choreItems = choreItems
+        self.eventItems = eventItems
         self.totalItemCount = totalItemCount
         self.overdueCount = overdueCount
         self.dueTodayCount = dueTodayCount
@@ -215,6 +255,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
     public static func blank(at date: Date = Date()) -> TodayWidgetData {
         TodayWidgetData(
             items: [],
+            choreItems: [],
+            eventItems: [],
             totalItemCount: 0,
             overdueCount: 0,
             dueTodayCount: 0,
@@ -285,6 +327,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
 
         return TodayWidgetData(
             items: Array(ordered.prefix(maxItems)),
+            choreItems: Array(ordered.filter { $0.kind == .chore }.prefix(maxItems)),
+            eventItems: Array(ordered.filter { $0.kind == .event }.prefix(maxItems)),
             totalItemCount: ordered.count,
             overdueCount: stats.choresOverdueList.count,
             dueTodayCount: stats.choresDueTodayList.count,
@@ -304,6 +348,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
         guard let removed = items.first(where: { $0.choreID == choreID }) else { return self }
         return TodayWidgetData(
             items: items.filter { $0.choreID != choreID },
+            choreItems: chores.filter { $0.choreID != choreID },
+            eventItems: eventItems,
             totalItemCount: max(0, totalItemCount - 1),
             overdueCount: removed.isOverdue ? max(0, overdueCount - 1) : overdueCount,
             dueTodayCount: removed.isOverdue ? dueTodayCount : max(0, dueTodayCount - 1),
@@ -323,6 +369,8 @@ public nonisolated struct TodayWidgetData: Codable, Equatable, Sendable {
     public func markedStale() -> TodayWidgetData {
         TodayWidgetData(
             items: items,
+            choreItems: choreItems,
+            eventItems: eventItems,
             totalItemCount: totalItemCount,
             overdueCount: overdueCount,
             dueTodayCount: dueTodayCount,

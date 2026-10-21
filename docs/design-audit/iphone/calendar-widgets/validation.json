@@ -1,0 +1,24 @@
+{
+  "result": "passed",
+  "kind": "Static artifact checks; not native UI tests",
+  "proposals": 43,
+  "calendar": 16,
+  "widgetAndContext": 27,
+  "pngDimensions": "passed",
+  "imageManifest": "passed",
+  "localGalleryLinks": "passed",
+  "groupFilter": "passed",
+  "search": "passed",
+  "galleryWidths": [
+    1440,
+    768,
+    390
+  ],
+  "horizontalOverflow": false,
+  "widgetFooterSeparation": "passed",
+  "widgetStatesChecked": 27,
+  "limits": [
+    "Static HTML does not validate native gestures or VoiceOver.",
+    "Clear, tinted, and system chrome samples are approximations."
+  ]
+}

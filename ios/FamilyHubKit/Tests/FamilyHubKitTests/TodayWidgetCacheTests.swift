@@ -97,6 +97,38 @@ final class TodayWidgetCacheTests: XCTestCase {
         XCTAssertNil(TodayWidgetCache.load(from: nil))
     }
 
+    func testFailedWidgetChoreStaysVisibleUntilCleared() throws {
+        let suite = "uk.co.suskins.familyhub.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            throw XCTSkip("UserDefaults suites are unavailable on this platform")
+        }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        TodayWidgetCache.recordChoreFailure("chore-1", in: defaults)
+
+        XCTAssertEqual(TodayWidgetCache.failedChoreID(from: defaults), "chore-1")
+
+        TodayWidgetCache.clearChoreFailure(in: defaults)
+
+        XCTAssertNil(TodayWidgetCache.failedChoreID(from: defaults))
+    }
+
+    func testPendingWidgetChoreExpiresAfterThreeMinutes() throws {
+        let suite = "uk.co.suskins.familyhub.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            throw XCTSkip("UserDefaults suites are unavailable on this platform")
+        }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        TodayWidgetCache.recordPendingChore("chore-1", at: startedAt, in: defaults)
+
+        XCTAssertEqual(TodayWidgetCache.pendingChoreID(from: defaults, now: startedAt.addingTimeInterval(179)), "chore-1")
+        XCTAssertNil(TodayWidgetCache.pendingChoreID(from: defaults, now: startedAt.addingTimeInterval(180)))
+        XCTAssertNil(defaults.string(forKey: SharedContainer.Key.widgetChorePending))
+        XCTAssertNil(defaults.object(forKey: SharedContainer.Key.widgetChorePendingAt))
+    }
+
     // A snapshot written by a build with a different shape must read back as
     // "no cache" rather than throwing or half-decoding: that is what makes a
     // changed snapshot shape a non-event for anyone upgrading.

@@ -196,6 +196,30 @@ final class TodayWidgetDataTests: XCTestCase {
         let data = TodayWidgetData.from(stats: makeStats(), events: [makeEvent(id: "e1", allDay: true)])
 
         XCTAssertEqual(data.items.first?.timeLabel, "All day")
+        XCTAssertEqual(data.items.first?.isAllDay, true)
+        XCTAssertNotNil(data.items.first?.eventStart)
+    }
+
+    func testNextTimedEventUsesAbsoluteDatesAndSkipsAllDayAndPastEvents() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let earlier = now.addingTimeInterval(-3_600)
+        let later = now.addingTimeInterval(7_200)
+        let data = TodayWidgetData(
+            items: [
+                .init(id: "event-past", kind: .event, title: "Past", timeLabel: "11:00", eventStart: earlier, eventEnd: now.addingTimeInterval(-1)),
+                .init(id: "event-all-day", kind: .event, title: "Holiday", timeLabel: "All day", eventStart: later, isAllDay: true),
+                .init(id: "event-next", kind: .event, title: "Swim", timeLabel: "11:00", eventStart: later, eventEnd: later.addingTimeInterval(3_600)),
+            ],
+            totalItemCount: 3,
+            overdueCount: 0,
+            dueTodayCount: 0,
+            eventCount: 3,
+            meals: [],
+            capturedAt: now
+        )
+
+        XCTAssertEqual(data.nextTimedEvent(after: now)?.id, "event-next")
+        XCTAssertEqual(data.eventBoundaries(after: now, before: later.addingTimeInterval(4_000)), [later, later.addingTimeInterval(3_600)])
     }
 
     // MARK: - Chore labelling
@@ -293,6 +317,21 @@ final class TodayWidgetDataTests: XCTestCase {
         XCTAssertEqual(data.eventCount, 4)
         XCTAssertEqual(data.hiddenCount(shown: TodayWidgetData.maxItems), 15 - TodayWidgetData.maxItems)
         XCTAssertFalse(data.isClear)
+    }
+
+    func testFocusedWidgetItemsSurviveTheCombinedListCap() async {
+        let events = (1...12).map { makeEvent(id: "e\($0)", title: "Event \($0)", at: 8 + $0) }
+        let chores = [
+            makeChore(id: "c1", name: "Wash up", dueTime: "23:00"),
+            makeChore(id: "c2", name: "Sweep", dueTime: "23:30"),
+        ]
+
+        let data = TodayWidgetData.from(stats: makeStats(dueToday: chores), events: events)
+
+        XCTAssertEqual(data.items.count, TodayWidgetData.maxItems)
+        XCTAssertEqual(data.chores.map(\.title), ["Wash up", "Sweep"])
+        XCTAssertEqual(data.events.count, TodayWidgetData.maxItems)
+        XCTAssertEqual(data.events.first?.title, "Event 1")
     }
 
     func testAViewShowingFewerRowsThanTheSnapshotHoldsGetsTheRestAsHidden() async {

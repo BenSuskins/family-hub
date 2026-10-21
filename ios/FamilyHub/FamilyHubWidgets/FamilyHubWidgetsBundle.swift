@@ -5,5 +5,9 @@ import WidgetKit
 struct FamilyHubWidgetsBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
+        TonightWidget()
+        MealPlanWidget()
+        UpNextWidget()
+        ChoresWidget()
     }
 }

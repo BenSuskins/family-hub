@@ -28,34 +28,51 @@ struct TodayProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
         Task {
             let entry = await currentEntry()
-            completion(Timeline(entries: [entry], policy: .after(entry.nextRefresh)))
+            let safetyRefresh = entry.nextRefresh
+            let boundaryLimit = min(safetyRefresh, entry.date.addingTimeInterval(4 * 60 * 60))
+            let nextBoundary = entry.data.eventBoundaries(
+                after: entry.date,
+                before: boundaryLimit.addingTimeInterval(1)
+            ).first
+            let timelineEntries = nextBoundary.map {
+                [entry, TodayEntry(
+                    date: $0,
+                    data: entry.data,
+                    status: entry.status,
+                    failedChoreID: entry.failedChoreID,
+                    pendingChoreID: entry.pendingChoreID
+                )]
+            } ?? [entry]
+            completion(Timeline(entries: timelineEntries, policy: .after(nextBoundary ?? safetyRefresh)))
         }
     }
 
     private func currentEntry() async -> TodayEntry {
         let now = Date()
+        let failedChoreID = TodayWidgetCache.failedChoreID()
+        let pendingChoreID = TodayWidgetCache.pendingChoreID(now: now)
 
         guard SharedContainer.isConfigured else {
-            return TodayEntry(date: now, data: .blank(at: now), status: .signedOut)
+            return TodayEntry(date: now, data: .blank(at: now), status: .signedOut, failedChoreID: failedChoreID, pendingChoreID: pendingChoreID)
         }
 
         // A snapshot written by a build with a different shape won't decode
         // and reads back as nil, which is the same as no cache: fetch.
         let cached = TodayWidgetCache.load()
         if let cached, TodayWidgetCache.isFresh(cached, now: now) {
-            return TodayEntry(date: now, data: cached, status: .ok)
+            return TodayEntry(date: now, data: cached, status: .ok, failedChoreID: failedChoreID, pendingChoreID: pendingChoreID)
         }
 
         if let fetched = await WidgetEnvironment.fetchSnapshot() {
             TodayWidgetCache.save(fetched)
-            return TodayEntry(date: now, data: fetched, status: .ok)
+            return TodayEntry(date: now, data: fetched, status: .ok, failedChoreID: failedChoreID, pendingChoreID: pendingChoreID)
         }
 
         // Unreachable. Routine for a self-hosted hub away from the home
         // network, so show what we last knew and let the view stamp its age.
         if let cached {
-            return TodayEntry(date: now, data: cached, status: .cached)
+            return TodayEntry(date: now, data: cached, status: .cached, failedChoreID: failedChoreID, pendingChoreID: pendingChoreID)
         }
-        return TodayEntry(date: now, data: .blank(at: now), status: .unavailable)
+        return TodayEntry(date: now, data: .blank(at: now), status: .unavailable, failedChoreID: failedChoreID, pendingChoreID: pendingChoreID)
     }
 }

@@ -31,7 +31,20 @@ struct CompleteChoreIntent: AppIntent {
             return .result()
         }
 
-        try await client.completeChore(id: choreID)
+        TodayWidgetCache.recordPendingChore(choreID)
+        WidgetCenter.shared.reloadAllTimelines()
+
+        do {
+            try await client.completeChore(id: choreID)
+        } catch {
+            TodayWidgetCache.clearPendingChore()
+            TodayWidgetCache.recordChoreFailure(choreID)
+            WidgetCenter.shared.reloadAllTimelines()
+            throw error
+        }
+
+        TodayWidgetCache.clearPendingChore()
+        TodayWidgetCache.clearChoreFailure()
 
         // Drop the chore from the cached snapshot before asking for a reload.
         // Re-fetching the dashboard first would make the tick feel sluggish,
@@ -39,7 +52,7 @@ struct CompleteChoreIntent: AppIntent {
         if let cached = TodayWidgetCache.load() {
             TodayWidgetCache.save(cached.removing(choreID: choreID))
         }
-        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKind.today)
+        WidgetCenter.shared.reloadAllTimelines()
 
         return .result()
     }

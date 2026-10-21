@@ -16,6 +16,7 @@ enum WidgetPublisher {
     /// that has all three halves the widget needs.
     static func publish(stats: DashboardStats, events: [CalendarEvent], users: [String: User]) {
         TodayWidgetCache.save(TodayWidgetData.from(stats: stats, events: events, users: users))
+        TodayWidgetCache.clearChoreFailure()
         reload()
     }
 
@@ -23,6 +24,8 @@ enum WidgetPublisher {
     /// widget matches what the user just saw, rather than waiting for the next
     /// Home load to correct it.
     static func completed(choreID: String) {
+        TodayWidgetCache.clearPendingChore()
+        TodayWidgetCache.clearChoreFailure()
         if let cached = TodayWidgetCache.load() {
             TodayWidgetCache.save(cached.removing(choreID: choreID))
         }
@@ -33,6 +36,8 @@ enum WidgetPublisher {
     /// way the app can't patch into the snapshot, so mark it stale and let the
     /// widget refetch.
     static func invalidate() {
+        TodayWidgetCache.clearPendingChore()
+        TodayWidgetCache.clearChoreFailure()
         TodayWidgetCache.invalidate()
         reload()
     }
@@ -45,6 +50,6 @@ enum WidgetPublisher {
     }
 
     private static func reload() {
-        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKind.today)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

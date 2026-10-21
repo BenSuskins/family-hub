@@ -45,8 +45,8 @@ struct CalendarDisplayItem: Identifiable {
     var color: Color {
         switch content {
         case .event(let event): CalendarPalette.color(event.color)
-        case .chore: .orange
-        case .meal: .green
+        case .chore: AppTheme.clay
+        case .meal: AppTheme.accent
         }
     }
 }
@@ -57,8 +57,8 @@ enum CalendarPalette {
         switch value.lowercased() {
         case "red": return .red
         case "orange": return .orange
-        case "yellow": return .yellow
-        case "green": return .green
+        case "yellow": return .orange
+        case "green": return AppTheme.accent
         case "blue": return .blue
         case "purple": return .purple
         case "pink": return .pink
@@ -86,7 +86,7 @@ struct CalendarAgendaView: View {
         VStack(alignment: .leading, spacing: 0) {
             if showDate {
                 Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                    .font(.headline).padding(.vertical, 12)
+                    .font(.headline).foregroundStyle(AppTheme.ink).padding(.vertical, 12)
                     .accessibilityAddTraits(.isHeader)
             }
             if !viewModel.hasLoaded(day) {
@@ -116,7 +116,9 @@ struct CalendarItemRow: View {
             } else {
                 row
             }
-        }.accessibilityElement(children: .combine)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("calendar-item-\(item.id)")
     }
 
     private var row: some View {

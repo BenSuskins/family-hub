@@ -25,7 +25,8 @@ struct CalendarView: View {
                 status
                 content
             }
-            .background(Color(.systemBackground))
+            .background(AppTheme.background)
+            .toolbarBackground(AppTheme.background, for: .navigationBar)
             .overlay(alignment: .top) {
                 if viewModel.isLoading {
                     ProgressView().controlSize(.small).padding(4)
@@ -113,7 +114,7 @@ struct CalendarView: View {
                 Spacer()
                 Button("Retry") { Task { await viewModel.load(forceRefresh: true) } }
             }
-            .padding(12).background(Color(.secondarySystemBackground))
+            .padding(12).background(AppTheme.surface)
             .accessibilityIdentifier("calendar-error")
         }
     }

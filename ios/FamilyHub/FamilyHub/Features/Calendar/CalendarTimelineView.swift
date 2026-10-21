@@ -103,12 +103,12 @@ struct CalendarTimelineView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 if let first = items.first {
                                     Text(first.title)
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.caption2.weight(.medium))
                                         .lineLimit(1)
                                         .truncationMode(.tail)
                                     if items.count > 1 {
                                         Text("+\(items.count - 1) ⌄")
-                                            .font(.system(size: 9, weight: .semibold))
+                                            .font(.caption2.weight(.semibold))
                                             .foregroundStyle(AppTheme.accent)
                                     }
                                 }
@@ -232,7 +232,7 @@ struct CalendarTimelineView: View {
         ZStack(alignment: .topLeading) {
             ForEach(0...24, id: \.self) { hour in
                 HStack(spacing: 4) {
-                    Text(hourLabel(hour % 24)).font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(hourLabel(hour % 24)).font(.caption2).foregroundStyle(.secondary)
                         .frame(width: axisWidth - 4, alignment: .trailing)
                 Rectangle().fill(AppTheme.border).frame(height: 0.5)
                 }

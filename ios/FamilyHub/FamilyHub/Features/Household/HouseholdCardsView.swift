@@ -76,7 +76,7 @@ struct DepartureCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if dynamicTypeSize.isAccessibilitySize {
-                Text("NEXT DEPARTURE").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.clay)
+                Text("Next departure").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.clay)
             } else {
                 Label("NEXT DEPARTURE", systemImage: "clock").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.clay)
             }
@@ -210,7 +210,7 @@ struct EventDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("FAMILY CALENDAR").font(.caption).foregroundStyle(AppTheme.secondary)
+                Text("Family calendar").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondary)
                 Text(event.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .top, spacing: 12) {
@@ -249,7 +249,7 @@ struct EventDetailsView: View {
                     }
                 }
                 if !event.description.isEmpty {
-                    Text("DETAILS").font(.caption).foregroundStyle(AppTheme.secondary).padding(.top, 8)
+                    Text("Details").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondary).padding(.top, 8)
                     Text(event.description).frame(maxWidth: .infinity, alignment: .leading).padding(16).groupedCard()
                 }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(20)

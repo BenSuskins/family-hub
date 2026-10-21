@@ -243,6 +243,12 @@ final class CalendarUITests: XCTestCase {
         app.buttons["calendar-view-menu"].tap()
         app.buttons["calendar-mode-Day"].tap()
         XCTAssertTrue(app.staticTexts["School run"].exists)
+        app.buttons["Show month"].tap()
+        app.buttons["Show year"].tap()
+        let years = app.scrollViews["calendar-years"]
+        XCTAssertTrue(years.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2026"].exists)
+        capture(app, "calendar-year-accessibility")
     }
 
     @MainActor

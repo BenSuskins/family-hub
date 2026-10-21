@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Hub illustrated app icon concepts</title>
+  <style>
+    :root { color-scheme: light; --paper:#f7f1e7; --surface:#fffcf6; --ink:#343c31; --muted:#646357; --sage:#e6eddd; --green:#3c654c; --clay:#8b503c; --line:#e6dfd2; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:44px 20px 64px; background:var(--paper); color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; }
+    main { width:min(980px,100%); margin:auto; }
+    header { max-width:700px; margin:0 auto 32px; text-align:center; }
+    .eyebrow { color:var(--green); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:8px 0; font-size:clamp(30px,5vw,46px); letter-spacing:-.04em; line-height:1.05; }
+    header p { color:var(--muted); }
+    .options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+    article { overflow:hidden; border:1px solid var(--line); border-radius:28px; background:var(--surface); box-shadow:0 14px 36px #343c3110; }
+    .stage { display:grid; place-items:center; padding:30px 18px; background:radial-gradient(ellipse at 50% 38%,#fffcf6,#f3e5d4 65%,#e6eddd); }
+    .phone { width:min(300px,100%); min-height:510px; padding:15px; border:7px solid #343c31; border-radius:42px; background:linear-gradient(160deg,#e6eddd,#f3e5d4 70%,#dfe7d7); box-shadow:0 14px 25px #343c3124; }
+    .status { display:flex; justify-content:space-between; padding:2px 9px 17px; font-size:11px; font-weight:650; }
+    .island { width:85px; height:19px; margin:-25px auto 20px; border-radius:20px; background:#191b17; }
+    .widget { min-height:88px; padding:12px 14px; border:1px solid #ffffff96; border-radius:18px; background:#fffcf6c9; }
+    .widget small { color:var(--green); font-size:9px; font-weight:750; letter-spacing:.1em; }
+    .widget strong,.widget span { display:block; }
+    .widget strong { margin-top:5px; font-size:16px; }
+    .widget span { color:var(--muted); font-size:11px; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:13px 8px; margin-top:25px; text-align:center; }
+    .app { min-width:0; font-size:9px; line-height:1.3; }
+    .glyph,.app img { display:grid; place-items:center; width:47px; height:47px; margin:0 auto 5px; border-radius:12px; box-shadow:0 4px 9px #343c3118; }
+    .glyph { color:white; font-size:18px; font-weight:650; }
+    .calendar { background:#fff; color:#bf5145; }.photos { background:#fffcf6; color:#ce8d3e; }.notes { background:#f2ca68; color:#76563c; }.maps { background:#edf3e6; color:#468469; }.reminders { background:#fffcf6; color:#6b8c5d; }.weather { background:#d7e8ed; color:#668da1; }.health { background:#fff2ed; color:#c35b59; }.music { background:#f8e4eb; color:#ad5579; }
+    .dock { display:flex; justify-content:space-around; gap:10px; margin-top:21px; padding:9px 6px; border:1px solid #ffffffa8; border-radius:22px; background:#fffcf69e; }
+    .dock .glyph { width:38px; height:38px; margin:0; }
+    .copy { padding:20px 22px 23px; }
+    .number { color:var(--clay); font-size:12px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    h2 { margin:5px 0 6px; font-size:23px; letter-spacing:-.025em; }
+    .copy p { min-height:48px; margin:0; color:var(--muted); }
+    .sizes { display:flex; align-items:end; gap:16px; margin-top:18px; color:var(--muted); font-size:11px; text-align:center; }
+    .sizes img { display:block; margin:auto auto 4px; border-radius:22%; box-shadow:0 3px 10px #343c3125; }
+    .icon-large { width:112px; height:112px; }.icon-small { width:60px; height:60px; }
+    footer { margin-top:24px; padding:14px 18px; border:1px solid var(--line); border-radius:18px; background:#fffcf680; color:var(--muted); font-size:13px; }
+    @media(max-width:740px) { body { padding:28px 14px 40px; }.options { grid-template-columns:1fr; }.stage { min-height:530px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Family Hub · Illustrated icon study</div>
+      <h1>A warmer, more human mark</h1>
+      <p>These concepts use hand-painted cookbook illustration and the Warm Sage palette. The previews show each icon on an iPhone home screen and at two useful sizes.</p>
+    </header>
+    <section class="options" aria-label="Illustrated app icon concepts">
+      <article>
+        <div class="stage">
+          <div class="phone" aria-label="Home screen preview for Kitchen Window">
+            <div class="status"><span>9:41</span><span>▮▮▮　◉　▰</span></div><div class="island"></div>
+            <div class="widget"><small>TONIGHT'S MEAL</small><strong>Chicken stir fry</strong><span>Ready to cook together</span></div>
+            <div class="grid">
+              <div class="app"><span class="glyph calendar">21</span>Calendar</div><div class="app"><span class="glyph photos">✿</span>Photos</div><div class="app"><span class="glyph notes">≡</span>Notes</div><div class="app"><span class="glyph maps">⌖</span>Maps</div>
+              <div class="app"><span class="glyph reminders">✓</span>Reminders</div><div class="app"><span class="glyph weather">☀</span>Weather</div><div class="app"><span class="glyph health">♡</span>Health</div><div class="app"><span class="glyph music">♫</span>Music</div>
+              <div class="app"><img src="illustrated/kitchen-window.png" alt="Painted kitchen window icon">Family Hub</div>
+            </div>
+            <div class="dock"><span class="glyph maps">☎</span><span class="glyph calendar">✉</span><span class="glyph photos">◎</span><span class="glyph notes">⌕</span></div>
+          </div>
+        </div>
+        <div class="copy">
+          <div class="number">Direction 01 · Welcome</div><h2>Kitchen Window</h2>
+          <p>A glowing kitchen seen through a sage window. It feels like arriving home and has a distinct scene rather than a generic house mark.</p>
+          <div class="sizes"><div><img class="icon-large" src="illustrated/kitchen-window.png" alt="Large Kitchen Window icon">Preview</div><div><img class="icon-small" src="illustrated/kitchen-window.png" alt="Small Kitchen Window icon">Small size</div></div>
+        </div>
+      </article>
+      <article>
+        <div class="stage">
+          <div class="phone" aria-label="Home screen preview for Shared Supper">
+            <div class="status"><span>9:41</span><span>▮▮▮　◉　▰</span></div><div class="island"></div>
+            <div class="widget"><small>TONIGHT'S MEAL</small><strong>Chicken stir fry</strong><span>Ready to cook together</span></div>
+            <div class="grid">
+              <div class="app"><span class="glyph calendar">21</span>Calendar</div><div class="app"><span class="glyph photos">✿</span>Photos</div><div class="app"><span class="glyph notes">≡</span>Notes</div><div class="app"><span class="glyph maps">⌖</span>Maps</div>
+              <div class="app"><span class="glyph reminders">✓</span>Reminders</div><div class="app"><span class="glyph weather">☀</span>Weather</div><div class="app"><span class="glyph health">♡</span>Health</div><div class="app"><span class="glyph music">♫</span>Music</div>
+              <div class="app"><img src="illustrated/shared-supper.png" alt="Painted shared supper icon">Family Hub</div>
+            </div>
+            <div class="dock"><span class="glyph maps">☎</span><span class="glyph calendar">✉</span><span class="glyph photos">◎</span><span class="glyph notes">⌕</span></div>
+          </div>
+        </div>
+        <div class="copy">
+          <div class="number">Direction 02 · Together</div><h2>Shared Supper</h2>
+          <p>An overhead view of a shared meal, painted like a family cookbook. Food and tableware make it warmer and more distinctive at a glance.</p>
+          <div class="sizes"><div><img class="icon-large" src="illustrated/shared-supper.png" alt="Large Shared Supper icon">Preview</div><div><img class="icon-small" src="illustrated/shared-supper.png" alt="Small Shared Supper icon">Small size</div></div>
+        </div>
+      </article>
+    </section>
+    <footer>These are concept illustrations only. They do not change the app icon. The icon artwork keeps a square edge-to-edge canvas so iOS can apply its own mask.</footer>
+  </main>
+</body>
+</html>

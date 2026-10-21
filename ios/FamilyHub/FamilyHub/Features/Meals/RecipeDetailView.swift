@@ -241,7 +241,7 @@ struct RecipeDetailView: View {
     private func ingredientsSection(_ groups: [IngredientGroup]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Ingredients")
-                .font(.title3.weight(.bold))
+                .font(.system(.title3, design: .rounded, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
                 .padding(.bottom, 12)
@@ -249,10 +249,8 @@ struct RecipeDetailView: View {
             ForEach(Array(groups.enumerated()), id: \.offset) { groupIndex, group in
                 if !group.name.isEmpty && group.name != "Main" {
                     Text(group.name)
-                        .font(.footnote.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.secondary)
-                        .textCase(.uppercase)
-                        .kerning(0.4)
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
@@ -279,7 +277,7 @@ struct RecipeDetailView: View {
     private func stepsSection(_ steps: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Method")
-                .font(.title3.weight(.bold))
+                .font(.system(.title3, design: .rounded, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
                 .padding(.bottom, 12)
@@ -298,8 +296,8 @@ struct RecipeDetailView: View {
                         .padding(.top, 1)
 
                         Text(step)
-                            .font(.subheadline)
-                            .lineSpacing(3)
+                            .font(.body)
+                            .lineSpacing(4)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Spacer(minLength: 0)
@@ -361,7 +359,7 @@ private struct IngredientRow: View {
                             }
                         }
                         Text(item)
-                            .font(.subheadline)
+                            .font(.body)
                             .foregroundStyle(checked ? .tertiary : .primary)
                             .strikethrough(checked, color: .secondary)
                             .fixedSize(horizontal: false, vertical: true)

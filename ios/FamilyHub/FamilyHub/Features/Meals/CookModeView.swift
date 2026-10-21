@@ -18,8 +18,8 @@ struct CookModeView: View {
                 ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 24) {
-                            Text(recipe.title.uppercased())
-                                .font(.caption).foregroundStyle(AppTheme.secondary)
+                            Text(recipe.title)
+                                .font(.caption.weight(.semibold)).foregroundStyle(AppTheme.secondary)
                             Text("Step \(index + 1) of \(steps.count)")
                                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                                 .accessibilityAddTraits(.isHeader)
@@ -94,7 +94,7 @@ struct CookModeView: View {
     private var ingredientsPage: some View {
         List {
             Section {
-                Text(recipe.title.uppercased()).font(.caption).foregroundStyle(AppTheme.secondary)
+                Text(recipe.title).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.secondary)
                 Text("Before you start").font(.system(.largeTitle, design: .rounded, weight: .bold))
                 Text("Check the ingredients, then start cooking.").foregroundStyle(AppTheme.secondary)
             }.listRowBackground(Color.clear).listRowSeparator(.hidden)

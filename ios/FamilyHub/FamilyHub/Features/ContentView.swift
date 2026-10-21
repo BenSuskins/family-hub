@@ -160,15 +160,13 @@ private struct FamilyTabBar: View {
     let onSelect: (AppTab) -> Void
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
-    @ScaledMetric(relativeTo: .caption2) private var labelSize = 10.0
-
     var body: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 Button { onSelect(tab) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: tab.symbol).font(.system(size: 21, weight: .medium))
-                        Text(tab.title).font(.system(size: min(labelSize, 14), weight: .semibold))
+                        Text(tab.title).font(.caption.weight(.semibold))
                             .lineLimit(1).minimumScaleFactor(0.8)
                     }
                     .foregroundStyle(selection == tab ? AppTheme.accent : AppTheme.secondary)

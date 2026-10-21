@@ -18,7 +18,9 @@ struct CalendarMonthsView: View {
         _visibleMonth = State(initialValue: viewModel.currentMonth)
     }
 
-    private var rowHeight: Double { 98 * viewModel.monthScale * magnification }
+    @ScaledMetric(relativeTo: .body) private var baseRowHeight = 98.0
+
+    private var rowHeight: Double { baseRowHeight * viewModel.monthScale * magnification }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -107,6 +109,7 @@ private struct CalendarMonthGrid: View {
     let month: Date
     let rowHeight: Double
     let showsTitle: Bool
+    @ScaledMetric(relativeTo: .largeTitle) private var titleHeight: CGFloat = 60
 
     private var weeks: [[Date?]] {
         let days = viewModel.schedule.monthDays(containing: month)
@@ -117,8 +120,8 @@ private struct CalendarMonthGrid: View {
         VStack(alignment: .leading, spacing: 0) {
             if showsTitle {
                 Text(month.formatted(.dateTime.month(.wide)))
-                    .font(.largeTitle.bold()).foregroundStyle(AppTheme.accent)
-                    .padding(.horizontal, 16).frame(height: 60)
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(AppTheme.accent)
+                    .padding(.horizontal, 16).frame(height: titleHeight)
                     .accessibilityAddTraits(.isHeader)
             }
             VStack(spacing: 0) {
@@ -135,7 +138,7 @@ private struct CalendarMonthGrid: View {
                 }
             }
         }
-        .frame(height: (showsTitle ? 60 : 0) + Double(viewModel.schedule.monthDays(containing: month).count / 7) * rowHeight)
+        .frame(height: (showsTitle ? titleHeight : 0) + CGFloat(viewModel.schedule.monthDays(containing: month).count / 7) * CGFloat(rowHeight))
     }
 }
 
@@ -146,7 +149,9 @@ private struct CalendarMonthDay: View {
 
     private var items: [CalendarDisplayItem] { viewModel.items(for: date) }
     private var isToday: Bool { viewModel.schedule.calendar.isDate(date, inSameDayAs: viewModel.today) }
-    private var limit: Int { max(1, Int((height - 36) / 16)) }
+    @ScaledMetric(relativeTo: .body) private var dayNumberSize: CGFloat = 30
+    @ScaledMetric(relativeTo: .caption2) private var eventLineHeight: CGFloat = 16
+    private var limit: Int { max(1, Int((height - Double(dayNumberSize) - 6) / Double(eventLineHeight))) }
 
     var body: some View {
         Button {
@@ -156,12 +161,12 @@ private struct CalendarMonthDay: View {
                 Text(date.formatted(.dateTime.day()))
                     .font(.body)
                     .foregroundStyle(isToday ? AppTheme.onAccent : AppTheme.ink)
-                    .frame(width: 30, height: 30)
+                    .frame(width: dayNumberSize, height: dayNumberSize)
                     .background(isToday ? AppTheme.accent : .clear, in: Circle())
                 ForEach(items.prefix(limit)) { item in
                     HStack(spacing: 1) {
                         if let symbol = item.symbol { Image(systemName: symbol).font(.system(size: 8)) }
-                        Text(item.title).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                        Text(item.title).font(.caption2.weight(.medium)).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 2).padding(.vertical, 1)
@@ -169,7 +174,7 @@ private struct CalendarMonthDay: View {
                     .background(item.color.opacity(0.13), in: RoundedRectangle(cornerRadius: 3))
                 }
                 if items.count > limit {
-                    Text("+\(items.count - limit)").font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text("+\(items.count - limit)").font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }
@@ -195,6 +200,7 @@ struct CalendarYearView: View {
     @State private var visibleYear: Int?
     @State private var scrollPhase: ScrollPhase = .idle
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption2) private var miniMonthHeight: CGFloat = 132
 
     init(viewModel: CalendarViewModel) {
         self.viewModel = viewModel
@@ -211,7 +217,7 @@ struct CalendarYearView: View {
                 LazyVStack(alignment: .leading, spacing: 24) {
                     ForEach(years, id: \.self) { year in
                         VStack(alignment: .leading, spacing: 20) {
-                            Text(String(year)).font(.largeTitle.bold()).foregroundStyle(AppTheme.accent).accessibilityAddTraits(.isHeader)
+                            Text(String(year)).font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(AppTheme.accent).accessibilityAddTraits(.isHeader)
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 24) {
                                 ForEach(1...12, id: \.self) { month in
                                     if let date = viewModel.schedule.calendar.date(from: DateComponents(year: year, month: month, day: 1)) {
@@ -261,13 +267,13 @@ struct CalendarYearView: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 5) {
                     ForEach(Array(viewModel.schedule.monthDays(containing: date).enumerated()), id: \.offset) { _, day in
                         if let day {
-                            Text(day.formatted(.dateTime.day())).font(.system(size: 9))
+                            Text(day.formatted(.dateTime.day())).font(.caption2)
                                 .frame(maxWidth: .infinity)
                                 .foregroundStyle(viewModel.schedule.calendar.isDate(day, inSameDayAs: viewModel.today) ? AppTheme.accent : AppTheme.ink)
-                        } else { Text(" ").font(.system(size: 9)) }
+                        } else { Text(" ").font(.caption2) }
                     }
                 }
-            }.frame(height: 132, alignment: .top).contentShape(Rectangle())
+            }.frame(height: miniMonthHeight, alignment: .top).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(date.formatted(.dateTime.month(.wide).year()))

@@ -16,8 +16,8 @@ private enum DemoData {
     ]
 
     static let categories: [ChoreCategory] = [
-        ChoreCategory(id: mainCourseID, name: "Main Course"),
-        ChoreCategory(id: saladID, name: "Salads"),
+        ChoreCategory(id: mainCourseID, name: "Cleaning"),
+        ChoreCategory(id: saladID, name: "Garden"),
     ]
 
     static let recipes: [Recipe] = [

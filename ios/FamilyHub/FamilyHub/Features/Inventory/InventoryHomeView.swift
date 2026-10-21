@@ -5,6 +5,7 @@ struct InventoryHomeView: View {
     @State private var viewModel: InventoryViewModel
     @State private var activeSheet: ActiveSheet?
     @State private var deletingArea: InventoryArea?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     enum ActiveSheet: Identifiable {
         case addArea
@@ -26,46 +27,34 @@ struct InventoryHomeView: View {
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
             List {
-                if !viewModel.runningLow.isEmpty {
-                    Section("Running Low") {
-                        ForEach(viewModel.runningLow) { entry in
-                            HStack {
-                                NavigationLink {
-                                    AreaDetailView(areaID: entry.area.id, viewModel: viewModel)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(entry.item.name)
-                                        Text(entry.area.name + " · " + entry.item.statusLabel)
-                                            .font(.subheadline).foregroundStyle(.secondary)
-                                    }
-                                }
-                                Button {
-                                    Task { await viewModel.addToShopping(entry.item) }
-                                } label: {
-                                    Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Add \(entry.item.name) to shopping list")
-                            }
-                        }
-                    }
-                }
                 Section("Areas") {
                     if viewModel.areas.isEmpty {
-                        Text("Add an area to track stock.").foregroundStyle(.secondary)
+                        Text("Add an area to track stock.").foregroundStyle(AppTheme.secondary)
                     }
                     ForEach(viewModel.areas) { area in
+                        let layout = dynamicTypeSize.isAccessibilitySize
+                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                            : AnyLayout(HStackLayout())
+                        layout {
                         NavigationLink {
                             AreaDetailView(areaID: area.id, viewModel: viewModel)
                         } label: {
                             HStack(spacing: 12) {
-                                AreaIconTile(area: area, size: 38).accessibilityHidden(true)
+                                if !dynamicTypeSize.isAccessibilitySize {
+                                    AreaIconTile(area: area, size: 38).accessibilityHidden(true)
+                                }
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(area.name).font(.headline)
                                     Text("\(area.items.count) items · \(area.lowCount) low")
-                                        .font(.subheadline).foregroundStyle(.secondary)
+                                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
                                 }
                             }
+                        }
+                            Menu {
+                                Button("Edit Area", systemImage: "pencil") { activeSheet = .editArea(area) }
+                                Button("Delete Area", systemImage: "trash", role: .destructive) { deletingArea = area }
+                            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Actions for \(area.name)")
                         }
                         .swipeActions {
                             Button("Delete", role: .destructive) { deletingArea = area }
@@ -77,10 +66,35 @@ struct InventoryHomeView: View {
                         }
                     }
                     Button("Add Area", systemImage: "plus") { activeSheet = .addArea }
+                }.listRowBackground(AppTheme.surface)
+                if !viewModel.runningLow.isEmpty {
+                    Section("Running Low") {
+                        ForEach(viewModel.runningLow) { entry in
+                            HStack {
+                                NavigationLink {
+                                    AreaDetailView(areaID: entry.area.id, viewModel: viewModel)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(entry.item.name)
+                                        Text(entry.area.name + " · " + entry.item.statusLabel)
+                                            .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                                    }
+                                }
+                                Button {
+                                    Task { await viewModel.addToShopping(entry.item) }
+                                } label: {
+                                    Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Add \(entry.item.name) to shopping list")
+                            }
+                        }
+                    }.listRowBackground(AppTheme.surface)
                 }
             }
             .refreshable { await viewModel.load() }
         }
+        .appListStyle()
         .navigationTitle("Inventory")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -93,7 +107,7 @@ struct InventoryHomeView: View {
             case .editArea(let area): AreaFormView(mode: .edit(area), viewModel: viewModel)
             }
         }
-        .confirmationDialog("Delete this area and its items?", isPresented: Binding(
+        .confirmationDialog("Delete \(deletingArea?.name ?? "area") and its items?", isPresented: Binding(
             get: { deletingArea != nil }, set: { if !$0 { deletingArea = nil } }
         ), titleVisibility: .visible) {
             if let area = deletingArea {

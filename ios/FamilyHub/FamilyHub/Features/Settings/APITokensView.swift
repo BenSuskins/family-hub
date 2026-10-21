@@ -70,20 +70,36 @@ struct APITokensView: View {
         self._viewModel = State(initialValue: APITokensViewModel(apiClient: apiClient))
     }
 
+    private var deletionName: String {
+        guard let index = pendingDeletion?.first, viewModel.tokens.indices.contains(index) else { return "token" }
+        return viewModel.tokens[index].name
+    }
+
     var body: some View {
         List {
+            Section {
+                Text("Tokens connect other apps to Family Hub. Treat them like passwords.")
+                    .foregroundStyle(AppTheme.secondary)
+            }.listRowBackground(AppTheme.surface)
+            if viewModel.tokens.isEmpty && !viewModel.isLoading {
+                Section {
+                    ContentUnavailableView("No Tokens", systemImage: "key", description: Text("Tap + to create a token."))
+                }.listRowBackground(AppTheme.surface)
+            }
             ForEach(viewModel.tokens) { token in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(token.name).font(.body)
                     Text(token.createdAt.formatted(date: .abbreviated, time: .omitted))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                 }
             }
             .onDelete { offsets in
                 pendingDeletion = offsets
             }
+            .listRowBackground(AppTheme.surface)
         }
+        .appListStyle()
         .navigationTitle("API Tokens")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -100,8 +116,6 @@ struct APITokensView: View {
         .overlay {
             if viewModel.isLoading && viewModel.tokens.isEmpty {
                 ProgressView()
-            } else if viewModel.tokens.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView("No Tokens", systemImage: "key", description: Text("Tap + to create a token."))
             }
         }
         .sheet(item: $activeSheet, onDismiss: {
@@ -112,7 +126,7 @@ struct APITokensView: View {
         }) { sheet in
             switch sheet {
             case .create:
-                NameEntrySheet(title: "New Token", name: $newTokenName) { name in
+                NameEntrySheet(title: "New Token", name: $newTokenName, fieldTitle: "Token name", actionTitle: "Create token", explanation: "Copy the token after creation. The app shows it once.") { name in
                     viewModel.actionError = nil
                     await viewModel.create(name: name)
                     let error = viewModel.newlyCreatedToken == nil ? viewModel.actionError : nil
@@ -122,7 +136,7 @@ struct APITokensView: View {
             case .created(let token): CreatedTokenSheet(token: token)
             }
         }
-        .confirmationDialog("Delete this token?", isPresented: Binding(
+        .confirmationDialog("Delete \(deletionName)?", isPresented: Binding(
             get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }
         ), titleVisibility: .visible) {
             if let offsets = pendingDeletion {
@@ -136,6 +150,7 @@ struct APITokensView: View {
 
 private struct CreatedTokenSheet: View {
     let token: CreatedToken
+    @State private var copied = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -144,17 +159,24 @@ private struct CreatedTokenSheet: View {
                 Section {
                     Label("Token Created", systemImage: "checkmark.circle")
                     Text("Copy this token now. The app shows it once.")
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(AppTheme.secondary)
+                }.listRowBackground(AppTheme.surface)
                 Section(token.name) {
                     Text(token.plaintext)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
-                    Button("Copy Token", systemImage: "doc.on.doc") {
+                    Button(copied ? "Copied" : "Copy Token", systemImage: "doc.on.doc") {
                         UIPasteboard.general.string = token.plaintext
+                        copied = true
+                        UIAccessibility.post(notification: .announcement, argument: "Copied")
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            copied = false
+                        }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
             }
+            .appListStyle()
             .navigationTitle("New Token")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

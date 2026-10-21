@@ -28,10 +28,10 @@ struct AreaDetailView: View {
                             Text("All items").tag(Scope.all)
                             Text("Running low (\(area.lowCount))").tag(Scope.low)
                         }
-                    }
+                    }.listRowBackground(AppTheme.surface)
                     Section("Items") {
                         let items = scope == .low ? area.lowItems : area.items
-                        if items.isEmpty { Text("No items").foregroundStyle(.secondary) }
+                        if items.isEmpty { Text("No items").foregroundStyle(AppTheme.secondary) }
                         ForEach(items) { item in
                             itemRow(item)
                                 .swipeActions(allowsFullSwipe: false) {
@@ -39,8 +39,9 @@ struct AreaDetailView: View {
                                 }
                         }
                         Button("Add Item", systemImage: "plus") { activeSheet = .addItem }
-                    }
+                    }.listRowBackground(AppTheme.surface)
                 }
+                .appListStyle()
                 .navigationTitle(area.name)
             } else {
                 ContentUnavailableView("Area not found", systemImage: "shippingbox")
@@ -57,7 +58,7 @@ struct AreaDetailView: View {
             case .editItem(let item): ItemFormView(mode: .edit(item), viewModel: viewModel)
             }
         }
-        .confirmationDialog("Delete this item?", isPresented: Binding(
+        .confirmationDialog("Delete \(deletingItem?.name ?? "item")?", isPresented: Binding(
             get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } }
         ), titleVisibility: .visible) {
             if let item = deletingItem {
@@ -75,9 +76,13 @@ struct AreaDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Button { activeSheet = .editItem(item) } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name).font(.headline).foregroundStyle(.primary)
-                    Text(item.statusLabel + " · Low at \(item.lowAt)\(item.trackingMode == .level ? "%" : "")")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                    HStack {
+                        Text(item.name).font(.headline).foregroundStyle(AppTheme.ink)
+                        Spacer()
+                        Image(systemName: "pencil").foregroundStyle(AppTheme.accent).accessibilityHidden(true)
+                    }
+                    Text(item.statusLabel + " · Alert at or below \(item.lowAt)\(item.trackingMode == .level ? "%" : "")")
+                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }

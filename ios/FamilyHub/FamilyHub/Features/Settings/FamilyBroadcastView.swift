@@ -11,6 +11,7 @@ struct FamilyBroadcastView: View {
     @State private var pushAvailable = false
     @State private var result: BroadcastResult?
     @State private var actionError: APIError?
+    @AccessibilityFocusState private var resultIsFocused: Bool
 
     private var trimmedMessage: String { message.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -23,41 +24,45 @@ struct FamilyBroadcastView: View {
                     .focused($messageIsFocused)
                 Text("\(message.unicodeScalars.count)/500 characters")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
             } header: {
                 Text("Family Message")
             } footer: {
                 Text("Send a notification to every family iPhone with notifications enabled. The message can appear on the lock screen.")
-            }
+            }.listRowBackground(AppTheme.surface)
             .disabled(isSending)
 
             if !isLoading && !pushAvailable {
                 Section {
                     Text("The server needs Apple push credentials before messages can send.")
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(AppTheme.secondary)
+                }.listRowBackground(AppTheme.surface)
             }
             if let result {
-                Section("Send Result") {
-                    Text("Apple accepted: \(result.accepted)")
+                Section("Send result") {
+                    if result.accepted == 0 && result.failed == 0 {
+                        Text("No available iPhones").font(.headline).accessibilityFocused($resultIsFocused)
+                        Text("No family iPhones have notifications enabled.").foregroundStyle(AppTheme.secondary)
+                        NavigationLink("Set up notifications") { ChoreRemindersView(apiClient: apiClient, isAdmin: true) }
+                    } else {
+                        Text("Apple accepted: \(result.accepted)").accessibilityFocused($resultIsFocused)
+                    }
                     if result.failed > 0 {
                         Text("Failed or pending: \(result.failed)")
                         Text("Tap Send again to retry eligible failures. Accepted notifications do not repeat.")
-                            .foregroundStyle(.secondary)
-                    } else if result.accepted == 0 {
-                        Text("No family iPhones have notifications enabled.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
             }
         }
-        .navigationTitle("Family Broadcast")
+        .appListStyle()
+        .navigationTitle("Family message")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if isSending { ProgressView() }
                 else {
-                    Button("Send") { Task { await send() } }
+                    Button("Send") { Task { await send() } }.buttonStyle(AppCommitButtonStyle())
                         .accessibilityLabel("Send to Family")
                         .disabled(isLoading || !pushAvailable || trimmedMessage.isEmpty || trimmedMessage.unicodeScalars.count > 500)
                 }
@@ -83,7 +88,10 @@ struct FamilyBroadcastView: View {
         messageIsFocused = false
         isSending = true
         defer { isSending = false }
-        do { result = try await apiClient.sendFamilyBroadcast(message: trimmedMessage, requestID: requestID) }
+        do {
+            result = try await apiClient.sendFamilyBroadcast(message: trimmedMessage, requestID: requestID)
+            resultIsFocused = true
+        }
         catch { actionError = .from(error) }
     }
 }

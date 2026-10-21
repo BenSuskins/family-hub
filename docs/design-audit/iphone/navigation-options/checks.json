@@ -1,0 +1,86 @@
+[
+  {
+    "option": "direct",
+    "screen": "food",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "direct",
+    "screen": "food",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "direct",
+    "screen": "household",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "direct",
+    "screen": "household",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "menu",
+    "screen": "food",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "menu",
+    "screen": "food",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "menu",
+    "screen": "household",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "menu",
+    "screen": "household",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "overview",
+    "screen": "food",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "overview",
+    "screen": "food",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "overview",
+    "screen": "household",
+    "width": 402,
+    "overflow": false,
+    "segments": 0
+  },
+  {
+    "option": "overview",
+    "screen": "household",
+    "width": 375,
+    "overflow": false,
+    "segments": 0
+  }
+]

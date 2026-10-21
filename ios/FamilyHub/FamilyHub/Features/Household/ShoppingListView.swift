@@ -7,94 +7,96 @@ struct ShoppingListView: View {
     @State private var inventoryModel: InventoryViewModel
     private let isHouseholdHome: Bool
     @State private var newName = ""
-    @State private var activeSheet: ShoppingSheet?
-    @State private var confirmClear = false
+    @State private var renameID: String?
+    @State private var renameDraft = ""
+    @FocusState private var renameFocused: Bool
+    @FocusState private var addFocused: Bool
     @State private var deletingItem: ShoppingItem?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
 
-    private enum ShoppingSheet: Identifiable {
-        case rename(ShoppingItem)
-        case restock(ShoppingItem)
-        var id: String {
-            switch self {
-            case .rename(let item): return "rename-" + item.id
-            case .restock(let item): return "restock-" + item.id
-            }
-        }
-    }
-
-    init(apiClient: any APIClientProtocol, isHouseholdHome: Bool = false) {
+    init(apiClient: any APIClientProtocol, isHouseholdHome: Bool = false, model: ShoppingViewModel? = nil) {
         self.apiClient = apiClient
         self.isHouseholdHome = isHouseholdHome
-        _model = State(wrappedValue: ShoppingViewModel(apiClient: apiClient))
+        _model = State(wrappedValue: model ?? ShoppingViewModel(apiClient: apiClient))
         _inventoryModel = State(wrappedValue: InventoryViewModel(apiClient: apiClient))
     }
 
     var body: some View {
         List {
-            if !model.canEdit {
+            if isOverview {
                 Section {
-                    if let date = model.capturedAt {
-                        Label("Read-only copy", systemImage: "wifi.slash")
-                        Text("Last updated \(date.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.caption).foregroundStyle(.secondary)
-                    } else {
-                        Text(model.isLoading ? "Loading…" : "Shopping list unavailable.")
+                    Text("The shopping list and your stock.").foregroundStyle(AppTheme.secondary)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                }.listRowBackground(Color.clear)
+                Section {
+                    NavigationLink(value: HouseholdDestination.shopping) {
+                        FeatureEntryLabel(title: "Shopping list", subtitle: "\(model.remainingCount) to buy", systemImage: "cart")
                     }
-                    Button("Refresh") { Task { await model.load() } }
-                }
-            }
-            Section {
-                HStack {
-                    TextField("Item name", text: $newName, prompt: Text("Add an item…"))
-                        .accessibilityLabel("Item name")
-                        .accessibilityIdentifier("Item name")
-                        .submitLabel(.done)
-                        .onSubmit { add() }
-                    Button(action: add) { Image(systemName: "plus.circle.fill").font(.title2) }
-                        .frame(minWidth: 44, minHeight: 44)
-                        .accessibilityLabel("Add item")
-                        .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-                .disabled(!model.canEdit || model.isChanging)
-                if model.items.allSatisfy(\.purchased) { Text("The list is empty.").foregroundStyle(.secondary) }
-                ForEach(model.items.filter { !$0.purchased }) { row($0) }
-            } header: {
-                let layout = dynamicTypeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                    : AnyLayout(HStackLayout())
-                layout {
-                    Text("Shopping list").font(.title3.bold())
-                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                    Text("\(model.items.filter { !$0.purchased }.count) to buy")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .textCase(nil)
-            }
-            if model.items.contains(where: \.purchased) {
-                Section("Purchased") {
-                    ForEach(model.items.filter(\.purchased)) { row($0) }
-                    Button("Clear purchased items", role: .destructive) { confirmClear = true }
-                        .disabled(!model.canEdit || model.isChanging)
-                }
-            }
-            if isHouseholdHome {
-                Section {
+                    .accessibilityLabel("Shopping list")
+                    .accessibilityHint("\(model.remainingCount) to buy")
                     NavigationLink(value: HouseholdDestination.inventory) {
                         FeatureEntryLabel(title: "Inventory", subtitle: inventorySummary, systemImage: "cabinet")
                     }
                     .accessibilityLabel("Inventory")
                     .accessibilityHint(inventorySummary)
+                }.listRowBackground(AppTheme.surface)
+                inventorySection
+            } else {
+                if !model.canEdit {
+                    Section {
+                        if let date = model.capturedAt {
+                            Label("Read-only copy", systemImage: "wifi.slash")
+                            Text("Last updated \(date.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption).foregroundStyle(AppTheme.secondary)
+                        } else {
+                            Text(model.isLoading ? "Loading…" : "Shopping list unavailable.")
+                        }
+                        Button("Refresh") { Task { await model.load() } }
+                    }.listRowBackground(AppTheme.surface)
                 }
-            }
-            if isHouseholdHome {
+                Section {
+                    Text("\(model.remainingCount) \(model.remainingCount == 1 ? "item" : "items") to buy")
+                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                }.listRowBackground(Color.clear)
+                Section {
+                    HStack {
+                        Button {
+                            if newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { addFocused = true }
+                            else { add() }
+                        } label: { Image(systemName: "plus").font(.title2) }
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel("Add item")
+                        .buttonStyle(.borderless)
+                        TextField("Item name", text: $newName, prompt: Text("Add an item"))
+                            .focused($addFocused)
+                            .accessibilityLabel("Item name")
+                            .accessibilityIdentifier("Item name")
+                            .submitLabel(.done)
+                            .onSubmit { add() }
+                    }
+                    .disabled(!model.canEdit || model.changingIDs.contains("new-item"))
+                }.listRowBackground(AppTheme.surface)
+                Section {
+                    if model.visibleItems.isEmpty { Text("The list is empty.").foregroundStyle(AppTheme.secondary) }
+                    ForEach(model.visibleItems) { row($0) }
+                }.listRowBackground(AppTheme.surface)
+                if isHouseholdHome {
+                    Section {
+                        NavigationLink(value: HouseholdDestination.inventory) {
+                            FeatureEntryLabel(title: "Inventory", subtitle: inventorySummary, systemImage: "cabinet")
+                        }
+                        .accessibilityLabel("Inventory")
+                        .accessibilityHint(inventorySummary)
+                    }.listRowBackground(AppTheme.surface)
+                }
                 inventorySection
             }
         }
         .listStyle(.insetGrouped)
+        .appListStyle()
         .navigationTitle(isHouseholdHome ? "Household" : "Shopping List")
         .toolbar {
             if isHouseholdHome {
@@ -104,31 +106,23 @@ struct ShoppingListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await refresh() } }
         .refreshable { await refresh() }
         .errorAlert($model.error)
-        .confirmationDialog("Clear purchased items?", isPresented: $confirmClear) {
-            Button("Clear purchased items", role: .destructive) { Task { await model.clearPurchased() } }
-        }
-        .confirmationDialog("Delete this shopping item?", isPresented: Binding(
+        .confirmationDialog("Delete \(deletingItem?.name ?? "item")?", isPresented: Binding(
             get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } }
         ), titleVisibility: .visible) {
             if let item = deletingItem {
                 Button("Delete Item", role: .destructive) { Task { await model.remove(item) } }
             }
         }
-        .sheet(item: $activeSheet, onDismiss: {
-            Task { if isHouseholdHome { await inventoryModel.load() } }
-        }) { sheet in
-            switch sheet {
-            case .rename(let item): ShoppingNameView(item: item, model: model)
-            case .restock(let item): ShoppingRestockView(item: item, model: model, apiClient: apiClient)
-            }
-        }
-        .onAppear { isVisible = true }
+        .onAppear { isVisible = true; model.expirePurchases() }
         .onDisappear { isVisible = false }
         .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
             guard shouldRefresh else { return }
+            await refresh()
+            var lastRefresh = Date.now
             while !Task.isCancelled {
-                await refresh()
-                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                model.expirePurchases()
+                if lastRefresh.timeIntervalSinceNow < -30 { await refresh(); lastRefresh = .now }
+                do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
             }
         }
     }
@@ -148,22 +142,31 @@ struct ShoppingListView: View {
     private var inventorySection: some View {
         switch inventoryModel.state {
         case .idle, .loading:
-            Section { ProgressView("Checking stock") }
+            Section { ProgressView("Checking stock") }.listRowBackground(AppTheme.surface)
         case .failed:
             Section("Inventory") {
                 Text("Stock unavailable. Retry to check stock.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
                 Button("Retry inventory") { Task { await inventoryModel.load() } }
-            }
+            }.listRowBackground(AppTheme.surface)
         case .loaded:
             if !inventoryModel.runningLow.isEmpty {
-                Section("Running low") {
+                Section {
                     ForEach(inventoryModel.runningLow.prefix(4)) { entry in
                         lowStockRow(entry)
                     }
-                    NavigationLink("View inventory", value: HouseholdDestination.inventory)
-                        .frame(minHeight: 44)
-                }
+                } header: {
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                        : AnyLayout(HStackLayout())
+                    layout {
+                        Text("Running low").font(.system(.title2, design: .rounded, weight: .bold)).foregroundStyle(AppTheme.ink)
+                        if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+                        if !isHouseholdHome {
+                            NavigationLink("Inventory", value: HouseholdDestination.inventory).frame(minHeight: 44)
+                        }
+                    }.textCase(nil)
+                }.listRowBackground(AppTheme.surface)
             }
         }
     }
@@ -180,10 +183,10 @@ struct ShoppingListView: View {
                 HStack(spacing: 12) {
                     AreaIconTile(area: entry.area).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.item.name).foregroundStyle(.primary)
+                        Text(entry.item.name).foregroundStyle(AppTheme.ink)
                         Text(entry.area.name + " · " + entry.item.statusLabel + " · Low")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                     }
                     .fixedSize(horizontal: false, vertical: true)
                 }
@@ -203,131 +206,80 @@ struct ShoppingListView: View {
 
     private func refresh() async {
         await model.load()
-        if isHouseholdHome { await inventoryModel.load() }
+        await inventoryModel.load()
     }
 
     private func add() {
         let name = newName
         Task {
             await model.add(name: name)
-            if model.error == nil { newName = "" }
+            if model.error == nil { newName = ""; addFocused = false }
         }
     }
+
+    private var isOverview: Bool { isHouseholdHome && UIDevice.current.userInterfaceIdiom == .phone }
 
     private func row(_ item: ShoppingItem) -> some View {
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout())
-        return layout {
-            Button {
-                Task {
-                    if let updated = await model.toggle(item), updated.purchased, updated.inventoryItemID != nil, !updated.restocked {
-                        activeSheet = .restock(updated)
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Button { Task { _ = await model.toggle(item) } } label: {
+                    Image(systemName: model.isPurchased(item) ? "checkmark.circle.fill" : "circle")
+                        .font(.title2).frame(width: 44, height: 44)
                 }
-            } label: {
-                Image(systemName: item.purchased ? "checkmark.circle.fill" : "circle")
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(item.purchased ? "Restore \(item.name)" : "Purchase \(item.name)")
-            Text(item.name).strikethrough(item.purchased)
-            Spacer()
-            if item.purchased, item.inventoryItemID != nil {
-                if item.restocked {
-                    Text("Restocked").font(.caption).foregroundStyle(.secondary)
+                .buttonStyle(.borderless)
+                .accessibilityLabel(model.isPurchased(item) ? "Restore \(item.name)" : "Purchase \(item.name)")
+                .disabled(!model.canEdit || renameID == item.id)
+                if renameID == item.id {
+                    TextField("Item name", text: $renameDraft, axis: .vertical)
+                        .focused($renameFocused)
+                        .accessibilityIdentifier("Rename item inline")
+                        .submitLabel(.done)
+                        .onSubmit { saveRename(item) }
                 } else {
-                    Button("Restock") { activeSheet = .restock(item) }.buttonStyle(.borderless)
-                        .frame(minHeight: 44)
-                }
-            }
-            Menu {
-                Button("Rename") { activeSheet = .rename(item) }
-                Button("Delete", role: .destructive) { deletingItem = item }
-            } label: {
-                Image(systemName: "ellipsis").frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Actions for \(item.name)")
-        }
-        .disabled(!model.canEdit || model.isChanging)
-    }
-}
-
-private struct ShoppingNameView: View {
-    let item: ShoppingItem
-    @Bindable var model: ShoppingViewModel
-    @State private var name = ""
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            Form { TextField("Item name", text: $name) }
-                .navigationTitle("Rename item")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            Task {
-                                await model.rename(item, name: name)
-                                if model.error == nil { dismiss() }
-                            }
-                        }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !model.canEdit || model.isChanging)
-                    }
-                }
-                .errorAlert($model.error)
-        }.onAppear { name = item.name }
-    }
-}
-
-private struct ShoppingRestockView: View {
-    let item: ShoppingItem
-    @Bindable var model: ShoppingViewModel
-    let apiClient: any APIClientProtocol
-    @State private var inventory: InventoryItem?
-    @State private var amount = ""
-    @State private var error: APIError?
-    @State private var isLoading = true
-    @Environment(\.dismiss) private var dismiss
-
-    private var validAmount: Int? {
-        guard let value = Int(amount), let inventory else { return nil }
-        if inventory.trackingMode == .level { return (0...100).contains(value) ? value : nil }
-        return (1...1_000_000).contains(value) ? value : nil
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(item.name) {
-                    if let inventory {
-                        Text(inventory.trackingMode == .level ? "Set the new inventory level." : "Add the units you purchased to inventory.")
-                        TextField(inventory.trackingMode == .level ? "New level (%)" : "Units to add", text: $amount)
-                            .keyboardType(.numberPad)
-                        Text("Current stock: \(inventory.statusLabel)").foregroundStyle(.secondary)
-                    } else {
-                        Text(isLoading ? "Loading inventory…" : "Inventory unavailable. You can restock later.")
-                    }
-                }
-            }
-            .navigationTitle("Restock inventory")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Not now") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Restock") {
-                        guard let validAmount, let inventory else { return }
-                        Task {
-                            if await model.restock(item, quantity: inventory.trackingMode == .count ? validAmount : nil, level: inventory.trackingMode == .level ? validAmount : nil) { dismiss() }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.name).strikethrough(model.isPurchased(item))
+                        if let area = inventoryModel.areas.first(where: { area in area.items.contains { $0.id == item.inventoryItemID } }) {
+                            Text(area.name).font(.subheadline).foregroundStyle(AppTheme.secondary)
                         }
-                    }.disabled(validAmount == nil || !model.canEdit || model.isChanging)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if model.isPurchased(item) {
+                    Button("Undo") { Task { _ = await model.toggle(item) } }
+                        .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                        .disabled(!model.canEdit)
+                } else if renameID != item.id {
+                    Menu {
+                        Button("Rename") { renameID = item.id; renameDraft = item.name; renameFocused = true }
+                        Button("Delete", role: .destructive) { deletingItem = item }
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Actions for \(item.name)")
+                    .disabled(!model.canEdit || model.changingIDs.contains(item.id))
                 }
             }
-            .errorAlert($error)
-            .errorAlert($model.error)
-            .task {
-                defer { isLoading = false }
-                do {
-                    inventory = try await apiClient.fetchInventory().flatMap(\.items).first { $0.id == item.inventoryItemID }
-                } catch { self.error = .from(error) }
+            if renameID == item.id {
+                HStack {
+                    Button("Cancel") { renameID = nil; renameFocused = false }
+                    Spacer()
+                    Button("Done") { saveRename(item) }
+                        .accessibilityIdentifier("Save item name")
+                        .disabled(!model.canEdit || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 200 || model.changingIDs.contains(item.id))
+                }.buttonStyle(.borderless).frame(minHeight: 44)
             }
+            if renameID == item.id && renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 200 {
+                Text("Use a shorter item name.").font(.footnote).foregroundStyle(AppTheme.destructive)
+            }
+            if model.changingIDs.contains(item.id) { ProgressView("Saving…").font(.caption) }
+            if let error = model.rowErrors[item.id] {
+                Text(error.localizedDescription).font(.footnote).foregroundStyle(AppTheme.destructive)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func saveRename(_ item: ShoppingItem) {
+        Task {
+            if await model.rename(item, name: renameDraft) { renameID = nil; renameFocused = false }
         }
     }
 }

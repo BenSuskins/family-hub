@@ -1,0 +1,576 @@
+[
+  {
+    "screen": "calendar-year",
+    "path": "captures/iphone-light/calendar-year.png",
+    "test": "CalendarUITests/testMonthOpensDayAndOverlappingEventsOpenDetails()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489288.734
+  },
+  {
+    "screen": "calendar-day-overlap",
+    "path": "captures/iphone-light/calendar-day-overlap.png",
+    "test": "CalendarUITests/testMonthOpensDayAndOverlappingEventsOpenDetails()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489281.39
+  },
+  {
+    "screen": "calendar-month-details",
+    "path": "captures/iphone-light/calendar-month-details.png",
+    "test": "CalendarUITests/testMonthOpensDayAndOverlappingEventsOpenDetails()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489277.827
+  },
+  {
+    "screen": "calendar-day",
+    "path": "captures/iphone-light/calendar-day.png",
+    "test": "CalendarUITests/testViewMenusZoomSwipeAndToday()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489321.806
+  },
+  {
+    "screen": "calendar-month",
+    "path": "captures/iphone-light/calendar-month.png",
+    "test": "CalendarUITests/testViewMenusZoomSwipeAndToday()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489318.77
+  },
+  {
+    "screen": "calendar-year",
+    "path": "captures/iphone-light/calendar-year.png",
+    "test": "CalendarUITests/testViewMenusZoomSwipeAndToday()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489315.335
+  },
+  {
+    "screen": "calendar-week",
+    "path": "captures/iphone-light/calendar-week.png",
+    "test": "CalendarUITests/testViewMenusZoomSwipeAndToday()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489311.878
+  },
+  {
+    "screen": "calendar-month-zoom",
+    "path": "captures/iphone-light/calendar-month-zoom.png",
+    "test": "CalendarUITests/testViewMenusZoomSwipeAndToday()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489302.985
+  },
+  {
+    "screen": "access-invalid-server",
+    "path": "captures/iphone-light/access-invalid-server.png",
+    "test": "IPhoneAuditUITests/testAccessScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489341.719
+  },
+  {
+    "screen": "access-server-keyboard",
+    "path": "captures/iphone-light/access-server-keyboard.png",
+    "test": "IPhoneAuditUITests/testAccessScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489338.698
+  },
+  {
+    "screen": "access-setup-help-bottom",
+    "path": "captures/iphone-light/access-setup-help-bottom.png",
+    "test": "IPhoneAuditUITests/testAccessScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489331.203
+  },
+  {
+    "screen": "access-setup-help",
+    "path": "captures/iphone-light/access-setup-help.png",
+    "test": "IPhoneAuditUITests/testAccessScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489329.886
+  },
+  {
+    "screen": "access-welcome",
+    "path": "captures/iphone-light/access-welcome.png",
+    "test": "IPhoneAuditUITests/testAccessScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489326.713
+  },
+  {
+    "screen": "household-area-create",
+    "path": "captures/iphone-light/household-area-create.png",
+    "test": "IPhoneAuditUITests/testAreaEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489369.608
+  },
+  {
+    "screen": "household-area-edit",
+    "path": "captures/iphone-light/household-area-edit.png",
+    "test": "IPhoneAuditUITests/testAreaEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489361.978
+  },
+  {
+    "screen": "household-area-actions",
+    "path": "captures/iphone-light/household-area-actions.png",
+    "test": "IPhoneAuditUITests/testAreaEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489358.042
+  },
+  {
+    "screen": "settings-category-rename",
+    "path": "captures/iphone-light/settings-category-rename.png",
+    "test": "IPhoneAuditUITests/testCategoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489394.733
+  },
+  {
+    "screen": "settings-category-actions",
+    "path": "captures/iphone-light/settings-category-actions.png",
+    "test": "IPhoneAuditUITests/testCategoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489393.161
+  },
+  {
+    "screen": "settings-category-create",
+    "path": "captures/iphone-light/settings-category-create.png",
+    "test": "IPhoneAuditUITests/testCategoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489388.197
+  },
+  {
+    "screen": "settings-categories",
+    "path": "captures/iphone-light/settings-categories.png",
+    "test": "IPhoneAuditUITests/testCategoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489384.385
+  },
+  {
+    "screen": "tasks-create-schedule",
+    "path": "captures/iphone-light/tasks-create-schedule.png",
+    "test": "IPhoneAuditUITests/testChoreCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489415.88
+  },
+  {
+    "screen": "tasks-create-keyboard",
+    "path": "captures/iphone-light/tasks-create-keyboard.png",
+    "test": "IPhoneAuditUITests/testChoreCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489413.032
+  },
+  {
+    "screen": "tasks-create",
+    "path": "captures/iphone-light/tasks-create.png",
+    "test": "IPhoneAuditUITests/testChoreCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489408.706
+  },
+  {
+    "screen": "tasks-edit-end",
+    "path": "captures/iphone-light/tasks-edit-end.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489437.432
+  },
+  {
+    "screen": "tasks-edit-repeat",
+    "path": "captures/iphone-light/tasks-edit-repeat.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489435.98
+  },
+  {
+    "screen": "tasks-edit-schedule",
+    "path": "captures/iphone-light/tasks-edit-schedule.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489434.404
+  },
+  {
+    "screen": "tasks-edit",
+    "path": "captures/iphone-light/tasks-edit.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489431.967
+  },
+  {
+    "screen": "tasks-detail",
+    "path": "captures/iphone-light/tasks-detail.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489429.043
+  },
+  {
+    "screen": "tasks-list",
+    "path": "captures/iphone-light/tasks-list.png",
+    "test": "IPhoneAuditUITests/testChoreEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489425.23
+  },
+  {
+    "screen": "household-item-delete-confirmation",
+    "path": "captures/iphone-light/household-item-delete-confirmation.png",
+    "test": "IPhoneAuditUITests/testInventoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489463.188
+  },
+  {
+    "screen": "household-item-edit-level",
+    "path": "captures/iphone-light/household-item-edit-level.png",
+    "test": "IPhoneAuditUITests/testInventoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489459.934
+  },
+  {
+    "screen": "household-area",
+    "path": "captures/iphone-light/household-area.png",
+    "test": "IPhoneAuditUITests/testInventoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489456.174
+  },
+  {
+    "screen": "household-inventory",
+    "path": "captures/iphone-light/household-inventory.png",
+    "test": "IPhoneAuditUITests/testInventoryScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489452.642
+  },
+  {
+    "screen": "food-edit-meal",
+    "path": "captures/iphone-light/food-edit-meal.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489531.714
+  },
+  {
+    "screen": "food-meal-recipe-selected",
+    "path": "captures/iphone-light/food-meal-recipe-selected.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489524.475
+  },
+  {
+    "screen": "food-meal-search",
+    "path": "captures/iphone-light/food-meal-search.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489521.055
+  },
+  {
+    "screen": "food-add-meal",
+    "path": "captures/iphone-light/food-add-meal.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489517.208
+  },
+  {
+    "screen": "food-week-bottom",
+    "path": "captures/iphone-light/food-week-bottom.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489512.523
+  },
+  {
+    "screen": "food-week",
+    "path": "captures/iphone-light/food-week.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489509.801
+  },
+  {
+    "screen": "food-overview",
+    "path": "captures/iphone-light/food-overview.png",
+    "test": "IPhoneAuditUITests/testMealScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489506.138
+  },
+  {
+    "screen": "settings-family-name",
+    "path": "captures/iphone-light/settings-family-name.png",
+    "test": "IPhoneAuditUITests/testMemberAndHomeScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489558.724
+  },
+  {
+    "screen": "settings-home-info-bottom",
+    "path": "captures/iphone-light/settings-home-info-bottom.png",
+    "test": "IPhoneAuditUITests/testMemberAndHomeScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489553.923
+  },
+  {
+    "screen": "settings-home-info",
+    "path": "captures/iphone-light/settings-home-info.png",
+    "test": "IPhoneAuditUITests/testMemberAndHomeScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489552.737
+  },
+  {
+    "screen": "settings-member-actions",
+    "path": "captures/iphone-light/settings-member-actions.png",
+    "test": "IPhoneAuditUITests/testMemberAndHomeScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489547.761
+  },
+  {
+    "screen": "settings-family-members",
+    "path": "captures/iphone-light/settings-family-members.png",
+    "test": "IPhoneAuditUITests/testMemberAndHomeScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489546.427
+  },
+  {
+    "screen": "settings-photo-picker",
+    "path": "captures/iphone-light/settings-photo-picker.png",
+    "test": "IPhoneAuditUITests/testProfileAndConfigurationScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489601.407
+  },
+  {
+    "screen": "settings-profile",
+    "path": "captures/iphone-light/settings-profile.png",
+    "test": "IPhoneAuditUITests/testProfileAndConfigurationScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489597.983
+  },
+  {
+    "screen": "food-recipe-create-steps",
+    "path": "captures/iphone-light/food-recipe-create-steps.png",
+    "test": "IPhoneAuditUITests/testRecipeCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489628.124
+  },
+  {
+    "screen": "food-recipe-create-ingredients",
+    "path": "captures/iphone-light/food-recipe-create-ingredients.png",
+    "test": "IPhoneAuditUITests/testRecipeCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489626.675
+  },
+  {
+    "screen": "food-recipe-create-details",
+    "path": "captures/iphone-light/food-recipe-create-details.png",
+    "test": "IPhoneAuditUITests/testRecipeCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489625.522
+  },
+  {
+    "screen": "food-recipe-create",
+    "path": "captures/iphone-light/food-recipe-create.png",
+    "test": "IPhoneAuditUITests/testRecipeCreateScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489624.01
+  },
+  {
+    "screen": "food-recipe-edit-steps",
+    "path": "captures/iphone-light/food-recipe-edit-steps.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489665.69
+  },
+  {
+    "screen": "food-recipe-edit-ingredients",
+    "path": "captures/iphone-light/food-recipe-edit-ingredients.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489664.523
+  },
+  {
+    "screen": "food-recipe-edit-details",
+    "path": "captures/iphone-light/food-recipe-edit-details.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489663.176
+  },
+  {
+    "screen": "food-recipe-edit",
+    "path": "captures/iphone-light/food-recipe-edit.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489660.405
+  },
+  {
+    "screen": "food-recipe-actions",
+    "path": "captures/iphone-light/food-recipe-actions.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489656.291
+  },
+  {
+    "screen": "food-recipe-method",
+    "path": "captures/iphone-light/food-recipe-method.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489652.584
+  },
+  {
+    "screen": "food-recipe-ingredients",
+    "path": "captures/iphone-light/food-recipe-ingredients.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489651.517
+  },
+  {
+    "screen": "food-recipe-detail",
+    "path": "captures/iphone-light/food-recipe-detail.png",
+    "test": "IPhoneAuditUITests/testRecipeEditScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489650.196
+  },
+  {
+    "screen": "food-recipes",
+    "path": "captures/iphone-light/food-recipes.png",
+    "test": "IPhoneAuditUITests/testRecipeSearchAndCookScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489699.426
+  },
+  {
+    "screen": "food-cook-final-step",
+    "path": "captures/iphone-light/food-cook-final-step.png",
+    "test": "IPhoneAuditUITests/testRecipeSearchAndCookScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489695.483
+  },
+  {
+    "screen": "food-cook-step",
+    "path": "captures/iphone-light/food-cook-step.png",
+    "test": "IPhoneAuditUITests/testRecipeSearchAndCookScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489693.999
+  },
+  {
+    "screen": "food-cook-ingredients",
+    "path": "captures/iphone-light/food-cook-ingredients.png",
+    "test": "IPhoneAuditUITests/testRecipeSearchAndCookScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489691.001
+  },
+  {
+    "screen": "settings-broadcast-result",
+    "path": "captures/iphone-light/settings-broadcast-result.png",
+    "test": "IPhoneAuditUITests/testReminderAndBroadcastScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489729.07
+  },
+  {
+    "screen": "settings-broadcast-keyboard",
+    "path": "captures/iphone-light/settings-broadcast-keyboard.png",
+    "test": "IPhoneAuditUITests/testReminderAndBroadcastScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489724.831
+  },
+  {
+    "screen": "settings-broadcast",
+    "path": "captures/iphone-light/settings-broadcast.png",
+    "test": "IPhoneAuditUITests/testReminderAndBroadcastScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489720.359
+  },
+  {
+    "screen": "settings-reminders-bottom",
+    "path": "captures/iphone-light/settings-reminders-bottom.png",
+    "test": "IPhoneAuditUITests/testReminderAndBroadcastScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489715.573
+  },
+  {
+    "screen": "settings-reminders",
+    "path": "captures/iphone-light/settings-reminders.png",
+    "test": "IPhoneAuditUITests/testReminderAndBroadcastScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489714.399
+  },
+  {
+    "screen": "household-shopping-clear-confirmation",
+    "path": "captures/iphone-light/household-shopping-clear-confirmation.png",
+    "test": "IPhoneAuditUITests/testShoppingScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489797.088
+  },
+  {
+    "screen": "household-shopping-purchased",
+    "path": "captures/iphone-light/household-shopping-purchased.png",
+    "test": "IPhoneAuditUITests/testShoppingScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489793.758
+  },
+  {
+    "screen": "household-shopping-rename",
+    "path": "captures/iphone-light/household-shopping-rename.png",
+    "test": "IPhoneAuditUITests/testShoppingScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489787.337
+  },
+  {
+    "screen": "household-shopping-actions",
+    "path": "captures/iphone-light/household-shopping-actions.png",
+    "test": "IPhoneAuditUITests/testShoppingScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489783.052
+  },
+  {
+    "screen": "household-shopping",
+    "path": "captures/iphone-light/household-shopping.png",
+    "test": "IPhoneAuditUITests/testShoppingScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489779.07
+  },
+  {
+    "screen": "today-chore-actions",
+    "path": "captures/iphone-light/today-chore-actions.png",
+    "test": "IPhoneAuditUITests/testTodayScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489846.573
+  },
+  {
+    "screen": "today-event",
+    "path": "captures/iphone-light/today-event.png",
+    "test": "IPhoneAuditUITests/testTodayScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489841.434
+  },
+  {
+    "screen": "today-weather-bottom",
+    "path": "captures/iphone-light/today-weather-bottom.png",
+    "test": "IPhoneAuditUITests/testTodayScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489836.601
+  },
+  {
+    "screen": "today-weather",
+    "path": "captures/iphone-light/today-weather.png",
+    "test": "IPhoneAuditUITests/testTodayScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489833.874
+  },
+  {
+    "screen": "today-overview",
+    "path": "captures/iphone-light/today-overview.png",
+    "test": "IPhoneAuditUITests/testTodayScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489830.153
+  },
+  {
+    "screen": "settings-token-copied",
+    "path": "captures/iphone-light/settings-token-copied.png",
+    "test": "IPhoneAuditUITests/testTokenScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489916.81
+  },
+  {
+    "screen": "settings-token-created",
+    "path": "captures/iphone-light/settings-token-created.png",
+    "test": "IPhoneAuditUITests/testTokenScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489913.482
+  },
+  {
+    "screen": "settings-token-create",
+    "path": "captures/iphone-light/settings-token-create.png",
+    "test": "IPhoneAuditUITests/testTokenScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489904.597
+  },
+  {
+    "screen": "settings-tokens",
+    "path": "captures/iphone-light/settings-tokens.png",
+    "test": "IPhoneAuditUITests/testTokenScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792489900.768
+  }
+]

@@ -9,19 +9,15 @@ struct FeatureEntryLabel: View {
     var body: some View {
         HStack(spacing: 16) {
             if !dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: systemImage)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32)
-                    .accessibilityHidden(true)
+                WarmIcon(symbol: systemImage)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
             }
             .fixedSize(horizontal: false, vertical: true)
         }

@@ -46,8 +46,8 @@ struct RecipeFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                imageSection
                 basicInfoSection
+                imageSection
                 timingSection
                 sourceSection
                 ingredientGroupsSection
@@ -55,6 +55,7 @@ struct RecipeFormView: View {
             }
             .disabled(isSaving)
             .interactiveDismissDisabled(isSaving)
+            .appListStyle()
             .navigationTitle(isEditing ? "Edit Recipe" : "New Recipe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -64,7 +65,7 @@ struct RecipeFormView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         Task { await save() }
-                    }
+                    }.buttonStyle(AppCommitButtonStyle())
                     .disabled(isSaving || title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -93,7 +94,10 @@ struct RecipeFormView: View {
 
     private var basicInfoSection: some View {
         Section("Recipe Info") {
-            TextField("Title (required)", text: $title)
+            LabeledContent("Title") {
+                TextField("Recipe title", text: $title, axis: .vertical)
+                    .multilineTextAlignment(.trailing)
+            }
 
             Picker("Meal Type", selection: $mealType) {
                 Text("None").tag("")
@@ -110,7 +114,7 @@ struct RecipeFormView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var timingSection: some View {
@@ -127,7 +131,7 @@ struct RecipeFormView: View {
                 TextField("e.g. 30 min", text: $cookTime)
                     .multilineTextAlignment(.trailing)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var sourceSection: some View {
@@ -136,7 +140,7 @@ struct RecipeFormView: View {
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var ingredientGroupsSection: some View {
@@ -151,7 +155,7 @@ struct RecipeFormView: View {
                                 groups.removeAll { $0.id == group.id }
                             } label: {
                                 Image(systemName: "minus.circle.fill")
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(AppTheme.destructive)
                             }
                             .buttonStyle(.borderless)
                             .frame(width: 44, height: 44)
@@ -181,7 +185,7 @@ struct RecipeFormView: View {
             }
         } header: {
             Text("Ingredients")
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var stepsSection: some View {
@@ -194,13 +198,13 @@ struct RecipeFormView: View {
                         .frame(width: 22, alignment: .trailing)
                         .padding(.top, 8)
                     TextField("Describe this step", text: $steps[index].text, axis: .vertical)
-                        .lineLimit(2...6)
+                        .fixedSize(horizontal: false, vertical: true)
                     if steps.count > 1 {
                         Button(role: .destructive) {
                             steps.removeAll { $0.id == step.id }
                         } label: {
                             Image(systemName: "minus.circle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(AppTheme.destructive)
                         }
                         .buttonStyle(.borderless)
                         .frame(width: 44, height: 44)
@@ -215,7 +219,7 @@ struct RecipeFormView: View {
             }
         } header: {
             Text("Steps")
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var imageSection: some View {
@@ -236,29 +240,21 @@ struct RecipeFormView: View {
                                 VStack(spacing: 8) {
                                     Image(systemName: "photo")
                                         .font(.title)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(AppTheme.secondary)
                                     Text("Tap to change photo")
                                         .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(AppTheme.secondary)
                                 }
                             }
                     } else {
-                        Rectangle()
-                            .fill(Color(UIColor.quaternarySystemFill))
-                            .frame(maxWidth: .infinity, maxHeight: 200)
-                            .overlay {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "photo.badge.plus")
-                                        .font(.largeTitle)
-                                        .foregroundStyle(.secondary)
-                                    Text("Add recipe photo")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
+                        HStack {
+                            Label("Add photo", systemImage: "photo.badge.plus")
+                            Spacer()
+                            Text("Optional").foregroundStyle(AppTheme.secondary)
+                        }.padding(16)
                     }
                 }
-                .frame(height: 200)
+                .frame(height: selectedImageData != nil || (existingHasImage && !clearImage) ? 200 : 56)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             .listRowInsets(EdgeInsets())
@@ -279,7 +275,7 @@ struct RecipeFormView: View {
                     Label("Remove Image", systemImage: "trash")
                 }
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     // MARK: - Actions

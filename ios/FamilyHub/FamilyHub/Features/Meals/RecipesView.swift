@@ -22,10 +22,16 @@ struct RecipesView: View {
                             Text(mealType.capitalized).tag(String?.some(mealType))
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
                 Section("Recipes") {
                     if viewModel.filteredRecipes.isEmpty {
-                        ContentUnavailableView.search(text: viewModel.searchQuery)
+                        ContentUnavailableView {
+                            Label("No matching recipes", systemImage: "magnifyingglass")
+                        } description: {
+                            Text("Try another search or clear the meal type filter.")
+                        } actions: {
+                            Button("Clear search and filters") { viewModel.searchQuery = ""; viewModel.selectedMealType = nil }
+                        }
                     }
                     ForEach(viewModel.filteredRecipes) { recipe in
                         NavigationLink {
@@ -43,13 +49,13 @@ struct RecipesView: View {
                                     if let mealType = recipe.mealType {
                                         Text(mealType.capitalized)
                                             .font(.subheadline)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(AppTheme.secondary)
                                     }
-                                    let times = [recipe.prepTime, recipe.cookTime].compactMap { $0 }
+                                    let times = [recipe.prepTime.map { "Prep " + $0 }, recipe.cookTime.map { "Cook " + $0 }].compactMap { $0 }
                                     if !times.isEmpty {
                                         Text(times.joined(separator: " · "))
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(AppTheme.secondary)
                                     }
                                 }
                                 .fixedSize(horizontal: false, vertical: true)
@@ -57,10 +63,11 @@ struct RecipesView: View {
                             .padding(.vertical, 4)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
             }
             .refreshable { await viewModel.load(forceRefresh: true) }
         }
+        .appListStyle()
         .navigationTitle("Recipes")
         .searchable(text: $viewModel.searchQuery, prompt: "Search recipes")
         .toolbar {

@@ -7,7 +7,7 @@ import FamilyHubKit
 /// - Recipe with loaded image: shows the image.
 /// - Recipe loading: filled quaternary background.
 /// - No recipe, placeholderText provided: first letter on a muted background.
-/// - No recipe, no text (empty slot): dashed border with + icon.
+/// - No recipe, no text: a book symbol on a warm background.
 struct RecipeThumbView: View {
     let recipeID: String?
     let apiClient: any APIClientProtocol
@@ -29,14 +29,14 @@ struct RecipeThumbView: View {
                     .overlay {
                         Image(systemName: placeholderSymbol)
                             .font(.title2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                     }
             } else if recipeID != nil {
                 Color(.quaternarySystemFill)
             } else if let initial = placeholderText?.first.map(String.init), !initial.isEmpty {
                 initialsPlaceholder(initial)
             } else {
-                dashedPlaceholder
+                bookPlaceholder
             }
         }
         .frame(width: size, height: size)
@@ -57,15 +57,13 @@ struct RecipeThumbView: View {
             }
     }
 
-    private var dashedPlaceholder: some View {
+    private var bookPlaceholder: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [4]))
-            .foregroundStyle(Color(.tertiaryLabel))
+            .fill(AppTheme.iconBackground)
             .overlay {
-                Image(systemName: "plus")
-                    .font(.system(size: size * 0.35, weight: .regular))
-                    .foregroundStyle(Color(.tertiaryLabel))
+                Image(systemName: "book.closed")
+                    .font(.system(size: size * 0.4, weight: .regular))
+                    .foregroundStyle(AppTheme.clay)
             }
-            .opacity(0.6)
     }
 }

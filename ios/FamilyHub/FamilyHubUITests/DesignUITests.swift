@@ -31,7 +31,7 @@ final class DesignUITests: XCTestCase {
         tap(app.buttons["Open profile"], in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         capture(app, "settings")
-        tap(app.buttons["Home Info"], in: app)
+        tap(app.buttons["Home location"], in: app)
         capture(app, "home-info")
         back(app)
         tap(app.buttons["Family Name"], in: app)
@@ -47,10 +47,10 @@ final class DesignUITests: XCTestCase {
         capture(app, "tokens")
         tap(app.buttons["New Token"], in: app)
         capture(app, "token-form")
-        let tokenName = app.textFields["Name"]
+        let tokenName = app.textFields["Token name"]
         tap(tokenName, in: app)
         tokenName.typeText("Screen Test")
-        tap(app.buttons["Save"], in: app)
+        tap(app.buttons["Create token"], in: app)
         tap(app.buttons["Copy Token"], in: app)
         capture(app, "token-created")
         tap(app.buttons["Done"], in: app)
@@ -59,7 +59,7 @@ final class DesignUITests: XCTestCase {
 
         select("Calendar", in: app)
         capture(app, "calendar")
-        select("Tasks", in: app)
+        select("Chores", in: app)
         capture(app, "chores")
         tap(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Vacuum living room")).firstMatch, in: app)
         capture(app, "chore-detail")
@@ -69,11 +69,14 @@ final class DesignUITests: XCTestCase {
         tap(app.buttons["Cancel"], in: app)
 
         select("Food", in: app)
+        capture(app, "food-overview")
+        if UIDevice.current.userInterfaceIdiom == .phone { tap(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Meal plan")).firstMatch, in: app) }
         capture(app, "meal-plan")
         let meal = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Add breakfast")).firstMatch
         tap(meal, in: app)
         capture(app, "meal-form")
         tap(app.buttons["Cancel"], in: app)
+        if UIDevice.current.userInterfaceIdiom == .phone { back(app) }
         tap(app.buttons["Recipes"], in: app)
         capture(app, "recipes")
         tap(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch, in: app)
@@ -81,7 +84,7 @@ final class DesignUITests: XCTestCase {
         capture(app, "recipe-detail")
         tap(app.buttons["Start Cook Mode"], in: app)
         capture(app, "cook-ingredients")
-        tap(app.buttons["Next"], in: app)
+        tap(app.buttons["Start step 1"], in: app)
         capture(app, "cook-step")
         tap(app.buttons["Close"], in: app)
         back(app)
@@ -90,7 +93,10 @@ final class DesignUITests: XCTestCase {
         tap(app.buttons["Cancel"], in: app)
 
         select("Household", in: app)
+        capture(app, "household-overview")
+        openShoppingListIfNeeded(in: app)
         capture(app, "shopping")
+        if UIDevice.current.userInterfaceIdiom == .phone { back(app) }
         tap(app.buttons["Inventory"], in: app)
         capture(app, "inventory")
         tap(app.buttons["New Area"], in: app)

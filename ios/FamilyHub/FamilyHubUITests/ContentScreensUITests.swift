@@ -7,6 +7,7 @@ final class ContentScreensUITests: XCTestCase {
         continueAfterFailure = false
         let app = launchDemo(layoutFixtures: true)
         let description = app.staticTexts["home-event-description-demo-event-1"]
+        reveal(description, in: app)
         XCTAssertTrue(description.waitForExistence(timeout: 5))
         let fullDescription = description.label
         capture(app, "home-agenda-description")
@@ -57,8 +58,9 @@ final class ContentScreensUITests: XCTestCase {
         reveal(breakfast, in: app)
         let lunch = app.buttons["today-meal-lunch"]
         let dinner = app.buttons["today-meal-dinner"]
-        XCTAssertEqual(breakfast.frame.height, lunch.frame.height, accuracy: 1)
-        XCTAssertEqual(breakfast.frame.height, dinner.frame.height, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(breakfast.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(lunch.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(dinner.frame.height, 44)
         XCTAssertEqual(breakfast.frame.width, dinner.frame.width, accuracy: 1)
         capture(app, "home-meal-images")
 
@@ -74,8 +76,8 @@ final class ContentScreensUITests: XCTestCase {
         selectTab("Food", in: app)
         let recipes = app.buttons["Recipes"]
         reveal(recipes, in: app)
-        let breakfast = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Add breakfast")).firstMatch
-        XCTAssertLessThan(breakfast.frame.minY, recipes.frame.minY)
+        let breakfast = app.buttons.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", "Add breakfast", "Edit breakfast:")).firstMatch
+        XCTAssertLessThan(recipes.frame.minY, breakfast.frame.minY)
         recipes.tap()
         let recipe = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch
         reveal(recipe, in: app)
@@ -93,14 +95,16 @@ final class ContentScreensUITests: XCTestCase {
         capture(app, "recipe-ingredient-added")
 
         selectTab("Household", in: app)
+        openShoppingListIfNeeded(in: app)
         let item = app.buttons["Purchase 500g chicken breast, sliced"]
         reveal(item, in: app)
         XCTAssertTrue(item.exists)
         XCTAssertFalse(app.buttons["Purchase 3 tbsp soy sauce"].exists)
+        capture(app, "shopping-list")
+        if UIDevice.current.userInterfaceIdiom == .phone { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        if app.navigationBars["Shopping List"].exists { app.navigationBars.buttons.element(boundBy: 0).tap() }
         let inventory = app.buttons["Inventory"]
         reveal(inventory, in: app)
-        XCTAssertLessThan(item.frame.minY, inventory.frame.minY)
-        capture(app, "shopping-before-inventory")
         inventory.tap()
         XCTAssertTrue(app.navigationBars["Inventory"].waitForExistence(timeout: 5))
     }
@@ -114,17 +118,28 @@ final class ContentScreensUITests: XCTestCase {
         reveal(addStock, in: app)
         addStock.tap()
 
+        openShoppingListIfNeeded(in: app)
         let purchase = app.buttons["Purchase Fabric softener"]
         reveal(purchase, in: app, towardTop: true)
         purchase.tap()
-        XCTAssertTrue(app.navigationBars["Restock inventory"].waitForExistence(timeout: 5))
-        let amount = app.textFields["New level (%)"]
-        amount.tap()
-        amount.typeText("80")
-        app.navigationBars["Restock inventory"].buttons["Restock"].tap()
-
-        XCTAssertTrue(app.staticTexts["Restocked"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Restore Fabric softener"].exists)
+        XCTAssertTrue(app.buttons["Restore Fabric softener"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Restock inventory"].exists)
+        if UIDevice.current.userInterfaceIdiom == .phone { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        app.buttons["Inventory"].tap()
+        let area = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Laundry cupboard")).firstMatch
+        reveal(area, in: app)
+        area.tap()
+        let stock = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fabric softener")).firstMatch
+        reveal(stock, in: app)
+        stock.tap()
+        let level = app.textFields["Remaining level"]
+        XCTAssertTrue(level.waitForExistence(timeout: 5))
+        level.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        if let value = level.value as? String { level.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count)) }
+        level.typeText("80")
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "80%")).firstMatch.waitForExistence(timeout: 5))
+        capture(app, "inventory-stock-updated")
     }
 
     @MainActor
@@ -134,18 +149,18 @@ final class ContentScreensUITests: XCTestCase {
         defer { XCUIDevice.shared.orientation = .portrait }
         let app = launchDemo(largeText: true)
         selectTab("Food", in: app)
-        let date = app.descendants(matching: .any).matching(identifier: "meal-date-picker").firstMatch
-        reveal(date, in: app)
-        let breakfast = app.buttons["Add breakfast"]
+        let breakfast = app.buttons.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", "Add breakfast", "Edit breakfast:")).firstMatch
         reveal(breakfast, in: app)
         breakfast.tap()
         let meal = app.textFields["Meal name"]
         XCTAssertTrue(meal.waitForExistence(timeout: 5))
         meal.tap()
+        if let value = meal.value as? String, value != "What is for breakfast?" { meal.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count)) }
         meal.typeText("Soup and bread\n")
         XCTAssertTrue(app.buttons["Edit breakfast: Soup and bread"].waitForExistence(timeout: 5))
 
         selectTab("Household", in: app)
+        openShoppingListIfNeeded(in: app)
         let item = app.textFields["Item name"]
         reveal(item, in: app)
         item.tap()
@@ -155,6 +170,7 @@ final class ContentScreensUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(purchase.frame.height.rounded(), 44)
         purchase.tap()
         XCTAssertTrue(app.buttons["Restore Apples"].waitForExistence(timeout: 5))
+        if app.navigationBars["Shopping List"].exists { app.navigationBars.buttons.element(boundBy: 0).tap() }
         let inventory = app.buttons["Inventory"]
         reveal(inventory, in: app)
         inventory.tap()

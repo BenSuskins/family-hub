@@ -34,7 +34,7 @@ struct QuantityStepper: View {
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(Color(.secondarySystemGroupedBackground))
+                        .fill(AppTheme.surface)
                         .overlay(Circle().stroke(Color(.separator), lineWidth: 0.5))
                 )
                 .opacity(disabled ? 0.4 : 1)

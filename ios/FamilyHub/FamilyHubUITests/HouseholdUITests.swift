@@ -28,6 +28,7 @@ final class HouseholdUITests: XCTestCase {
         app.navigationBars.buttons["BackButton"].tap()
         selectHousehold(in: app)
         XCTAssertTrue(app.navigationBars["Household"].waitForExistence(timeout: 5))
+        openShoppingListIfNeeded(in: app)
         let field = app.textFields["Item name"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
@@ -52,7 +53,7 @@ extension HouseholdUITests {
         app.buttons["Try Demo"].tap()
         XCTAssertTrue(app.buttons["Open profile"].waitForExistence(timeout: 5))
         app.buttons["Open profile"].tap()
-        let homeInfo = app.buttons["Home Info"]
+        let homeInfo = app.buttons["Home location"]
         reveal(homeInfo, in: app)
         XCTAssertTrue(homeInfo.waitForExistence(timeout: 5))
         if !homeInfo.isHittable { app.swipeUp() }
@@ -65,7 +66,7 @@ extension HouseholdUITests {
         if deny.waitForExistence(timeout: 3) { deny.tap() }
         let explanation = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Allow location access")).firstMatch
         XCTAssertTrue(explanation.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.navigationBars["Home Info"].exists)
+        XCTAssertTrue(app.navigationBars["Home location"].exists)
     }
 
     @MainActor

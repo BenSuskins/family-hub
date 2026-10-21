@@ -9,6 +9,7 @@ struct ChoreRowView: View {
     let onComplete: () -> Void
     var onSkip: (() -> Void)?
     var minHeight: CGFloat = 56
+    @State private var confirmsSkip = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -24,23 +25,24 @@ struct ChoreRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text(user?.name ?? "Unassigned")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
                 if let date = chore.formattedDueDate {
                     Text("Due \(date)")
                         .font(.caption)
-                        .foregroundStyle(chore.status == .overdue ? .red : .secondary)
+                        .foregroundStyle(chore.status == .overdue ? AppTheme.destructive : AppTheme.secondary)
                 } else if chore.status == .overdue {
                     Text("Overdue")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.destructive)
                 }
             }
 
             Spacer(minLength: 0)
 
-            if let onSkip {
+            if onSkip != nil {
                 Menu {
-                    Button("Skip this task", systemImage: "forward.end") { onSkip() }
+                    Button("Skip this task", systemImage: "forward.end") { confirmsSkip = true }
+                    Link("Chore setup", destination: URL(string: "familyhub://chores")!)
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 44, height: 44)
                 }
@@ -59,5 +61,10 @@ struct ChoreRowView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(minHeight: minHeight)
+        .confirmationDialog("Skip \(chore.name)?", isPresented: $confirmsSkip, titleVisibility: .visible) {
+            Button("Skip task") { onSkip?() }
+        } message: {
+            Text("This records the task as skipped. A repeating chore moves to its next scheduled task.")
+        }
     }
 }

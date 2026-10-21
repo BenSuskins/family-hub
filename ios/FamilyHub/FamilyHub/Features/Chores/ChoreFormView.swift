@@ -73,11 +73,14 @@ struct ChoreFormView: View {
                 if isEditing {
                     Section {
                         Text("The current task keeps its assignee and due date. Repeat rule changes apply to the next task.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
+                            .font(.footnote).foregroundStyle(AppTheme.secondary)
+                    }.listRowBackground(AppTheme.surface)
                 }
                 scheduleSection
                 recurrenceSection
+                Section("Schedule summary") {
+                    Text(scheduleSummary).fixedSize(horizontal: false, vertical: true)
+                }.listRowBackground(AppTheme.surface)
                 if recurrenceType != "none" {
                     endConditionsSection
                 }
@@ -87,6 +90,7 @@ struct ChoreFormView: View {
             }
             .disabled(isSaving)
             .interactiveDismissDisabled(isSaving)
+            .appListStyle()
             .navigationTitle(isEditing ? "Edit Chore" : "New Chore")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -99,7 +103,7 @@ struct ChoreFormView: View {
                     } else {
                         Button("Save") {
                             Task { await save() }
-                        }
+                        }.buttonStyle(AppCommitButtonStyle())
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isDeleting)
                     }
                 }
@@ -110,7 +114,7 @@ struct ChoreFormView: View {
             }
             .errorAlert($viewModel.actionError)
             .confirmationDialog(
-                "Delete Chore?",
+                "Delete \(name)?",
                 isPresented: $showDeleteConfirm,
                 titleVisibility: .visible
             ) {
@@ -121,6 +125,17 @@ struct ChoreFormView: View {
                 Text("This removes \"\(name)\"\(isRecurringSeries ? " and keeps its history" : "").")
             }
         }
+    }
+
+    private var scheduleSummary: String {
+        if recurrenceType == "none" { return "Does not repeat" }
+        if recurrenceType == "daily" { return "Repeats daily" }
+        if recurrenceType == "weekly" {
+            let days = Chore.weekdayKeys.filter { weeklyDays.contains($0) }.map { Chore.dayShortLabels[$0] ?? $0 }
+            return "Every \(interval) \(intervalUnitLabel)" + (days.isEmpty ? "" : " · " + days.joined(separator: ", "))
+        }
+        if recurrenceType == "monthly" { return "Every \(interval) \(intervalUnitLabel) · Day \(dayOfMonth)" }
+        return "Every \(interval) \(customUnit)"
     }
 
     private var isRecurringSeries: Bool {
@@ -144,7 +159,7 @@ struct ChoreFormView: View {
                 }
             }
             .disabled(isSaving || isDeleting)
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     // MARK: - Sections
@@ -154,7 +169,7 @@ struct ChoreFormView: View {
             TextField("Name", text: $name)
             TextField("Description", text: $description, axis: .vertical)
                 .lineLimit(3...6)
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     @ViewBuilder
@@ -167,7 +182,7 @@ struct ChoreFormView: View {
                         Text(category.name).tag(category.id)
                     }
                 }
-            }
+            }.listRowBackground(AppTheme.surface)
         }
     }
 
@@ -175,7 +190,7 @@ struct ChoreFormView: View {
         Section {
             if viewModel.users.isEmpty {
                 Text("No users available")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
             } else {
                 ForEach(Array(viewModel.users.values).sorted(by: { $0.name < $1.name })) { user in
                     Button {
@@ -187,11 +202,11 @@ struct ChoreFormView: View {
                     } label: {
                         HStack {
                             Text(user.name)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(AppTheme.ink)
                             Spacer()
                             if selectedAssignees.contains(user.id) {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(AppTheme.accent)
                             }
                         }
                     }
@@ -201,20 +216,20 @@ struct ChoreFormView: View {
             Text("Assignees")
         } footer: {
             Text("Selected members rotate the chore between them. If none are selected, everyone is eligible.")
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var scheduleSection: some View {
         Section("Schedule") {
             if !isEditing {
-                Toggle("Has Due Date", isOn: $hasDueDate)
-                if hasDueDate { DatePicker("Due Date", selection: $dueDate, displayedComponents: .date) }
+                Toggle("Due date", isOn: $hasDueDate)
+                if hasDueDate { DatePicker("Due date", selection: $dueDate, displayedComponents: .date) }
             }
-            Toggle("Has Due Time", isOn: $hasDueTime)
+            Toggle("Due time", isOn: $hasDueTime)
             if hasDueTime {
-                DatePicker("Due Time", selection: $dueTime, displayedComponents: .hourAndMinute)
+                DatePicker("Due time", selection: $dueTime, displayedComponents: .hourAndMinute)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     @ViewBuilder
@@ -255,15 +270,15 @@ struct ChoreFormView: View {
             if recurrenceType != "none" {
                 Toggle("Recur After Completion", isOn: $recurOnComplete)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var weekdayPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("On Days")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 6) {
+                .foregroundStyle(AppTheme.secondary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 8) {
                 ForEach(Chore.weekdayKeys, id: \.self) { key in
                     let label = Chore.dayShortLabels[key] ?? key.prefix(1).uppercased()
                     let isOn = weeklyDays.contains(key)
@@ -273,10 +288,10 @@ struct ChoreFormView: View {
                         Text(label)
                             .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                            .frame(minHeight: 44)
                             .background(isOn ? Color.accentColor : Color(UIColor.secondarySystemFill),
                                         in: RoundedRectangle(cornerRadius: 8))
-                            .foregroundStyle(isOn ? .white : .primary)
+                            .foregroundStyle(isOn ? AppTheme.onAccent : AppTheme.ink)
                     }
                     .buttonStyle(.plain)
                 }
@@ -301,7 +316,7 @@ struct ChoreFormView: View {
             Text("End Conditions")
         } footer: {
             Text("Optionally stop the series on a date or after a number of occurrences.")
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     // MARK: - Populate / Save

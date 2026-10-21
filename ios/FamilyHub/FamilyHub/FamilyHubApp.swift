@@ -7,8 +7,10 @@ struct FamilyHubApp: App {
     @State private var configStore = ConfigStore()
     @State private var authManager = AuthManager()
     @State private var clientStore = APIClientStore()
+    @State private var demoClient = DemoAPIClient()
 
     init() {
+        AppTheme.configureNavigationAppearance()
         // Activating early means the watch gets its credentials as soon as the
         // session is ready, without waiting for the user to visit a screen.
         PhoneWatchLink.shared.activate()
@@ -17,22 +19,28 @@ struct FamilyHubApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if authManager.isDemoMode {
-                ContentView(apiClient: DemoAPIClient())
-                    .environment(configStore)
-                    .environment(authManager)
-            } else if !configStore.isConfigured || !authManager.isAuthenticated {
-                LoginView(isDemoMode: $authManager.isDemoMode)
-                    .environment(configStore)
-                    .environment(authManager)
-            } else if let baseURL = URL(string: configStore.baseURL) {
-                ContentView(apiClient: clientStore.client(for: baseURL, tokenProvider: authManager))
-                    .environment(configStore)
-                    .environment(authManager)
-            } else {
-                LoginView(isDemoMode: $authManager.isDemoMode)
-                    .environment(configStore)
-                    .environment(authManager)
+            Group {
+                if authManager.isDemoMode {
+                    ContentView(apiClient: demoClient)
+                        .environment(configStore)
+                        .environment(authManager)
+                } else if !configStore.isConfigured || !authManager.isAuthenticated {
+                    LoginView(isDemoMode: $authManager.isDemoMode)
+                        .environment(configStore)
+                        .environment(authManager)
+                } else if let baseURL = URL(string: configStore.baseURL) {
+                    ContentView(apiClient: clientStore.client(for: baseURL, tokenProvider: authManager))
+                        .environment(configStore)
+                        .environment(authManager)
+                } else {
+                    LoginView(isDemoMode: $authManager.isDemoMode)
+                        .environment(configStore)
+                        .environment(authManager)
+                }
+            }
+            .appAppearance()
+            .onChange(of: authManager.isDemoMode) { _, enabled in
+                if !enabled { demoClient = DemoAPIClient() }
             }
         }
     }

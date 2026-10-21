@@ -1,0 +1,79 @@
+[
+  {
+    "screen": "variant-cook-step",
+    "path": "captures/iphone-contrast/variant-cook-step.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490790.54
+  },
+  {
+    "screen": "variant-cook-ingredients",
+    "path": "captures/iphone-contrast/variant-cook-ingredients.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490786.781
+  },
+  {
+    "screen": "variant-recipe",
+    "path": "captures/iphone-contrast/variant-recipe.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490782.476
+  },
+  {
+    "screen": "variant-chore-form",
+    "path": "captures/iphone-contrast/variant-chore-form.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490765.367
+  },
+  {
+    "screen": "variant-reminders",
+    "path": "captures/iphone-contrast/variant-reminders.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490755.702
+  },
+  {
+    "screen": "variant-settings",
+    "path": "captures/iphone-contrast/variant-settings.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490751.006
+  },
+  {
+    "screen": "variant-household",
+    "path": "captures/iphone-contrast/variant-household.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490746.451
+  },
+  {
+    "screen": "variant-food",
+    "path": "captures/iphone-contrast/variant-food.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490744.338
+  },
+  {
+    "screen": "variant-tasks",
+    "path": "captures/iphone-contrast/variant-tasks.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490742.225
+  },
+  {
+    "screen": "variant-calendar",
+    "path": "captures/iphone-contrast/variant-calendar.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490740.15
+  },
+  {
+    "screen": "variant-today",
+    "path": "captures/iphone-contrast/variant-today.png",
+    "test": "IPhoneAuditUITests/testDisplayPreferenceScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490737.864
+  }
+]

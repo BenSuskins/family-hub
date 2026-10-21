@@ -1,0 +1,191 @@
+[
+  {
+    "screen": "calendar-accessibility",
+    "path": "captures/iphone-small/calendar-accessibility.png",
+    "test": "CalendarUITests/testCalendarWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489634.855
+  },
+  {
+    "screen": "item-form",
+    "path": "captures/iphone-small/item-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489889.649
+  },
+  {
+    "screen": "area-detail",
+    "path": "captures/iphone-small/area-detail.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489884.942
+  },
+  {
+    "screen": "area-form",
+    "path": "captures/iphone-small/area-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489863.067
+  },
+  {
+    "screen": "inventory",
+    "path": "captures/iphone-small/inventory.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489857.923
+  },
+  {
+    "screen": "shopping",
+    "path": "captures/iphone-small/shopping.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489850.575
+  },
+  {
+    "screen": "recipe-form",
+    "path": "captures/iphone-small/recipe-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489844.119
+  },
+  {
+    "screen": "cook-step",
+    "path": "captures/iphone-small/cook-step.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489836.012
+  },
+  {
+    "screen": "cook-ingredients",
+    "path": "captures/iphone-small/cook-ingredients.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489795.123
+  },
+  {
+    "screen": "recipe-detail",
+    "path": "captures/iphone-small/recipe-detail.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489790.496
+  },
+  {
+    "screen": "recipes",
+    "path": "captures/iphone-small/recipes.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489781.877
+  },
+  {
+    "screen": "meal-form",
+    "path": "captures/iphone-small/meal-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489767.145
+  },
+  {
+    "screen": "meal-plan",
+    "path": "captures/iphone-small/meal-plan.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489757.085
+  },
+  {
+    "screen": "chore-form",
+    "path": "captures/iphone-small/chore-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489750.896
+  },
+  {
+    "screen": "chore-detail",
+    "path": "captures/iphone-small/chore-detail.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489745.068
+  },
+  {
+    "screen": "chores",
+    "path": "captures/iphone-small/chores.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489731.14
+  },
+  {
+    "screen": "calendar",
+    "path": "captures/iphone-small/calendar.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489727.168
+  },
+  {
+    "screen": "token-created",
+    "path": "captures/iphone-small/token-created.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489717.578
+  },
+  {
+    "screen": "token-form",
+    "path": "captures/iphone-small/token-form.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489701.637
+  },
+  {
+    "screen": "tokens",
+    "path": "captures/iphone-small/tokens.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489696.727
+  },
+  {
+    "screen": "categories",
+    "path": "captures/iphone-small/categories.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489690.888
+  },
+  {
+    "screen": "members",
+    "path": "captures/iphone-small/members.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489681.938
+  },
+  {
+    "screen": "family-name",
+    "path": "captures/iphone-small/family-name.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489676.232
+  },
+  {
+    "screen": "home-info",
+    "path": "captures/iphone-small/home-info.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489670.443
+  },
+  {
+    "screen": "settings",
+    "path": "captures/iphone-small/settings.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489656.977
+  },
+  {
+    "screen": "today",
+    "path": "captures/iphone-small/today.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489651.136
+  },
+  {
+    "screen": "login",
+    "path": "captures/iphone-small/login.png",
+    "test": "DesignUITests/testScreensWithAccessibilityText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792489643.625
+  }
+]

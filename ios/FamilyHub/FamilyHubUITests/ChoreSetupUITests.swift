@@ -22,7 +22,7 @@ final class ChoreSetupUITests: XCTestCase {
         scrollTo(demo, in: app)
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
-        app.tabBars.buttons["Tasks"].tap()
+        selectFamilyTab("Tasks", in: app)
         XCTAssertTrue(app.staticTexts["Configured chores"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Complete Vacuum living room"].exists)
         let vacuum = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Vacuum living room")).firstMatch
@@ -38,14 +38,15 @@ final class ChoreSetupUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Edit Chore"].waitForExistence(timeout: 5))
         app.buttons["Cancel"].tap()
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.tabBars.buttons["Today"].tap()
+        selectFamilyTab("Today", in: app)
         let complete = app.buttons["Complete Vacuum living room"]
         scrollTo(complete, in: app)
         XCTAssertTrue(complete.exists)
         capture(app, name: "home-chores")
         app.buttons["Actions for Vacuum living room"].tap()
         app.buttons["Skip this task"].tap()
-        XCTAssertFalse(complete.exists)
+        app.buttons["Skip task"].tap()
+        XCTAssertTrue(complete.waitForNonExistence(timeout: 5))
     }
 
     @MainActor

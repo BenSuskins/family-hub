@@ -15,15 +15,16 @@ struct FamilyNameView: View {
             Section {
                 TextField("Family Name", text: $familyName, axis: .vertical)
                     .autocorrectionDisabled()
-            } footer: {
+            } header: { Text("Family name") } footer: {
                 Text("Displayed in the app header for all family members.")
-            }
+            }.listRowBackground(AppTheme.surface)
         }
+        .appListStyle()
         .navigationTitle("Family Name")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") { Task { await save() } }
+                Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle())
                     .disabled(familyName.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             }
         }

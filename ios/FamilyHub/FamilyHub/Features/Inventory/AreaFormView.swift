@@ -33,23 +33,24 @@ struct AreaFormView: View {
                             Text(option.capitalized).tag(option)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
                 Section("Preview") {
                     Label {
                         Text(trimmedName.isEmpty ? "New Area" : trimmedName)
                     } icon: {
                         Image(systemName: InventoryStyle.symbol(icon)).foregroundStyle(InventoryStyle.color(tint))
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
             }
             .disabled(isSaving)
+            .appListStyle()
             .navigationTitle(isEditing ? "Edit Area" : "New Area")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isSaving) }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving { ProgressView() }
-                    else { Button("Save") { Task { await save() } }.disabled(trimmedName.isEmpty) }
+                    else { Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle()).disabled(trimmedName.isEmpty) }
                 }
             }
             .interactiveDismissDisabled(isSaving)

@@ -16,9 +16,6 @@ struct ChoresListView: View {
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { definitions in
             List {
-                Section {
-                    Toggle("Show inactive chores", isOn: $viewModel.showInactive)
-                }
                 Section("Configured chores") {
                     if definitions.isEmpty {
                         ContentUnavailableView("No chores configured", systemImage: "checklist", description: Text("Add a chore and choose when it repeats."))
@@ -29,17 +26,22 @@ struct ChoresListView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(definition.chore.name).font(.body.weight(.medium))
-                                Text(ruleSummary(definition.chore)).font(.subheadline).foregroundStyle(.secondary)
-                                Text(assigneeSummary(definition.chore)).font(.caption).foregroundStyle(.secondary)
+                                Text(ruleSummary(definition.chore)).font(.subheadline).foregroundStyle(AppTheme.secondary)
+                                Text(assigneeSummary(definition.chore)).font(.caption).foregroundStyle(AppTheme.secondary)
                                 if !definition.active {
-                                    Text(definition.deletedAt == nil ? "Inactive" : "Deleted").font(.caption).foregroundStyle(.secondary)
+                                    Text(definition.deletedAt == nil ? "Inactive" : "Deleted").font(.caption).foregroundStyle(AppTheme.secondary)
                                 }
                             }
                             .padding(.vertical, 5)
                         }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
+                Section {
+                    Toggle("Show inactive chores", isOn: $viewModel.showInactive)
+                    Link("View today’s chores", destination: URL(string: "familyhub://today")!)
+                }.listRowBackground(AppTheme.surface)
             }
+            .appListStyle()
             .refreshable { await viewModel.load() }
         }
         .navigationTitle("Chores")

@@ -1,0 +1,9 @@
+[
+  {
+    "screen": "inventory-stock-updated",
+    "file": "inventory-stock-updated.png",
+    "test": "ContentScreensUITests/testLowStockAdditionCanBePurchasedAndRestocked()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792566899.256
+  }
+]

@@ -96,6 +96,7 @@ final class ContentScreensUITests: XCTestCase {
 
         selectTab("Household", in: app)
         openShoppingListIfNeeded(in: app)
+        XCTAssertFalse(app.staticTexts["Running low"].exists)
         let item = app.buttons["Purchase 500g chicken breast, sliced"]
         reveal(item, in: app)
         XCTAssertTrue(item.exists)

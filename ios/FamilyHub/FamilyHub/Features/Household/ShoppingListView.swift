@@ -92,7 +92,6 @@ struct ShoppingListView: View {
                         .accessibilityHint(inventorySummary)
                     }.listRowBackground(AppTheme.surface)
                 }
-                inventorySection
             }
         }
         .listStyle(.insetGrouped)

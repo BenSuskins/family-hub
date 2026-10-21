@@ -147,7 +147,14 @@ struct AreaDetailView: View {
                     QuantityStepper(quantity: item.quantity, isLow: item.isLow, label: item.name,
                                     onDecrement: { Task { await viewModel.adjustQuantity(item: item, by: -1) } },
                                     onIncrement: { Task { await viewModel.adjustQuantity(item: item, by: 1) } })
-                case .level: LevelBar(level: item.level, isLow: item.isLow)
+                case .level:
+                    LevelStepper(
+                        level: item.level,
+                        isLow: item.isLow,
+                        label: item.name,
+                        onDecrement: { Task { await viewModel.setLevel(item: item, to: item.level - 5) } },
+                        onIncrement: { Task { await viewModel.setLevel(item: item, to: item.level + 5) } }
+                    )
                 }
             }
         }

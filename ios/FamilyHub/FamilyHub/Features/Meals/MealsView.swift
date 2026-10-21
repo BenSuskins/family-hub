@@ -175,14 +175,20 @@ struct MealsView: View {
             Button {
                 editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: plan?.recipeID)
             } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(planned ? plan!.name : mealType.capitalized)
-                        .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
-                    if planned {
-                        let cookingTime = recipe?.cookTime.map { " · " + $0 } ?? ""
-                        Text(mealType.capitalized + cookingTime).font(.subheadline).foregroundStyle(AppTheme.secondary)
-                    } else {
-                        Text("Not planned").font(.subheadline).foregroundStyle(AppTheme.secondary)
+                HStack(spacing: 12) {
+                    if let recipeID = plan?.recipeID {
+                        RecipeThumbView(recipeID: recipeID, apiClient: apiClient, size: 42, placeholderSymbol: "book.closed")
+                            .accessibilityHidden(true)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(planned ? plan!.name : mealType.capitalized)
+                            .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
+                        if planned {
+                            let cookingTime = recipe?.cookTime.map { " · " + $0 } ?? ""
+                            Text(mealType.capitalized + cookingTime).font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        } else {
+                            Text("Not planned").font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
@@ -190,13 +196,16 @@ struct MealsView: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(planned ? "Edit \(mealType): \(plan!.name)" : "Add \(mealType)")
+            .accessibilityValue(plan?.recipeID == nil ? "" : "Recipe linked")
             if let plan, let recipeID = plan.recipeID {
                 NavigationLink {
                     RecipeDetailView(recipe: recipe ?? Recipe(id: recipeID, title: plan.name), apiClient: apiClient, viewModel: recipesViewModel)
                 } label: {
                     Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
+                .frame(width: 44)
                 .accessibilityLabel("View recipe for \(plan.name)")
             } else {
                 Button {
@@ -207,6 +216,7 @@ struct MealsView: View {
                 .accessibilityLabel(planned ? "Change \(mealType)" : "Plan \(mealType)")
             }
         }
+        .navigationLinkIndicatorVisibility(.hidden)
     }
 
 }

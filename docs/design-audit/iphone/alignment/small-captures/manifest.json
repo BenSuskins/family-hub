@@ -383,5 +383,12 @@
     "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
     "device": "Family Hub Calendar Small",
     "timestamp": 1792605662.558
+  },
+  {
+    "screen": "food-linked-recipe-icon",
+    "file": "food-linked-recipe-icon.png",
+    "test": "MealEntryUITests/testReturnSavesCustomMealAndRecipeSelectionKeepsTheLink()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792606409.044
   }
 ]

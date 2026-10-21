@@ -28,7 +28,7 @@ rows = [
     ('Categories', 'categories', 'categories', 'Each category opens Rename and Delete directly. Swipe actions remain available.'),
     ('New category', 'category-create', 'category-create', 'The native sheet has a labelled name, Cancel, and Save.'),
     ('Edit category', 'category-edit', 'category-edit', 'The sheet groups the name and family impact. Delete asks for confirmation with the category name.'),
-    ('Weekly meal plan', 'meal-week', 'meal-week', 'The Friday–Thursday range has compact meal rows and a Today action. Other weeks use the truthful Meal plan title.'),
+    ('Weekly meal plan', 'meal-week-linked-recipe', 'meal-week', 'The Friday–Thursday range has compact meal rows and a Today action. Linked meals show a recipe thumbnail with a book fallback. Meals without a link stay text-only. Other weeks use the truthful Meal plan title.'),
     ('Meal editor', 'meal-recipe-selected', 'meal-edit', 'Recipe search keeps its metadata and selection. An explicit Use name only action follows the results.'),
     ('Recipe search in a meal', 'meal-search-keyboard', 'meal-add', 'Typing filters recipes. Selecting a recipe dismisses the keyboard. Typing alone preserves the recipe link.'),
     ('Home weather', 'weather', 'weather', 'The weather card centres the condition, temperature, high, low, and advice. Hourly data and provider attribution remain available.'),

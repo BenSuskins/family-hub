@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T18:06:19.750060+00:00",
+  "generatedAt": "2026-10-21T18:18:06.148862+00:00",
   "scope": "Targeted iPhone visual and interaction checks. The app unit suite runs separately. This is not a whole UI-suite result.",
   "runs": [
     {
@@ -59,6 +59,36 @@
       "total": 184,
       "evidence": "evidence/units.json",
       "runtimeWarnings": []
+    },
+    {
+      "name": "meal-icon",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/meal-icon.json",
+      "runtimeWarnings": []
+    },
+    {
+      "name": "meal-captures",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/meal-captures.json",
+      "runtimeWarnings": []
+    },
+    {
+      "name": "meal-week-icon",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/meal-week-icon.json",
+      "runtimeWarnings": []
     }
   ],
   "diagnostics": [
@@ -88,12 +118,42 @@
           "message": "Invalid frame dimension (negative or non-finite)."
         }
       ]
+    },
+    {
+      "name": "recipe-icon-red",
+      "result": "Failed",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/recipe-icon-red.json",
+      "runtimeWarnings": []
+    },
+    {
+      "name": "recipe-target-red",
+      "result": "Failed",
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0,
+      "total": 2,
+      "evidence": "evidence/recipe-target-red.json",
+      "runtimeWarnings": []
+    },
+    {
+      "name": "recipe-week-selector",
+      "result": "Failed",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/recipe-week-selector.json",
+      "runtimeWarnings": []
     }
   ],
   "comparisons": 33,
   "captures": {
-    "captures": 83,
-    "small-captures": 55
+    "captures": 84,
+    "small-captures": 56
   },
   "limits": [
     "Earlier diagnostic runs include failed selectors and a zero-test run. They do not count as passing checks.",

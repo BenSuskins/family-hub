@@ -13,7 +13,7 @@
 | Family messages | The composer has a labelled message, character count, notice, and Send action. Results open separately. Return preserves the draft. Notification help opens Notifications. Existing retry identifiers and accepted/failed counts remain. |
 | API tokens | Rows show names and dates. Creation has a full-width action. The one-time result has a selectable value and Copy action. Saved rows open access-management details without exposing the token value. |
 | Members and categories | Members show avatars, role badges, and the current user. Role selection stays local until Save and confirmation. Users cannot change their own role. Category rows open Rename and Delete directly. Delete requires confirmation. |
-| Meal plan | Weekly rows are compact. The range stays Friday–Thursday. Today returns to the current week. Recipe search shows metadata. Selection dismisses the keyboard. Typing preserves the existing recipe link until an explicit choice. |
+| Meal plan | Weekly rows are compact. Linked meals show the recipe thumbnail, with a book fallback when no image is available. Meals without a link stay text-only. The range stays Friday–Thursday. Today returns to the current week. Recipe search shows metadata. Selection dismisses the keyboard. Typing preserves the existing recipe link until an explicit choice. |
 | Weather and events | Weather uses a centred hero and compact hourly rows. Event detail separates date, location, departure, and full details. The Calendar grids, controls, and gestures stay unchanged. |
 | Shopping | Each checked item shows its own five-second countdown and Undo. A pending write keeps the item visible. Rename stays inline. Cancel sits beside the field. Done uses the keyboard toolbar. |
 | Inventory forms | Count and Level use a segment at standard text sizes. Count has one editable control with stock buttons. Level has precise percentage entry. Thresholds and units remain. Large text uses a native mode menu. |
@@ -44,8 +44,9 @@ Simulator checks do not prove physical-device touch accuracy, VoiceOver speech, 
 | Selected small-iPhone regressions | 25 of 26 passed on the first run. The location test failed because its fast scroll moved the target under the header. |
 | Household suite after the test fix | All three passed, including location denial, weather, and large text. All 26 selected checks pass across these runs. |
 | Light capture routes | Eight passed on iPhone 17 Pro, including the large-text stock control. |
+| Linked recipe follow-up | The meal flow checks the linked status, the recipe action, and link removal. A fresh screenshot shows the book fallback. |
 | Dark capture route | Passed on iPhone 17 Pro. The simulator returns to Light appearance. |
-| Comparison report | 33 pairs, 83 primary captures, and 55 small-iPhone captures. Local links, image files, and manifests pass validation. |
+| Comparison report | 33 pairs, 84 primary captures, and 56 small-iPhone captures. Local links, image files, and manifests pass validation. |
 | Browser check | The screen filter works. The page has no horizontal overflow at widths of 390 and 1440 pixels. |
 
 The [first regression summary](evidence/regression-first-run.json) retains the failed test. The [Household rerun](evidence/household-final.json) records its resolution. These results do not represent one full, passing UI-suite run. Read the [file validation](evidence/report-files.json) and [browser validation](evidence/report-browser.json) with the test summaries.

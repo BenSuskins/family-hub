@@ -145,7 +145,7 @@ final class CompleteMockupsAuditUITests: XCTestCase {
 
     @MainActor
     func testMealWeatherAndEventScreens() {
-        let app = demo()
+        let app = demo(mealImages: true)
         app.buttons["home-weather"].tap()
         capture(app, "weather")
         app.swipeUp()
@@ -174,6 +174,18 @@ final class CompleteMockupsAuditUITests: XCTestCase {
         capture(app, "meal-search-keyboard")
         tap(app.buttons["Chicken Stir Fry"], in: app)
         capture(app, "meal-recipe-selected")
+    }
+
+    @MainActor
+    func testMealPlanLinkedRecipeScreen() {
+        let app = demo(mealImages: true)
+        selectFamilyTab("Food", in: app)
+        tap(app.buttons["Meal plan"], in: app)
+        let recipe = app.buttons["View recipe for Eggs and toast"].firstMatch
+        tap(recipe, in: app, shouldTap: false)
+        capture(app, "meal-week-linked-recipe")
+        recipe.tap()
+        XCTAssertTrue(app.buttons["Start Cook Mode"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -296,10 +308,11 @@ final class CompleteMockupsAuditUITests: XCTestCase {
     }
 
     @MainActor
-    private func demo(largeText: Bool = false) -> XCUIApplication {
+    private func demo(largeText: Bool = false, mealImages: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         if largeText { app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        if mealImages { app.launchArguments.append("-demo-meal-card-images") }
         app.launch()
         tap(app.buttons["Try Demo"], in: app)
         return app

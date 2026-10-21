@@ -107,6 +107,7 @@ struct WeatherDetailView: View {
     @State private var model: HouseholdViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
+    @ScaledMetric(relativeTo: .largeTitle) private var temperatureSize = 64.0
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
         _model = State(wrappedValue: HouseholdViewModel(apiClient: apiClient))
@@ -114,23 +115,37 @@ struct WeatherDetailView: View {
     var body: some View {
         List {
             if let weather = model.weather {
-                Section("At home") {
-                    Label("\(weather.current.temperature, specifier: "%.0f")°C · \(weather.current.condition)", systemImage: weather.current.symbol)
-                    Text("High \(weather.high, specifier: "%.0f")°C · Low \(weather.low, specifier: "%.0f")°C")
-                    ForEach(weather.advice, id: \.self) { Text($0) }
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: weather.current.symbol).font(.largeTitle).accessibilityHidden(true)
+                        Text("\(weather.current.temperature, specifier: "%.0f")°")
+                            .font(.system(size: temperatureSize, weight: .regular, design: .rounded))
+                            .accessibilityLabel("\(weather.current.temperature, specifier: "%.0f") degrees Celsius")
+                        Text(weather.current.condition).font(.headline)
+                        Text("High \(weather.high, specifier: "%.0f")° · Low \(weather.low, specifier: "%.0f")°")
+                            .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        ForEach(weather.advice, id: \.self) { Text($0).font(.subheadline) }
+                    }.frame(maxWidth: .infinity).padding(.vertical, 20)
                 }.listRowBackground(AppTheme.surface)
                 Section("Next 24 hours") {
                     ForEach(weather.hours) { hour in
-                        VStack(alignment: .leading, spacing: 6) {
-                            if let date = APIDate.parse(hour.time) {
-                                Text(date.formatted(date: .omitted, time: .shortened)).font(.headline)
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                if let date = APIDate.parse(hour.time) {
+                                    Text(date.formatted(date: .omitted, time: .shortened)).font(.body.weight(.medium))
+                                }
+                                Text("\(hour.condition) · Rain \(hour.rainProbability, specifier: "%.0f")% · Wind \(hour.windSpeed, specifier: "%.0f") km/h")
+                                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
                             }
-                            Label("\(hour.temperature, specifier: "%.0f")°C · \(hour.condition)", systemImage: hour.symbol)
-                            Text("Rain \(hour.rainProbability, specifier: "%.0f")% · Wind \(hour.windSpeed, specifier: "%.0f") km/h")
-                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            Spacer()
+                            Text("\(hour.temperature, specifier: "%.0f")°").font(.headline)
                         }.padding(.vertical, 4)
                     }
                 }.listRowBackground(AppTheme.surface)
+                if let fetched = APIDate.parse(weather.fetchedAt) {
+                    Section { Text("Updated " + fetched.formatted(date: .omitted, time: .shortened)).font(.footnote).foregroundStyle(AppTheme.secondary) }
+                        .listRowBackground(Color.clear)
+                }
             } else { Text(model.weatherMessage) }
             Section {
                 Link("Weather data: Open-Meteo", destination: URL(string: "https://open-meteo.com")!)
@@ -138,7 +153,7 @@ struct WeatherDetailView: View {
             }.listRowBackground(AppTheme.surface)
         }
         .appListStyle()
-        .navigationTitle("Weather")
+        .navigationTitle("Home weather")
         .refreshable { await model.loadWeather(force: true) }
         .onAppear { isVisible = true }
         .onDisappear { isVisible = false }
@@ -160,25 +175,88 @@ struct EventDetailsView: View {
     @State private var message = "Loading departure…"
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
+    private var eventDate: String {
+        let format = Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide)
+        let isCurrentYear = Calendar.current.isDate(event.startTime, equalTo: .now, toGranularity: .year)
+        return event.startTime.formatted(isCurrentYear ? format : format.year())
+    }
+
+    private var eventTime: String {
+        if event.allDay { return "All day" }
+        let start = event.startTime.formatted(date: .omitted, time: .shortened)
+        guard let end = event.endTime else { return start }
+        let endText = end.formatted(date: Calendar.current.isDate(event.startTime, inSameDayAs: end) ? .omitted : .abbreviated, time: .shortened)
+        return start + "–" + endText
+    }
+
+    private var locationURL: URL? {
+        var components = URLComponents(string: "https://maps.apple.com/")
+        components?.queryItems = [URLQueryItem(name: "q", value: event.location)]
+        return components?.url
+    }
+
+    private var locationRow: some View {
+        HStack(spacing: 12) {
+            WarmIcon(symbol: "house")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(event.location).foregroundStyle(AppTheme.ink)
+                Text("View location").font(.subheadline).foregroundStyle(AppTheme.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondary)
+        }.padding(16).frame(minHeight: 44)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(event.title).font(.title.bold())
-                Text(event.allDay ? "All day" : event.startTime.formatted(date: .abbreviated, time: .shortened))
-                if let end = event.endTime, !event.allDay { Text("Ends \(end.formatted(date: .omitted, time: .shortened))") }
-                if !event.location.isEmpty { Label(event.location, systemImage: "mappin") }
+                Text("FAMILY CALENDAR").font(.caption).foregroundStyle(AppTheme.secondary)
+                Text(event.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 12) {
+                        WarmIcon(symbol: "calendar")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(eventDate)
+                            Text(eventTime).font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        }
+                    }.padding(16)
+                    if !event.location.isEmpty {
+                        Divider().padding(.leading, 16)
+                        if let locationURL {
+                            Link(destination: locationURL) { locationRow }
+                                .buttonStyle(.plain)
+                        } else { locationRow }
+                    }
+                }.groupedCard()
                 if !event.allDay, !event.location.isEmpty {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         if let departure = departures?.items.first(where: { $0.eventID == event.id }), departure.countdown(at: context.date) != nil {
-                            DepartureCard(departure: departure, now: context.date)
-                        } else { Text(message).foregroundStyle(AppTheme.secondary) }
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top, spacing: 12) {
+                                    WarmIcon(symbol: "clock")
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if let leave = APIDate.parse(departure.leaveAt) {
+                                            Text("Leave at " + leave.formatted(date: .omitted, time: .shortened)).font(.headline)
+                                        }
+                                        Text("\(Int(ceil(Double(departure.drivingSeconds) / 60))) min drive")
+                                            .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                                    }
+                                }
+                                Text("Current driving estimate, including traffic. · Google Maps")
+                                    .font(.caption).foregroundStyle(AppTheme.secondary)
+                            }.frame(maxWidth: .infinity, alignment: .leading).padding(16).groupedCard()
+                        } else { Text(message).font(.subheadline).foregroundStyle(AppTheme.secondary) }
                     }
                 }
-                if !event.description.isEmpty { Text(event.description) }
-            }.frame(maxWidth: .infinity, alignment: .leading).padding()
+                if !event.description.isEmpty {
+                    Text("DETAILS").font(.caption).foregroundStyle(AppTheme.secondary).padding(.top, 8)
+                    Text(event.description).frame(maxWidth: .infinity, alignment: .leading).padding(16).groupedCard()
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
         }
         .groupedBackground()
         .navigationTitle("Event")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { isVisible = true }
         .onDisappear { isVisible = false }
         .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in

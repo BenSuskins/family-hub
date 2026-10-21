@@ -17,6 +17,7 @@ struct ItemFormView: View {
     @State private var isSaving = false
     @State private var confirmDelete = false
     @FocusState private var nameFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isEditing: Bool {
         if case .edit = mode { return true }
@@ -31,25 +32,33 @@ struct ItemFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Item") {
-                    TextField("Name", text: $name).focused($nameFocused)
-                    Picker("Tracking", selection: $trackingMode) {
-                        Text("Count").tag(TrackingMode.count)
-                        Text("Level").tag(TrackingMode.level)
-                    }
-                    Text(trackingMode == .count ? "Count tracks individual units, such as bottles or packs." : "Level tracks the remaining percentage, such as a bottle of cleaner.")
-                        .font(.footnote).foregroundStyle(AppTheme.secondary)
-                    .onChange(of: trackingMode) { _, newMode in
-                        guard !isEditing else { return }
-                        lowAt = newMode == .level ? Self.levelLowAtDefault : Self.countLowAtDefault
-                    }
+                Section("Item name") {
+                    TextField("Name", text: $name, axis: .vertical).lineLimit(1...3).focused($nameFocused)
+                        .submitLabel(.done).onSubmit { nameFocused = false }
                 }.listRowBackground(AppTheme.surface)
-                Section("Stock") {
-                    if trackingMode == .count {
-                        LabeledContent("Count") {
-                            TextField("Count", value: $quantity, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            trackingPicker.labelsHidden()
+                        } else {
+                            trackingPicker.pickerStyle(.segmented)
                         }
-                        Stepper("Count: \(quantity)", value: $quantity, in: 0...1_000_000)
+                        Text(trackingMode == .count ? "Use a count for separate items such as pods or rolls." : "Use a percentage for a partly used bottle.")
+                            .font(.footnote).foregroundStyle(AppTheme.secondary)
+                    }
+                } header: { Text("Track stock by") }
+                .listRowBackground(Color.clear)
+                .onChange(of: trackingMode) { _, newMode in
+                    guard !isEditing else { return }
+                    lowAt = newMode == .level ? Self.levelLowAtDefault : Self.countLowAtDefault
+                }
+                Section {
+                    if trackingMode == .count {
+                        LabeledContent("Quantity") {
+                            QuantityStepper(quantity: quantity, editableQuantity: $quantity, label: name,
+                                            onDecrement: { quantity = max(0, quantity - 1) },
+                                            onIncrement: { quantity = min(1_000_000, quantity + 1) })
+                        }
                         LabeledContent("Alert at or below") {
                             TextField("Alert threshold", value: $lowAt, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
                         }
@@ -62,22 +71,23 @@ struct ItemFormView: View {
                             LabeledContent("Remaining level (%)") {
                                 TextField("Remaining level", value: $level, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
                             }
-                            Slider(value: Binding(get: { Double(level) }, set: { level = Int($0) }), in: 0...100, step: 5) {
-                                Text("Remaining level")
-                            }
-                            .accessibilityValue("\(level) percent")
                         }
-                        LabeledContent("Alert at or below (%)") {
+                        LabeledContent {
                             TextField("Alert threshold", value: $lowAt, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        } label: {
+                            Text("Low at (%)")
                         }
                     }
+                } footer: {
+                    Text("Items at or below this threshold appear in Running low.")
                 }.listRowBackground(AppTheme.surface)
                 if isEditing {
-                    Section { Button("Delete Item", role: .destructive) { confirmDelete = true } }.listRowBackground(AppTheme.surface)
+                    Section { Button("Delete Item", role: .destructive) { confirmDelete = true }.foregroundStyle(AppTheme.destructive) }.listRowBackground(AppTheme.surface)
                 }
             }
             .disabled(isSaving)
             .appListStyle()
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isEditing ? "Edit Item" : "New Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -93,6 +103,13 @@ struct ItemFormView: View {
             }
             .onAppear(perform: populate)
             .errorAlert($viewModel.actionError)
+        }
+    }
+
+    private var trackingPicker: some View {
+        Picker("Track stock by", selection: $trackingMode) {
+            Text("Count").tag(TrackingMode.count)
+            Text("Level").tag(TrackingMode.level)
         }
     }
 

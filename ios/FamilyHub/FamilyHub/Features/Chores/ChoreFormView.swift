@@ -42,6 +42,9 @@ struct ChoreFormView: View {
     @State private var isSaving = false
     @State private var isDeleting = false
     @State private var showDeleteConfirm = false
+    @State private var hasPopulated = false
+    @State private var repeatPath: [String] = []
+    @FocusState private var nameIsFocused: Bool
 
     private let recurrenceOptions = ["none", "daily", "weekly", "monthly", "custom"]
     private let customUnits = ["days", "weeks", "months"]
@@ -59,35 +62,41 @@ struct ChoreFormView: View {
         switch recurrenceType {
         case "weekly":  return interval == 1 ? "week" : "weeks"
         case "monthly": return interval == 1 ? "month" : "months"
-        case "custom":  return customUnit
+        case "custom":  return interval == 1 ? String(customUnit.dropLast()) : customUnit
         default:        return ""
         }
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $repeatPath) {
             Form {
                 detailsSection
-                categorySection
                 assigneesSection
-                if isEditing {
-                    Section {
-                        Text("The current task keeps its assignee and due date. Repeat rule changes apply to the next task.")
-                            .font(.footnote).foregroundStyle(AppTheme.secondary)
-                    }.listRowBackground(AppTheme.surface)
-                }
                 scheduleSection
-                recurrenceSection
-                Section("Schedule summary") {
+                Section("Repeat summary") {
                     Text(scheduleSummary).fixedSize(horizontal: false, vertical: true)
                 }.listRowBackground(AppTheme.surface)
-                if recurrenceType != "none" {
-                    endConditionsSection
-                }
+                categorySection
                 if isEditing {
                     deleteSection
                 }
             }
+            .navigationDestination(for: String.self) { _ in
+                Form {
+                    recurrenceSection
+                    if recurrenceType != "none" { endConditionsSection }
+                    Section("Repeat summary") { Text(scheduleSummary) }.listRowBackground(AppTheme.sage)
+                }
+                .appListStyle()
+                .navigationTitle("Repeat")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { repeatPath.removeLast() }
+                    }
+                }
+            }
+            .scrollDismissesKeyboard(.interactively)
             .disabled(isSaving)
             .interactiveDismissDisabled(isSaving)
             .appListStyle()
@@ -135,7 +144,7 @@ struct ChoreFormView: View {
             return "Every \(interval) \(intervalUnitLabel)" + (days.isEmpty ? "" : " · " + days.joined(separator: ", "))
         }
         if recurrenceType == "monthly" { return "Every \(interval) \(intervalUnitLabel) · Day \(dayOfMonth)" }
-        return "Every \(interval) \(customUnit)"
+        return "Every \(interval) \(intervalUnitLabel)"
     }
 
     private var isRecurringSeries: Bool {
@@ -158,17 +167,23 @@ struct ChoreFormView: View {
                     Spacer()
                 }
             }
+            .foregroundStyle(AppTheme.destructive)
             .disabled(isSaving || isDeleting)
         }.listRowBackground(AppTheme.surface)
     }
 
     // MARK: - Sections
 
+    @ViewBuilder
     private var detailsSection: some View {
-        Section("Details") {
+        Section("Chore name") {
             TextField("Name", text: $name)
+                .focused($nameIsFocused).submitLabel(.done)
+                .onSubmit { nameIsFocused = false }
+        }.listRowBackground(AppTheme.surface)
+        Section("Description · Optional") {
             TextField("Description", text: $description, axis: .vertical)
-                .lineLimit(3...6)
+                .lineLimit(1...4)
         }.listRowBackground(AppTheme.surface)
     }
 
@@ -201,6 +216,7 @@ struct ChoreFormView: View {
                         }
                     } label: {
                         HStack {
+                            WarmIcon(symbol: "person")
                             Text(user.name)
                                 .foregroundStyle(AppTheme.ink)
                             Spacer()
@@ -213,29 +229,35 @@ struct ChoreFormView: View {
                 }
             }
         } header: {
-            Text("Assignees")
+            Text("Who can do this?")
         } footer: {
-            Text("Selected members rotate the chore between them. If none are selected, everyone is eligible.")
+            Text("Selected people take turns. With no selection, everyone is eligible.")
         }.listRowBackground(AppTheme.surface)
     }
 
     private var scheduleSection: some View {
         Section("Schedule") {
-            if !isEditing {
-                Toggle("Due date", isOn: $hasDueDate)
-                if hasDueDate { DatePicker("Due date", selection: $dueDate, displayedComponents: .date) }
+            if case .edit(let chore) = mode, let task = viewModel.definition(id: chore.seriesID ?? chore.id)?.currentTask {
+                LabeledContent("Current task", value: (viewModel.users[task.assignedToUserID ?? ""]?.name ?? "Unassigned") + (task.formattedDueDate.map { " · " + $0 } ?? ""))
+                Text("Repeat changes apply to the next task.").font(.footnote).foregroundStyle(AppTheme.secondary)
+            } else if !isEditing {
+                Toggle("Set first due date", isOn: $hasDueDate)
+                if hasDueDate { DatePicker("First due date", selection: $dueDate, displayedComponents: .date) }
             }
             Toggle("Due time", isOn: $hasDueTime)
             if hasDueTime {
                 DatePicker("Due time", selection: $dueTime, displayedComponents: .hourAndMinute)
             }
+            NavigationLink(value: "repeat") {
+                LabeledContent("Repeat", value: recurrenceType == "none" ? "Never" : recurrenceType.capitalized)
+            }.accessibilityIdentifier("Edit repeat rule")
         }.listRowBackground(AppTheme.surface)
     }
 
     @ViewBuilder
     private var recurrenceSection: some View {
-        Section("Recurrence") {
-            Picker("Repeats", selection: $recurrenceType) {
+        Section {
+            Picker("Frequency", selection: $recurrenceType) {
                 ForEach(recurrenceOptions, id: \.self) { option in
                     Text(option.capitalized).tag(option)
                 }
@@ -268,7 +290,10 @@ struct ChoreFormView: View {
             }
 
             if recurrenceType != "none" {
-                Toggle("Recur After Completion", isOn: $recurOnComplete)
+                Toggle("Start next task after completion", isOn: $recurOnComplete)
+                    .accessibilityIdentifier("Recur After Completion")
+                Text("Off: keep the scheduled dates. On: count from completion or Skip.")
+                    .font(.footnote).foregroundStyle(AppTheme.secondary)
             }
         }.listRowBackground(AppTheme.surface)
     }
@@ -313,7 +338,7 @@ struct ChoreFormView: View {
                 }
             }
         } header: {
-            Text("End Conditions")
+            Text("Stop the repeat rule")
         } footer: {
             Text("Optionally stop the series on a date or after a number of occurrences.")
         }.listRowBackground(AppTheme.surface)
@@ -322,6 +347,8 @@ struct ChoreFormView: View {
     // MARK: - Populate / Save
 
     private func populate() {
+        guard !hasPopulated else { return }
+        hasPopulated = true
         guard case .edit(let chore) = mode else { return }
         name = chore.name
         description = chore.description

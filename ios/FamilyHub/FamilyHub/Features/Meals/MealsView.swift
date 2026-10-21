@@ -33,25 +33,15 @@ struct MealsView: View {
                     recipesEntry
                 }.listRowBackground(AppTheme.surface)
             } else {
-            Section {
-                weekControls
-                if isFoodHome { dayPicker }
-            } header: {
-                HStack {
-                    Text("Meal plan").font(.title3.bold())
-                    Spacer()
+                Section {
+                    weekControls
                     if isFoodHome {
-                        NavigationLink {
+                        dayPicker
+                        NavigationLink("View week") {
                             MealsView(apiClient: apiClient, viewModel: viewModel)
-                        } label: {
-                            Text("View week")
-                        }
-                        .font(.subheadline)
-                        .frame(minHeight: 44)
+                        }.frame(minHeight: 44)
                     }
-                }
-                .textCase(nil)
-            }.listRowBackground(AppTheme.surface)
+                }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             }
             switch viewModel.state {
             case .idle, .loading:
@@ -74,8 +64,14 @@ struct MealsView: View {
         }
         .listStyle(.insetGrouped)
         .appListStyle()
-        .navigationTitle(isFoodHome ? "Food" : "Meal Plan")
+        .navigationTitle(isFoodHome ? "Food" : (viewModel.weekDays.contains(where: { Calendar.current.isDateInToday($0) }) ? "This week" : "Meal plan"))
         .toolbar {
+            if !isFoodHome {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Today") { viewModel.goToCurrentWeek() }
+                        .accessibilityLabel("Go to current meal week")
+                }
+            }
             if isFoodHome {
                 ToolbarItem(placement: .topBarTrailing) { FeatureProfileButton(apiClient: apiClient) }
             }
@@ -118,14 +114,15 @@ struct MealsView: View {
                 .labelStyle(.iconOnly)
                 .frame(minWidth: 44, minHeight: 44)
             VStack(spacing: 4) {
-                Text(viewModel.currentWeek.formatted(.dateTime.day().month()) + " – " +
-                     (viewModel.weekDays.last ?? viewModel.currentWeek).formatted(.dateTime.day().month()))
+                Text(viewModel.currentWeek.formatted(.dateTime.weekday(.wide).day()) + " – " +
+                     (viewModel.weekDays.last ?? viewModel.currentWeek).formatted(.dateTime.weekday(.wide).day().month()))
                     .font(.subheadline.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("meal-week-range")
-                Button("Today") { viewModel.goToCurrentWeek() }
-                    .font(.subheadline)
-                    .frame(minHeight: 44)
+                if isFoodHome {
+                    Button("Today") { viewModel.goToCurrentWeek() }
+                        .frame(minHeight: 44)
+                }
             }
             .frame(maxWidth: .infinity)
             Button("Next week", systemImage: "chevron.right") { viewModel.nextWeek() }
@@ -173,68 +170,45 @@ struct MealsView: View {
         let dateKey = APIDate.dayString(date)
         let plan = meals.first { $0.date == dateKey && $0.mealType == mealType }
         let recipe = recipesViewModel.filteredRecipes.first { $0.id == plan?.recipeID }
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-            : AnyLayout(HStackLayout(spacing: 16))
-        return VStack(alignment: .leading, spacing: 12) {
+        let planned = plan?.name.isEmpty == false
+        return HStack(alignment: .center, spacing: 8) {
             Button {
                 editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: plan?.recipeID)
             } label: {
-                layout {
-                    VStack(alignment: .leading, spacing: 6) {
-                        if isOverview {
-                            Text(plan?.name.isEmpty == false ? plan!.name : mealType.capitalized)
-                                .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
-                            Text(plan?.name.isEmpty == false ? mealType.capitalized : "Not planned")
-                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
-                        } else {
-                            Text(mealType.uppercased())
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.secondary)
-                            Text(plan?.name.isEmpty == false ? plan!.name : "Add \(mealType)")
-                                .font(.headline).foregroundStyle(AppTheme.ink)
-                            if let recipe {
-                                let times = [recipe.prepTime.map { "Prep " + $0 }, recipe.cookTime.map { "Cook " + $0 }].compactMap { $0 }
-                                if !times.isEmpty {
-                                    Text(times.joined(separator: " · ")).font(.subheadline).foregroundStyle(AppTheme.secondary)
-                                }
-                            } else if plan?.name.isEmpty != false {
-                                Text("Choose a recipe or write a meal").font(.subheadline).foregroundStyle(AppTheme.secondary)
-                            }
-                        }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                    if let recipe, recipe.hasImage, !isOverview {
-                        RecipeThumbView(recipeID: recipe.id, apiClient: apiClient, size: 80, cornerRadius: 12)
-                            .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(planned ? plan!.name : mealType.capitalized)
+                        .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
+                    if planned {
+                        let cookingTime = recipe?.cookTime.map { " · " + $0 } ?? ""
+                        Text(mealType.capitalized + cookingTime).font(.subheadline).foregroundStyle(AppTheme.secondary)
                     } else {
-                        Image(systemName: plan?.name.isEmpty == false ? (isOverview ? "chevron.right" : "pencil") : "plus")
-                            .font(.title2)
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 44, height: 44)
-                            .accessibilityHidden(true)
+                        Text("Not planned").font(.subheadline).foregroundStyle(AppTheme.secondary)
                     }
                 }
-                .frame(maxWidth: .infinity, minHeight: isOverview ? 52 : 72, alignment: .leading)
-                .padding(.vertical, isOverview ? 0 : 8)
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(plan?.name.isEmpty == false ? "Edit \(mealType): \(plan!.name)" : "Add \(mealType)")
+            .accessibilityLabel(planned ? "Edit \(mealType): \(plan!.name)" : "Add \(mealType)")
             if let plan, let recipeID = plan.recipeID {
-                Divider()
                 NavigationLink {
                     RecipeDetailView(recipe: recipe ?? Recipe(id: recipeID, title: plan.name), apiClient: apiClient, viewModel: recipesViewModel)
                 } label: {
-                    Label("View recipe", systemImage: "book")
-                        .font(.subheadline)
-                        .frame(minHeight: 44)
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
                 }
+                .buttonStyle(.borderless)
                 .accessibilityLabel("View recipe for \(plan.name)")
+            } else {
+                Button {
+                    editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: plan?.recipeID)
+                } label: {
+                    Image(systemName: planned ? "pencil" : "plus").frame(width: 44, height: 44)
+                }.buttonStyle(.borderless)
+                .accessibilityLabel(planned ? "Change \(mealType)" : "Plan \(mealType)")
             }
         }
     }
+
 }
 
 struct EditingMeal: Identifiable {
@@ -261,6 +235,7 @@ struct MealEditSheet: View {
     let meal: EditingMeal
     @Bindable var viewModel: MealsViewModel
     let apiClient: any APIClientProtocol
+    @FocusState private var nameIsFocused: Bool
     @State private var draft: MealDraft
     @State private var recipes: [Recipe] = []
     @State private var isSaving = false
@@ -292,30 +267,14 @@ struct MealEditSheet: View {
                     TextField("Meal name", text: $draft.name, prompt: Text("What is for \(meal.mealType)?"))
                     .accessibilityLabel("Meal name")
                     .accessibilityIdentifier("Meal name")
+                    .focused($nameIsFocused)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
                     .onSubmit { Task { await save() } }
                 } header: {
                     Text("Meal name")
-                } footer: {
-                    Text("Choose a recipe or save the meal name.")
                 }.listRowBackground(AppTheme.surface)
                 Section("Matching recipes") {
-                    if canSave {
-                        Button { draft.useNameOnly() } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Use “\(draft.name)” only")
-                                    Text("No recipe").font(.subheadline).foregroundStyle(AppTheme.secondary)
-                                }
-                                Spacer()
-                                if draft.recipeID == nil { Image(systemName: "checkmark") }
-                            }.frame(minHeight: 44)
-                        }
-                        .disabled(!canSave)
-                        .accessibilityLabel("Use name only")
-                        .accessibilityAddTraits(draft.recipeID == nil ? .isSelected : [])
-                    }
                     if isLoadingRecipes {
                         ProgressView("Loading recipes")
                     } else if let recipeError {
@@ -329,23 +288,43 @@ struct MealEditSheet: View {
                     ForEach(filteredRecipes) { recipe in
                         Button {
                             draft.select(recipe)
+                            nameIsFocused = false
                         } label: {
                             HStack(spacing: 12) {
                                 if recipe.hasImage {
                                     RecipeThumbView(recipeID: recipe.id, apiClient: apiClient, size: 44)
                                         .accessibilityHidden(true)
                                 }
-                                Text(recipe.title).foregroundStyle(AppTheme.ink)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                if !recipe.hasImage { WarmIcon(symbol: "fork.knife") }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(recipe.title).foregroundStyle(AppTheme.ink)
+                                    let details = [recipe.mealType?.capitalized, recipe.cookTime, recipe.servings.map { "\($0) servings" }].compactMap { $0 }
+                                    Text(details.joined(separator: " · ")).font(.subheadline).foregroundStyle(AppTheme.secondary)
+                                }.fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 0)
-                                if draft.recipeID == recipe.id {
-                                    Image(systemName: "checkmark").accessibilityHidden(true)
-                                }
+                                Image(systemName: draft.recipeID == recipe.id ? "checkmark" : "chevron.right")
+                                    .foregroundStyle(draft.recipeID == recipe.id ? AppTheme.accent : AppTheme.secondary)
+                                    .accessibilityHidden(true)
                             }
                             .frame(minHeight: 44)
                         }
                         .accessibilityLabel(recipe.title)
                         .accessibilityAddTraits(draft.recipeID == recipe.id ? .isSelected : [])
+                    }
+                    if canSave {
+                        Button { draft.useNameOnly(); nameIsFocused = false } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Use “\(draft.name)” only")
+                                    Text("No recipe").font(.subheadline).foregroundStyle(AppTheme.secondary)
+                                }
+                                Spacer()
+                                if draft.recipeID == nil { Image(systemName: "checkmark") }
+                            }.frame(minHeight: 44)
+                        }
+                        .disabled(!canSave)
+                        .accessibilityLabel("Use name only")
+                        .accessibilityAddTraits(draft.recipeID == nil ? .isSelected : [])
                     }
                 }.listRowBackground(AppTheme.surface)
                 if !meal.name.isEmpty || meal.recipeID != nil {

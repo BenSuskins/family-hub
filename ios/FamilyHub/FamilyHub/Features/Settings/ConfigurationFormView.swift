@@ -9,6 +9,7 @@ struct ConfigurationFormView: View {
     @State private var baseURL: String
     @State private var isDiscovering = false
     @State private var discoveryError: String?
+    @FocusState private var addressIsFocused: Bool
 
     @Environment(\.dismiss) private var dismiss
 
@@ -23,16 +24,15 @@ struct ConfigurationFormView: View {
     var body: some View {
         List {
             Section {
-                Text("Connecting to another server signs you out. Use the address from your family admin.")
+                Text("Change the Family Hub server for this iPhone.")
                     .font(.subheadline).foregroundStyle(AppTheme.secondary)
-            }.listRowBackground(AppTheme.surface)
-            Section("Server") {
+            }.listRowBackground(Color.clear)
+            Section("Server address") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Server address")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondary)
                     TextField("https://hub.example.com", text: $baseURL)
-                        .font(.subheadline)
+                        .font(.body).foregroundStyle(AppTheme.ink)
+                        .focused($addressIsFocused)
+                        .submitLabel(.go).onSubmit { Task { await connect() } }
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -45,28 +45,25 @@ struct ConfigurationFormView: View {
                         .foregroundStyle(AppTheme.destructive)
                 }
             }.listRowBackground(AppTheme.surface)
+            Section {
+                Text("Connecting to another server signs you out. Your current server stays active if the connection fails.")
+                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+            }.listRowBackground(AppTheme.sage)
+            Section {
+                Button(isDiscovering ? "Connecting…" : "Connect") { Task { await connect() } }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .disabled(isDiscovering || baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .listStyle(.insetGrouped)
         .appListStyle()
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                if isDiscovering {
-                    ProgressView()
-                } else {
-                    Button("Connect") {
-                        Task { await connect() }
-                    }.buttonStyle(AppCommitButtonStyle())
-                    .disabled(baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-            }
-        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     @MainActor
     private func connect() async {
+        guard !isDiscovering else { return }
+        addressIsFocused = false
         discoveryError = nil
         isDiscovering = true
         defer { isDiscovering = false }

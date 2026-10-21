@@ -87,25 +87,30 @@ struct CategoriesView: View {
 
     var body: some View {
         List {
-            Section { Text("Categories group chores for your family.").foregroundStyle(AppTheme.secondary) }.listRowBackground(AppTheme.surface)
+            Section { Text("Use categories to organise chores.").font(.subheadline).foregroundStyle(AppTheme.secondary) }
+                .listRowBackground(Color.clear)
             if viewModel.categories.isEmpty && !viewModel.isLoading {
                 Section {
                     ContentUnavailableView("No Categories", systemImage: "tag", description: Text("Tap + to add a category."))
                 }.listRowBackground(AppTheme.surface)
             }
             ForEach(viewModel.categories) { category in
-                HStack {
-                    Text(category.name)
-                    Spacer()
-                    Menu {
-                        Button("Rename") { editName = category.name; activeSheet = .edit(category) }
-                        Button("Delete", role: .destructive) {
-                            if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) { pendingDeletion = IndexSet([index]) }
+                Button {
+                    editName = category.name
+                    activeSheet = .edit(category)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(category.name).foregroundStyle(AppTheme.ink)
+                            Text("Rename or delete this category").font(.subheadline).foregroundStyle(AppTheme.secondary)
                         }
-                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                    .accessibilityLabel("Actions for \(category.name)")
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondary)
+                    }.frame(minHeight: 44)
                 }
-            .listRowBackground(AppTheme.surface)
+                .buttonStyle(.plain)
+                .accessibilityLabel(category.name)
+                .listRowBackground(AppTheme.surface)
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) {
@@ -123,10 +128,14 @@ struct CategoriesView: View {
                         .tint(AppTheme.accent)
                     }
             }
+            Section {
+                Button("New category") { activeSheet = .create }
+                    .buttonStyle(AppSecondaryButtonStyle())
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .appListStyle()
         .navigationTitle("Categories")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { activeSheet = .create } label: {
@@ -151,7 +160,14 @@ struct CategoriesView: View {
                     return error
                 }
             case .edit(let category):
-                NameEntrySheet(title: "Rename Category", name: $editName, fieldTitle: "Category name", explanation: "This changes the category for the whole family.") { name in
+                NameEntrySheet(title: "Rename category", name: $editName, fieldTitle: "Category name", explanation: "This changes the category for the whole family.", deletionName: category.name, deleteActionTitle: "Delete category", delete: {
+                    guard let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) else { return nil }
+                    viewModel.actionError = nil
+                    await viewModel.delete(at: IndexSet([index]))
+                    let error = viewModel.actionError
+                    viewModel.actionError = nil
+                    return error
+                }) { name in
                     viewModel.actionError = nil
                     await viewModel.rename(category: category, to: name)
                     let error = viewModel.actionError

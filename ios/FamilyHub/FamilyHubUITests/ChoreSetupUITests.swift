@@ -23,7 +23,8 @@ final class ChoreSetupUITests: XCTestCase {
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
         selectFamilyTab("Tasks", in: app)
-        XCTAssertTrue(app.staticTexts["Configured chores"].waitForExistence(timeout: 5))
+        scrollTo(app.staticTexts["Chore rules"], in: app)
+        XCTAssertTrue(app.staticTexts["Chore rules"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Complete Vacuum living room"].exists)
         let vacuum = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Vacuum living room")).firstMatch
         scrollTo(vacuum, in: app)

@@ -18,16 +18,16 @@ struct FamilyNameView: View {
             } header: { Text("Family name") } footer: {
                 Text("Displayed in the app header for all family members.")
             }.listRowBackground(AppTheme.surface)
+            Section {
+                Button("Save family name") { Task { await save() } }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .accessibilityIdentifier("Save")
+                    .disabled(familyName.trimmingCharacters(in: .whitespaces).isEmpty || isSaving || isLoading)
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .appListStyle()
-        .navigationTitle("Family Name")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle())
-                    .disabled(familyName.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
-            }
-        }
+        .navigationTitle("Family name")
+        .navigationBarTitleDisplayMode(.large)
         .overlay {
             if isLoading { ProgressView() }
         }

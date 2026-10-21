@@ -77,6 +77,23 @@ final class HouseholdViewModelTests: XCTestCase {
 
 @MainActor
 final class ShoppingPurchaseFeedbackTests: XCTestCase {
+    func testUndoHintUsesThePurchaseDeadlineAndClearsOnUndo() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]
+        var now = Date(timeIntervalSince1970: 1_000)
+        let model = ShoppingViewModel(apiClient: client, now: { now })
+        await model.load()
+        XCTAssertNil(model.remainingUndoSeconds(for: model.items[0]))
+        _ = await model.toggle(model.items[0])
+        XCTAssertEqual(model.remainingUndoSeconds(for: model.items[0]), 5)
+        now += 2.2
+        XCTAssertEqual(model.remainingUndoSeconds(for: model.items[0]), 3)
+        now += 2.8
+        XCTAssertEqual(model.remainingUndoSeconds(for: model.items[0]), 0)
+        _ = await model.toggle(model.items[0])
+        XCTAssertNil(model.remainingUndoSeconds(for: model.items[0]))
+    }
+
     func testSlowConfirmationKeepsTheRowVisibleUntilTheServerConfirms() async {
         let client = FakeAPIClient()
         client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]

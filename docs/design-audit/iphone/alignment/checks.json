@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-10-21T18:06:19.750060+00:00",
+  "scope": "Targeted iPhone visual and interaction checks. The app unit suite runs separately. This is not a whole UI-suite result.",
+  "runs": [
+    {
+      "name": "light",
+      "result": "Passed",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "total": 8,
+      "evidence": "evidence/light.json",
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "name": "dark",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "total": 1,
+      "evidence": "evidence/dark.json",
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    },
+    {
+      "name": "household-final",
+      "result": "Passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3,
+      "evidence": "evidence/household-final.json",
+      "runtimeWarnings": []
+    },
+    {
+      "name": "units",
+      "result": "Passed",
+      "passed": 142,
+      "failed": 0,
+      "skipped": 42,
+      "total": 184,
+      "evidence": "evidence/units.json",
+      "runtimeWarnings": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "name": "regression-first-run",
+      "result": "Failed",
+      "passed": 25,
+      "failed": 1,
+      "skipped": 0,
+      "total": 26,
+      "evidence": "evidence/regression-first-run.json",
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Invalid frame dimension (negative or non-finite)."
+        }
+      ]
+    }
+  ],
+  "comparisons": 33,
+  "captures": {
+    "captures": 83,
+    "small-captures": 55
+  },
+  "limits": [
+    "Earlier diagnostic runs include failed selectors and a zero-test run. They do not count as passing checks.",
+    "Simulator summaries retain frame-dimension warnings without a source location.",
+    "Demo mode does not prove sign-in, location capture, notification delivery, physical VoiceOver, or Siri."
+  ]
+}

@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// The easy increment control: − / count / + with circular tappable buttons.
-/// The minus button is disabled (and a no-op) at 0; the count turns orange when
-/// the item is low. Uses `.borderless` buttons so taps never trigger an
-/// enclosing row's navigation.
+/// Keep stock controls independent of the row's edit action.
 struct QuantityStepper: View {
     let quantity: Int
+    var editableQuantity: Binding<Int>?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var isLow: Bool = false
     var label = "Quantity"
     let onDecrement: () -> Void
@@ -15,15 +14,25 @@ struct QuantityStepper: View {
         HStack(spacing: 10) {
             stepButton(systemName: "minus", tint: Color(.secondaryLabel), disabled: quantity <= 0, action: onDecrement)
 
-            Text("\(quantity)")
-                .font(.title3.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(isLow ? InventoryStyle.low : Color(.label))
-                .frame(minWidth: 28)
-                .contentTransition(.numericText())
+            if let editableQuantity {
+                TextField("Quantity", value: editableQuantity, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .font(.title3.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(isLow ? InventoryStyle.low : AppTheme.ink)
+                    .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 90)
+                    .accessibilityIdentifier("Count")
+            } else {
+                Text("\(quantity)")
+                    .font(.title3.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(isLow ? InventoryStyle.low : AppTheme.ink)
+                    .frame(minWidth: 28)
+                    .contentTransition(.numericText())
+            }
 
             stepButton(systemName: "plus", tint: Color.accentColor, disabled: false, action: onIncrement)
         }
+        .background(AppTheme.iconBackground, in: Capsule())
     }
 
     private func stepButton(systemName: String, tint: Color, disabled: Bool, action: @escaping () -> Void) -> some View {
@@ -32,11 +41,7 @@ struct QuantityStepper: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(AppTheme.surface)
-                        .overlay(Circle().stroke(Color(.separator), lineWidth: 0.5))
-                )
+
                 .opacity(disabled ? 0.4 : 1)
                 .contentShape(Circle())
         }

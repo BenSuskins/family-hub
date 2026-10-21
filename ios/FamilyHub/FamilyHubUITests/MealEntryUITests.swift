@@ -17,7 +17,7 @@ final class MealEntryUITests: XCTestCase {
         // The overview opens the full meal plan directly on iPhone.
         if UIDevice.current.userInterfaceIdiom == .pad { app.buttons["View week"].tap() }
 
-        XCTAssertTrue(app.navigationBars["Meal Plan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Meal plan"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["meal-week-range"].label, week)
     }
 

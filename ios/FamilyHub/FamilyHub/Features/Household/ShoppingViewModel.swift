@@ -36,6 +36,11 @@ final class ShoppingViewModel {
 
     func isPurchased(_ item: ShoppingItem) -> Bool { purchaseTargets[item.id] ?? item.purchased }
 
+    func remainingUndoSeconds(for item: ShoppingItem) -> Int? {
+        guard isPurchased(item), let deadline = purchaseDeadlines[item.id] else { return nil }
+        return max(0, Int(ceil(deadline.timeIntervalSince(now()))))
+    }
+
     func expirePurchases() {
         let expired = purchaseDeadlines.filter { $0.value <= now() && !changingIDs.contains($0.key) && purchaseTargets[$0.key] == nil }
         for identifier in expired.keys { purchaseDeadlines.removeValue(forKey: identifier) }

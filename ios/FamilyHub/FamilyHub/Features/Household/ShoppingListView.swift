@@ -106,6 +106,16 @@ struct ShoppingListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await refresh() } }
         .refreshable { await refresh() }
         .errorAlert($model.error)
+        .toolbar {
+            if let item = model.items.first(where: { $0.id == renameID }) {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { saveRename(item) }
+                        .accessibilityIdentifier("Save item name")
+                        .disabled(!model.canEdit || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 200 || model.changingIDs.contains(item.id))
+                }
+            }
+        }
         .confirmationDialog("Delete \(deletingItem?.name ?? "item")?", isPresented: Binding(
             get: { deletingItem != nil }, set: { if !$0 { deletingItem = nil } }
         ), titleVisibility: .visible) {
@@ -238,13 +248,25 @@ struct ShoppingListView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.name).strikethrough(model.isPurchased(item))
+                        if model.isPurchased(item) {
+                            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                                if model.changingIDs.contains(item.id) {
+                                    Text("Saving purchase…")
+                                } else if let seconds = model.remainingUndoSeconds(for: item) {
+                                    Text(seconds > 0 ? "Hides in \(seconds)s" : "Hiding item…")
+                                }
+                            }.font(.caption).foregroundStyle(AppTheme.secondary)
+                        }
                         if let area = inventoryModel.areas.first(where: { area in area.items.contains { $0.id == item.inventoryItemID } }) {
                             Text(area.name).font(.subheadline).foregroundStyle(AppTheme.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if model.isPurchased(item) {
+                if renameID == item.id {
+                    Button("Cancel") { renameID = nil; renameFocused = false }
+                        .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                } else if model.isPurchased(item) {
                     Button("Undo") { Task { _ = await model.toggle(item) } }
                         .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
                         .disabled(!model.canEdit)
@@ -256,15 +278,6 @@ struct ShoppingListView: View {
                     .accessibilityLabel("Actions for \(item.name)")
                     .disabled(!model.canEdit || model.changingIDs.contains(item.id))
                 }
-            }
-            if renameID == item.id {
-                HStack {
-                    Button("Cancel") { renameID = nil; renameFocused = false }
-                    Spacer()
-                    Button("Done") { saveRename(item) }
-                        .accessibilityIdentifier("Save item name")
-                        .disabled(!model.canEdit || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 200 || model.changingIDs.contains(item.id))
-                }.buttonStyle(.borderless).frame(minHeight: 44)
             }
             if renameID == item.id && renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 200 {
                 Text("Use a shorter item name.").font(.footnote).foregroundStyle(AppTheme.destructive)

@@ -12,24 +12,51 @@ struct ChoreDetailView: View {
     @State private var history: [Chore] = []
     @State private var cursor: String?
     @State private var loadingHistory = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var historyError: APIError?
 
     private var current: ChoreDefinition { viewModel.definition(id: definition.id) ?? definition }
 
     var body: some View {
         List {
+            if !current.chore.description.isEmpty {
+                Section { Text(current.chore.description).foregroundStyle(AppTheme.secondary) }
+                    .listRowBackground(Color.clear)
+            }
             if let task = current.currentTask {
                 Section("Current task") {
-                    LabeledContent("Assignee", value: viewModel.users[task.assignedToUserID ?? ""]?.name ?? "Unassigned")
-                    if let date = task.formattedDueDate { LabeledContent("Due", value: date) }
-                    Link("Complete or skip on Today", destination: URL(string: "familyhub://today")!).font(.footnote).foregroundStyle(AppTheme.secondary)
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    layout {
+                        if !dynamicTypeSize.isAccessibilitySize { WarmIcon(symbol: "person") }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(viewModel.users[task.assignedToUserID ?? ""]?.name ?? "Unassigned")
+                            Text((task.status == .overdue ? "Overdue" : "Due") + (task.formattedDueDate.map { " · " + $0 } ?? " date not set"))
+                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        }
+                        if task.status == .overdue {
+                            Text("Overdue").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.destructive)
+                                .padding(8).background(AppTheme.destructive.opacity(0.1), in: Capsule())
+                        }
+                    }
+                    Link(destination: URL(string: "familyhub://today")!) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("View on Today")
+                                Text("Complete or skip the current task.").font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                    }
                 }.listRowBackground(AppTheme.surface)
             }
-            Section("Chore setup") {
-                if !current.chore.description.isEmpty { Text(current.chore.description) }
+            Section("Repeat rule") {
                 LabeledContent("Repeat", value: current.chore.recurrenceSummary)
+                LabeledContent("People", value: eligiblePeople)
+                LabeledContent("Rotation", value: "One person at a time")
                 if current.chore.recurOnComplete { Text("The next date starts from completion or Skip.").foregroundStyle(AppTheme.secondary) }
-                LabeledContent("Eligible people", value: eligiblePeople)
                 if let time = current.chore.dueTime { LabeledContent("Due time", value: time) }
                 if let count = current.chore.recurrenceCount { LabeledContent("Task limit", value: String(count)) }
                 if let end = current.chore.recurrenceUntil { LabeledContent("End date", value: end) }
@@ -44,21 +71,30 @@ struct ChoreDetailView: View {
                 }
                 if loadingHistory { ProgressView() }
                 else if historyError != nil { Button("Retry history") { Task { await loadHistory(reset: history.isEmpty) } } }
-                else if history.isEmpty { Text("No task history").foregroundStyle(AppTheme.secondary) }
+                else if history.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No task history")
+                        Text("Completed and skipped tasks appear here.").font(.subheadline).foregroundStyle(AppTheme.secondary)
+                    }
+                }
                 if cursor?.isEmpty == false {
                     Button("Load more history") { Task { await loadHistory(reset: false) } }.disabled(loadingHistory)
                 }
             }.listRowBackground(AppTheme.surface)
             if current.deletedAt == nil {
                 Section {
-                    Button("Edit Chore") { editing = true }
-                    Button("Delete Chore", role: .destructive) { deleting = true }.disabled(deletePending)
+                    Button("Delete Chore", role: .destructive) { deleting = true }.foregroundStyle(AppTheme.destructive).disabled(deletePending)
                 }.listRowBackground(AppTheme.surface)
             }
         }
         .appListStyle()
         .navigationTitle(current.chore.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if current.deletedAt == nil {
+                Button("Edit") { editing = true }.accessibilityIdentifier("Edit Chore")
+            }
+        }
         .sheet(isPresented: $editing, onDismiss: {
             if viewModel.definition(id: definition.id) == nil { dismiss() }
             else { Task { await loadHistory(reset: true) } }

@@ -55,11 +55,12 @@ struct APITokensView: View {
     @State private var activeSheet: TokenSheet?
 
     private enum TokenSheet: Identifiable {
-        case create, created(CreatedToken)
+        case create, created(CreatedToken), manage(APIToken)
         var id: String {
             switch self {
             case .create: return "create"
-            case .created(let token): return token.id
+            case .created(let token): return "created-" + token.id
+            case .manage(let token): return "manage-" + token.id
             }
         }
     }
@@ -78,39 +79,47 @@ struct APITokensView: View {
     var body: some View {
         List {
             Section {
-                Text("Tokens connect other apps to Family Hub. Treat them like passwords.")
+                Text("Connect trusted apps to Family Hub.")
                     .foregroundStyle(AppTheme.secondary)
-            }.listRowBackground(AppTheme.surface)
+            }.listRowBackground(Color.clear)
             if viewModel.tokens.isEmpty && !viewModel.isLoading {
                 Section {
                     ContentUnavailableView("No Tokens", systemImage: "key", description: Text("Tap + to create a token."))
                 }.listRowBackground(AppTheme.surface)
             }
             ForEach(viewModel.tokens) { token in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(token.name).font(.body)
-                    Text(token.createdAt.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondary)
-                }
+                Button { activeSheet = .manage(token) } label: {
+                    HStack(spacing: 12) {
+                        WarmIcon(symbol: "key")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(token.name).foregroundStyle(AppTheme.ink)
+                            Text("Created " + token.createdAt.formatted(date: .abbreviated, time: .omitted))
+                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondary)
+                    }
+                }.buttonStyle(.plain)
             }
             .onDelete { offsets in
                 pendingDeletion = offsets
             }
             .listRowBackground(AppTheme.surface)
+            Section {
+                Button("New token") { activeSheet = .create }.buttonStyle(AppSecondaryButtonStyle())
+            } footer: {
+                Text("Treat tokens like passwords. Delete a token to stop that app’s access.")
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .appListStyle()
-        .navigationTitle("API Tokens")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("API tokens")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { activeSheet = .create } label: {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("New Token")
-            }
-            ToolbarItem(placement: .navigationBarLeading) {
-                EditButton()
             }
         }
         .overlay {
@@ -126,7 +135,7 @@ struct APITokensView: View {
         }) { sheet in
             switch sheet {
             case .create:
-                NameEntrySheet(title: "New Token", name: $newTokenName, fieldTitle: "Token name", actionTitle: "Create token", explanation: "Copy the token after creation. The app shows it once.") { name in
+                NameEntrySheet(title: "New token", name: $newTokenName, fieldTitle: "Token name", actionTitle: "Create token", explanation: "The token appears after you select Create.", fieldHelp: "Use a name that identifies the app or device.", primaryActionInContent: true) { name in
                     viewModel.actionError = nil
                     await viewModel.create(name: name)
                     let error = viewModel.newlyCreatedToken == nil ? viewModel.actionError : nil
@@ -134,6 +143,7 @@ struct APITokensView: View {
                     return error
                 }
             case .created(let token): CreatedTokenSheet(token: token)
+            case .manage(let token): TokenDetailsSheet(token: token, model: viewModel)
             }
         }
         .confirmationDialog("Delete \(deletionName)?", isPresented: Binding(
@@ -155,17 +165,20 @@ private struct CreatedTokenSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Label("Token Created", systemImage: "checkmark.circle")
-                    Text("Copy this token now. The app shows it once.")
-                        .foregroundStyle(AppTheme.secondary)
-                }.listRowBackground(AppTheme.surface)
-                Section(token.name) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Image(systemName: "checkmark").font(.largeTitle).foregroundStyle(AppTheme.accent).accessibilityHidden(true)
+                    Text("Save your token").font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text(token.name).foregroundStyle(AppTheme.secondary)
                     Text(token.plaintext)
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                    Button(copied ? "Copied" : "Copy Token", systemImage: "doc.on.doc") {
+                        .font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(16).groupedCard()
+                    Text("Copy this token now. You cannot view it again.")
+                        .font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16).background(AppTheme.sage, in: RoundedRectangle(cornerRadius: 20))
+                    Button(copied ? "Copied" : "Copy token") {
                         UIPasteboard.general.string = token.plaintext
                         copied = true
                         UIAccessibility.post(notification: .announcement, argument: "Copied")
@@ -174,14 +187,59 @@ private struct CreatedTokenSheet: View {
                             copied = false
                         }
                     }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .accessibilityIdentifier("Copy Token")
+                }
+                .frame(maxWidth: 520)
+                .padding(20).padding(.top, 24)
+                .frame(maxWidth: .infinity)
+            }
+            .background(AppTheme.background)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.buttonStyle(AppCommitButtonStyle())
+                }
+            }
+        }
+    }
+
+}
+
+private struct TokenDetailsSheet: View {
+    let token: APIToken
+    @Bindable var model: APITokensViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirming = false
+    @State private var isDeleting = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Name", value: token.name)
+                    LabeledContent("Created", value: token.createdAt.formatted(date: .abbreviated, time: .omitted))
+                    Text("The token value is available only when you create it.").font(.subheadline).foregroundStyle(AppTheme.secondary)
                 }.listRowBackground(AppTheme.surface)
+                Section {
+                    Button("Delete token", role: .destructive) { confirming = true }.foregroundStyle(AppTheme.destructive).disabled(isDeleting)
+                } footer: { Text("Delete this token to stop the app’s access.") }
+                .listRowBackground(AppTheme.surface)
             }
             .appListStyle()
-            .navigationTitle("New Token")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            .navigationTitle(token.name)
+            .toolbar { Button("Done") { dismiss() }.disabled(isDeleting) }
+            .confirmationDialog("Delete \(token.name)?", isPresented: $confirming, titleVisibility: .visible) {
+                Button("Delete token", role: .destructive) {
+                    Task {
+                        guard let index = model.tokens.firstIndex(where: { $0.id == token.id }) else { dismiss(); return }
+                        isDeleting = true
+                        await model.delete(at: IndexSet([index]))
+                        isDeleting = false
+                        if !model.tokens.contains(where: { $0.id == token.id }) { dismiss() }
+                    }
+                }
             }
+            .errorAlert($model.actionError)
         }
     }
 }

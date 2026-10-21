@@ -1,0 +1,233 @@
+[
+  {
+    "screen": "cooking-last-step",
+    "file": "cooking-last-step.png",
+    "test": "DesignFidelityUITests/testCookingProgressTracksButtonsAndSwipes()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586493.841
+  },
+  {
+    "screen": "cooking-step-progress",
+    "file": "cooking-step-progress.png",
+    "test": "DesignFidelityUITests/testCookingProgressTracksButtonsAndSwipes()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586489.595
+  },
+  {
+    "screen": "shopping-keyboard-no-tabs",
+    "file": "shopping-keyboard-no-tabs.png",
+    "test": "DesignFidelityUITests/testFloatingTabsLeaveFinalRowsReachableAndHideForTheKeyboard()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586517.298
+  },
+  {
+    "screen": "recipes-floating-tabs-last-row",
+    "file": "recipes-floating-tabs-last-row.png",
+    "test": "DesignFidelityUITests/testFloatingTabsLeaveFinalRowsReachableAndHideForTheKeyboard()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586509.273
+  },
+  {
+    "screen": "today-floating-tabs",
+    "file": "today-floating-tabs.png",
+    "test": "DesignFidelityUITests/testFloatingTabsLeaveFinalRowsReachableAndHideForTheKeyboard()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586503.258
+  },
+  {
+    "screen": "inventory-empty-area",
+    "file": "inventory-empty-area.png",
+    "test": "DesignFidelityUITests/testInventoryFilterKeepsShoppingAndStockActionsAvailable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586543.598
+  },
+  {
+    "screen": "inventory-area-actions",
+    "file": "inventory-area-actions.png",
+    "test": "DesignFidelityUITests/testInventoryFilterKeepsShoppingAndStockActionsAvailable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586536.114
+  },
+  {
+    "screen": "inventory-low-filter",
+    "file": "inventory-low-filter.png",
+    "test": "DesignFidelityUITests/testInventoryFilterKeepsShoppingAndStockActionsAvailable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586531.431
+  },
+  {
+    "screen": "inventory-soft-icons",
+    "file": "inventory-soft-icons.png",
+    "test": "DesignFidelityUITests/testInventoryFilterKeepsShoppingAndStockActionsAvailable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586527.459
+  },
+  {
+    "screen": "large-inventory-actions",
+    "file": "large-inventory-actions.png",
+    "test": "DesignFidelityUITests/testLargestTextKeepsContentEditorsCookingAndInventoryUsable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586597.676
+  },
+  {
+    "screen": "large-cooking-progress",
+    "file": "large-cooking-progress.png",
+    "test": "DesignFidelityUITests/testLargestTextKeepsContentEditorsCookingAndInventoryUsable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586589.748
+  },
+  {
+    "screen": "large-method-editor",
+    "file": "large-method-editor.png",
+    "test": "DesignFidelityUITests/testLargestTextKeepsContentEditorsCookingAndInventoryUsable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586584.117
+  },
+  {
+    "screen": "large-today-native-tabs",
+    "file": "large-today-native-tabs.png",
+    "test": "DesignFidelityUITests/testLargestTextKeepsContentEditorsCookingAndInventoryUsable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586555.912
+  },
+  {
+    "screen": "recipe-editor-summary",
+    "file": "recipe-editor-summary.png",
+    "test": "DesignFidelityUITests/testRecipeDraftSurvivesContentNavigationAndSaves()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586641.455
+  },
+  {
+    "screen": "recipe-ingredients-draft",
+    "file": "recipe-ingredients-draft.png",
+    "test": "DesignFidelityUITests/testRecipeDraftSurvivesContentNavigationAndSaves()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586639.766
+  },
+  {
+    "screen": "welcome-invalid-address",
+    "file": "welcome-invalid-address.png",
+    "test": "DesignFidelityUITests/testWelcomeHelpAndInvalidAddressKeepTheUserInput()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586656.847
+  },
+  {
+    "screen": "join-family",
+    "file": "join-family.png",
+    "test": "DesignFidelityUITests/testWelcomeHelpAndInvalidAddressKeepTheUserInput()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586653.119
+  },
+  {
+    "screen": "welcome",
+    "file": "welcome.png",
+    "test": "DesignFidelityUITests/testWelcomeHelpAndInvalidAddressKeepTheUserInput()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586649.43
+  },
+  {
+    "screen": "household-shopping",
+    "file": "household-shopping.png",
+    "test": "HouseholdUITests/testWeatherAndShoppingInDemo()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586248.532
+  },
+  {
+    "screen": "household-weather",
+    "file": "household-weather.png",
+    "test": "HouseholdUITests/testWeatherAndShoppingInDemo()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586236.967
+  },
+  {
+    "screen": "household-home",
+    "file": "household-home.png",
+    "test": "HouseholdUITests/testWeatherAndShoppingInDemo()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586233.452
+  },
+  {
+    "screen": "weather-large-text",
+    "file": "weather-large-text.png",
+    "test": "HouseholdUITests/testWeatherWithLargeText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586261.39
+  },
+  {
+    "screen": "household-large-text",
+    "file": "household-large-text.png",
+    "test": "HouseholdUITests/testWeatherWithLargeText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586257.912
+  },
+  {
+    "screen": "large-inventory-rows",
+    "file": "large-inventory-rows.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586327.188
+  },
+  {
+    "screen": "large-cook-actions",
+    "file": "large-cook-actions.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586320.184
+  },
+  {
+    "screen": "large-tokens-empty",
+    "file": "large-tokens-empty.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586308.881
+  },
+  {
+    "screen": "small-shopping-hidden",
+    "file": "small-shopping-hidden.png",
+    "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586353.44
+  },
+  {
+    "screen": "small-shopping-undo",
+    "file": "small-shopping-undo.png",
+    "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586346.011
+  },
+  {
+    "screen": "small-shopping-inline",
+    "file": "small-shopping-inline.png",
+    "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586340.782
+  },
+  {
+    "screen": "small-household",
+    "file": "small-household.png",
+    "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586333.688
+  },
+  {
+    "screen": "small-today",
+    "file": "small-today.png",
+    "test": "RedesignUITests/testShoppingRenameStaysInlineAndPurchaseCanBeUndoneBeforeItHides()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586331.786
+  },
+  {
+    "screen": "large-inventory-shopping-action",
+    "file": "large-inventory-shopping-action.png",
+    "test": "DesignFidelityUITests/testLargestTextKeepsContentEditorsCookingAndInventoryUsable()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586601.98
+  },
+  {
+    "screen": "recipe-saved-lime",
+    "file": "recipe-saved-lime.png",
+    "test": "DesignFidelityUITests/testRecipeDraftSurvivesContentNavigationAndSaves()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792586644.333
+  }
+]

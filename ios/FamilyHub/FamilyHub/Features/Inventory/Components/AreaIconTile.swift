@@ -1,8 +1,7 @@
 import SwiftUI
 import FamilyHubKit
 
-/// Rounded-square tinted tile with a white glyph — the area's visual identity.
-/// Used at several sizes (18 inline, 38 list, 52 header, 72 add-area preview).
+/// Preserve the selected area colour on a soft surface.
 struct AreaIconTile: View {
     let icon: String
     let tint: String
@@ -22,17 +21,16 @@ struct AreaIconTile: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(InventoryStyle.color(tint))
+            .fill(AppTheme.iconBackground)
             .frame(width: size, height: size)
             .overlay {
                 Image(systemName: InventoryStyle.symbol(icon))
                     .font(.system(size: size * 0.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(InventoryStyle.color(tint))
             }
             .overlay(
                 RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
-                    .blendMode(.overlay)
+                    .stroke(AppTheme.border, lineWidth: 0.5)
             )
     }
 }

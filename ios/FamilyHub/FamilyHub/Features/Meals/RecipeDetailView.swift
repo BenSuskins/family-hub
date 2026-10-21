@@ -45,42 +45,33 @@ struct RecipeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 4) {
+                Menu {
                     if let recipeURL {
                         ShareLink(
                             item: recipeURL,
                             subject: Text(recipe.title),
                             message: Text("Check out this recipe: \(recipe.title)")
                         ) {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Share recipe", systemImage: "square.and.arrow.up")
                         }
                     }
-
-                    Button { showCookMode = true } label: {
-                        Image(systemName: "flame")
+                    if watchLink.canSendToWatch {
+                        Button { sendToWatch() } label: {
+                            Label("Cook on Watch", systemImage: "applewatch")
+                        }
+                        .disabled(isLoading || (displayRecipe.steps ?? []).isEmpty)
                     }
-                    .accessibilityLabel("Start Cook Mode")
-                    .disabled(isLoading || fullRecipe == nil)
-
-                    Menu {
-                        if watchLink.canSendToWatch {
-                            Button { sendToWatch() } label: {
-                                Label("Cook on Watch", systemImage: "applewatch")
-                            }
-                            .disabled(isLoading || (displayRecipe.steps ?? []).isEmpty)
-                        }
-                        Button { showEditForm = true } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }
-                        .disabled(isLoading)
-                        Button(role: .destructive) { showDeleteConfirm = true } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
+                    Button { showEditForm = true } label: {
+                        Label("Edit", systemImage: "pencil")
                     }
-                    .accessibilityLabel("Recipe actions")
+                    .disabled(isLoading)
+                    Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
                 }
+                .accessibilityLabel("Recipe actions")
             }
         }
         .fullScreenCover(isPresented: $showCookMode) {
@@ -143,13 +134,14 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 heroSection(r)
+                recipeMetadata(r)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+
                 Button("Start cooking", systemImage: "flame") { showCookMode = true }
                     .buttonStyle(AppPrimaryButtonStyle())
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
-                metaPillsRow(r)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
                     .padding(.bottom, 6)
 
                 if let ingredients = r.ingredients, !ingredients.isEmpty {
@@ -202,38 +194,19 @@ struct RecipeDetailView: View {
         }
     }
 
-    // MARK: - Meta pills
+    // MARK: - Recipe metadata
 
-    private func metaPillsRow(_ r: Recipe) -> some View {
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 8))
-        return layout {
-            if let prep = r.prepTime {
-                metaPill(icon: "clock", label: "Prep " + prep)
-            }
-            if let cook = r.cookTime {
-                metaPill(icon: "flame", label: "Cook " + cook)
-            }
-            if let servings = r.servings {
-                metaPill(icon: "person.2", label: "\(servings) servings")
-            }
-            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-        }
-    }
+    private func recipeMetadata(_ recipe: Recipe) -> some View {
+        let details = [
+            recipe.prepTime.map { "Prep \($0)" },
+            recipe.cookTime.map { "Cook \($0)" },
+            recipe.servings.map { "\($0) servings" }
+        ].compactMap { $0 }
 
-    private func metaPill(icon: String, label: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondary)
-            Text(label)
-                .font(.footnote.weight(.medium))
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 7)
-        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 12))
-
+        return Text(details.joined(separator: " · "))
+            .font(.title3)
+            .foregroundStyle(AppTheme.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Ingredients

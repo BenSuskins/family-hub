@@ -44,7 +44,7 @@ final class DesignFidelityUITests: XCTestCase {
         continueAfterFailure = false
         let app = launchDemo()
         openRecipe(in: app)
-        app.buttons["Start Cook Mode"].tap()
+        app.buttons["Start cooking"].tap()
         app.buttons["Start step 1"].tap()
         let progress = app.progressIndicators["Cooking progress"]
         XCTAssertTrue(progress.waitForExistence(timeout: 5))
@@ -158,7 +158,7 @@ final class DesignFidelityUITests: XCTestCase {
         capture(app, "large-method-editor")
         app.buttons["Done"].tap()
         app.buttons["Cancel"].tap()
-        app.buttons["Start Cook Mode"].tap()
+        app.buttons["Start cooking"].tap()
         reveal(app.buttons["Start step 1"], in: app)
         app.buttons["Start step 1"].tap()
         XCTAssertGreaterThanOrEqual(app.buttons["Ingredients"].frame.width, 280)
@@ -200,7 +200,7 @@ final class DesignFidelityUITests: XCTestCase {
         XCTAssertTrue(recipe.waitForExistence(timeout: 5))
         reveal(recipe, in: app)
         recipe.tap()
-        XCTAssertTrue(app.buttons["Start Cook Mode"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Start cooking"].waitForExistence(timeout: 5))
     }
 
     @MainActor

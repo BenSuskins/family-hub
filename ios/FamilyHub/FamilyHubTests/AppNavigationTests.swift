@@ -23,6 +23,50 @@ final class AppNavigationTests: XCTestCase {
         XCTAssertEqual(navigation.householdPath, [.shopping])
     }
 
+    func testSelectingFoodAgainReturnsToFoodOverview() {
+        let navigation = AppNavigation()
+        navigation.selectedTab = .food
+        navigation.foodPath = [.recipes]
+
+        navigation.select(.food)
+
+        XCTAssertEqual(navigation.selectedTab, .food)
+        XCTAssertEqual(navigation.foodPath, [])
+    }
+
+    func testSwitchingAwayFromFoodPreservesItsNavigationPath() {
+        let navigation = AppNavigation()
+        navigation.selectedTab = .food
+        navigation.foodPath = [.recipes]
+
+        navigation.select(.calendar)
+        navigation.select(.food)
+
+        XCTAssertEqual(navigation.foodPath, [.recipes])
+    }
+
+    func testSelectingHouseholdAgainReturnsToHouseholdOverview() {
+        let navigation = AppNavigation()
+        navigation.selectedTab = .household
+        navigation.householdPath = [.inventory]
+
+        navigation.select(.household)
+
+        XCTAssertEqual(navigation.selectedTab, .household)
+        XCTAssertEqual(navigation.householdPath, [])
+    }
+
+    func testSwitchingAwayFromHouseholdPreservesItsNavigationPath() {
+        let navigation = AppNavigation()
+        navigation.selectedTab = .household
+        navigation.householdPath = [.inventory]
+
+        navigation.select(.calendar)
+        navigation.select(.household)
+
+        XCTAssertEqual(navigation.householdPath, [.inventory])
+    }
+
     func testUnknownLinksKeepTheCurrentScreen() {
         let navigation = AppNavigation()
         navigation.selectedTab = .tasks

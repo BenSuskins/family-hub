@@ -1,0 +1,127 @@
+{
+  "kind": "Static iPhone proposals; not simulator captures",
+  "scale": 3,
+  "screens": [
+    {
+      "id": "week-baseline",
+      "title": "Existing layout",
+      "group": "Compare",
+      "description": "The current seven-column layout in the selected theme. The all-day area uses 160 points.",
+      "notes": "Static layout reference with the same sample events as the alternatives. Narrow event labels are part of the existing layout.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-baseline.png"
+    },
+    {
+      "id": "week-compact",
+      "title": "A · Compact seven days",
+      "group": "Compare",
+      "description": "Keep the full week. Collapse all-day items into one 44-point row.",
+      "notes": "Selected. Gain 116 points for timed events. Tap Trip +4 to inspect all five items. Event names remain narrow.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-compact.png"
+    },
+    {
+      "id": "week-agenda",
+      "title": "B · Week with an agenda",
+      "group": "Compare",
+      "description": "Keep seven days above a readable list for the selected day.",
+      "notes": "Alternative. Tap a date to select its column and agenda. Tap an event to open its detail. Open day gives the full timeline. Each pane scrolls independently.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-agenda.png"
+    },
+    {
+      "id": "week-three-days",
+      "title": "C · Three-day zoom",
+      "group": "Compare",
+      "description": "Give each day more width. Keep the same time axis and overlap placement.",
+      "notes": "Choose 3 days from the existing view menu. Swipe horizontally to move through dates. Tap a date to open Day. This option shows less of the week.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-three-days.png"
+    },
+    {
+      "id": "week-all-day-expanded",
+      "title": "Inspect all-day items",
+      "group": "Interactions",
+      "description": "Trip +4 opens the selected date’s full list in a sheet.",
+      "notes": "Keep the event, chore, and all three meals. Done returns to the same week position. This sheet is a proposed interaction.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-all-day-expanded.png"
+    },
+    {
+      "id": "week-open-day",
+      "title": "Open the selected day",
+      "group": "Interactions",
+      "description": "Open day shows the existing Day timeline. Back returns to Week.",
+      "notes": "For option B, tapping a date selects the agenda. Open day is the separate drill-down action. For A and C, tapping a date can open Day directly.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-open-day.png"
+    },
+    {
+      "id": "week-layout-menu",
+      "title": "Choose a week layout",
+      "group": "Interactions",
+      "description": "Use a submenu in the existing Calendar view menu.",
+      "notes": "Keep Year, Month, Day, and Week. Add week layout choices inside that menu. Do not add an inner tab bar. This menu shows the alternatives together for review.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-layout-menu.png"
+    },
+    {
+      "id": "week-smart-start",
+      "title": "Start near the first event",
+      "group": "Interactions",
+      "description": "A future week opens near its first timed event. The sample starts at 16:00 for a 17:30 event.",
+      "notes": "For this week, start near now. For another week, use its first daytime event. Keep manual scroll positions. Do not reset the viewport when data refreshes.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-smart-start.png"
+    },
+    {
+      "id": "week-compact-dark",
+      "title": "Compact all-day · dark",
+      "group": "Adaptations",
+      "description": "The selected layout with the approved dark tokens.",
+      "notes": "Keep the source calendar colours distinct. All-day items remain available through the compact row.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-compact-dark.png"
+    },
+    {
+      "id": "week-compact-small",
+      "title": "Compact all-day · small iPhone",
+      "group": "Adaptations",
+      "description": "The selected layout on a 375 × 667-point iPhone.",
+      "notes": "Keep the full seven-day timeline. The floating tab bar stays over content. More hours remain available through vertical scroll.",
+      "width": 375,
+      "height": 667,
+      "horizontalOverflow": false,
+      "file": "images/week-compact-small.png"
+    },
+    {
+      "id": "week-large-text",
+      "title": "Week · large text",
+      "group": "Adaptations",
+      "description": "Use the existing date picker and full-width agenda at accessibility text sizes.",
+      "notes": "Remove the split layout at accessibility sizes. Keep readable labels and the existing week agenda fallback.",
+      "width": 402,
+      "height": 874,
+      "horizontalOverflow": false,
+      "file": "images/week-large-text.png"
+    }
+  ]
+}

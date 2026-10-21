@@ -11,4 +11,8 @@ public enum WidgetKind {
     /// string would have been worse: an installed widget would keep its
     /// "Today's Chores" gallery description while drawing a different thing.
     public nonisolated static let today = "FamilyHubTodayWidget"
+    public nonisolated static let tonight = "FamilyHubTonightWidget"
+    public nonisolated static let mealPlan = "FamilyHubMealPlanWidget"
+    public nonisolated static let upNext = "FamilyHubUpNextWidget"
+    public nonisolated static let chores = "FamilyHubChoresWidget"
 }

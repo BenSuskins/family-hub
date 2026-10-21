@@ -12,6 +12,8 @@ The most useful changes are: keep the meal plan above chores on Today and bring 
 
 [Review the latest screen alignment and validation](alignment/index.html). [Review the PR #54 baseline](implementation/index.html).
 
+[Review the new Calendar and widget proposals](calendar-widgets/index.html). These retain the Calendar layouts and apply Warm Sage Cosier. The widget designs start fresh.
+
 Revision 2 uses the requested Apple Design and UI/UX Pro Max skills. [Read the redesign rules and interaction specification](redesign-guidance.md).
 
 ## Evidence and limits

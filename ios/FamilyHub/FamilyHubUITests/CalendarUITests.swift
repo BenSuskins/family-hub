@@ -24,6 +24,37 @@ final class CalendarUITests: XCTestCase {
     }
 
     @MainActor
+    func testCompactWeekAllDayListContainsEventsChoresAndMeals() {
+        let app = launchCalendar()
+        app.buttons["calendar-view-menu"].tap()
+        app.buttons["calendar-mode-Week"].tap()
+
+        let allDayItems = app.buttons["calendar-all-day-count-2026-03-15"]
+        XCTAssertTrue(allDayItems.waitForExistence(timeout: 5))
+        XCTAssertTrue(allDayItems.label.contains("5 all-day items"))
+        capture(app, "calendar-week-compact-all-day")
+        allDayItems.tap()
+
+        XCTAssertTrue(app.buttons["calendar-all-day-done"].waitForExistence(timeout: 5))
+        capture(app, "calendar-week-all-day-expanded")
+        for identifier in [
+            "event-fixture-trip",
+            "chore-fixture-dishes",
+            "meal-2026-03-15-breakfast",
+            "meal-2026-03-15-lunch",
+        ] {
+            XCTAssertTrue(app.descendants(matching: .any)["calendar-item-\(identifier)"].exists)
+        }
+        app.descendants(matching: .any)["calendar-item-meal-2026-03-15-lunch"].swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any)["calendar-item-meal-2026-03-15-dinner"].exists)
+
+        app.buttons["calendar-all-day-done"].tap()
+        XCTAssertTrue(app.otherElements["calendar-timeline"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["calendar-view-menu"].value as? String, "Week")
+        XCTAssertTrue(app.buttons["calendar-all-day-count-2026-03-15"].exists)
+    }
+
+    @MainActor
     func testMonthZoomKeepsTheNextHeadingBelowTheLastWeek() {
         let app = launchCalendar()
         let months = app.otherElements["calendar-months"]

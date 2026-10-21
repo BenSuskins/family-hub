@@ -1,444 +1,586 @@
-import Foundation
 import AppIntents
 import SwiftUI
 import WidgetKit
 import FamilyHubKit
 
+enum WidgetPresentation: Equatable {
+    case today
+    case tonight
+    case mealPlan
+    case upNext
+    case chores
+}
+
 struct TodayView: View {
     @Environment(\.widgetFamily) private var family
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    let entry: TodayEntry
 
-    private var usesLargeText: Bool { dynamicTypeSize >= .xxLarge }
+    let entry: TodayEntry
+    var presentation: WidgetPresentation = .today
+
+    private var largeText: Bool { dynamicTypeSize >= .xxLarge }
 
     var body: some View {
-        switch family {
-        case .accessoryInline:      InlineView(entry: entry)
-        case .accessoryCircular:    CircularView(entry: entry)
-        case .accessoryRectangular: RectangularView(entry: entry)
-        case .systemSmall:          SmallView(entry: entry)
-        case .systemLarge:          AgendaView(entry: entry, maxRows: usesLargeText ? 2 : 6, showsEveryMeal: !usesLargeText)
-        default:                    AgendaView(entry: entry, maxRows: usesLargeText ? 1 : 3, showsEveryMeal: false)
+        Group {
+            switch presentation {
+            case .today: today
+            case .tonight: tonight
+            case .mealPlan: mealPlan
+            case .upNext: upNext
+            case .chores: chores
+            }
         }
-    }
-}
-
-// MARK: - Shared vocabulary
-
-private extension TodayEntry {
-    /// Short explanation for the states where there is no day to draw.
-    var problem: String? {
-        switch status {
-        case .ok, .cached:  return nil
-        case .signedOut:    return "Open Family Hub to sign in"
-        case .unavailable:  return "Can't reach the hub"
-        }
+        .foregroundStyle(WidgetPalette.ink)
     }
 
-    var showsAge: Bool { status == .cached }
-
-    /// The next thing the day holds — which, while anything is overdue, is the
-    /// overdue chore, because that is what the ordering puts first.
-    var nextUp: TodayWidgetData.Item? { hasData ? data.items.first : nil }
-
-    /// What the circular family leads with: the number worth acting on, and a
-    /// glyph saying what it counts. `nil` when there is nothing on, or nothing
-    /// truthful to show — an unreachable server is not an empty day.
-    var circularBadge: (value: Int, symbol: String)? {
-        guard hasData else { return nil }
-        if data.choreCount > 0 { return (data.choreCount, "checklist") }
-        if data.eventCount > 0 { return (data.eventCount, "calendar") }
-        return nil
-    }
-}
-
-private extension TodayWidgetData.Item {
-    /// Overdue is red whatever the row is; otherwise an event wears its own
-    /// calendar's colour and a chore the widget's amber.
-    var tint: Color {
-        if isOverdue { return .red }
-        switch kind {
-        case .event: return colorHex.flatMap { Color(hex: $0) } ?? .blue
-        case .chore: return .orange
+    private var today: some View {
+        Group {
+            switch family {
+            case .accessoryInline: inlineDinner
+            case .accessoryCircular: circularChores
+            case .accessoryRectangular: rectangularEvent
+            case .systemLarge: largeToday
+            case .systemSmall: smallToday
+            default: mediumToday
+            }
         }
     }
 
-    /// Keep the existing widget URLs valid across navigation changes.
-    var destination: URL {
-        switch kind {
-        case .event: return WidgetLink.calendar
-        case .chore: return WidgetLink.today
-        }
-    }
-
-    /// One line for the tight families, e.g. "17:30 Swimming lesson".
-    var oneLine: String {
-        [timeLabel, title].compactMap { $0 }.joined(separator: " ")
-    }
-}
-
-/// "3 chores · 2 events" — what the day amounts to, for the families with no
-/// room to list it.
-private func daySummary(_ data: TodayWidgetData) -> String {
-    var parts: [String] = []
-    if data.choreCount > 0 {
-        parts.append("\(data.choreCount) \(data.choreCount == 1 ? "chore" : "chores")")
-    }
-    if data.eventCount > 0 {
-        parts.append("\(data.eventCount) \(data.eventCount == 1 ? "event" : "events")")
-    }
-    return parts.isEmpty ? "Nothing on" : parts.joined(separator: " · ")
-}
-
-// MARK: - Home Screen
-
-/// Medium and large: the same merged day, differing in how many rows fit and
-/// how much of the meal plan comes with it.
-private struct AgendaView: View {
-    let entry: TodayEntry
-    let maxRows: Int
-    let showsEveryMeal: Bool
-
-    private var rows: [TodayWidgetData.Item] {
-        Array(entry.data.items.prefix(maxRows))
-    }
-
-    private var hiddenCount: Int {
-        entry.data.hiddenCount(shown: rows.count)
-    }
-
-    private var meals: [TodayWidgetData.Meal] {
-        guard entry.hasData else { return [] }
-        if showsEveryMeal { return entry.data.meals }
-        // One line to spare, so lead with dinner — but a day where only lunch
-        // is planned should still say so rather than show nothing.
-        return [entry.data.dinner ?? entry.data.meals.last].compactMap { $0 }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            header
-
+    private var mediumToday: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(title: "Today")
             if let problem = entry.problem {
-                Spacer(minLength: 0)
-                Text(problem)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-            } else if entry.data.isClear {
-                Spacer(minLength: 0)
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("Nothing on today")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                ProblemMessage(text: problem)
+            } else {
+                if entry.data.isClear {
+                    EmptyDayMessage()
+                } else {
+                HStack(alignment: .top, spacing: 8) {
+                    EventHighlight(item: entry.nextEvent)
+                    Rectangle().fill(WidgetPalette.border).frame(width: 1)
+                    MealHighlight(meal: entry.data.dinner, title: "Tonight")
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity)
+                ChoreSummary(entry: entry)
+                if entry.failedChoreID != nil {
+                    Text("Could not complete the chore. It stays unchecked.")
+                        .font(.caption2)
+                        .foregroundStyle(WidgetPalette.clay)
+                }
+                if entry.pendingChoreID != nil {
+                    Text("Saving chore…")
+                        .font(.caption2)
+                        .foregroundStyle(WidgetPalette.secondary)
+                }
+                }
+            }
+        }
+    }
+
+    private var largeToday: some View {
+        VStack(alignment: .leading, spacing: largeText ? 5 : 8) {
+            header(title: "Today")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else if entry.data.isClear {
+                EmptyDayMessage()
+            } else {
+                MealHighlight(meal: entry.data.dinner, title: "Tonight")
+                sectionTitle("Up next")
+                let events = entry.data.events
+                    .filter { $0.isAllDay != true && ($0.eventEnd ?? $0.eventStart ?? .distantPast) > entry.date }
+                    .sorted { ($0.eventStart ?? .distantFuture) < ($1.eventStart ?? .distantFuture) }
+                    .prefix(largeText ? 1 : 2)
+                if events.isEmpty {
+                    Text("Nothing else scheduled today")
+                        .font(.caption)
+                        .foregroundStyle(WidgetPalette.secondary)
+                } else {
+                    ForEach(Array(events)) { item in
+                        EventRow(item: item)
+                    }
+                }
+                sectionTitle("Chores")
+                let chores = Array(entry.chores.prefix(largeText ? 1 : 2))
+                if chores.isEmpty {
+                    Text("No chores due today")
+                        .font(.caption)
+                        .foregroundStyle(WidgetPalette.secondary)
+                } else {
+                    ForEach(chores) { item in
+                        ChoreRow(
+                            item: item,
+                            failed: item.choreID == entry.failedChoreID,
+                            pending: item.choreID == entry.pendingChoreID
+                        )
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var smallToday: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(title: "Today")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else {
+                EventHighlight(item: entry.nextEvent)
+                Spacer(minLength: 0)
+                MealHighlight(meal: entry.data.dinner, title: "Tonight")
+            }
+        }
+    }
+
+    private var tonight: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(title: "Dinner · Today")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else if let dinner = entry.data.dinner {
+                Link(destination: WidgetLink.meals) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Image(systemName: "fork.knife")
+                            .font(.title2.weight(.medium))
+                            .foregroundStyle(WidgetPalette.accent)
+                            .frame(width: 42, height: 42)
+                            .background(WidgetPalette.sage, in: Circle())
+                        Text(dinner.name)
+                            .font(.title3.weight(.semibold))
+                            .lineLimit(3)
+                            .privacySensitive()
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                }
+            } else {
+                Text("No dinner planned")
+                    .font(.subheadline)
+                    .foregroundStyle(WidgetPalette.secondary)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var mealPlan: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            header(title: "Meal plan")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else if entry.data.meals.isEmpty {
+                Text("No meals planned today")
+                    .font(.subheadline)
+                    .foregroundStyle(WidgetPalette.secondary)
                 Spacer(minLength: 0)
             } else {
-                ForEach(rows) { row in
-                    TimelineRow(item: row)
+                let meals = largeText
+                    ? [entry.data.dinner ?? entry.data.meals.last].compactMap { $0 }
+                    : entry.data.meals
+                ForEach(meals) { meal in
+                    Link(destination: WidgetLink.meals) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "fork.knife")
+                                .font(.caption)
+                                .foregroundStyle(WidgetPalette.accent)
+                                .frame(width: 22)
+                            Text(meal.slot.label)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(WidgetPalette.secondary)
+                                .frame(width: 66, alignment: .leading)
+                            Text(meal.name)
+                                .font(meal.slot == .dinner ? .subheadline.weight(.semibold) : .subheadline)
+                                .lineLimit(1)
+                                .privacySensitive()
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 36)
+                        .padding(.horizontal, meal.slot == .dinner ? 8 : 0)
+                        .background(meal.slot == .dinner ? WidgetPalette.sage : .clear, in: RoundedRectangle(cornerRadius: 10))
+                    }
                 }
-
-                if hiddenCount > 0 {
-                    Text("+\(hiddenCount) more")
+                if largeText && entry.data.meals.count > meals.count {
+                    Text("+\(entry.data.meals.count - meals.count) more meals")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(WidgetPalette.secondary)
                 }
-
                 Spacer(minLength: 0)
-                MealFooter(meals: meals)
             }
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 6) {
-            Text("Today")
-                .font(.footnote.weight(.semibold))
-            Text(entry.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 0)
-            if entry.hasData, entry.data.overdueCount > 0 {
-                Text("\(entry.data.overdueCount) overdue")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.red)
+    private var upNext: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            header(title: "Up next")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else if let event = entry.nextEvent {
+                EventHighlight(item: event)
+                Spacer(minLength: 0)
+            } else {
+                Text("Nothing else today")
+                    .font(.subheadline)
+                    .foregroundStyle(WidgetPalette.secondary)
+                Spacer(minLength: 0)
             }
-            AgeStamp(entry: entry)
+        }
+    }
+
+    private var chores: some View {
+        Group {
+            switch family {
+            case .accessoryCircular: circularChores
+            case .systemSmall: smallChores
+            default: mediumChores
+            }
+        }
+    }
+
+    private var smallChores: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(title: "Chores")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else {
+                Text("\(entry.data.choreCount)")
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    .foregroundStyle(WidgetPalette.accent)
+                Text(entry.data.overdueCount > 0 ? "to do · \(entry.data.overdueCount) overdue" : "chores to do")
+                    .font(.caption)
+                    .foregroundStyle(WidgetPalette.secondary)
+                if entry.failedChoreID != nil {
+                    Text("Could not complete · still open")
+                        .font(.caption2)
+                        .foregroundStyle(WidgetPalette.clay)
+                }
+                if entry.pendingChoreID != nil {
+                    Text("Saving chore…")
+                        .font(.caption2)
+                        .foregroundStyle(WidgetPalette.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var mediumChores: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            header(title: "Chores")
+            if let problem = entry.problem {
+                ProblemMessage(text: problem)
+            } else if entry.chores.isEmpty {
+                Text("No chores to do")
+                    .font(.subheadline)
+                    .foregroundStyle(WidgetPalette.secondary)
+                Spacer(minLength: 0)
+            } else {
+                ForEach(entry.chores.prefix(2)) { item in
+                    ChoreRow(
+                        item: item,
+                        failed: item.choreID == entry.failedChoreID,
+                        pending: item.choreID == entry.pendingChoreID
+                    )
+                }
+                if entry.data.choreCount > 2 {
+                    Text("+\(entry.data.choreCount - 2) more")
+                        .font(.caption)
+                        .foregroundStyle(WidgetPalette.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var inlineDinner: some View {
+        Group {
+            if let problem = entry.problem {
+                Text(problem)
+            } else if let dinner = entry.data.dinner {
+                Text("Dinner: \(dinner.name)").privacySensitive()
+            } else {
+                Text("No dinner planned")
+            }
+        }
+    }
+
+    private var circularChores: some View {
+        Group {
+            if let problem = entry.problem {
+                Image(systemName: "exclamationmark")
+                    .accessibilityLabel(problem)
+            } else {
+                Text("\(entry.data.choreCount)")
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(WidgetPalette.accent)
+                    .accessibilityLabel("\(entry.data.choreCount) chores to do")
+            }
+        }
+    }
+
+    private var rectangularEvent: some View {
+        Group {
+            if let problem = entry.problem {
+                Text(problem).font(.caption)
+            } else if let event = entry.nextEvent {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.eventStart ?? entry.date, format: .dateTime.hour().minute())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(WidgetPalette.accent)
+                    Text(event.title).font(.caption.weight(.semibold)).lineLimit(1).privacySensitive()
+                    if let location = event.subtitle {
+                        Text(location).font(.caption2).lineLimit(1).foregroundStyle(WidgetPalette.secondary).privacySensitive()
+                    }
+                }
+            } else {
+                Text("Nothing else today").font(.caption)
+            }
+        }
+    }
+
+    private var header: some View { header(title: "Today") }
+
+    private func header(title: String) -> some View {
+        HStack(spacing: 5) {
+            Text(title).font(.footnote.weight(.semibold))
+            if presentation == .today || presentation == .tonight {
+                Text(entry.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
+                    .font(.caption)
+                    .foregroundStyle(WidgetPalette.secondary)
+            }
+            Spacer(minLength: 0)
+            if entry.status == .cached {
+                HStack(spacing: 3) {
+                    Image(systemName: "clock")
+                    Text(entry.data.capturedAt, style: .time)
+                }
+                .font(.caption2)
+                .foregroundStyle(WidgetPalette.secondary)
+                .accessibilityLabel("Saved at \(entry.data.capturedAt.formatted(date: .omitted, time: .shortened))")
+            }
+        }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(WidgetPalette.secondary)
+            .padding(.top, 2)
+    }
+}
+
+private extension TodayEntry {
+    var problem: String? {
+        switch status {
+        case .ok, .cached: nil
+        case .signedOut: "Open Family Hub to sign in"
+        case .unavailable: "Can't reach the hub"
         }
     }
 }
 
-/// One row of the day. The row body is a link to the right tab; the tick, where
-/// there is one, is a sibling rather than nested inside it, so a tap either
-/// completes the chore or opens the app and never has to guess.
-private struct TimelineRow: View {
+private struct ProblemMessage: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(WidgetPalette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+private struct EmptyDayMessage: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(WidgetPalette.accent)
+            Text("Nothing on today")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(WidgetPalette.secondary)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct EventHighlight: View {
+    let item: TodayWidgetData.Item?
+
+    var body: some View {
+        Group {
+            if let item {
+                Link(destination: WidgetLink.calendar) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label("Up next", systemImage: "calendar")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(WidgetPalette.accent)
+                        if let start = item.eventStart {
+                            Text(start, format: .dateTime.hour().minute())
+                                .font(.caption2.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(WidgetPalette.secondary)
+                        }
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                            .privacySensitive()
+                        if let subtitle = item.subtitle {
+                            Text(subtitle)
+                                .font(.caption)
+                                .foregroundStyle(WidgetPalette.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(WidgetPalette.sage, in: RoundedRectangle(cornerRadius: 12))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("Up next", systemImage: "calendar")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(WidgetPalette.accent)
+                    Text("Nothing else today")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(WidgetPalette.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding(8)
+                .background(WidgetPalette.sage, in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+    }
+}
+
+private struct MealHighlight: View {
+    let meal: TodayWidgetData.Meal?
+    let title: String
+
+    var body: some View {
+        Link(destination: WidgetLink.meals) {
+            VStack(alignment: .leading, spacing: 5) {
+                Label(title, systemImage: "fork.knife")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(WidgetPalette.clay)
+                if let meal {
+                    Text(meal.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(3)
+                        .privacySensitive()
+                } else {
+                    Text("No dinner planned")
+                        .font(.subheadline)
+                        .foregroundStyle(WidgetPalette.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(8)
+            .background(WidgetPalette.departure, in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+}
+
+private struct ChoreSummary: View {
+    let entry: TodayEntry
+
+    var body: some View {
+        if entry.data.choreCount > 0 {
+            Link(destination: WidgetLink.today) {
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark.circle")
+                    Text("\(entry.data.choreCount) chores to do")
+                    if entry.data.overdueCount > 0 {
+                        Text("· \(entry.data.overdueCount) overdue")
+                            .foregroundStyle(WidgetPalette.clay)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(WidgetPalette.secondary)
+            }
+        }
+    }
+}
+
+private struct EventRow: View {
     let item: TodayWidgetData.Item
 
     var body: some View {
-        HStack(spacing: 8) {
-            Link(destination: item.destination) {
-                HStack(spacing: 8) {
-                    TimeColumn(item: item)
-                    KindMarker(item: item)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(item.title)
-                            .font(.footnote.weight(.medium))
-                            // Explicit, because a Text inside a Link would
-                            // otherwise pick up the accent tint.
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+        Link(destination: WidgetLink.calendar) {
+            HStack(spacing: 8) {
+                if let start = item.eventStart {
+                    Text(start, format: .dateTime.hour().minute())
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(WidgetPalette.accent)
+                        .frame(width: 48, alignment: .leading)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title).font(.caption.weight(.medium)).lineLimit(1).privacySensitive()
+                    if let subtitle = item.subtitle {
+                        Text(subtitle).font(.caption2).foregroundStyle(WidgetPalette.secondary).lineLimit(1).privacySensitive()
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: 28)
+        }
+    }
+}
+
+private struct ChoreRow: View {
+    let item: TodayWidgetData.Item
+    var failed = false
+    var pending = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Link(destination: WidgetLink.today) {
+                HStack(spacing: 7) {
+                    Image(systemName: "circle")
+                        .font(.body)
+                        .foregroundStyle(WidgetPalette.clay)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.title).font(.caption.weight(.medium)).lineLimit(1)
                         if let subtitle = item.subtitle {
-                            Text(subtitle)
+                            Text(subtitle).font(.caption2).foregroundStyle(WidgetPalette.secondary).lineLimit(1)
+                        }
+                        if failed {
+                            Text("Could not save · still open")
                                 .font(.caption2)
-                                .foregroundStyle(item.isOverdue ? Color.red : Color.secondary)
-                                .lineLimit(1)
+                                .foregroundStyle(WidgetPalette.clay)
+                        }
+                        if pending {
+                            Text("Saving…")
+                                .font(.caption2)
+                                .foregroundStyle(WidgetPalette.secondary)
                         }
                     }
                     Spacer(minLength: 0)
                 }
+                .contentShape(Rectangle())
             }
-
-            // The tick is the best bit of the widget: the common case is "I've
-            // just done that", and it should not need the app. Events are
-            // someone else's calendar, so their rows have no button.
             if let choreID = item.choreID {
                 Button(intent: CompleteChoreIntent(choreID: choreID)) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.title3.weight(.regular))
-                        .foregroundStyle(.green)
+                    Group {
+                        if pending {
+                            ProgressView()
+                                .tint(WidgetPalette.accent)
+                        } else {
+                            Image(systemName: "checkmark.circle")
+                                .font(.title3)
+                                .foregroundStyle(WidgetPalette.accent)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(pending)
                 .accessibilityLabel("Complete \(item.title)")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-/// The left-hand clock column. Fixed width so titles line up down the day even
-/// when a row has no time to show.
-private struct TimeColumn: View {
-    let item: TodayWidgetData.Item
-
-    @ScaledMetric(relativeTo: .caption) private var timeWidth = 46
-
-    var body: some View {
-        Text(item.timeLabel ?? "")
-            .font(.caption.weight(.semibold).monospacedDigit())
-            .foregroundStyle(item.isOverdue ? Color.red : Color.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-            .frame(width: timeWidth, alignment: .trailing)
-    }
-}
-
-/// Circle for an event, square for a chore — the same shape language the app's
-/// calendar uses, so the two kinds stay apart even for a colour-blind reader.
-private struct KindMarker: View {
-    let item: TodayWidgetData.Item
-
-    var body: some View {
-        Group {
-            switch item.kind {
-            case .event:
-                Circle().fill(item.tint)
-            case .chore:
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous).fill(item.tint)
-            }
-        }
-        .frame(width: 7, height: 7)
-    }
-}
-
-/// The meal plan, pinned below the agenda rather than merged into it: meals
-/// have no clock time to sort by, and dinner should stay visible however busy
-/// the day above it gets.
-private struct MealFooter: View {
-    let meals: [TodayWidgetData.Meal]
-
-    var body: some View {
-        if !meals.isEmpty {
-            Link(destination: WidgetLink.meals) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Divider().opacity(0.4)
-                    ForEach(meals) { meal in
-                        HStack(spacing: 5) {
-                            Image(systemName: "fork.knife")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 11)
-                            Text(meal.slot.label)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Text(meal.name)
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct SmallView: View {
-    let entry: TodayEntry
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                Text(entry.date, format: .dateTime.weekday(.abbreviated).day())
-                    .font(.caption.weight(.semibold))
-                Spacer(minLength: 0)
-                AgeStamp(entry: entry)
-            }
-
-            if let problem = entry.problem {
-                Spacer(minLength: 4)
-                Text(problem)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                Spacer(minLength: 0)
-            } else {
-                Text(daySummary(entry.data))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(entry.data.overdueCount > 0 ? Color.red : Color.secondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 6)
-
-                // Small has room for one thing, so it shows the thing that's
-                // next rather than a count with no context.
-                if let next = entry.nextUp {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 5) {
-                            KindMarker(item: next)
-                            Text(next.timeLabel ?? "Any time")
-                                .font(.caption.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(next.isOverdue ? Color.red : Color.secondary)
-                                .lineLimit(1)
-                        }
-                        Text(next.title)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(2)
-                    }
-                } else {
-                    Text("Nothing scheduled")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 4)
-
-                if let dinner = entry.data.dinner {
-                    HStack(spacing: 5) {
-                        Image(systemName: "fork.knife")
-                            .font(.caption2.weight(.semibold))
-                        Text(dinner.name)
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-/// Marks data the widget could not refresh, so a stale day is never mistaken
-/// for a current one.
-private struct AgeStamp: View {
-    let entry: TodayEntry
-
-    var body: some View {
-        if entry.showsAge {
-            HStack(spacing: 2) {
-                Image(systemName: "clock")
-                Text(entry.data.capturedAt, style: .time)
-            }
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-        }
-    }
-}
-
-// MARK: - Lock Screen
-
-private struct InlineView: View {
-    let entry: TodayEntry
-
-    var body: some View {
-        if let problem = entry.problem {
-            Text(problem)
-        } else if let next = entry.nextUp {
-            Text(next.oneLine)
-        } else if let dinner = entry.data.dinner {
-            Text("Dinner · \(dinner.name)")
-        } else {
-            Text("Nothing on today")
-        }
-    }
-}
-
-private struct CircularView: View {
-    let entry: TodayEntry
-
-    var body: some View {
-        ZStack {
-            AccessoryWidgetBackground()
-            if !entry.hasData {
-                // Signed out or unreachable: say "unknown", never "all clear".
-                Image(systemName: "questionmark")
-                    .font(.body.weight(.semibold))
-            } else if let badge = entry.circularBadge {
-                VStack(spacing: -2) {
-                    Text("\(badge.value)")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                    Image(systemName: badge.symbol)
-                        .font(.caption2.weight(.semibold))
-                }
-            } else {
-                Image(systemName: "checkmark")
-                    .font(.title3.weight(.semibold))
-            }
-        }
-        .widgetAccentable()
-    }
-}
-
-private struct RectangularView: View {
-    let entry: TodayEntry
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            if let problem = entry.problem {
-                Text("Family Hub").font(.headline).widgetAccentable()
-                Text(problem).font(.caption)
-            } else {
-                HStack(spacing: 4) {
-                    Text(daySummary(entry.data))
-                        .font(.headline)
-                        .widgetAccentable()
-                        .lineLimit(1)
-                    if entry.data.overdueCount > 0 {
-                        Text("· \(entry.data.overdueCount) late").font(.caption)
-                    }
-                }
-                if let next = entry.nextUp {
-                    Text(next.oneLine).font(.caption).lineLimit(1)
-                }
-                if let dinner = entry.data.dinner {
-                    Text("Dinner · \(dinner.name)").font(.caption2).lineLimit(1)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 }

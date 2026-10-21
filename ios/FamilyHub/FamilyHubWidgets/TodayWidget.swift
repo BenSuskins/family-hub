@@ -16,10 +16,10 @@ struct TodayWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: TodayProvider()) { entry in
-            TodayView(entry: entry)
+            TodayView(entry: entry, presentation: .today)
                 // Preserve the existing URL when the app's navigation changes.
                 .widgetURL(URL(string: "familyhub://today"))
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) { WidgetPalette.background }
         }
         .configurationDisplayName("Today")
         .description("Your family's day: calendar events, chores due, and tonight's meal.")
@@ -31,5 +31,75 @@ struct TodayWidget: Widget {
             .accessoryRectangular,
             .accessoryInline,
         ])
+    }
+}
+
+private func focusedFamilyConfiguration(
+    kind: String,
+    name: String,
+    description: String,
+    presentation: WidgetPresentation,
+    families: [WidgetFamily],
+    destination: URL
+) -> some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: TodayProvider()) { entry in
+        TodayView(entry: entry, presentation: presentation)
+            .widgetURL(destination)
+            .containerBackground(for: .widget) { WidgetPalette.background }
+    }
+    .configurationDisplayName(name)
+    .description(description)
+    .supportedFamilies(families)
+}
+
+struct TonightWidget: Widget {
+    var body: some WidgetConfiguration {
+        focusedFamilyConfiguration(
+            kind: WidgetKind.tonight,
+            name: "Tonight",
+            description: "See what is for dinner.",
+            presentation: .tonight,
+            families: [.systemSmall, .accessoryInline],
+            destination: WidgetLink.meals
+        )
+    }
+}
+
+struct MealPlanWidget: Widget {
+    var body: some WidgetConfiguration {
+        focusedFamilyConfiguration(
+            kind: WidgetKind.mealPlan,
+            name: "Meal plan",
+            description: "See today's breakfast, lunch, and dinner.",
+            presentation: .mealPlan,
+            families: [.systemMedium],
+            destination: WidgetLink.meals
+        )
+    }
+}
+
+struct UpNextWidget: Widget {
+    var body: some WidgetConfiguration {
+        focusedFamilyConfiguration(
+            kind: WidgetKind.upNext,
+            name: "Up next",
+            description: "See the next event and where it is.",
+            presentation: .upNext,
+            families: [.systemSmall, .accessoryRectangular],
+            destination: WidgetLink.calendar
+        )
+    }
+}
+
+struct ChoresWidget: Widget {
+    var body: some WidgetConfiguration {
+        focusedFamilyConfiguration(
+            kind: WidgetKind.chores,
+            name: "Chores",
+            description: "See outstanding chores and complete them from the widget.",
+            presentation: .chores,
+            families: [.systemSmall, .systemMedium, .accessoryCircular],
+            destination: WidgetLink.today
+        )
     }
 }

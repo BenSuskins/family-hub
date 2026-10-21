@@ -6,6 +6,8 @@ struct CalendarTimelineView: View {
     let apiClient: any APIClientProtocol
     @GestureState private var magnification = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var allDaySheetDate: Date?
     private let axisWidth: CGFloat = 48
 
     private var hourHeight: CGFloat { min(120, max(44, viewModel.hourHeight * magnification)) }
@@ -30,6 +32,16 @@ struct CalendarTimelineView: View {
         })
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar-timeline")
+        .sheet(isPresented: Binding(
+            get: { allDaySheetDate != nil },
+            set: { if !$0 { allDaySheetDate = nil } }
+        )) {
+            if let allDaySheetDate {
+                AllDayItemsSheet(viewModel: viewModel, day: allDaySheetDate, apiClient: apiClient)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
     }
 
     private func dayStrip(width: CGFloat) -> some View {
@@ -51,14 +63,13 @@ struct CalendarTimelineView: View {
     private func dateButton(_ date: Date) -> some View {
         let calendar = viewModel.schedule.calendar
         let selected = calendar.isDate(date, inSameDayAs: viewModel.selectedDate)
-        let today = calendar.isDate(date, inSameDayAs: viewModel.today)
         return Button { viewModel.selectDate(date) } label: {
             VStack(spacing: 3) {
                 Text(date.formatted(.dateTime.weekday(.narrow))).font(.caption2).foregroundStyle(.secondary)
                 Text(date.formatted(.dateTime.day())).font(.title3)
                     .frame(width: 34, height: 34)
-                    .foregroundStyle(selected ? Color(.systemBackground) : today ? .red : .primary)
-                    .background(selected ? (today ? Color.red : .primary) : .clear, in: Circle())
+                    .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
+                    .background(selected ? AppTheme.accent : .clear, in: Circle())
             }.frame(maxWidth: .infinity, minHeight: 44)
         }
         .buttonStyle(.plain)
@@ -66,7 +77,61 @@ struct CalendarTimelineView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    @ViewBuilder
     private var untimedSection: some View {
+        if viewModel.viewMode == .week && horizontalSizeClass == .compact {
+            compactAllDaySection
+        } else {
+            expandedAllDaySection
+        }
+    }
+
+    private var compactAllDaySection: some View {
+        HStack(spacing: 0) {
+            Text("All day")
+                .font(.caption2)
+                .foregroundStyle(AppTheme.secondary)
+                .frame(width: axisWidth)
+            GeometryReader { geometry in
+                HStack(spacing: 1) {
+                    ForEach(days, id: \.self) { day in
+                        let items = viewModel.items(for: day, untimedOnly: true)
+                        Button {
+                            guard !items.isEmpty else { return }
+                            allDaySheetDate = day
+                        } label: {
+                            VStack(alignment: .leading, spacing: 1) {
+                                if let first = items.first {
+                                    Text(first.title)
+                                        .font(.system(size: 9, weight: .medium))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                    if items.count > 1 {
+                                        Text("+\(items.count - 1) ⌄")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(AppTheme.accent)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .padding(.horizontal, 2)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(items.isEmpty)
+                        .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)), \(items.count) all-day items")
+                        .accessibilityHint(items.isEmpty ? "No all-day items" : "Show all-day items")
+                        .accessibilityIdentifier("calendar-all-day-count-\(viewModel.schedule.dayKey(day))")
+                        .frame(width: max(1, (geometry.size.width - CGFloat(days.count - 1)) / CGFloat(days.count)))
+                    }
+                }
+            }
+            .frame(height: 44)
+        }
+        .background(AppTheme.sage.opacity(0.55))
+    }
+
+    private var expandedAllDaySection: some View {
         HStack(alignment: .top, spacing: 0) {
             Text("All day").font(.caption2).foregroundStyle(.secondary)
                 .frame(width: axisWidth).padding(.top, 8)
@@ -92,7 +157,7 @@ struct CalendarTimelineView: View {
             }
             .frame(height: untimedHeight)
         }
-        .background(Color(.secondarySystemBackground).opacity(0.5))
+        .background(AppTheme.sage.opacity(0.3))
     }
 
     private var untimedHeight: CGFloat {
@@ -131,7 +196,7 @@ struct CalendarTimelineView: View {
                                 ForEach(days, id: \.self) { day in
                                     dayColumn(day)
                                         .frame(width: max(1, (geometry.size.width - axisWidth) / CGFloat(days.count)))
-                                        .overlay(alignment: .leading) { Rectangle().fill(Color(.separator).opacity(0.3)).frame(width: 0.5) }
+                                        .overlay(alignment: .leading) { Rectangle().fill(AppTheme.border.opacity(0.65)).frame(width: 0.5) }
                                 }
                             }
                             currentTime(width: geometry.size.width)
@@ -169,7 +234,7 @@ struct CalendarTimelineView: View {
                 HStack(spacing: 4) {
                     Text(hourLabel(hour % 24)).font(.system(size: 10)).foregroundStyle(.secondary)
                         .frame(width: axisWidth - 4, alignment: .trailing)
-                    Rectangle().fill(Color(.separator).opacity(0.45)).frame(height: 0.5)
+                Rectangle().fill(AppTheme.border).frame(height: 0.5)
                 }
                 .frame(width: width, height: 16)
                 .offset(y: CGFloat(hour) * hourHeight)
@@ -247,5 +312,45 @@ struct CalendarTimelineView: View {
                 .allowsHitTesting(false)
             }
         }
+    }
+}
+
+private struct AllDayItemsSheet: View {
+    let viewModel: CalendarViewModel
+    let day: Date
+    let apiClient: any APIClientProtocol
+    @Environment(\.dismiss) private var dismiss
+
+    private var items: [CalendarDisplayItem] {
+        viewModel.items(for: day, untimedOnly: true)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if items.isEmpty {
+                    Text("No all-day items")
+                        .foregroundStyle(AppTheme.secondary)
+                        .listRowBackground(AppTheme.surface)
+                } else {
+                    ForEach(items) { item in
+                        CalendarItemRow(item: item, apiClient: apiClient)
+                            .listRowBackground(AppTheme.surface)
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.background)
+            .navigationTitle(day.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .accessibilityIdentifier("calendar-all-day-done")
+                }
+            }
+            .tint(AppTheme.accent)
+        }
+        .accessibilityIdentifier("calendar-all-day-sheet")
     }
 }

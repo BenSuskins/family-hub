@@ -23,6 +23,11 @@ public enum SharedContainer {
         public nonisolated static let baseURL = "baseURL"
         /// JSON-encoded ``TodayWidgetData`` last published by the app.
         public nonisolated static let todaySnapshot = "today_widget_snapshot"
+        /// The last chore that a widget completion could not save.
+        public nonisolated static let widgetChoreFailure = "today_widget_chore_failure"
+        /// The chore currently waiting for the server to confirm completion.
+        public nonisolated static let widgetChorePending = "today_widget_chore_pending"
+        public nonisolated static let widgetChorePendingAt = "today_widget_chore_pending_at"
     }
 
     /// The shared defaults, or `nil` when the app group is unavailable — a

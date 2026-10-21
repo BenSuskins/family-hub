@@ -169,6 +169,7 @@ final class DemoAPIClient: APIClientProtocol {
     private var chores: [Chore] = DemoData.chores
     private var meals: [MealPlan] = DemoData.meals
     private var recipes: [Recipe] = DemoData.recipes
+    private var users: [User] = DemoData.users
     private var categories: [ChoreCategory] = DemoData.categories
     private var tokens: [APIToken] = []
     private var areas: [InventoryArea] = DemoData.inventory
@@ -384,9 +385,9 @@ final class DemoAPIClient: APIClientProtocol {
         return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
     }
 
-    func fetchUsers() async throws -> [User] { DemoData.users }
+    func fetchUsers() async throws -> [User] { users }
 
-    func fetchMe() async throws -> User { DemoData.users[0] }
+    func fetchMe() async throws -> User { users[0] }
 
     func uploadAvatar(imageData: Data, mimeType: String) async throws -> User { DemoData.users[0] }
 
@@ -399,13 +400,19 @@ final class DemoAPIClient: APIClientProtocol {
     func updateFamilyName(_ name: String) async throws {}
 
     func promoteUser(id: String) async throws -> User {
-        guard let user = DemoData.users.first(where: { $0.id == id }) else { throw APIError.notFound }
-        return User(id: user.id, name: user.name, email: user.email, avatarURL: user.avatarURL, role: "admin")
+        try updateRole(id: id, role: "admin")
     }
 
     func demoteUser(id: String) async throws -> User {
-        guard let user = DemoData.users.first(where: { $0.id == id }) else { throw APIError.notFound }
-        return User(id: user.id, name: user.name, email: user.email, avatarURL: user.avatarURL, role: "member")
+        try updateRole(id: id, role: "member")
+    }
+
+    private func updateRole(id: String, role: String) throws -> User {
+        guard let index = users.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let user = users[index]
+        let updated = User(id: user.id, name: user.name, email: user.email, avatarURL: user.avatarURL, role: role)
+        users[index] = updated
+        return updated
     }
 
     func fetchCategories() async throws -> [ChoreCategory] { categories }

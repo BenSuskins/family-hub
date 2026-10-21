@@ -10,7 +10,7 @@ The most useful changes are: keep the meal plan above chores on Today and bring 
 
 [Open the visual comparison report](index.html). Each comparison uses real simulator captures and separate, labelled proposal images. [Browse all mockups](mockups/manifest.json).
 
-[Review the native implementation and validation](implementation/index.html).
+[Review the latest screen alignment and validation](alignment/index.html). [Review the PR #54 baseline](implementation/index.html).
 
 Revision 2 uses the requested Apple Design and UI/UX Pro Max skills. [Read the redesign rules and interaction specification](redesign-guidance.md).
 

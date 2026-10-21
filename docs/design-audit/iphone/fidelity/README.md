@@ -1,5 +1,7 @@
 # Warm Sage Cosier: design fidelity follow-up
 
+This folder is an earlier snapshot. [Review the latest remaining-screen alignment](../alignment/README.md).
+
 21 October 2026. This follow-up closes the four largest differences identified after PR #54. It also fixes the floating iPhone tab bar.
 
 [Open the native comparison](index.html). [Read the original audit](../README.md). [Review the PR #54 baseline](../implementation/README.md).
@@ -19,7 +21,7 @@
 
 No Calendar source, server contract, or database changes occur. The app retains native sheets, keyboards, photo selection, navigation, and Back gestures.
 
-## Differences that remain
+## Differences at PR #55
 
 This pass does not claim complete visual parity across all 61 audit groups.
 

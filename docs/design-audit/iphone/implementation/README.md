@@ -1,5 +1,7 @@
 # Warm Sage Cosier: native app implementation
 
+This folder is an earlier snapshot. [Review the latest remaining-screen alignment](../alignment/README.md).
+
 21 October 2026. This folder records the PR #54 baseline. [Open the screen comparison](index.html).
 
 [Review the later design fidelity changes and floating tab bar](../fidelity/README.md).

@@ -65,13 +65,26 @@ struct HomeInfoView: View {
 
     var body: some View {
         Form {
-            Section("Home location") {
-                Text("Use your home location for weather and departure estimates.").font(.footnote).foregroundStyle(AppTheme.secondary)
+            Section {
+                Text("Used for local weather and departure times.").font(.subheadline).foregroundStyle(AppTheme.secondary)
+            }.listRowBackground(Color.clear)
+            Section {
                 if let latitude = home.latitude, let longitude = home.longitude {
-                    Text("\(latitude, specifier: "%.5f"), \(longitude, specifier: "%.5f")")
-                    Text(home.timezone).foregroundStyle(AppTheme.secondary)
+                    HStack(spacing: 12) {
+                        WarmIcon(symbol: "house")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Saved location")
+                            Text("\(latitude, specifier: "%.5f"), \(longitude, specifier: "%.5f")")
+                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        }
+                    }
+                    LabeledContent("Time zone", value: home.timezone)
                 } else { Text("No home location set.") }
-                Button(locationReader.isLocating ? "Locating…" : "Use device location") { locationReader.capture() }
+            }.listRowBackground(AppTheme.surface)
+            Section {
+                Button(locationReader.isLocating ? "Locating…" : "Use this iPhone’s location") { locationReader.capture() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+                    .accessibilityIdentifier("Use device location")
                     .disabled(locationReader.isLocating || !didLoad)
                 if let coordinate = locationReader.coordinate {
                     Text("New location: \(coordinate.latitude, specifier: "%.5f"), \(coordinate.longitude, specifier: "%.5f")")
@@ -84,17 +97,21 @@ struct HomeInfoView: View {
                     }
                 }
                 if let message = locationReader.message { Text(message).foregroundStyle(AppTheme.secondary) }
-            }.listRowBackground(AppTheme.surface)
-            Section("Departure arrival margin") {
-                Stepper("\(home.arrivalMarginMinutes) minutes", value: $home.arrivalMarginMinutes, in: 0...120)
+            } footer: { Text("Capture the location while you are at home. Review it before you save.") }
+            .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+            Section("Arrival margin") {
+                Stepper(value: $home.arrivalMarginMinutes, in: 0...120) {
+                    LabeledContent("Arrive before the event", value: "\(home.arrivalMarginMinutes) min")
+                }
                     .disabled(!didLoad)
-                Text("Allow this much time before each event starts.").font(.footnote)
+                Text("Departure times include travel time plus this margin.").font(.footnote)
             }.listRowBackground(AppTheme.surface)
             if isLoading { ProgressView() }
             if !didLoad && !isLoading { Button("Retry") { Task { await load() } } }
         }
         .appListStyle()
         .navigationTitle("Home location")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(isSaving ? "Saving…" : "Save") {

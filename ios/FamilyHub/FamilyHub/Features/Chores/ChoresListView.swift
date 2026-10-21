@@ -16,7 +16,28 @@ struct ChoresListView: View {
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { definitions in
             List {
-                Section("Configured chores") {
+                Section {
+                    Text("Set up chores and repeat rules.\nComplete today’s chores on Today.")
+                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                }.listRowBackground(Color.clear)
+                Section {
+                    Link(destination: URL(string: "familyhub://today")!) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Today’s chores").foregroundStyle(AppTheme.ink)
+                                let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
+                                let count = definitions.compactMap(\.currentTask).filter { task in
+                                    task.status == .overdue || task.dueDate.flatMap(APIDate.parse).map { $0 < nextDay } == true
+                                }.count
+                                Text(count == 1 ? "1 chore needs attention" : "\(count) chores need attention")
+                                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondary)
+                        }
+                    }.accessibilityLabel("Today’s chores")
+                }.listRowBackground(AppTheme.surface)
+                Section("Chore rules") {
                     if definitions.isEmpty {
                         ContentUnavailableView("No chores configured", systemImage: "checklist", description: Text("Add a chore and choose when it repeats."))
                     }
@@ -26,8 +47,7 @@ struct ChoresListView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(definition.chore.name).font(.body.weight(.medium))
-                                Text(ruleSummary(definition.chore)).font(.subheadline).foregroundStyle(AppTheme.secondary)
-                                Text(assigneeSummary(definition.chore)).font(.caption).foregroundStyle(AppTheme.secondary)
+                                Text(ruleSummary(definition.chore) + " · " + assigneeSummary(definition.chore)).font(.subheadline).foregroundStyle(AppTheme.secondary)
                                 if !definition.active {
                                     Text(definition.deletedAt == nil ? "Inactive" : "Deleted").font(.caption).foregroundStyle(AppTheme.secondary)
                                 }
@@ -38,7 +58,6 @@ struct ChoresListView: View {
                 }.listRowBackground(AppTheme.surface)
                 Section {
                     Toggle("Show inactive chores", isOn: $viewModel.showInactive)
-                    Link("View today’s chores", destination: URL(string: "familyhub://today")!)
                 }.listRowBackground(AppTheme.surface)
             }
             .appListStyle()

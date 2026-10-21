@@ -1,5 +1,6 @@
 import SwiftUI
 import FamilyHubKit
+import UserNotifications
 
 struct ChoreRemindersView: View {
     let apiClient: any APIClientProtocol
@@ -10,15 +11,19 @@ struct ChoreRemindersView: View {
     @State private var isLoading = false
     @State private var isSaving = false
     @State private var actionError: APIError?
+    @State private var permissionDescription = "Checking permission…"
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Form {
             Section {
-                Toggle("Notifications on This iPhone", isOn: Binding(
+                Toggle("Receive notifications", isOn: Binding(
                     get: { notifications.isEnabled },
                     set: { enabled in Task { await setDeviceEnabled(enabled) } }
                 ))
                 .disabled(!isLoaded || isSaving || apiClient.serverIdentifier == nil)
+                LabeledContent("Permission", value: permissionDescription)
+                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
                 if notifications.isEnabled && !notifications.isRegistered {
                     Text("Connecting this iPhone for notifications…")
                         .foregroundStyle(AppTheme.secondary)
@@ -27,19 +32,24 @@ struct ChoreRemindersView: View {
                     Text(error.localizedDescription).foregroundStyle(AppTheme.destructive)
                     Button("Retry Connection") { Task { await setDeviceEnabled(true) } }
                 }
-                Button("Open iPhone Notification Settings") {
+            } header: { Text("This iPhone") } footer: {
+                Text(apiClient.serverIdentifier == nil ? "Demo mode cannot register this iPhone for notifications." : "Receive family messages and reminders for unfinished chores due today or overdue.")
+            }.listRowBackground(AppTheme.surface)
+            Section {
+                Button("Open iPhone Settings") {
                     guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 }
-            } header: { Text("This iPhone") } footer: {
-                Text(apiClient.serverIdentifier == nil ? "Notifications are unavailable in Demo. Connect to your family server to enable this iPhone." : "Receive admin family messages and reminders for unfinished chores due today or overdue.")
-            }.listRowBackground(AppTheme.surface)
+                .buttonStyle(AppSecondaryButtonStyle())
+                .accessibilityIdentifier("Open iPhone Notification Settings")
+            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             Section {
-                Toggle("Family Reminders", isOn: $settings.enabled)
+                Toggle("Send chore reminders", isOn: $settings.enabled)
+                    .accessibilityIdentifier("Family Reminders")
                     .disabled(!isAdmin || !settings.pushAvailable || isSaving)
-                DatePicker("First Reminder", selection: timeBinding(0), displayedComponents: .hourAndMinute)
-                DatePicker("Second Reminder", selection: timeBinding(1), displayedComponents: .hourAndMinute)
-                LabeledContent("Timezone", value: settings.timezone)
+                DatePicker("First reminder", selection: timeBinding(0), displayedComponents: .hourAndMinute)
+                DatePicker("Second reminder", selection: timeBinding(1), displayedComponents: .hourAndMinute)
+                LabeledContent("Time zone", value: settings.timezone)
             } header: {
                 Text("Family reminder schedule")
             } footer: {
@@ -51,8 +61,8 @@ struct ChoreRemindersView: View {
         }
         .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
         .appListStyle()
-        .navigationTitle("Chore Reminders")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             if isAdmin {
                 Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle())
@@ -70,7 +80,18 @@ struct ChoreRemindersView: View {
             }
         }
         .errorAlert($actionError)
-        .task { await load() }
+        .task { await load(); await refreshPermission() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refreshPermission() } } }
+    }
+
+    private func refreshPermission() async {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        switch status {
+        case .authorized, .provisional, .ephemeral: permissionDescription = "Allowed in iPhone Settings"
+        case .denied: permissionDescription = "Off in iPhone Settings"
+        case .notDetermined: permissionDescription = "Not requested"
+        @unknown default: permissionDescription = "Check iPhone Settings"
+        }
     }
 
     private func timeBinding(_ index: Int) -> Binding<Date> {

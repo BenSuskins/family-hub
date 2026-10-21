@@ -17,7 +17,7 @@ final class MealEntryUITests: XCTestCase {
         // The overview opens the full meal plan directly on iPhone.
         if UIDevice.current.userInterfaceIdiom == .pad { app.buttons["View week"].tap() }
 
-        XCTAssertTrue(app.navigationBars["Meal Plan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Meal plan"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["meal-week-range"].label, week)
     }
 
@@ -50,6 +50,12 @@ final class MealEntryUITests: XCTestCase {
 
         let recipe = app.buttons["View recipe for Chicken Stir Fry"]
         XCTAssertTrue(recipe.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Edit breakfast: Chicken Stir Fry"].value as? String, "Recipe linked")
+        XCTAssertEqual(recipe.frame.width, 44, accuracy: 1)
+        let linkedMeal = XCTAttachment(screenshot: app.screenshot())
+        linkedMeal.name = "food-linked-recipe-icon"
+        linkedMeal.lifetime = .keepAlways
+        add(linkedMeal)
         recipe.tap()
         XCTAssertTrue(app.buttons["Start Cook Mode"].waitForExistence(timeout: 5))
         app.navigationBars.buttons["BackButton"].tap()
@@ -61,5 +67,6 @@ final class MealEntryUITests: XCTestCase {
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Edit breakfast: Toast and cheese"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["View recipe for Toast and cheese"].exists)
+        XCTAssertNotEqual(app.buttons["Edit breakfast: Toast and cheese"].value as? String, "Recipe linked")
     }
 }

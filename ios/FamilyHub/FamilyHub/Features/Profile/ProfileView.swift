@@ -27,6 +27,8 @@ struct ProfileView: View {
                 appSection
                 if isAdmin { adminSection }
                 Section("About") {
+                    serverEntry
+                    LabeledContent("Version", value: appVersion)
                     Link("Privacy Policy", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/PRIVACY.md")!)
                     Link("Terms of Use", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/TERMS.md")!)
                 }.listRowBackground(AppTheme.surface)
@@ -35,7 +37,7 @@ struct ProfileView: View {
             .listStyle(.insetGrouped)
         .appListStyle()
         .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
@@ -59,7 +61,7 @@ struct ProfileView: View {
         Section {
             HStack(spacing: 14) {
                 ZStack(alignment: .bottomTrailing) {
-                    UserAvatar(user: currentUser, size: 60, apiClient: apiClient)
+                    UserAvatar(user: currentUser, size: 42, apiClient: apiClient)
                     if isUploadingAvatar {
                         ProgressView()
                             .scaleEffect(0.7)
@@ -81,10 +83,16 @@ struct ProfileView: View {
             }
             .padding(.vertical, 4)
 
+        }.listRowBackground(AppTheme.surface)
+    }
+
+    private var appSection: some View {
+        Section("This iPhone") {
             PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                Label("Change Photo", systemImage: "camera")
+                FeatureEntryLabel(title: "Photo", subtitle: "Change your profile photo", systemImage: "person.crop.square")
             }
             .disabled(isUploadingAvatar)
+            .accessibilityIdentifier("Change Photo")
 
             if currentUser?.avatarURL.hasPrefix("/avatar/") == true {
                 Button(role: .destructive) {
@@ -94,14 +102,16 @@ struct ProfileView: View {
                 }
                 .disabled(isUploadingAvatar)
             }
+            NavigationLink {
+                ChoreRemindersView(apiClient: apiClient, isAdmin: isAdmin)
+            } label: {
+                FeatureEntryLabel(title: "Notifications", subtitle: "Device permission and reminder schedule", systemImage: "bell")
+            }
+            .accessibilityIdentifier("Chore Reminders")
         }.listRowBackground(AppTheme.surface)
     }
 
-    private var appSection: some View {
-        Section("This iPhone") {
-            NavigationLink("Chore Reminders") {
-                ChoreRemindersView(apiClient: apiClient, isAdmin: isAdmin)
-            }
+    private var serverEntry: some View {
             NavigationLink {
                 ConfigurationFormView(
                     configStore: configStore,
@@ -109,38 +119,41 @@ struct ProfileView: View {
                     beforeSave: { try await ChoreNotificationManager.shared.disconnect() },
                     onSave: { authManager.signOut() }
                 )
-                    .navigationTitle("Server Configuration")
-                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationTitle("Server")
+                    .navigationBarTitleDisplayMode(.large)
             } label: {
-                LabeledContent("Server URL") {
+                LabeledContent("Server") {
                     Text(configStore.baseURL)
                         .foregroundStyle(AppTheme.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-            }
+            }.accessibilityIdentifier("Server configuration")
 
-            LabeledContent("Version") {
-                Text(appVersion)
-                    .foregroundStyle(AppTheme.secondary)
-            }
-        }.listRowBackground(AppTheme.surface)
     }
 
     private var adminSection: some View {
         Section("Family administration") {
-            NavigationLink("Family message") {
-                FamilyBroadcastView(apiClient: apiClient)
-            }
-            NavigationLink("Home location") {
-                HomeInfoView(apiClient: apiClient)
-            }
-            NavigationLink("Family Name") {
+            NavigationLink {
                 FamilyNameView(apiClient: apiClient)
-            }
-            NavigationLink("Family Members") {
+            } label: {
+                settingsEntry("Family name", detail: "Name shown to everyone")
+            }.accessibilityIdentifier("Family Name")
+            NavigationLink {
                 FamilyMembersView(apiClient: apiClient, currentUserID: currentUser?.id ?? "")
-            }
+            } label: {
+                settingsEntry("Family members", detail: "People and admin roles")
+            }.accessibilityIdentifier("Family Members")
+            NavigationLink {
+                HomeInfoView(apiClient: apiClient)
+            } label: {
+                settingsEntry("Home location", detail: "Weather and departure times")
+            }.accessibilityLabel("Home location")
+            NavigationLink {
+                FamilyBroadcastView(apiClient: apiClient)
+            } label: {
+                settingsEntry("Send family message", detail: "Message all registered iPhones")
+            }.accessibilityIdentifier("Family message")
             NavigationLink("Categories") {
                 CategoriesView(apiClient: apiClient)
             }
@@ -148,6 +161,13 @@ struct ProfileView: View {
                 APITokensView(apiClient: apiClient)
             }
         }.listRowBackground(AppTheme.surface)
+    }
+
+    private func settingsEntry(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+            Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondary)
+        }
     }
 
     private var accountSection: some View {

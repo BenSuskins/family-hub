@@ -67,6 +67,20 @@ struct AppPrimaryButtonStyle: ButtonStyle {
     }
 }
 
+struct AppSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(AppTheme.accent)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, 16)
+            .background(AppTheme.sage, in: Capsule())
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
+    }
+}
+
 struct AppCommitButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {

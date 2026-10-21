@@ -66,7 +66,7 @@ final class ContentScreensUITests: XCTestCase {
 
         reveal(weather, in: app, towardTop: true)
         weather.tap()
-        XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Home weather"].waitForExistence(timeout: 5))
     }
 
     @MainActor

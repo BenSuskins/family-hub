@@ -18,7 +18,7 @@ final class HouseholdUITests: XCTestCase {
         home.lifetime = .keepAlways
         add(home)
         weather.tap()
-        XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Home weather"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Take a raincoat."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Next 24 hours"].exists)
         let forecast = XCTAttachment(screenshot: app.screenshot())
@@ -47,6 +47,7 @@ final class HouseholdUITests: XCTestCase {
 extension HouseholdUITests {
     @MainActor
     func testDeniedLocationKeepsHomeSettingsAvailable() {
+        continueAfterFailure = false
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.buttons["Try Demo"].waitForExistence(timeout: 10))
@@ -56,9 +57,10 @@ extension HouseholdUITests {
         let homeInfo = app.buttons["Home location"]
         reveal(homeInfo, in: app)
         XCTAssertTrue(homeInfo.waitForExistence(timeout: 5))
-        if !homeInfo.isHittable { app.swipeUp() }
         homeInfo.tap()
+        XCTAssertTrue(app.navigationBars["Home location"].waitForExistence(timeout: 5))
         let capture = app.buttons["Use device location"]
+        reveal(capture, in: app)
         XCTAssertTrue(capture.waitForExistence(timeout: 5))
         capture.tap()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -93,7 +95,7 @@ extension HouseholdUITests {
         home.lifetime = .keepAlways
         add(home)
         weather.tap()
-        XCTAssertTrue(app.navigationBars["Weather"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Home weather"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Take a raincoat."].waitForExistence(timeout: 5))
         let forecast = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         forecast.name = "weather-large-text"
@@ -105,8 +107,11 @@ extension HouseholdUITests {
 @MainActor
 private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
     for _ in 0..<12 {
-        if element.exists && element.isHittable { return }
-        app.swipeUp()
+        if element.exists && element.isHittable && element.frame.midY > 130 && element.frame.midY < app.frame.height - 80 { return }
+        let towardTop = element.exists && element.frame.midY < 130
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.45 : 0.75))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardTop ? 0.75 : 0.45))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 }
 

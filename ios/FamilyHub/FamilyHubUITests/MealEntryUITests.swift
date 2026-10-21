@@ -57,7 +57,7 @@ final class MealEntryUITests: XCTestCase {
         linkedMeal.lifetime = .keepAlways
         add(linkedMeal)
         recipe.tap()
-        XCTAssertTrue(app.buttons["Start Cook Mode"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Start cooking"].waitForExistence(timeout: 5))
         app.navigationBars.buttons["BackButton"].tap()
         app.buttons["Edit breakfast: Chicken Stir Fry"].tap()
         field.tap()

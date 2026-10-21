@@ -58,8 +58,8 @@ final class RedesignUITests: XCTestCase {
         let recipe = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch
         reveal(recipe, in: app)
         recipe.tap()
-        reveal(app.buttons["Start Cook Mode"], in: app)
-        app.buttons["Start Cook Mode"].tap()
+        reveal(app.buttons["Start cooking"], in: app)
+        app.buttons["Start cooking"].tap()
         app.buttons["Start step 1"].tap()
         XCTAssertGreaterThanOrEqual(app.buttons["Ingredients"].frame.width, 280)
         XCTAssertGreaterThanOrEqual(app.buttons["Previous step"].frame.width, 280)

@@ -32,6 +32,18 @@ final class AppNavigation {
     var foodPath: [FoodDestination] = []
     var householdPath: [HouseholdDestination] = []
 
+    func select(_ tab: AppTab) {
+        if selectedTab == tab {
+            switch tab {
+            case .food: foodPath = []
+            case .household: householdPath = []
+            default: break
+            }
+            return
+        }
+        selectedTab = tab
+    }
+
     func openMealPlan() {
         foodPath = [.mealPlan]
         selectedTab = .food
@@ -117,7 +129,7 @@ struct ContentView: View {
         .contentMargins(.bottom, showsFloatingTabBar ? 90 : 0, for: .scrollContent)
         .overlay(alignment: .bottom) {
             if showsFloatingTabBar {
-                FamilyTabBar(selection: $navigation.selectedTab)
+                FamilyTabBar(selection: $navigation.selectedTab, onSelect: navigation.select)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardVisible = true }
@@ -145,6 +157,7 @@ struct ContentView: View {
 
 private struct FamilyTabBar: View {
     @Binding var selection: AppTab
+    let onSelect: (AppTab) -> Void
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     @ScaledMetric(relativeTo: .caption2) private var labelSize = 10.0
@@ -152,7 +165,7 @@ private struct FamilyTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
-                Button { selection = tab } label: {
+                Button { onSelect(tab) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: tab.symbol).font(.system(size: 21, weight: .medium))
                         Text(tab.title).font(.system(size: min(labelSize, 14), weight: .semibold))

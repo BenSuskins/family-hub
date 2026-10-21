@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-21",
+  "finalFlows": {
+    "passed": 6,
+    "failed": 0,
+    "evidence": "evidence/final-flows.json"
+  },
+  "appUnitTests": {
+    "passed": 141,
+    "skipped": 42,
+    "failed": 0,
+    "evidence": "evidence/app-unit-result.txt"
+  },
+  "existingRegressions": {
+    "passed": 6,
+    "failed": 0,
+    "suites": [
+      "HouseholdUITests",
+      "NavigationUITests",
+      "RedesignUITests"
+    ],
+    "evidence": "evidence/navigation-and-existing-flows.json",
+    "note": "The combined run records one recipe test failure. The corrected recipe flow passes in final-flows.json."
+  },
+  "captureCount": 33,
+  "comparisonScreens": 18,
+  "device": "iPhone SE (3rd generation), iOS 26.5 simulator",
+  "history": [
+    "The first recipe test confirms the missing content destination.",
+    "The first cooking test confirms the missing progress indicator.",
+    "The first Inventory test confirms the missing segment.",
+    "Later tests expose duplicate cooking accessibility pages, field-type and insertion-point assumptions, and a scroll that skips a large-text action.",
+    "The empty-state width test reproduces a 71.75-point button. Its replacement passes the 280-point minimum.",
+    "Final focused reruns pass; a later complete whole-suite run is not claimed."
+  ],
+  "limits": [
+    "Demo data and simulator captures.",
+    "No physical-device VoiceOver, touch, live sign-in, push delivery, or installed-device Siri proof.",
+    "No new complete offline or system-permission capture matrix.",
+    "The report lists remaining differences outside this follow-up."
+  ],
+  "reportValidation": {
+    "localReferences": 443,
+    "pngs": 33,
+    "filter": "Passed",
+    "viewportWidths": [
+      390,
+      1440
+    ],
+    "horizontalOverflow": false,
+    "scriptErrors": 0
+  }
+}

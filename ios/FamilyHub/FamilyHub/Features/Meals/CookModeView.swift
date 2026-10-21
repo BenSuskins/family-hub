@@ -14,20 +14,36 @@ struct CookModeView: View {
     var body: some View {
         NavigationStack {
             TabView(selection: $currentPage) {
-                ingredientsPage.tag(0)
+                ingredientsPage.tag(0).accessibilityHidden(currentPage != 0)
                 ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 24) {
+                            Text(recipe.title.uppercased())
+                                .font(.caption).foregroundStyle(AppTheme.secondary)
                             Text("Step \(index + 1) of \(steps.count)")
-                                .font(.headline).foregroundStyle(AppTheme.secondary)
+                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .accessibilityAddTraits(.isHeader)
+                            ProgressView(value: Double(index + 1), total: Double(steps.count))
+                                .tint(AppTheme.accent)
+                                .accessibilityLabel("Cooking progress")
+                                .accessibilityValue("Step \(index + 1) of \(steps.count)")
                             Text(step).font(.title2)
+                                .lineSpacing(6)
                                 .fixedSize(horizontal: false, vertical: true)
+                            if index + 1 < steps.count {
+                                Text("Next: " + steps[index + 1])
+                                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            } else {
+                                Text("This is the last step.")
+                                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            }
                         }
                         .frame(maxWidth: 680, alignment: .leading)
                         .padding(24)
                         .frame(maxWidth: .infinity)
                     }
                     .tag(index + 1)
+                    .accessibilityHidden(currentPage != index + 1)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -78,9 +94,10 @@ struct CookModeView: View {
     private var ingredientsPage: some View {
         List {
             Section {
-                Text("Before you start").font(.system(.title2, design: .rounded, weight: .bold))
+                Text(recipe.title.uppercased()).font(.caption).foregroundStyle(AppTheme.secondary)
+                Text("Before you start").font(.system(.largeTitle, design: .rounded, weight: .bold))
                 Text("Check the ingredients, then start cooking.").foregroundStyle(AppTheme.secondary)
-            }.listRowBackground(AppTheme.surface)
+            }.listRowBackground(Color.clear).listRowSeparator(.hidden)
             if (recipe.ingredients ?? []).isEmpty {
                 Text("No ingredients listed").foregroundStyle(AppTheme.secondary)
             }
@@ -104,6 +121,10 @@ struct CookModeView: View {
                     }
                 }.listRowBackground(AppTheme.surface)
             }
+            Section {
+                Text("Your iPhone stays awake while this screen is open.")
+                    .font(.footnote).foregroundStyle(AppTheme.secondary)
+            }.listRowBackground(Color.clear)
         }
         .appListStyle()
     }

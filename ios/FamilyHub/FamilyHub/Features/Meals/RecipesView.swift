@@ -64,12 +64,19 @@ struct RecipesView: View {
                         }
                     }
                 }.listRowBackground(AppTheme.surface)
+                Section {
+                    Button("New recipe") { showCreateForm = true }
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(AppTheme.sage, in: Capsule())
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                }
             }
             .refreshable { await viewModel.load(forceRefresh: true) }
         }
         .appListStyle()
         .navigationTitle("Recipes")
-        .searchable(text: $viewModel.searchQuery, prompt: "Search recipes")
+        .searchable(text: $viewModel.searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search recipes")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New Recipe", systemImage: "plus") { showCreateForm = true }

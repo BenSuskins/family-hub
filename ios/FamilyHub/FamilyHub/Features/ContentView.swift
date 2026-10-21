@@ -67,6 +67,10 @@ struct ContentView: View {
         _shoppingModel = State(wrappedValue: ShoppingViewModel(apiClient: apiClient))
     }
 
+    private var showsFloatingTabBar: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone && !dynamicTypeSize.isAccessibilitySize && !keyboardVisible
+    }
+
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
             Tab("Today", systemImage: "house", value: AppTab.today) {
@@ -110,8 +114,9 @@ struct ContentView: View {
             }
         }
         .modifier(AdaptiveTabStyle())
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if UIDevice.current.userInterfaceIdiom == .phone && !dynamicTypeSize.isAccessibilitySize && !keyboardVisible {
+        .contentMargins(.bottom, showsFloatingTabBar ? 90 : 0, for: .scrollContent)
+        .overlay(alignment: .bottom) {
+            if showsFloatingTabBar {
                 FamilyTabBar(selection: $navigation.selectedTab)
             }
         }
@@ -167,14 +172,13 @@ private struct FamilyTabBar: View {
         .padding(6)
         .background {
             if reduceTransparency { Capsule().fill(AppTheme.surface) }
-            else { Capsule().fill(AppTheme.surface.opacity(0.9)).glassEffect(.regular, in: Capsule()) }
+            else { Capsule().fill(.clear).glassEffect(.regular, in: Capsule()) }
         }
         .overlay { Capsule().stroke(contrast == .increased ? AppTheme.ink : AppTheme.border, lineWidth: 1) }
         .shadow(color: .black.opacity(0.05), radius: 12, y: 3)
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 6)
-        .background(AppTheme.background.opacity(0.95))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tab bar")
     }

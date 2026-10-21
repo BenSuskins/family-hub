@@ -1,6 +1,8 @@
 # Warm Sage Cosier: native app implementation
 
-21 October 2026. [Open the screen comparison](index.html).
+21 October 2026. This folder records the PR #54 baseline. [Open the screen comparison](index.html).
+
+[Review the later design fidelity changes and floating tab bar](../fidelity/README.md).
 
 The iPhone app uses the approved theme and navigation. The comparison covers all 61 audit groups with native simulator captures. The captures include default text, the largest Dynamic Type setting, dark appearance, and display accessibility preferences.
 

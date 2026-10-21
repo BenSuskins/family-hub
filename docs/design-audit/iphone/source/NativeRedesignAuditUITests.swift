@@ -96,7 +96,7 @@ final class NativeRedesignAuditUITests: XCTestCase {
         capture(app, "access-welcome")
         tap(app.buttons["Setup Help"], in: app)
         capture(app, "access-setup-help")
-        tap(app.buttons["Set up a server · For admins"], in: app)
+        tap(app.buttons["Set up a Family Hub server · For admins"], in: app)
         app.swipeUp()
         capture(app, "access-setup-help-bottom")
         tap(app.buttons["Done"], in: app)
@@ -292,9 +292,10 @@ final class NativeRedesignAuditUITests: XCTestCase {
         capture(app, "food-recipe-edit")
         app.swipeUp()
         capture(app, "food-recipe-edit-details")
-        app.swipeUp()
+        tap(app.buttons["Edit recipe ingredients"], in: app)
         capture(app, "food-recipe-edit-ingredients")
-        app.swipeUp()
+        tap(app.buttons["Done"], in: app)
+        tap(app.buttons["Edit recipe method"], in: app)
         capture(app, "food-recipe-edit-steps")
     }
 
@@ -331,9 +332,10 @@ final class NativeRedesignAuditUITests: XCTestCase {
         capture(app, "food-recipe-create")
         app.swipeUp()
         capture(app, "food-recipe-create-details")
-        app.swipeUp()
+        tap(app.buttons["Edit recipe ingredients"], in: app)
         capture(app, "food-recipe-create-ingredients")
-        app.swipeUp()
+        tap(app.buttons["Done"], in: app)
+        tap(app.buttons["Edit recipe method"], in: app)
         capture(app, "food-recipe-create-steps")
     }
 

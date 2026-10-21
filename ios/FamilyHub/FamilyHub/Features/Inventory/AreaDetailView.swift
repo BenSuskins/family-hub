@@ -7,6 +7,7 @@ struct AreaDetailView: View {
     @State private var scope: Scope = .all
     @State private var activeSheet: ActiveSheet?
     @State private var deletingItem: InventoryItem?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     enum Scope: Hashable { case all, low }
     enum ActiveSheet: Identifiable {
@@ -24,24 +25,55 @@ struct AreaDetailView: View {
             if let area = viewModel.area(id: areaID) {
                 List {
                     Section {
-                        Picker("Show", selection: $scope) {
-                            Text("All items").tag(Scope.all)
-                            Text("Running low (\(area.lowCount))").tag(Scope.low)
+                        if dynamicTypeSize.isAccessibilitySize {
+                            filterPicker(area)
+                        } else {
+                            filterPicker(area).pickerStyle(.segmented)
                         }
-                    }.listRowBackground(AppTheme.surface)
-                    Section("Items") {
-                        let items = scope == .low ? area.lowItems : area.items
-                        if items.isEmpty { Text("No items").foregroundStyle(AppTheme.secondary) }
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    let items = scope == .low ? area.lowItems : area.items
+                    if items.isEmpty {
+                        Section {
+                            ContentUnavailableView {
+                                Label(area.items.isEmpty ? "No items yet" : "No items running low", systemImage: "cabinet")
+                            } description: {
+                                Text(area.items.isEmpty ? "Add an item to track its stock here." : "All items in this area are above their alert levels.")
+                            }
+                        }.listRowBackground(Color.clear)
+                        Section {
+                            if area.items.isEmpty {
+                                Button("Add item") { activeSheet = .addItem }
+                                    .buttonStyle(AppPrimaryButtonStyle())
+                            } else {
+                                Button("Show all items") { scope = .all }
+                                    .frame(maxWidth: .infinity, minHeight: 52)
+                                    .background(AppTheme.sage, in: Capsule())
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    } else {
                         ForEach(items) { item in
-                            itemRow(item)
-                                .swipeActions(allowsFullSwipe: false) {
-                                    Button("Delete", role: .destructive) { deletingItem = item }
-                                }
+                            Section {
+                                itemRow(item)
+                                    .swipeActions(allowsFullSwipe: false) {
+                                        Button("Delete", role: .destructive) { deletingItem = item }
+                                    }
+                            }.listRowBackground(AppTheme.surface)
                         }
-                        Button("Add Item", systemImage: "plus") { activeSheet = .addItem }
-                    }.listRowBackground(AppTheme.surface)
+                        Section {
+                            Button("Add item") { activeSheet = .addItem }
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .background(AppTheme.sage, in: Capsule())
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    }
                 }
                 .appListStyle()
+                .listSectionSpacing(12)
                 .navigationTitle(area.name)
             } else {
                 ContentUnavailableView("Area not found", systemImage: "shippingbox")
@@ -72,6 +104,14 @@ struct AreaDetailView: View {
         message: { Text(viewModel.shoppingMessage ?? "") }
     }
 
+    private func filterPicker(_ area: InventoryArea) -> some View {
+        Picker("Show", selection: $scope) {
+            Text("All items").tag(Scope.all)
+            Text("Running low · \(area.lowCount)").tag(Scope.low)
+        }
+        .accessibilityLabel("Inventory filter")
+    }
+
     private func itemRow(_ item: InventoryItem) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Button { activeSheet = .editItem(item) } label: {
@@ -79,7 +119,7 @@ struct AreaDetailView: View {
                     HStack {
                         Text(item.name).font(.headline).foregroundStyle(AppTheme.ink)
                         Spacer()
-                        Image(systemName: "pencil").foregroundStyle(AppTheme.accent).accessibilityHidden(true)
+                        Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondary).accessibilityHidden(true)
                     }
                     Text(item.statusLabel + " · Alert at or below \(item.lowAt)\(item.trackingMode == .level ? "%" : "")")
                         .font(.subheadline).foregroundStyle(AppTheme.secondary)
@@ -87,16 +127,21 @@ struct AreaDetailView: View {
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             .buttonStyle(.borderless)
-            if item.isLow { Label("Running low", systemImage: "exclamationmark.circle").font(.caption) }
-            HStack {
+            if item.isLow { Label("Running low", systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(AppTheme.clay) }
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                : AnyLayout(HStackLayout())
+            layout {
                 Button {
                     Task { await viewModel.addToShopping(item) }
                 } label: {
-                    Image(systemName: "cart.badge.plus").frame(width: 44, height: 44)
+                    Label("Add to Shopping", systemImage: "cart.badge.plus")
+                        .font(.subheadline)
+                        .frame(minHeight: 44)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Add \(item.name) to shopping list")
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 switch item.trackingMode {
                 case .count:
                     QuantityStepper(quantity: item.quantity, isLow: item.isLow, label: item.name,

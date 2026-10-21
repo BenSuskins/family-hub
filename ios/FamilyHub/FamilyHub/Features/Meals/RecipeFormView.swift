@@ -32,6 +32,9 @@ struct RecipeFormView: View {
 
     @State private var isSaving = false
     @State private var validationError: String?
+    @State private var populated = false
+
+    private enum ContentDestination: Hashable { case ingredients, method, source }
 
     private var isEditing: Bool {
         if case .edit = mode { return true }
@@ -46,12 +49,25 @@ struct RecipeFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                basicInfoSection
+                Section {
+                    TextField("Recipe title", text: $title, axis: .vertical)
+                        .accessibilityLabel("Recipe title")
+                } header: { Text("Recipe title") }
+                .listRowBackground(AppTheme.surface)
                 imageSection
+                basicInfoSection
                 timingSection
-                sourceSection
-                ingredientGroupsSection
-                stepsSection
+                contentSection
+            }
+            .navigationDestination(for: ContentDestination.self) { destination in
+                switch destination {
+                case .ingredients:
+                    RecipeContentEditor(title: "Ingredients") { ingredientGroupsSection }
+                case .method:
+                    RecipeContentEditor(title: "Method") { stepsSection }
+                case .source:
+                    RecipeContentEditor(title: "Source") { sourceSection }
+                }
             }
             .disabled(isSaving)
             .interactiveDismissDisabled(isSaving)
@@ -93,12 +109,7 @@ struct RecipeFormView: View {
     // MARK: - Sections
 
     private var basicInfoSection: some View {
-        Section("Recipe Info") {
-            LabeledContent("Title") {
-                TextField("Recipe title", text: $title, axis: .vertical)
-                    .multilineTextAlignment(.trailing)
-            }
-
+        Section {
             Picker("Meal Type", selection: $mealType) {
                 Text("None").tag("")
                 ForEach(RecipesViewModel.mealTypeOptions, id: \.self) { type in
@@ -115,6 +126,39 @@ struct RecipeFormView: View {
                     .frame(width: 80)
             }
         }.listRowBackground(AppTheme.surface)
+    }
+
+    private var contentSection: some View {
+        Section("Recipe content") {
+            NavigationLink(value: ContentDestination.ingredients) {
+                contentSummary("Ingredients", detail: ingredientSummary)
+            }
+            .accessibilityIdentifier("Edit recipe ingredients")
+            NavigationLink(value: ContentDestination.method) {
+                let count = steps.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+                contentSummary("Method", detail: count == 0 ? "Add cooking steps" : "\(count) cooking steps")
+            }
+            .accessibilityIdentifier("Edit recipe method")
+            NavigationLink(value: ContentDestination.source) {
+                contentSummary("Source", detail: sourceURL.isEmpty ? "Optional" : sourceURL)
+            }
+        }
+        .listRowBackground(AppTheme.surface)
+    }
+
+    private var ingredientSummary: String {
+        let names = groups.filter { !$0.items.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map { $0.name.isEmpty ? "Main" : $0.name }
+        return names.isEmpty ? "Add ingredients" : names.joined(separator: ", ")
+    }
+
+    private func contentSummary(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+            Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondary)
+                .lineLimit(2)
+        }
+        .frame(minHeight: 44)
     }
 
     private var timingSection: some View {
@@ -198,6 +242,7 @@ struct RecipeFormView: View {
                         .frame(width: 22, alignment: .trailing)
                         .padding(.top, 8)
                     TextField("Describe this step", text: $steps[index].text, axis: .vertical)
+                        .accessibilityLabel("Step \(index + 1)")
                         .fixedSize(horizontal: false, vertical: true)
                     if steps.count > 1 {
                         Button(role: .destructive) {
@@ -281,6 +326,8 @@ struct RecipeFormView: View {
     // MARK: - Actions
 
     private func populateFromRecipe() {
+        guard !populated else { return }
+        populated = true
         guard let r = editingRecipe else { return }
         title = r.title
         mealType = r.mealType ?? ""
@@ -366,6 +413,23 @@ struct RecipeFormView: View {
             return ""
         }
         return nil
+    }
+}
+
+private struct RecipeContentEditor<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form { content() }
+            .appListStyle()
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
     }
 }
 

@@ -29,11 +29,12 @@ struct ProfileView: View {
                 Section("About") {
                     Link("Privacy Policy", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/PRIVACY.md")!)
                     Link("Terms of Use", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/TERMS.md")!)
-                }
+                }.listRowBackground(AppTheme.surface)
                 accountSection
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Settings")
+        .appListStyle()
+        .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -63,7 +64,7 @@ struct ProfileView: View {
                         ProgressView()
                             .scaleEffect(0.7)
                             .padding(4)
-                            .background(Color(.systemBackground))
+                            .background(AppTheme.surface)
                             .clipShape(Circle())
                     }
                 }
@@ -74,7 +75,7 @@ struct ProfileView: View {
                     if !displayEmail.isEmpty {
                         Text(displayEmail)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                     }
                 }
             }
@@ -93,11 +94,11 @@ struct ProfileView: View {
                 }
                 .disabled(isUploadingAvatar)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var appSection: some View {
-        Section("App") {
+        Section("This iPhone") {
             NavigationLink("Chore Reminders") {
                 ChoreRemindersView(apiClient: apiClient, isAdmin: isAdmin)
             }
@@ -113,7 +114,7 @@ struct ProfileView: View {
             } label: {
                 LabeledContent("Server URL") {
                     Text(configStore.baseURL)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -121,17 +122,17 @@ struct ProfileView: View {
 
             LabeledContent("Version") {
                 Text(appVersion)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var adminSection: some View {
-        Section("Admin") {
-            NavigationLink("Family Broadcast") {
+        Section("Family administration") {
+            NavigationLink("Family message") {
                 FamilyBroadcastView(apiClient: apiClient)
             }
-            NavigationLink("Home Info") {
+            NavigationLink("Home location") {
                 HomeInfoView(apiClient: apiClient)
             }
             NavigationLink("Family Name") {
@@ -146,7 +147,7 @@ struct ProfileView: View {
             NavigationLink("API Tokens") {
                 APITokensView(apiClient: apiClient)
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     private var accountSection: some View {
@@ -163,7 +164,7 @@ struct ProfileView: View {
                 Text("Sign Out")
                     .font(.body.weight(.medium))
             }
-        }
+        }.listRowBackground(AppTheme.surface)
     }
 
     // MARK: - Avatar actions

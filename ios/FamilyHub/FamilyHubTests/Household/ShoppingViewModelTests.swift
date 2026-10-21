@@ -74,3 +74,141 @@ final class HouseholdViewModelTests: XCTestCase {
     }
 
 }
+
+@MainActor
+final class ShoppingPurchaseFeedbackTests: XCTestCase {
+    func testSlowConfirmationKeepsTheRowVisibleUntilTheServerConfirms() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]
+        let started = expectation(description: "Purchase starts")
+        var release: CheckedContinuation<Void, Never>?
+        client.beforeUpdateShopping = { _, _ in
+            started.fulfill()
+            await withCheckedContinuation { release = $0 }
+        }
+        var now = Date(timeIntervalSince1970: 1_000)
+        let model = ShoppingViewModel(apiClient: client, now: { now })
+        await model.load()
+        let purchase = Task { await model.toggle(model.items[0]) }
+        await fulfillment(of: [started], timeout: 2)
+        now.addTimeInterval(6)
+        model.expirePurchases()
+        XCTAssertEqual(model.visibleItems.count, 1)
+        XCTAssertFalse(client.shoppingItems[0].purchased)
+        release?.resume()
+        _ = await purchase.value
+        XCTAssertTrue(model.visibleItems.isEmpty)
+        XCTAssertTrue(client.shoppingItems[0].purchased)
+    }
+
+    func testConflictReconcilesWithoutReplayingThePurchase() async throws {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]
+        let model = ShoppingViewModel(apiClient: client)
+        await model.load()
+        _ = try await client.updateShopping(id: "milk", change: ShoppingChange(name: "Oat milk", version: 0))
+        _ = await model.toggle(model.items[0])
+        XCTAssertEqual(model.items[0].name, "Oat milk")
+        XCTAssertEqual(client.shoppingItems[0].version, 1)
+        XCTAssertFalse(client.shoppingItems[0].purchased)
+        XCTAssertNotNil(model.rowErrors["milk"])
+        XCTAssertTrue(model.canEdit)
+    }
+
+    func testEachItemHasItsOwnDeadlineAndUndoCancelsOnlyThatItem() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk"), ShoppingItem(id: "bread", name: "Bread")]
+        var now = Date(timeIntervalSince1970: 1_000)
+        let model = ShoppingViewModel(apiClient: client, now: { now })
+        await model.load()
+        _ = await model.toggle(model.items[0])
+        now.addTimeInterval(3)
+        _ = await model.toggle(model.items[1])
+        now.addTimeInterval(2)
+        model.expirePurchases()
+        XCTAssertEqual(model.visibleItems.map(\.id), ["bread"])
+        _ = await model.toggle(model.items[1])
+        now.addTimeInterval(10)
+        model.expirePurchases()
+        XCTAssertEqual(model.visibleItems.map(\.id), ["bread"])
+        XCTAssertFalse(client.shoppingItems[1].purchased)
+    }
+
+    func testFailureRestoresTheItemAndKeepsOtherRowsAvailable() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk"), ShoppingItem(id: "bread", name: "Bread")]
+        let model = ShoppingViewModel(apiClient: client)
+        await model.load()
+        client.updateShoppingError = APIError.offline
+        _ = await model.toggle(model.items[0])
+        XCTAssertFalse(model.isPurchased(model.items[0]))
+        XCTAssertEqual(model.visibleItems.map(\.id), ["milk", "bread"])
+        XCTAssertNotNil(model.rowErrors["milk"])
+        XCTAssertTrue(model.canEdit)
+    }
+
+    func testRenameValidatesUTF8AndPreservesNameAfterFailure() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]
+        let model = ShoppingViewModel(apiClient: client)
+        await model.load()
+        let tooLong = await model.rename(model.items[0], name: String(repeating: "🍎", count: 51))
+        XCTAssertFalse(tooLong)
+        XCTAssertEqual(model.items[0].name, "Milk")
+        client.updateShoppingError = APIError.badRequest(serverMessage: "Try another name.")
+        let failed = await model.rename(model.items[0], name: "Oat milk")
+        XCTAssertFalse(failed)
+        XCTAssertEqual(model.items[0].name, "Milk")
+        XCTAssertNotNil(model.rowErrors["milk"])
+        client.updateShoppingError = nil
+        let saved = await model.rename(model.items[0], name: "  Oat milk  ")
+        XCTAssertTrue(saved)
+        XCTAssertEqual(model.items[0].name, "Oat milk")
+    }
+
+    func testUndoWhilePurchaseIsInFlightUsesTheConfirmedVersion() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk")]
+        let started = expectation(description: "Purchase starts")
+        var release: CheckedContinuation<Void, Never>?
+        client.beforeUpdateShopping = { _, change in
+            if change.purchased == true {
+                started.fulfill()
+                await withCheckedContinuation { release = $0 }
+            }
+        }
+        let model = ShoppingViewModel(apiClient: client)
+        await model.load()
+        let purchase = Task { await model.toggle(model.items[0]) }
+        await fulfillment(of: [started], timeout: 2)
+        XCTAssertTrue(model.isPurchased(model.items[0]))
+        let undo = Task { await model.toggle(model.items[0]) }
+        await Task.yield()
+        release?.resume()
+        _ = await purchase.value
+        _ = await undo.value
+        XCTAssertFalse(client.shoppingItems[0].purchased)
+        XCTAssertEqual(client.shoppingItems[0].version, 2)
+        XCTAssertEqual(model.visibleItems.count, 1)
+        XCTAssertNil(model.rowErrors["milk"])
+    }
+
+    func testPurchaseKeepsItsPositionForFiveSecondsThenHidesWithoutDeleting() async {
+        let client = FakeAPIClient()
+        client.shoppingItems = [ShoppingItem(id: "milk", name: "Milk"), ShoppingItem(id: "bread", name: "Bread")]
+        var now = Date(timeIntervalSince1970: 1_000)
+        let model = ShoppingViewModel(apiClient: client, now: { now })
+        await model.load()
+
+        _ = await model.toggle(model.items[0])
+
+        XCTAssertEqual(model.visibleItems.map(\.id), ["milk", "bread"])
+        now.addTimeInterval(4.9)
+        model.expirePurchases()
+        XCTAssertEqual(model.visibleItems.map(\.id), ["milk", "bread"])
+        now.addTimeInterval(0.1)
+        model.expirePurchases()
+        XCTAssertEqual(model.visibleItems.map(\.id), ["bread"])
+        XCTAssertTrue(client.shoppingItems.first { $0.id == "milk" }!.purchased)
+    }
+}

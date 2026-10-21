@@ -80,10 +80,32 @@ struct CategoriesView: View {
         self._viewModel = State(initialValue: CategoriesViewModel(apiClient: apiClient))
     }
 
+    private var deletionName: String {
+        guard let index = pendingDeletion?.first, viewModel.categories.indices.contains(index) else { return "category" }
+        return viewModel.categories[index].name
+    }
+
     var body: some View {
         List {
+            Section { Text("Categories group chores for your family.").foregroundStyle(AppTheme.secondary) }.listRowBackground(AppTheme.surface)
+            if viewModel.categories.isEmpty && !viewModel.isLoading {
+                Section {
+                    ContentUnavailableView("No Categories", systemImage: "tag", description: Text("Tap + to add a category."))
+                }.listRowBackground(AppTheme.surface)
+            }
             ForEach(viewModel.categories) { category in
-                Text(category.name)
+                HStack {
+                    Text(category.name)
+                    Spacer()
+                    Menu {
+                        Button("Rename") { editName = category.name; activeSheet = .edit(category) }
+                        Button("Delete", role: .destructive) {
+                            if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) { pendingDeletion = IndexSet([index]) }
+                        }
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Actions for \(category.name)")
+                }
+            .listRowBackground(AppTheme.surface)
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             if let index = viewModel.categories.firstIndex(where: { $0.id == category.id }) {
@@ -98,10 +120,11 @@ struct CategoriesView: View {
                         } label: {
                             Label("Rename", systemImage: "pencil")
                         }
-                        .tint(.blue)
+                        .tint(AppTheme.accent)
                     }
             }
         }
+        .appListStyle()
         .navigationTitle("Categories")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -115,14 +138,12 @@ struct CategoriesView: View {
         .overlay {
             if viewModel.isLoading && viewModel.categories.isEmpty {
                 ProgressView()
-            } else if viewModel.categories.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView("No Categories", systemImage: "tag", description: Text("Tap + to add a category."))
             }
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .create:
-                NameEntrySheet(title: "New Category", name: $newCategoryName) { name in
+                NameEntrySheet(title: "New Category", name: $newCategoryName, fieldTitle: "Category name") { name in
                     viewModel.actionError = nil
                     await viewModel.create(name: name)
                     let error = viewModel.actionError
@@ -130,7 +151,7 @@ struct CategoriesView: View {
                     return error
                 }
             case .edit(let category):
-                NameEntrySheet(title: "Rename Category", name: $editName) { name in
+                NameEntrySheet(title: "Rename Category", name: $editName, fieldTitle: "Category name", explanation: "This changes the category for the whole family.") { name in
                     viewModel.actionError = nil
                     await viewModel.rename(category: category, to: name)
                     let error = viewModel.actionError
@@ -139,7 +160,7 @@ struct CategoriesView: View {
                 }
             }
         }
-        .confirmationDialog("Delete this category?", isPresented: Binding(
+        .confirmationDialog("Delete \(deletionName)?", isPresented: Binding(
             get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }
         ), titleVisibility: .visible) {
             if let offsets = pendingDeletion {

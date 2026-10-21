@@ -1,0 +1,23 @@
+[
+  {
+    "screen": "large-inventory-rows",
+    "file": "large-inventory-rows.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792569076.676
+  },
+  {
+    "screen": "large-cook-actions",
+    "file": "large-cook-actions.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792569069.779
+  },
+  {
+    "screen": "large-tokens-empty",
+    "file": "large-tokens-empty.png",
+    "test": "RedesignUITests/testCookingAndEmptyTokensRemainReadableAtLargestText()",
+    "device": "Family Hub Calendar Small",
+    "timestamp": 1792569057.976
+  }
+]

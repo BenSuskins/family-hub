@@ -136,3 +136,17 @@ final class MealsViewModelTests: XCTestCase {
     }
 
 }
+
+final class MealDraftTests: XCTestCase {
+    func testTypingPreservesTheRecipeUntilTheUserChoosesNameOnly() {
+        var draft = MealDraft(name: "Chicken Stir Fry", recipeID: "chicken")
+        draft.name = "Chicken for dinner"
+        XCTAssertEqual(draft.recipeID, "chicken")
+        draft.useNameOnly()
+        XCTAssertNil(draft.recipeID)
+        XCTAssertEqual(draft.name, "Chicken for dinner")
+        draft.select(Recipe(id: "pasta", title: "Pasta"))
+        XCTAssertEqual(draft.name, "Pasta")
+        XCTAssertEqual(draft.recipeID, "pasta")
+    }
+}

@@ -21,19 +21,19 @@ struct ChoreRemindersView: View {
                 .disabled(!isLoaded || isSaving || apiClient.serverIdentifier == nil)
                 if notifications.isEnabled && !notifications.isRegistered {
                     Text("Connecting this iPhone for notifications…")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                 }
                 if let error = notifications.actionError {
-                    Text(error.localizedDescription).foregroundStyle(.red)
+                    Text(error.localizedDescription).foregroundStyle(AppTheme.destructive)
                     Button("Retry Connection") { Task { await setDeviceEnabled(true) } }
                 }
                 Button("Open iPhone Notification Settings") {
                     guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 }
-            } footer: {
-                Text("Receive admin family messages and reminders for unfinished chores due today or overdue.")
-            }
+            } header: { Text("This iPhone") } footer: {
+                Text(apiClient.serverIdentifier == nil ? "Notifications are unavailable in Demo. Connect to your family server to enable this iPhone." : "Receive admin family messages and reminders for unfinished chores due today or overdue.")
+            }.listRowBackground(AppTheme.surface)
             Section {
                 Toggle("Family Reminders", isOn: $settings.enabled)
                     .disabled(!isAdmin || !settings.pushAvailable || isSaving)
@@ -41,20 +41,21 @@ struct ChoreRemindersView: View {
                 DatePicker("Second Reminder", selection: timeBinding(1), displayedComponents: .hourAndMinute)
                 LabeledContent("Timezone", value: settings.timezone)
             } header: {
-                Text("Family Schedule")
+                Text("Family reminder schedule")
             } footer: {
                 Text(settings.pushAvailable
                      ? "The schedule applies to the whole family. An admin can change both times."
                      : "The server needs Apple push credentials before family reminders can start.")
-            }
+            }.listRowBackground(AppTheme.surface)
             .disabled(!isLoaded || !isAdmin || isSaving)
         }
         .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        .appListStyle()
         .navigationTitle("Chore Reminders")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isAdmin {
-                Button("Save") { Task { await save() } }
+                Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle())
                     .disabled(!isLoaded || isSaving || settings.times[0] == settings.times[1])
             }
         }

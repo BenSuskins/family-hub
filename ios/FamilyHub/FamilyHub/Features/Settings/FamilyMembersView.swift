@@ -61,40 +61,26 @@ struct FamilyMembersView: View {
 
     var body: some View {
         List(viewModel.users) { user in
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                : AnyLayout(HStackLayout())
-            layout {
-                if !dynamicTypeSize.isAccessibilitySize {
-                    UserAvatar(user: user, size: 36, apiClient: apiClient).accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(user.name).font(.body)
-                    Text(user.email).font(.caption).foregroundStyle(.secondary)
-                }
-                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                if user.isAdmin {
-                    Text("Admin")
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.accentColor.opacity(0.15))
-                        .foregroundStyle(Color.accentColor)
-                        .clipShape(Capsule())
-                }
-            }
-            .swipeActions(edge: .trailing) {
-                if user.id != currentUserID {
-                    if user.isAdmin {
-                        Button("Demote") { Task { await viewModel.demote(user: user) } }
-                            .tint(.orange)
-                    } else {
-                        Button("Promote") { Task { await viewModel.promote(user: user) } }
-                            .tint(.blue)
+            NavigationLink {
+                FamilyMemberRoleView(user: user, currentUserID: currentUserID, model: viewModel)
+            } label: {
+                HStack(spacing: 12) {
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        UserAvatar(user: user, size: 36, apiClient: apiClient).accessibilityHidden(true)
                     }
-                }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(user.name).font(.body)
+                        Text(user.email).font(.caption).foregroundStyle(AppTheme.secondary)
+                        Text(user.isAdmin ? "Admin" : "Member").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.accent)
+                    }.fixedSize(horizontal: false, vertical: true)
+                }.padding(.vertical, 4)
             }
+            .accessibilityLabel(user.name)
+            .accessibilityHint(user.isAdmin ? "Admin. View role details." : "Member. View role details.")
+            .accessibilityIdentifier("member-" + user.id)
+            .listRowBackground(AppTheme.surface)
         }
+        .appListStyle()
         .navigationTitle("Family Members")
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
@@ -104,5 +90,47 @@ struct FamilyMembersView: View {
         }
         .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }
+    }
+}
+
+private struct FamilyMemberRoleView: View {
+    let user: User
+    let currentUserID: String
+    @Bindable var model: FamilyMembersViewModel
+    @State private var confirming = false
+    @State private var isSaving = false
+    private var current: User { model.users.first { $0.id == user.id } ?? user }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Name", value: current.name)
+                LabeledContent("Email", value: current.email)
+                LabeledContent("Role", value: current.isAdmin ? "Admin" : "Member")
+            }.listRowBackground(AppTheme.surface)
+            Section("Family roles") {
+                Text("Members use family meals, chores, calendars, and household lists.")
+                Text("Admins also manage family settings, roles, categories, and API tokens.")
+                if user.id == currentUserID {
+                    Text("You cannot change your own role here.").foregroundStyle(AppTheme.secondary)
+                } else {
+                    Button(current.isAdmin ? "Make member" : "Make admin") { confirming = true }
+                        .disabled(isSaving)
+                }
+            }.listRowBackground(AppTheme.surface)
+        }
+        .appListStyle()
+        .navigationTitle(current.name)
+        .confirmationDialog("Change \(current.name)’s role?", isPresented: $confirming, titleVisibility: .visible) {
+            Button(current.isAdmin ? "Make member" : "Make admin") {
+                Task {
+                    isSaving = true
+                    if current.isAdmin { await model.demote(user: current) }
+                    else { await model.promote(user: current) }
+                    isSaving = false
+                }
+            }
+        }
+        .errorAlert($model.actionError)
     }
 }

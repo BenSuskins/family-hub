@@ -18,44 +18,45 @@ struct ChoreDetailView: View {
 
     var body: some View {
         List {
+            if let task = current.currentTask {
+                Section("Current task") {
+                    LabeledContent("Assignee", value: viewModel.users[task.assignedToUserID ?? ""]?.name ?? "Unassigned")
+                    if let date = task.formattedDueDate { LabeledContent("Due", value: date) }
+                    Link("Complete or skip on Today", destination: URL(string: "familyhub://today")!).font(.footnote).foregroundStyle(AppTheme.secondary)
+                }.listRowBackground(AppTheme.surface)
+            }
             Section("Chore setup") {
                 if !current.chore.description.isEmpty { Text(current.chore.description) }
                 LabeledContent("Repeat", value: current.chore.recurrenceSummary)
-                if current.chore.recurOnComplete { Text("The next date starts from completion or Skip.").foregroundStyle(.secondary) }
+                if current.chore.recurOnComplete { Text("The next date starts from completion or Skip.").foregroundStyle(AppTheme.secondary) }
                 LabeledContent("Eligible people", value: eligiblePeople)
                 if let time = current.chore.dueTime { LabeledContent("Due time", value: time) }
                 if let count = current.chore.recurrenceCount { LabeledContent("Task limit", value: String(count)) }
                 if let end = current.chore.recurrenceUntil { LabeledContent("End date", value: end) }
                 if let category = viewModel.categoryName(current.chore.categoryID) { LabeledContent("Category", value: category) }
-            }
-            if let task = current.currentTask {
-                Section("Current task") {
-                    LabeledContent("Assignee", value: viewModel.users[task.assignedToUserID ?? ""]?.name ?? "Unassigned")
-                    if let date = task.formattedDueDate { LabeledContent("Due", value: date) }
-                    Text("Complete or skip this task on Home.").font(.footnote).foregroundStyle(.secondary)
-                }
-            }
+            }.listRowBackground(AppTheme.surface)
             Section("History") {
                 ForEach(history) { task in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(task.name)
-                        Text(historySummary(task)).font(.subheadline).foregroundStyle(.secondary)
+                        Text(historySummary(task)).font(.subheadline).foregroundStyle(AppTheme.secondary)
                     }
                 }
                 if loadingHistory { ProgressView() }
                 else if historyError != nil { Button("Retry history") { Task { await loadHistory(reset: history.isEmpty) } } }
-                else if history.isEmpty { Text("No task history").foregroundStyle(.secondary) }
+                else if history.isEmpty { Text("No task history").foregroundStyle(AppTheme.secondary) }
                 if cursor?.isEmpty == false {
                     Button("Load more history") { Task { await loadHistory(reset: false) } }.disabled(loadingHistory)
                 }
-            }
+            }.listRowBackground(AppTheme.surface)
             if current.deletedAt == nil {
                 Section {
                     Button("Edit Chore") { editing = true }
                     Button("Delete Chore", role: .destructive) { deleting = true }.disabled(deletePending)
-                }
+                }.listRowBackground(AppTheme.surface)
             }
         }
+        .appListStyle()
         .navigationTitle(current.chore.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editing, onDismiss: {
@@ -64,7 +65,7 @@ struct ChoreDetailView: View {
         }) {
             ChoreFormView(mode: .edit(current.chore), viewModel: viewModel)
         }
-        .confirmationDialog("Delete this chore?", isPresented: $deleting, titleVisibility: .visible) {
+        .confirmationDialog("Delete \(current.chore.name)?", isPresented: $deleting, titleVisibility: .visible) {
             Button("Delete Chore", role: .destructive) {
                 Task {
                     deletePending = true
@@ -72,7 +73,7 @@ struct ChoreDetailView: View {
                     deletePending = false
                 }
             }
-        } message: { Text("This removes the chore from Home and keeps its history.") }
+        } message: { Text("This removes the chore from Today and keeps its history.") }
         .errorAlert($viewModel.actionError)
         .task { await loadHistory(reset: true) }
     }

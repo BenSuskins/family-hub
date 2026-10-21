@@ -1,0 +1,18 @@
+{
+    AXSDidResetD22Preferences = 1;
+    AXSSystemUIProcessAppSmartInvertEnabledPreference = 0;
+    AccessibilityEnabled = 0;
+    ApplicationAccessibilityEnabled = 0;
+    AuditInspectionModeEnabled = 0;
+    AutomationEnabled = 0;
+    DarkenSystemColors = 1;
+    GrayscaleDisplay = 0;
+    HearingAidCompliance = 0;
+    InvertColorsEnabled = 0;
+    LocalizedStringLookupInfoEnabled = 0;
+    PointerAllowAppCustomizationEnabled = 1;
+    PointerEffectScalingEnabled = 1;
+    PointerIncreasedContrastEnabled = 1;
+    ReduceMotionEnabled = 1;
+    ReduceTransparencyEnabled = 1;
+}

@@ -8,10 +8,11 @@ struct FeatureProfileButton: View {
 
     var body: some View {
         Button { showsProfile = true } label: {
-            UserAvatar(user: user, size: 32, apiClient: apiClient)
+            Image(systemName: "gearshape").font(.title3)
                 .frame(width: 44, height: 44)
         }
-        .accessibilityLabel("Open profile")
+        .accessibilityLabel("Settings")
+                    .accessibilityIdentifier("Open profile")
         .sheet(isPresented: $showsProfile, onDismiss: {
             Task { user = try? await apiClient.fetchMe() }
         }) {

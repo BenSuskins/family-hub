@@ -22,11 +22,15 @@ struct ConfigurationFormView: View {
 
     var body: some View {
         List {
+            Section {
+                Text("Connecting to another server signs you out. Use the address from your family admin.")
+                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+            }.listRowBackground(AppTheme.surface)
             Section("Server") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Base URL")
+                    Text("Server address")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                     TextField("https://hub.example.com", text: $baseURL)
                         .font(.subheadline)
                         .keyboardType(.URL)
@@ -38,11 +42,12 @@ struct ConfigurationFormView: View {
                 if let error = discoveryError {
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.destructive)
                 }
-            }
+            }.listRowBackground(AppTheme.surface)
         }
         .listStyle(.insetGrouped)
+        .appListStyle()
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if isDiscovering {
@@ -50,7 +55,7 @@ struct ConfigurationFormView: View {
                 } else {
                     Button("Connect") {
                         Task { await connect() }
-                    }
+                    }.buttonStyle(AppCommitButtonStyle())
                     .disabled(baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }

@@ -1,0 +1,2 @@
+Local Watch simulator build: BUILD SUCCEEDED.
+No Watch sources change.

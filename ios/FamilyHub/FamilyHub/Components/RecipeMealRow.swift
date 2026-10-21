@@ -53,11 +53,11 @@ struct RecipeMealRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(mealType.uppercased())
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                             .kerning(0.4)
                         Text(plan.name)
                             .font(.body.weight(nameFontWeight))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(AppTheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)

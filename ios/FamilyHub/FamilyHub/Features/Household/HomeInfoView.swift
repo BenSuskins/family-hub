@@ -66,9 +66,10 @@ struct HomeInfoView: View {
     var body: some View {
         Form {
             Section("Home location") {
+                Text("Use your home location for weather and departure estimates.").font(.footnote).foregroundStyle(AppTheme.secondary)
                 if let latitude = home.latitude, let longitude = home.longitude {
                     Text("\(latitude, specifier: "%.5f"), \(longitude, specifier: "%.5f")")
-                    Text(home.timezone).foregroundStyle(.secondary)
+                    Text(home.timezone).foregroundStyle(AppTheme.secondary)
                 } else { Text("No home location set.") }
                 Button(locationReader.isLocating ? "Locating…" : "Use device location") { locationReader.capture() }
                     .disabled(locationReader.isLocating || !didLoad)
@@ -82,17 +83,18 @@ struct HomeInfoView: View {
                         locationReader.coordinate = nil
                     }
                 }
-                if let message = locationReader.message { Text(message).foregroundStyle(.secondary) }
-            }
+                if let message = locationReader.message { Text(message).foregroundStyle(AppTheme.secondary) }
+            }.listRowBackground(AppTheme.surface)
             Section("Departure arrival margin") {
                 Stepper("\(home.arrivalMarginMinutes) minutes", value: $home.arrivalMarginMinutes, in: 0...120)
                     .disabled(!didLoad)
                 Text("Allow this much time before each event starts.").font(.footnote)
-            }
+            }.listRowBackground(AppTheme.surface)
             if isLoading { ProgressView() }
             if !didLoad && !isLoading { Button("Retry") { Task { await load() } } }
         }
-        .navigationTitle("Home Info")
+        .appListStyle()
+        .navigationTitle("Home location")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(isSaving ? "Saving…" : "Save") {
@@ -102,7 +104,7 @@ struct HomeInfoView: View {
                         do { try await apiClient.updateHomeInfo(home); dismiss() }
                         catch { self.error = .from(error) }
                     }
-                }.disabled(!didLoad || home.latitude == nil || isSaving || locationReader.coordinate != nil)
+                }.buttonStyle(AppCommitButtonStyle()).disabled(!didLoad || home.latitude == nil || isSaving || locationReader.coordinate != nil)
             }
         }
         .errorAlert($error)

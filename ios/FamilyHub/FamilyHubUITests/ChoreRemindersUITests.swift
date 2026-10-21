@@ -32,8 +32,8 @@ final class ChoreRemindersUITests: XCTestCase {
         app.buttons["Try Demo"].tap()
         XCTAssertTrue(app.buttons["Open profile"].waitForExistence(timeout: 10))
         app.buttons["Open profile"].tap()
-        app.buttons["Family Broadcast"].tap()
-        XCTAssertTrue(app.navigationBars["Family Broadcast"].waitForExistence(timeout: 5))
+        app.buttons["Family message"].tap()
+        XCTAssertTrue(app.navigationBars["Family message"].waitForExistence(timeout: 5))
         let send = app.buttons["Send to Family"]
         XCTAssertFalse(send.isEnabled)
         let field = app.textFields["Family message"].exists ? app.textFields["Family message"] : app.textViews["Family message"]

@@ -1,0 +1,478 @@
+[
+  {
+    "key": "welcome",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Welcome · Proposal"
+  },
+  {
+    "key": "setup-help",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Connection help · Proposal"
+  },
+  {
+    "key": "server-error",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Connect to your server · Proposal"
+  },
+  {
+    "key": "today",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Today · Proposal"
+  },
+  {
+    "key": "today-dark",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Today · Proposal"
+  },
+  {
+    "key": "today-large",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Today · Proposal"
+  },
+  {
+    "key": "weather",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Weather · Proposal"
+  },
+  {
+    "key": "event",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Event · Proposal"
+  },
+  {
+    "key": "chores",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Chores · Proposal"
+  },
+  {
+    "key": "chore-detail",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Vacuum living room · Proposal"
+  },
+  {
+    "key": "chore-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New chore · Proposal"
+  },
+  {
+    "key": "chore-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit chore · Proposal"
+  },
+  {
+    "key": "chore-repeat",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Repeat · Proposal"
+  },
+  {
+    "key": "chore-actions",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Chore actions · Proposal"
+  },
+  {
+    "key": "food",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Food · Proposal"
+  },
+  {
+    "key": "meal-week",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Meal plan · Proposal"
+  },
+  {
+    "key": "meal-add",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Add breakfast · Proposal"
+  },
+  {
+    "key": "meal-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit meal · Proposal"
+  },
+  {
+    "key": "recipes",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Recipes · Proposal"
+  },
+  {
+    "key": "recipes-empty",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "No matching recipes · Proposal"
+  },
+  {
+    "key": "recipe-detail",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Chicken Stir Fry · Proposal"
+  },
+  {
+    "key": "recipe-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New recipe · Proposal"
+  },
+  {
+    "key": "recipe-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit recipe · Proposal"
+  },
+  {
+    "key": "recipe-content-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Ingredients and method · Proposal"
+  },
+  {
+    "key": "cook-ingredients",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Prepare ingredients · Proposal"
+  },
+  {
+    "key": "cook-step",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Cook · Proposal"
+  },
+  {
+    "key": "cook-finish",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Cook · Proposal"
+  },
+  {
+    "key": "household",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Household · Proposal"
+  },
+  {
+    "key": "shopping-rename",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Rename shopping item inline · Proposal"
+  },
+  {
+    "key": "restock",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Restock inventory · Proposal"
+  },
+  {
+    "key": "restocked",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Stock updated · Proposal"
+  },
+  {
+    "key": "inventory",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Inventory · Proposal"
+  },
+  {
+    "key": "area",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Laundry cupboard · Proposal"
+  },
+  {
+    "key": "area-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New area · Proposal"
+  },
+  {
+    "key": "area-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit area · Proposal"
+  },
+  {
+    "key": "item-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New item · Proposal"
+  },
+  {
+    "key": "item-edit-count",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit item · Proposal"
+  },
+  {
+    "key": "item-edit-level",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Edit item · Proposal"
+  },
+  {
+    "key": "settings",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Settings · Proposal"
+  },
+  {
+    "key": "reminders",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Notifications · Proposal"
+  },
+  {
+    "key": "broadcast",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Family message · Proposal"
+  },
+  {
+    "key": "broadcast-result",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Message result · Proposal"
+  },
+  {
+    "key": "home-info",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Home location · Proposal"
+  },
+  {
+    "key": "family-name",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Family name · Proposal"
+  },
+  {
+    "key": "members",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Family members · Proposal"
+  },
+  {
+    "key": "member-role",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Sam Demo · Proposal"
+  },
+  {
+    "key": "categories",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Categories · Proposal"
+  },
+  {
+    "key": "category-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New category · Proposal"
+  },
+  {
+    "key": "category-edit",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Rename category · Proposal"
+  },
+  {
+    "key": "tokens",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "API tokens · Proposal"
+  },
+  {
+    "key": "token-create",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New token · Proposal"
+  },
+  {
+    "key": "token-created",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Token created · Proposal"
+  },
+  {
+    "key": "server-config",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Server configuration · Proposal"
+  },
+  {
+    "key": "calendar-month",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Calendar · Proposal"
+  },
+  {
+    "key": "calendar-day",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Calendar · Proposal"
+  },
+  {
+    "key": "calendar-week",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Calendar · Proposal"
+  },
+  {
+    "key": "calendar-year",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Calendar · Proposal"
+  },
+  {
+    "key": "calendar-large",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Calendar · Proposal"
+  },
+  {
+    "key": "delete-confirmation",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Delete item · Proposal"
+  },
+  {
+    "key": "offline",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Cannot load chores · Proposal"
+  },
+  {
+    "key": "area-empty",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "New area · Proposal"
+  },
+  {
+    "key": "chore-repeat-custom",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Custom repeat · Proposal"
+  },
+  {
+    "key": "chore-repeat-monthly",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Monthly repeat · Proposal"
+  },
+  {
+    "key": "shopping-pending",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Undo a purchase · Proposal"
+  },
+  {
+    "key": "shopping-hidden",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Shopping after five seconds · Proposal"
+  },
+  {
+    "key": "shopping-undone",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Purchase undone · Proposal"
+  },
+  {
+    "key": "meal-plan",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Meal plan · Proposal"
+  },
+  {
+    "key": "shopping-list",
+    "width": 402,
+    "height": 874,
+    "overflow": false,
+    "title": "Shopping list · Proposal"
+  }
+]

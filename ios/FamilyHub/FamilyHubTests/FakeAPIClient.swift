@@ -26,11 +26,16 @@ final class FakeAPIClient: APIClientProtocol {
         shoppingItems.append(item)
         return item
     }
+    var beforeUpdateShopping: ((String, ShoppingChange) async -> Void)?
+    var updateShoppingError: Error?
     func updateShopping(id: String, change: ShoppingChange) async throws -> ShoppingItem {
+        await beforeUpdateShopping?(id, change)
+        if let updateShoppingError { throw updateShoppingError }
         guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
         let old = shoppingItems[index]
+        guard change.version == old.version else { throw APIError.conflict }
         let purchased = change.purchased ?? old.purchased
-        let item = ShoppingItem(id: id, name: change.name ?? old.name, inventoryItemID: old.inventoryItemID, purchased: purchased, purchaseID: purchased ? UUID().uuidString : nil, version: old.version + 1)
+        let item = ShoppingItem(id: id, name: change.name ?? old.name, inventoryItemID: old.inventoryItemID, purchased: purchased, purchaseID: purchased ? (old.purchased ? old.purchaseID : UUID().uuidString) : nil, restocked: old.restocked, version: old.version + 1)
         shoppingItems[index] = item
         return item
     }

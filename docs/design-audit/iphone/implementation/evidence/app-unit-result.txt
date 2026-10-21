@@ -1,0 +1,12 @@
+Test Suite 'FamilyHubTests.xctest' passed at 2026-10-21 08:38:07.294.
+	 Executed 182 tests, with 42 tests skipped and 0 failures (0 unexpected) in 0.193 (0.235) seconds
+Test Suite 'All tests' passed at 2026-10-21 08:38:07.294.
+	 Executed 182 tests, with 42 tests skipped and 0 failures (0 unexpected) in 0.193 (0.236) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64-apple-ios17.0-simulator
+◇ Suite FamilyHubTests started.
+◇ Test example() started.
+✔ Test example() passed after 0.001 seconds.
+✔ Suite FamilyHubTests passed after 0.001 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.001 seconds.

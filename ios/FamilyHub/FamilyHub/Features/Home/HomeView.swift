@@ -39,14 +39,14 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         homeHeader
-                        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
-                            agendaSection
-                            mealsSection(stats)
-                            choresSection(stats)
-                        }
                         if householdViewModel.departures?.items.isEmpty == false {
-                            HomeSectionHeader(title: "Household") { EmptyView() }
-                            HouseholdCardsView(model: householdViewModel)
+                            HouseholdCardsView(model: householdViewModel, apiClient: apiClient, events: viewModel.todayEvents)
+                                .padding(.top, 20)
+                        }
+                        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
+                            mealsSection(stats)
+                            agendaSection
+                            choresSection(stats)
                         }
                     }
                     .padding(.bottom, 24)
@@ -69,17 +69,19 @@ struct HomeView: View {
                 }
             }
             .groupedBackground()
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
+            .appListStyle()
             .navigationTitle("Today")
             .errorAlert($viewModel.actionError)
             .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await viewModel.load() } }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .profile } label: {
-                        UserAvatar(user: viewModel.currentUser, size: 32, apiClient: apiClient)
+                        Image(systemName: "gearshape").font(.title3)
                             .frame(width: 44, height: 44)
                     }
-                    .accessibilityLabel("Open profile")
+                    .accessibilityLabel("Settings")
+                    .accessibilityIdentifier("Open profile")
                 }
             }
             .sheet(item: $activeSheet, onDismiss: {
@@ -131,8 +133,8 @@ struct HomeView: View {
     }
 
     private var homeDate: some View {
-        Text(Date.now.formatted(date: .complete, time: .omitted))
-            .foregroundStyle(.secondary)
+        Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            .foregroundStyle(AppTheme.secondary)
             .accessibilityIdentifier("home-date")
     }
 
@@ -152,6 +154,7 @@ struct HomeView: View {
             .frame(minHeight: 44)
         }
         .buttonStyle(.borderless)
+        .foregroundStyle(AppTheme.accent)
         .accessibilityIdentifier("home-weather")
     }
 
@@ -183,8 +186,8 @@ struct HomeView: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                .groupedCard(radius: 16)
-                .padding(.horizontal, 16)
+                .groupedCard()
+                .padding(.horizontal, 20)
             }
         }
     }
@@ -194,21 +197,22 @@ struct HomeView: View {
     private func mealsSection(_ stats: DashboardStats) -> some View {
         let todayKey = APIDate.dayString(Date())
         return VStack(alignment: .leading, spacing: 0) {
-            HomeSectionHeader(title: "Today's meals") {
+            HomeSectionHeader(title: "Meal plan") {
                 Button {
                     navigation.openMealPlan()
                 } label: {
-                    Text("Plan")
+                    Text("View week")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
             }
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: 12))
-                : AnyLayout(HStackLayout(spacing: 12))
+            let layout = UIDevice.current.userInterfaceIdiom == .pad && !dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(HStackLayout(spacing: 12))
+                : AnyLayout(VStackLayout(spacing: 0))
             layout {
                 ForEach(["breakfast", "lunch", "dinner"], id: \.self) { mealType in
+                    if mealType != "breakfast" && UIDevice.current.userInterfaceIdiom == .phone { Divider().padding(.leading, 16) }
                     let plan = stats.todayMeals.first(where: { $0.mealType == mealType })
                     TodayMealCard(mealType: mealType, mealPlan: plan, apiClient: apiClient) {
                         if let recipeID = plan?.recipeID {
@@ -230,8 +234,8 @@ struct HomeView: View {
                     }
                 }
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 16)
+            .groupedCard()
+            .padding(.horizontal, 20)
         }
     }
 
@@ -246,7 +250,7 @@ struct HomeView: View {
             if overdue.isEmpty && today.isEmpty {
                 HomeSectionHeader(title: "Chores") { EmptyView() }
                 Label("No chores due", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
                     .padding(.horizontal, 20)
             }
         }
@@ -267,8 +271,8 @@ struct HomeView: View {
                     )
                 }
             }
-            .groupedCard(radius: 16)
-            .padding(.horizontal, 16)
+            .groupedCard()
+            .padding(.horizontal, 20)
         }
     }
 
@@ -287,8 +291,8 @@ private struct HomeSectionHeader<Action: View>: View {
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
         layout {
             Text(title)
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.primary)
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
             if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             action().frame(minHeight: 44)
         }
@@ -320,23 +324,30 @@ private struct TodayMealCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                RecipeThumbView(recipeID: mealPlan?.recipeID, apiClient: apiClient, size: 64, placeholderSymbol: mealIcon)
-                    .accessibilityHidden(true)
-                Label(mealType.capitalized, systemImage: mealIcon)
-                    .font(.caption)
-                    .foregroundStyle(Color.secondary)
-                Text(hasContent ? mealPlan!.name : "Add meal")
-                    .font(.body.weight(.medium))
-                    .multilineTextAlignment(.leading)
-                    .foregroundStyle(Color.primary)
-                    .fixedSize(horizontal: false, vertical: true)
+            let layout = UIDevice.current.userInterfaceIdiom == .pad
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+                : AnyLayout(HStackLayout(spacing: 14))
+            layout {
+                if hasContent {
+                    RecipeThumbView(recipeID: mealPlan?.recipeID, apiClient: apiClient, size: 42, placeholderSymbol: mealIcon)
+                        .accessibilityHidden(true)
+                } else { WarmIcon(symbol: "fork.knife") }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(hasContent ? mealPlan!.name : mealType.capitalized)
+                        .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
+                    Text(hasContent ? mealType.capitalized : "Not planned")
+                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Image(systemName: hasContent ? "chevron.right" : "plus")
+                    .foregroundStyle(AppTheme.secondary).accessibilityHidden(true)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 124, maxHeight: .infinity, alignment: .topLeading)
-            .groupedCard()
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("today-meal-\(mealType)")
     }
@@ -362,14 +373,14 @@ private struct EventRow: View {
                 if event.allDay {
                     Text("All day")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                 } else {
                     Text(event.startTime, style: .time)
                         .font(.subheadline.weight(.bold).monospacedDigit())
                     if let end = event.endTime {
                         Text(end, style: .time)
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                     }
                 }
             }
@@ -385,12 +396,12 @@ private struct EventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 if !event.description.isEmpty {
                     Text(event.description)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("home-event-description-\(event.id)")
@@ -400,7 +411,7 @@ private struct EventRow: View {
             if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .padding(.vertical, 13)
     }
 }

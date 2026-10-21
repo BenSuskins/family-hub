@@ -1,0 +1,44 @@
+[
+  {
+    "screen": "tasks-repeat-count",
+    "path": "captures/iphone-supplement/tasks-repeat-count.png",
+    "test": "IPhoneAuditUITests/testChoreScheduleOptionScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490975.057
+  },
+  {
+    "screen": "tasks-repeat-end-date",
+    "path": "captures/iphone-supplement/tasks-repeat-end-date.png",
+    "test": "IPhoneAuditUITests/testChoreScheduleOptionScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490970.828
+  },
+  {
+    "screen": "tasks-repeat-custom",
+    "path": "captures/iphone-supplement/tasks-repeat-custom.png",
+    "test": "IPhoneAuditUITests/testChoreScheduleOptionScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490966.618
+  },
+  {
+    "screen": "tasks-repeat-monthly",
+    "path": "captures/iphone-supplement/tasks-repeat-monthly.png",
+    "test": "IPhoneAuditUITests/testChoreScheduleOptionScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490954.822
+  },
+  {
+    "screen": "tasks-repeat-menu",
+    "path": "captures/iphone-supplement/tasks-repeat-menu.png",
+    "test": "IPhoneAuditUITests/testChoreScheduleOptionScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490947.138
+  },
+  {
+    "screen": "calendar-view-menu",
+    "path": "captures/iphone-supplement/calendar-view-menu.png",
+    "test": "IPhoneAuditUITests/testCalendarMenuScreens()",
+    "device": "Family Hub Calendar",
+    "timestamp": 1792490591.089
+  }
+]

@@ -143,6 +143,10 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 heroSection(r)
+                Button("Start cooking", systemImage: "flame") { showCookMode = true }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
                 metaPillsRow(r)
                     .padding(.horizontal, 16)
                     .padding(.top, 14)
@@ -160,7 +164,7 @@ struct RecipeDetailView: View {
                     Link(destination: url) {
                         Text("Source · \(sourceURL)")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
@@ -187,10 +191,10 @@ struct RecipeDetailView: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 if let mealType = recipe.mealType {
-                    Text(mealType.capitalized).font(.subheadline).foregroundStyle(.secondary)
+                    Text(mealType.capitalized).font(.subheadline).foregroundStyle(AppTheme.secondary)
                 }
                 Text(recipe.title)
-                    .font(.largeTitle.bold())
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -206,10 +210,10 @@ struct RecipeDetailView: View {
             : AnyLayout(HStackLayout(spacing: 8))
         return layout {
             if let prep = r.prepTime {
-                metaPill(icon: "clock", label: prep)
+                metaPill(icon: "clock", label: "Prep " + prep)
             }
             if let cook = r.cookTime {
-                metaPill(icon: "flame", label: cook)
+                metaPill(icon: "flame", label: "Cook " + cook)
             }
             if let servings = r.servings {
                 metaPill(icon: "person.2", label: "\(servings) servings")
@@ -222,13 +226,13 @@ struct RecipeDetailView: View {
         HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.secondary)
             Text(label)
                 .font(.footnote.weight(.medium))
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
-        .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 12))
 
     }
 
@@ -246,7 +250,7 @@ struct RecipeDetailView: View {
                 if !group.name.isEmpty && group.name != "Main" {
                     Text(group.name)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
                         .textCase(.uppercase)
                         .kerning(0.4)
                         .padding(.horizontal, 20)
@@ -301,7 +305,7 @@ struct RecipeDetailView: View {
                         Spacer(minLength: 0)
                     }
                     .padding(14)
-                    .background(Color(UIColor.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 12))
 
                 }
             }

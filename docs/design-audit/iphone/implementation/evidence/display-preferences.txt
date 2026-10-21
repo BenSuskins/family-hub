@@ -1,0 +1,3 @@
+Reduce Motion: true
+Reduce Transparency: true
+Increase Contrast: true

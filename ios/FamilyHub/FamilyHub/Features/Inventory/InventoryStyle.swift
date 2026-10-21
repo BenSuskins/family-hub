@@ -12,8 +12,8 @@ enum InventoryStyle {
     /// Common units offered as chips in the Add-Item sheet.
     static let units: [String] = ["pcs", "pods", "bottles", "packs", "tins", "rolls", "boxes", "bags", "tubes", "sprays", "tablets", "sheets"]
 
-    /// Orange is the universal "low stock" accent.
-    static let low = Color(.systemOrange)
+    /// Keep low-stock text readable in both appearances.
+    static let low = AppTheme.clay
 
     static func symbol(_ icon: String) -> String {
         switch icon {

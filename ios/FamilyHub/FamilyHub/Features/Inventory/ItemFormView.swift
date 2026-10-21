@@ -22,6 +22,7 @@ struct ItemFormView: View {
         if case .edit = mode { return true }
         return false
     }
+    private var validStock: Bool { (0...1_000_000).contains(quantity) && (0...100).contains(level) && (0...(trackingMode == .level ? 100 : 1_000_000)).contains(lowAt) }
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var unitOptions: [String] {
         InventoryStyle.units.contains(unit) || unit.isEmpty ? InventoryStyle.units : [unit] + InventoryStyle.units
@@ -36,46 +37,58 @@ struct ItemFormView: View {
                         Text("Count").tag(TrackingMode.count)
                         Text("Level").tag(TrackingMode.level)
                     }
+                    Text(trackingMode == .count ? "Count tracks individual units, such as bottles or packs." : "Level tracks the remaining percentage, such as a bottle of cleaner.")
+                        .font(.footnote).foregroundStyle(AppTheme.secondary)
                     .onChange(of: trackingMode) { _, newMode in
                         guard !isEditing else { return }
                         lowAt = newMode == .level ? Self.levelLowAtDefault : Self.countLowAtDefault
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
                 Section("Stock") {
                     if trackingMode == .count {
+                        LabeledContent("Count") {
+                            TextField("Count", value: $quantity, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        }
                         Stepper("Count: \(quantity)", value: $quantity, in: 0...1_000_000)
-                        Stepper("Low at: \(lowAt)", value: $lowAt, in: 0...1_000_000)
+                        LabeledContent("Alert at or below") {
+                            TextField("Alert threshold", value: $lowAt, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        }
                         Picker("Unit", selection: $unit) {
                             Text("None").tag("")
                             ForEach(unitOptions, id: \.self) { Text($0).tag($0) }
                         }
                     } else {
                         VStack(alignment: .leading) {
-                            Text("Remaining: \(level)%")
+                            LabeledContent("Remaining level (%)") {
+                                TextField("Remaining level", value: $level, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                            }
                             Slider(value: Binding(get: { Double(level) }, set: { level = Int($0) }), in: 0...100, step: 5) {
                                 Text("Remaining level")
                             }
                             .accessibilityValue("\(level) percent")
                         }
-                        Stepper("Low below: \(lowAt)%", value: $lowAt, in: 0...100)
+                        LabeledContent("Alert at or below (%)") {
+                            TextField("Alert threshold", value: $lowAt, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        }
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
                 if isEditing {
-                    Section { Button("Delete Item", role: .destructive) { confirmDelete = true } }
+                    Section { Button("Delete Item", role: .destructive) { confirmDelete = true } }.listRowBackground(AppTheme.surface)
                 }
             }
             .disabled(isSaving)
+            .appListStyle()
             .navigationTitle(isEditing ? "Edit Item" : "New Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isSaving) }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving { ProgressView() }
-                    else { Button("Save") { Task { await save() } }.disabled(trimmedName.isEmpty) }
+                    else { Button("Save") { Task { await save() } }.buttonStyle(AppCommitButtonStyle()).disabled(trimmedName.isEmpty || !validStock) }
                 }
             }
             .interactiveDismissDisabled(isSaving)
-            .confirmationDialog("Delete this item?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            .confirmationDialog("Delete \(name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete Item", role: .destructive) { Task { await delete() } }
             }
             .onAppear(perform: populate)

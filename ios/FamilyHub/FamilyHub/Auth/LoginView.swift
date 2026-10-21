@@ -14,13 +14,14 @@ struct LoginView: View {
             Form {
                 Section {
                     Label("Family Hub", systemImage: "house.fill").font(.title.bold())
-                    Text(configStore.isConfigured ? "Manage chores, meals, and more." : "Enter your server URL to connect.")
-                        .foregroundStyle(.secondary)
-                }
+                    Text(configStore.isConfigured ? "Meals, plans, and chores in one place." : "Keep family meals, plans, and chores together. Ask your family admin for the server address.")
+                        .foregroundStyle(AppTheme.secondary)
+                }.listRowBackground(AppTheme.surface)
                 Section("Server") {
                     if configStore.isConfigured {
                         LabeledContent("Server URL", value: configStore.baseURL)
                     } else {
+                        Text("Server address").font(.caption).foregroundStyle(AppTheme.secondary)
                         TextField("Server URL", text: $baseURL, prompt: Text("https://hub.example.com"))
                             .keyboardType(.URL)
                             .autocorrectionDisabled()
@@ -28,7 +29,7 @@ struct LoginView: View {
                             .accessibilityLabel("Server URL")
                     }
                     if let error = discoveryError ?? authManager.loginError {
-                        Text(error).foregroundStyle(.red)
+                        Text(error).foregroundStyle(AppTheme.destructive)
                     }
                     if isLoading {
                         ProgressView(configStore.isConfigured ? "Signing in" : "Connecting")
@@ -42,16 +43,18 @@ struct LoginView: View {
                                 } else { await connect() }
                             }
                         }
+                        .buttonStyle(AppPrimaryButtonStyle())
                         .disabled(!configStore.isConfigured && baseURL.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                }
+                }.listRowBackground(AppTheme.surface)
                 Section {
                     Button("Try Demo") { isDemoMode = true }
                     Button("Setup Help", systemImage: "info.circle") { showingSetupInfo = true }
-                }
+                }.listRowBackground(AppTheme.surface)
             }
             .disabled(isLoading)
-            .navigationTitle("Welcome")
+            .appListStyle()
+        .navigationTitle("Welcome")
             .sheet(isPresented: $showingSetupInfo) { SetupInfoSheet() }
         }
         .modifier(AccessibleMotionModifier())
@@ -87,9 +90,9 @@ private struct SetupInfoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Family Hub is a self-hosted family organiser for chores, meals, recipes, and calendars. You'll need to deploy the server yourself before connecting.")
+                    Text("Ask your family admin for the server address. Connect, then sign in with your family account.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.secondary)
 
                     Link(destination: URL(string: "https://github.com/bensuskins/family-hub")!) {
                         Label("github.com/bensuskins/family-hub", systemImage: "arrow.up.right.square")
@@ -97,19 +100,27 @@ private struct SetupInfoSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
+                        SetupStep(number: 1, title: "Get the server address", detail: "Ask your family admin for the Family Hub address.")
+                        SetupStep(number: 2, title: "Connect", detail: "Enter the address on the Welcome screen and tap Connect.")
+                        SetupStep(number: 3, title: "Sign in", detail: "Use the account your family admin provides.")
+                    }
+                    DisclosureGroup("Set up a server · For admins") {
+                    VStack(alignment: .leading, spacing: 16) {
                         SetupStep(number: 1, title: "Deploy with Docker", detail: "Run docker compose -f docker-compose.prod.yml up from the server/ directory in the repository.")
                         SetupStep(number: 2, title: "Configure an OIDC provider", detail: "Set up a public PKCE client in Authelia, Keycloak, or Auth0. Add your app's callback URL as a redirect URI.")
                         SetupStep(number: 3, title: "Set environment variables", detail: "Required: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_REDIRECT_URL, and SESSION_SECRET. A .env.example file is included in the repository.")
                         SetupStep(number: 4, title: "Enter your server URL here", detail: "Once the server is running, enter its public URL above and tap Connect. The first user to sign in becomes admin.")
                     }
 
+                    }
                     Text("Full documentation is available in the GitHub repository.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .padding()
             }
-            .navigationTitle("Setting Up Family Hub")
+            .appListStyle()
+        .navigationTitle("Setting Up Family Hub")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -139,7 +150,7 @@ private struct SetupStep: View {
                     .font(.subheadline.weight(.medium))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.secondary)
             }
         }
     }

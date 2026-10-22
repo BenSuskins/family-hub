@@ -73,9 +73,9 @@ struct LoginView: View {
                             .accessibilityIdentifier("Setup Help")
                     }
                 }
-                .frame(maxWidth: 520, alignment: .leading)
                 .padding(20)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: 520, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .background(AppTheme.background)
             .disabled(isLoading)
@@ -156,9 +156,9 @@ private struct SetupInfoSheet: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                .frame(maxWidth: 520, alignment: .leading)
                 .padding(20)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: 520, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .appListStyle()
             .navigationTitle("")

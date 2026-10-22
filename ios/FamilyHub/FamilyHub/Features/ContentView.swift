@@ -34,11 +34,6 @@ final class AppNavigation {
 
     func select(_ tab: AppTab) {
         if selectedTab == tab {
-            switch tab {
-            case .food: foodPath = []
-            case .household: householdPath = []
-            default: break
-            }
             return
         }
         selectedTab = tab

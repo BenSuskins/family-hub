@@ -4,6 +4,15 @@ import FamilyHubKit
 
 final class FakeAPIClient: APIClientProtocol {
     var serverIdentifier: String?
+    var commuteResult: Result<CommuteBoard, Error> = .failure(APIError.offline)
+    var commuteRequests: [CommuteDirection] = []
+    var beforeFetchCommute: (() async -> Void)?
+
+    func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard {
+        commuteRequests.append(direction)
+        await beforeFetchCommute?()
+        return try commuteResult.get()
+    }
     var removeNotificationDeviceError: Error?
     var registerNotificationDeviceError: Error?
 

@@ -27,6 +27,8 @@ See the [iPhone audit](docs/design-audit/iphone/index.html) and the [Calendar an
 ### Today
 
 - Make the meal plan the first main section. Keep chores and agenda actions easy to reach.
+- Show the Commute card after the meal plan during the user's selected display ranges.
+- Open Settings from the user's profile photo on Today. Keep this button off other screens.
 - Keep departure cards focused on the leave time and travel duration. Do not show an arrival margin.
 
 ### Calendar

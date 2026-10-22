@@ -11,9 +11,6 @@ public final class APIClient: APIClientProtocol {
     //     memory pressure rather than held forever.
     //   • the calendar view model keeps its own per-key response dictionary, as
     //     that caching is view-state specific (month/week/day) and short-lived.
-    // The current-user blob is persisted separately in UserDefaults (HomeViewModel)
-    // so the greeting can render instantly on cold launch. They are not unified
-    // on purpose — a single abstraction would obscure these different policies.
     private let baseURL: URL
     private let session: URLSession
     private let retryPolicy: RetryPolicy
@@ -355,14 +352,24 @@ public final class APIClient: APIClientProtocol {
         try await get("api/me")
     }
 
+    public func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard {
+        try await get("api/commute/trains", queryItems: [
+            URLQueryItem(name: "direction", value: direction.rawValue),
+            URLQueryItem(name: "count", value: String(count)),
+        ])
+    }
+
     // MARK: - Avatar
 
     public func uploadAvatar(imageData: Data, mimeType: String) async throws -> User {
-        try await uploadMultipart("api/profile/avatar", field: "avatar", data: imageData, mimeType: mimeType)
+        let user: User = try await uploadMultipart("api/profile/avatar", field: "avatar", data: imageData, mimeType: mimeType)
+        imageCache.removeObject(forKey: "avatar-\(user.id)" as NSString)
+        return user
     }
 
     public func deleteAvatar() async throws {
         try await delete("api/profile/avatar")
+        imageCache.removeAllObjects()
     }
 
     // MARK: - Settings

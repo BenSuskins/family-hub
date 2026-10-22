@@ -4,6 +4,16 @@ import FamilyHubKit
 
 @MainActor
 final class HomeViewModelTests: XCTestCase {
+    func testDoesNotRestoreAnotherAccountsCachedProfile() async throws {
+        let key = "cached_current_user"
+        let previous = UserDefaults.standard.data(forKey: key)
+        defer { UserDefaults.standard.set(previous, forKey: key) }
+        let otherUser = User(id: "other", name: "Other User", email: "", avatarURL: "/avatar/other", role: "member")
+        UserDefaults.standard.set(try JSONEncoder().encode(otherUser), forKey: key)
+        let model = HomeViewModel(apiClient: FakeAPIClient())
+        XCTAssertNil(model.currentUser)
+    }
+
     func testLoadSuccess() async {
         let fake = FakeAPIClient()
         fake.dashboardResult = .success(DashboardStats(

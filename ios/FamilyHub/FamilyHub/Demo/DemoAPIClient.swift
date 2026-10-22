@@ -161,6 +161,32 @@ private enum DemoData {
 
 @MainActor
 final class DemoAPIClient: APIClientProtocol {
+    private static var didSeedCommute = false
+    func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard {
+        guard (1...10).contains(count) else { throw APIError.badRequest(serverMessage: "Count must be between 1 and 10.") }
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_GB")
+        formatter.timeZone = TimeZone(identifier: "Europe/London")
+        formatter.dateFormat = "HH:mm"
+        let trains = (0..<min(count, 3)).map { index in
+            let departure = now.addingTimeInterval(Double(12 + index * 22) * 60)
+            let arrival = departure.addingTimeInterval(55 * 60)
+            let delay = index == 1 ? 300.0 : 0
+            return CommuteTrain(serviceID: "demo-\(direction.rawValue)-\(index)", operatorName: "Greater Anglia",
+                                platform: index == 2 ? nil : direction == .toWork ? "1" : "10",
+                                status: index == 1 ? "delayed" : "on_time",
+                                scheduledDeparture: formatter.string(from: departure), expectedDeparture: formatter.string(from: departure.addingTimeInterval(delay)),
+                                scheduledArrival: formatter.string(from: arrival), expectedArrival: formatter.string(from: arrival.addingTimeInterval(delay)))
+        }
+        let kelvedon = CommuteStation(code: "KEL", name: "Kelvedon")
+        let london = CommuteStation(code: "LST", name: "London Liverpool Street")
+        let timestamp = ISO8601DateFormatter().string(from: now)
+        return CommuteBoard(direction: direction, origin: direction == .toWork ? kelvedon : london,
+                            destination: direction == .toWork ? london : kelvedon,
+                            generatedAt: timestamp, fetchedAt: timestamp, trains: trains)
+    }
+
     var choreReminders = ChoreReminders(pushAvailable: true)
     var notificationDevices: [String: NotificationDevice] = [:]
 
@@ -176,6 +202,12 @@ final class DemoAPIClient: APIClientProtocol {
 
     init() {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo-commute"), !Self.didSeedCommute {
+            Self.didSeedCommute = true
+            var preferences = CommutePreferences()
+            preferences.toWork = CommuteSchedule(enabled: true, weekdays: Set(1...7), start: "00:00", end: "23:59")
+            CommutePreferencesStore().save(preferences, server: "demo", userID: DemoData.alexID)
+        }
         if ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
             let today = APIDate.dayString(Date())
             meals = [

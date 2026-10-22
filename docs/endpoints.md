@@ -100,7 +100,7 @@ middleware handles both. The `curl` examples use Bearer for brevity; swap in
 ### `GET /api/commute/trains`
 
 - **Use case:** Return upcoming trains between Kelvedon (`KEL`) and London Liverpool Street (`LST`).
-- **Callers:** The iPad display and other authenticated clients.
+- **Callers:** The iOS Today commute card, the iPad display, and other authenticated clients. The iOS card requests three trains per active direction.
 - **Security:** Session cookie or Bearer API token. The provider token stays on the server.
 - **Parameters:** `direction=to_work` (default) or `to_home`; `count=1..10` (default: `5`).
 - **Window:** The provider returns up to the requested count within the next two hours. This is not an all-day timetable.

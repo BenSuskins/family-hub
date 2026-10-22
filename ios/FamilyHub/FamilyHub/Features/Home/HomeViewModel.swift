@@ -14,11 +14,8 @@ final class HomeViewModel {
 
     let apiClient: any APIClientProtocol
 
-    private static let currentUserKey = "cached_current_user"
-
     init(apiClient: any APIClientProtocol) {
         self.apiClient = apiClient
-        currentUser = Self.loadCachedUser()
     }
 
     // Prevents an Xcode 26 crash where the Swift 6 runtime's isolated-deinit
@@ -45,7 +42,6 @@ final class HomeViewModel {
             let (stats, userList, me, cal) = try await (statsTask, usersTask, meTask, calTask)
             users = userList.keyedByID
             currentUser = me
-            Self.cacheUser(me)
             todayEvents = cal.events
             state = .loaded(stats)
             // The widget's own refresh budget is a few dozen a day, so every
@@ -58,15 +54,6 @@ final class HomeViewModel {
             if !silent { state = .failed(.from(error)) }
             else { actionError = .from(error) }
         }
-    }
-
-    private static func loadCachedUser() -> User? {
-        guard let data = UserDefaults.standard.data(forKey: currentUserKey) else { return nil }
-        return try? JSONDecoder().decode(User.self, from: data)
-    }
-
-    private static func cacheUser(_ user: User) {
-        UserDefaults.standard.set(try? JSONEncoder().encode(user), forKey: currentUserKey)
     }
 
     func completeChore(id: String) async -> Bool {

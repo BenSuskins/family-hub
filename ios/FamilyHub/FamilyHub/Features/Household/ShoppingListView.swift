@@ -97,11 +97,6 @@ struct ShoppingListView: View {
         .listStyle(.insetGrouped)
         .appListStyle()
         .navigationTitle(isHouseholdHome ? "Household" : "Shopping List")
-        .toolbar {
-            if isHouseholdHome {
-                ToolbarItem(placement: .topBarTrailing) { FeatureProfileButton(apiClient: apiClient) }
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await refresh() } }
         .refreshable { await refresh() }
         .errorAlert($model.error)

@@ -199,6 +199,9 @@ final class DemoAPIClient: APIClientProtocol {
     private var categories: [ChoreCategory] = DemoData.categories
     private var tokens: [APIToken] = []
     private var areas: [InventoryArea] = DemoData.inventory
+    private var calendarSubscriptions = [
+        CalendarSubscription(id: "demo-calendar-school", name: "School", url: "https://example.com/school.ics", color: "blue")
+    ]
 
     init() {
         #if DEBUG
@@ -417,9 +420,48 @@ final class DemoAPIClient: APIClientProtocol {
         return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
     }
 
+    func fetchCalendarSubscriptions() async throws -> [CalendarSubscription] { calendarSubscriptions }
+
+    func createCalendarSubscription(name: String, url: String, color: String) async throws -> CalendarSubscription {
+        let subscription = CalendarSubscription(id: "demo-calendar-\(UUID().uuidString)", name: name, url: url, color: color)
+        calendarSubscriptions.append(subscription)
+        return subscription
+    }
+
+    func updateCalendarSubscriptionColor(id: String, color: String) async throws -> CalendarSubscription {
+        guard let index = calendarSubscriptions.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let old = calendarSubscriptions[index]
+        let updated = CalendarSubscription(id: old.id, name: old.name, url: old.url, color: color, lastFetchedAt: old.lastFetchedAt, createdAt: old.createdAt)
+        calendarSubscriptions[index] = updated
+        return updated
+    }
+
+    func refreshCalendarSubscription(id: String) async throws {
+        guard calendarSubscriptions.contains(where: { $0.id == id }) else { throw APIError.notFound }
+    }
+
+    func deleteCalendarSubscription(id: String) async throws {
+        calendarSubscriptions.removeAll { $0.id == id }
+    }
+
+    func downloadDatabaseBackup() async throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-hub-demo.db.gz")
+        try Data("Demo backup archive".utf8).write(to: url)
+        return url
+    }
+
+    func restoreDatabaseBackup(from url: URL) async throws {
+        guard url.lastPathComponent.hasSuffix(".db.gz") else { throw APIError.badRequest(serverMessage: "Select a .db.gz backup.") }
+    }
+
     func fetchUsers() async throws -> [User] { users }
 
-    func fetchMe() async throws -> User { users[0] }
+    func fetchMe() async throws -> User {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo-member") { return users[1] }
+        #endif
+        return users[0]
+    }
 
     func uploadAvatar(imageData: Data, mimeType: String) async throws -> User { DemoData.users[0] }
 

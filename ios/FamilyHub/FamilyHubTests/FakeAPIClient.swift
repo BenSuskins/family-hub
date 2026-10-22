@@ -73,6 +73,7 @@ final class FakeAPIClient: APIClientProtocol {
     var calendarsByMonth: [String: CalendarResponse] = [:]
     var beforeFetchCalendar: ((Date) async throws -> Void)?
     var calendarRequests: [String] = []
+    var calendarSubscriptions: [CalendarSubscription] = []
     var usersResult: Result<[User], Error> = .success([])
     var saveMealResult: Result<MealPlan, Error> = .success(MealPlan(date: "", mealType: "", name: "", notes: "", recipeID: nil))
     var deleteMealResult: Result<Void, Error> = .success(())
@@ -155,6 +156,31 @@ final class FakeAPIClient: APIClientProtocol {
             return calendarsByMonth[APIDate.monthString(date)] ?? CalendarResponse(chores: [], events: [], meals: [])
         }
         return try calendarResult.get()
+    }
+    func fetchCalendarSubscriptions() async throws -> [CalendarSubscription] { calendarSubscriptions }
+    func createCalendarSubscription(name: String, url: String, color: String) async throws -> CalendarSubscription {
+        let subscription = CalendarSubscription(id: UUID().uuidString, name: name, url: url, color: color)
+        calendarSubscriptions.append(subscription)
+        return subscription
+    }
+    func updateCalendarSubscriptionColor(id: String, color: String) async throws -> CalendarSubscription {
+        guard let index = calendarSubscriptions.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let old = calendarSubscriptions[index]
+        let updated = CalendarSubscription(id: old.id, name: old.name, url: old.url, color: color, lastFetchedAt: old.lastFetchedAt, createdAt: old.createdAt)
+        calendarSubscriptions[index] = updated
+        return updated
+    }
+    func refreshCalendarSubscription(id: String) async throws {
+        guard calendarSubscriptions.contains(where: { $0.id == id }) else { throw APIError.notFound }
+    }
+    func deleteCalendarSubscription(id: String) async throws { calendarSubscriptions.removeAll { $0.id == id } }
+    func downloadDatabaseBackup() async throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("family-hub-demo.db.gz")
+        try Data("Demo backup archive".utf8).write(to: url)
+        return url
+    }
+    func restoreDatabaseBackup(from url: URL) async throws {
+        guard url.lastPathComponent.hasSuffix(".db.gz") else { throw APIError.badRequest(serverMessage: "Select a .db.gz backup.") }
     }
     func fetchUsers() async throws -> [User] { try usersResult.get() }
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan { try saveMealResult.get() }

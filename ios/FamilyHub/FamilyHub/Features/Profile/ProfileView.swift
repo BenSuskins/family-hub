@@ -165,9 +165,19 @@ struct ProfileView: View {
             NavigationLink("Categories") {
                 CategoriesView(apiClient: apiClient)
             }
+            NavigationLink {
+                CalendarSubscriptionsView(apiClient: apiClient)
+            } label: {
+                settingsEntry("Calendars", detail: "Manage external calendar feeds")
+            }.accessibilityIdentifier("Calendar feeds settings")
             NavigationLink("API Tokens") {
                 APITokensView(apiClient: apiClient)
             }
+            NavigationLink {
+                DatabaseBackupView(apiClient: apiClient)
+            } label: {
+                settingsEntry("Database backup", detail: "Save or restore family data")
+            }.accessibilityIdentifier("Database backup settings")
         }.listRowBackground(AppTheme.surface)
     }
 

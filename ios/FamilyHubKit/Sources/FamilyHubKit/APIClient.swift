@@ -141,7 +141,14 @@ public final class APIClient: APIClientProtocol {
         try await withRetry(policy: retryPolicy, shouldRetry: { $0.isRetryable }) {
             let request = try await self.buildRequest(path: path, method: "GET")
             do {
+#if os(Linux)
+                let (data, response) = try await self.session.data(for: request)
+                let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                try data.write(to: temporaryURL, options: .atomic)
+#else
                 let (temporaryURL, response) = try await self.session.download(for: request)
+#endif
+                defer { try? FileManager.default.removeItem(at: temporaryURL) }
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw APIError.network(URLError(.badServerResponse))
                 }

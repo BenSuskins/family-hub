@@ -126,8 +126,9 @@ public final class APIClient: APIClientProtocol {
             let request = try await self.buildRequest(path: path, method: method, contentType: contentType)
             do {
 #if os(Linux)
-                let body = try Data(contentsOf: bodyFileURL)
-                let (data, response) = try await self.session.upload(for: request, from: body)
+                var uploadRequest = request
+                uploadRequest.httpBody = try Data(contentsOf: bodyFileURL)
+                let (data, response) = try await self.session.data(for: uploadRequest)
 #else
                 let (data, response) = try await self.session.upload(for: request, fromFile: bodyFileURL)
 #endif

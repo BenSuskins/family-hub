@@ -197,19 +197,24 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                VStack(spacing: 0) {
-                    ForEach(Array(viewModel.todayEvents.prefix(3).enumerated()), id: \.element.id) { index, event in
-                        if index > 0 {
-                            Divider().padding(.leading, 20)
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    VStack(spacing: 0) {
+                        ForEach(Array(viewModel.todayEvents.prefix(3).enumerated()), id: \.element.id) { index, event in
+                            if index > 0 {
+                                Divider().padding(.leading, 20)
+                            }
+                            NavigationLink {
+                                EventDetailsView(event: event, apiClient: apiClient)
+                            } label: {
+                                EventRow(event: event, now: context.date)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("home-event-\(event.id)")
+                            .accessibilityValue(HomeAgendaEventPresentation.isPast(event: event, at: context.date) ? "Past event" : "")
                         }
-                        NavigationLink {
-                            EventDetailsView(event: event, apiClient: apiClient)
-                        } label: {
-                            EventRow(event: event)
-                        }.buttonStyle(.plain)
                     }
+                    .groupedCard()
                 }
-                .groupedCard()
                 .padding(.horizontal, 20)
             }
         }
@@ -381,6 +386,11 @@ private struct TodayMealCard: View {
 private struct EventRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let event: CalendarEvent
+    let now: Date
+
+    private var isPast: Bool {
+        HomeAgendaEventPresentation.isPast(event: event, at: now)
+    }
 
     private var dotColor: Color {
         Color(hex: event.color) ?? .accentColor
@@ -407,11 +417,12 @@ private struct EventRow: View {
                     }
                 }
             }
+            .foregroundStyle(isPast ? AppTheme.secondary : AppTheme.ink)
             .frame(minWidth: 62, alignment: .trailing)
 
             // Colored dot
             if !dynamicTypeSize.isAccessibilitySize {
-                Circle().fill(dotColor).frame(width: 8, height: 8)
+                Circle().fill(dotColor.opacity(isPast ? 0.45 : 1)).frame(width: 8, height: 8)
                     .accessibilityHidden(true)
             }
 
@@ -419,7 +430,7 @@ private struct EventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
+                    .foregroundStyle(isPast ? AppTheme.secondary : AppTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 if !event.description.isEmpty {
                     Text(event.description)

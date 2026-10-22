@@ -18,6 +18,20 @@ final class ContentScreensUITests: XCTestCase {
     }
 
     @MainActor
+    func testEndedHomeAgendaEventIsMutedAndStillOpens() {
+        continueAfterFailure = false
+        let app = launchDemo(homeAgendaFixtures: true)
+        let endedEvent = app.buttons["home-event-home-ended-event"]
+        reveal(endedEvent, in: app)
+
+        XCTAssertTrue(endedEvent.waitForExistence(timeout: 5))
+        XCTAssertEqual(endedEvent.value as? String, "Past event")
+        endedEvent.tap()
+        XCTAssertTrue(app.navigationBars["Event"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Earlier event"].exists)
+    }
+
+    @MainActor
     func testHomeAndIngredientActionsWithAccessibilityText() {
         continueAfterFailure = false
         if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
@@ -179,13 +193,14 @@ final class ContentScreensUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchDemo(largeText: Bool = false, mealImages: Bool = false, layoutFixtures: Bool = false) -> XCUIApplication {
+    private func launchDemo(largeText: Bool = false, mealImages: Bool = false, layoutFixtures: Bool = false, homeAgendaFixtures: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         if largeText {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
         if mealImages { app.launchArguments.append("-demo-meal-card-images") }
         if layoutFixtures { app.launchArguments.append("-calendar-layout-fixtures") }
+        if homeAgendaFixtures { app.launchArguments.append("-home-agenda-fixtures") }
         app.launch()
         let demo = app.buttons["Try Demo"]
         reveal(demo, in: app)

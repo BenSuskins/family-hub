@@ -11,17 +11,20 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/services"
+	"github.com/go-chi/chi/v5"
 )
 
-func TestCommuteAPIUsesDefaultsAndDirection(t *testing.T) {
-	for _, test := range []struct{ query, path, direction string }{
-		{"", "/departures/KEL/to/LST/5", "to_work"},
-		{"?direction=to_home&count=1", "/departures/LST/to/KEL/1", "to_home"},
-		{"?direction=to_work&count=10", "/departures/KEL/to/LST/10", "to_work"},
+func TestCommuteAPIUsesRouteAndCount(t *testing.T) {
+	for _, test := range []struct {
+		target, providerPath, origin, destination string
+	}{
+		{"/api/commute/trains/from/KEL/to/LST", "/departures/KEL/to/LST/5", "KEL", "LST"},
+		{"/api/commute/trains/from/lst/to/kel?count=1", "/departures/LST/to/KEL/1", "LST", "KEL"},
+		{"/api/commute/trains/from/ABC/to/XYZ?count=10", "/departures/ABC/to/XYZ/10", "ABC", "XYZ"},
 	} {
-		t.Run(test.direction+test.query, func(t *testing.T) {
+		t.Run(test.target, func(t *testing.T) {
 			provider := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-				if request.URL.Path != test.path {
+				if request.URL.Path != test.providerPath {
 					t.Errorf("unexpected route: %s", request.URL.Path)
 				}
 				writer.Write([]byte(`{"generatedAt":"2026-10-18T08:00:00+01:00","trainServices":null}`))
@@ -29,8 +32,7 @@ func TestCommuteAPIUsesDefaultsAndDirection(t *testing.T) {
 			t.Cleanup(provider.Close)
 			client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
 			handler := NewCommuteHandler(services.NewCommuteService(client, nil))
-			recorder := httptest.NewRecorder()
-			handler.ListTrains(recorder, httptest.NewRequest(http.MethodGet, "/api/commute/trains"+test.query, nil))
+			recorder := serveCommute(handler, test.target)
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("expected 200: %d %s", recorder.Code, recorder.Body.String())
 			}
@@ -38,8 +40,11 @@ func TestCommuteAPIUsesDefaultsAndDirection(t *testing.T) {
 			if err := json.Unmarshal(recorder.Body.Bytes(), &board); err != nil {
 				t.Fatal(err)
 			}
-			if board.Direction != test.direction || board.Trains == nil || board.FetchedAt.IsZero() || board.GeneratedAt.IsZero() {
+			if board.Origin.Code != test.origin || board.Destination.Code != test.destination || board.Trains == nil || board.FetchedAt.IsZero() || board.GeneratedAt.IsZero() {
 				t.Fatalf("unexpected board: %s", recorder.Body.String())
+			}
+			if strings.Contains(recorder.Body.String(), `"direction"`) {
+				t.Fatal("the response must not choose a Home/Work direction")
 			}
 			if recorder.Header().Get("Cache-Control") != "no-store" {
 				t.Fatal("HTTP caches must not retain train times")
@@ -49,11 +54,21 @@ func TestCommuteAPIUsesDefaultsAndDirection(t *testing.T) {
 }
 
 func TestCommuteAPIRejectsInvalidParameters(t *testing.T) {
-	handler := NewCommuteHandler(nil)
-	for _, query := range []string{"direction=outbound", "direction=", "count=", "count=0", "count=-1", "count=11", "count=abc", "count=1.5", "count=1&count=2", "direction=to_work&direction=to_home"} {
-		t.Run(query, func(t *testing.T) {
-			recorder := httptest.NewRecorder()
-			handler.ListTrains(recorder, httptest.NewRequest(http.MethodGet, "/api/commute/trains?"+query, nil))
+	service := services.NewCommuteService(services.NewHuxleyClient("", "", nil), nil)
+	handler := NewCommuteHandler(service)
+	for _, target := range []string{
+		"/api/commute/trains/from/AB/to/LST",
+		"/api/commute/trains/from/K3L/to/LST",
+		"/api/commute/trains/from/KEL/to/LST?count=",
+		"/api/commute/trains/from/KEL/to/LST?count=0",
+		"/api/commute/trains/from/KEL/to/LST?count=-1",
+		"/api/commute/trains/from/KEL/to/LST?count=11",
+		"/api/commute/trains/from/KEL/to/LST?count=abc",
+		"/api/commute/trains/from/KEL/to/LST?count=1.5",
+		"/api/commute/trains/from/KEL/to/LST?count=1&count=2",
+	} {
+		t.Run(target, func(t *testing.T) {
+			recorder := serveCommute(handler, target)
 			if recorder.Code != http.StatusBadRequest {
 				t.Fatalf("expected 400, got %d", recorder.Code)
 			}
@@ -61,7 +76,7 @@ func TestCommuteAPIRejectsInvalidParameters(t *testing.T) {
 	}
 }
 
-func TestCommuteAPICachesThenReturnsErrorAfterExpiry(t *testing.T) {
+func TestCommuteAPICachesByRouteAndCountThenErrorsAfterExpiry(t *testing.T) {
 	now := time.Date(2026, 10, 18, 7, 0, 0, 0, time.UTC)
 	var available atomic.Bool
 	available.Store(true)
@@ -75,33 +90,30 @@ func TestCommuteAPICachesThenReturnsErrorAfterExpiry(t *testing.T) {
 	t.Cleanup(provider.Close)
 	client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
 	handler := NewCommuteHandler(services.NewCommuteService(client, func() time.Time { return now }))
-	request := func(query string) *httptest.ResponseRecorder {
-		recorder := httptest.NewRecorder()
-		handler.ListTrains(recorder, httptest.NewRequest(http.MethodGet, "/api/commute/trains"+query, nil))
-		return recorder
-	}
-	first := request("")
+	request := func(target string) *httptest.ResponseRecorder { return serveCommute(handler, target) }
+	base := "/api/commute/trains/from/KEL/to/LST"
+	first := request(base)
 	if first.Code != http.StatusOK {
 		t.Fatalf("initial request: %s", first.Body.String())
 	}
 	available.Store(false)
 	now = now.Add(29 * time.Second)
-	cached := request("")
+	cached := request(base)
 	if cached.Code != http.StatusOK || cached.Body.String() != first.Body.String() {
 		t.Fatal("fresh cache is not reused")
 	}
-	if separateCount := request("?count=1"); separateCount.Code != http.StatusBadGateway {
+	if separateCount := request(base + "?count=1"); separateCount.Code != http.StatusBadGateway {
 		t.Fatal("cache reused for a different count")
 	}
-	if separateDirection := request("?direction=to_home"); separateDirection.Code != http.StatusBadGateway {
-		t.Fatal("cache reused for a different direction")
+	if separateRoute := request("/api/commute/trains/from/LST/to/KEL"); separateRoute.Code != http.StatusBadGateway {
+		t.Fatal("cache reused for a different route")
 	}
 	now = now.Add(time.Second)
-	if expired := request(""); expired.Code != http.StatusBadGateway {
+	if expired := request(base); expired.Code != http.StatusBadGateway {
 		t.Fatalf("expired cache returned %d", expired.Code)
 	}
 	available.Store(true)
-	if recovered := request(""); recovered.Code != http.StatusOK || recovered.Body.String() == first.Body.String() {
+	if recovered := request(base); recovered.Code != http.StatusOK || recovered.Body.String() == first.Body.String() {
 		t.Fatal("provider recovery did not refresh the cache")
 	}
 }
@@ -134,11 +146,18 @@ func TestCommuteAPIReturnsProviderErrors(t *testing.T) {
 			httpClient.Timeout = 20 * time.Millisecond
 			client := services.NewHuxleyClient(provider.URL, test.token, httpClient)
 			handler := NewCommuteHandler(services.NewCommuteService(client, nil))
-			recorder := httptest.NewRecorder()
-			handler.ListTrains(recorder, httptest.NewRequest(http.MethodGet, "/api/commute/trains", nil))
+			recorder := serveCommute(handler, "/api/commute/trains/from/KEL/to/LST")
 			if recorder.Code != test.expectedStatus || strings.Contains(recorder.Body.String(), "private-test-token") {
 				t.Fatalf("expected safe error %d, got %d %s", test.expectedStatus, recorder.Code, recorder.Body.String())
 			}
 		})
 	}
+}
+
+func serveCommute(handler *CommuteHandler, target string) *httptest.ResponseRecorder {
+	router := chi.NewRouter()
+	router.Get("/api/commute/trains/from/{origin}/to/{destination}", handler.ListTrains)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, target, nil))
+	return recorder
 }

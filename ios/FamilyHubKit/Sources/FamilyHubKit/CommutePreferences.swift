@@ -55,11 +55,44 @@ public struct CommuteSchedule: Codable, Equatable, Sendable {
 public struct CommutePreferences: Codable, Equatable, Sendable {
     public var toWork: CommuteSchedule
     public var toHome: CommuteSchedule
+    public var homeStationCode: String
+    public var workStationCode: String
+    public var trainCount: Int
 
     public init(toWork: CommuteSchedule = CommuteSchedule(start: "06:30", end: "09:30"),
-                toHome: CommuteSchedule = CommuteSchedule(start: "16:00", end: "19:30")) {
+                toHome: CommuteSchedule = CommuteSchedule(start: "16:00", end: "19:30"),
+                homeStationCode: String = "", workStationCode: String = "", trainCount: Int = 3) {
         self.toWork = toWork
         self.toHome = toHome
+        self.homeStationCode = Self.normalizedStationCode(homeStationCode)
+        self.workStationCode = Self.normalizedStationCode(workStationCode)
+        self.trainCount = trainCount
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case toWork, toHome, homeStationCode, workStationCode, trainCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        toWork = try container.decodeIfPresent(CommuteSchedule.self, forKey: .toWork) ?? CommuteSchedule(start: "06:30", end: "09:30")
+        toHome = try container.decodeIfPresent(CommuteSchedule.self, forKey: .toHome) ?? CommuteSchedule(start: "16:00", end: "19:30")
+        homeStationCode = Self.normalizedStationCode(try container.decodeIfPresent(String.self, forKey: .homeStationCode) ?? "")
+        workStationCode = Self.normalizedStationCode(try container.decodeIfPresent(String.self, forKey: .workStationCode) ?? "")
+        let savedTrainCount = try container.decodeIfPresent(Int.self, forKey: .trainCount) ?? 3
+        trainCount = (1...10).contains(savedTrainCount) ? savedTrainCount : 3
+    }
+
+    public var hasValidStations: Bool {
+        Self.isValidStationCode(homeStationCode) && Self.isValidStationCode(workStationCode)
+    }
+
+    public static func normalizedStationCode(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    public static func isValidStationCode(_ value: String) -> Bool {
+        value.utf8.count == 3 && value.utf8.allSatisfy { (65...90).contains($0) }
     }
 
     public subscript(direction: CommuteDirection) -> CommuteSchedule {
@@ -70,7 +103,8 @@ public struct CommutePreferences: Codable, Equatable, Sendable {
     }
 
     public func activeDirections(at date: Date) -> [CommuteDirection] {
-        CommuteDirection.allCases.filter { self[$0].contains(date) }
+        guard hasValidStations else { return [] }
+        return CommuteDirection.allCases.filter { self[$0].contains(date) }
     }
 }
 
@@ -83,9 +117,14 @@ public final class CommutePreferencesStore {
 
     public func load(server: String, userID: String) -> CommutePreferences {
         guard let data = defaults.data(forKey: key(server: server, userID: userID)),
-              let preferences = try? JSONDecoder().decode(CommutePreferences.self, from: data),
+              var preferences = try? JSONDecoder().decode(CommutePreferences.self, from: data),
               preferences.toWork.validationMessage == nil, preferences.toHome.validationMessage == nil else {
             return CommutePreferences()
+        }
+        if !preferences.hasValidStations {
+            preferences.toWork.enabled = false
+            preferences.toHome.enabled = false
+            _ = save(preferences, server: server, userID: userID)
         }
         return preferences
     }
@@ -93,7 +132,15 @@ public final class CommutePreferencesStore {
     @discardableResult
     public func save(_ preferences: CommutePreferences, server: String, userID: String) -> Bool {
         guard !userID.isEmpty, preferences.toWork.validationMessage == nil, preferences.toHome.validationMessage == nil,
-              let data = try? JSONEncoder().encode(preferences) else { return false }
+              (1...10).contains(preferences.trainCount) else { return false }
+        var preferences = preferences
+        preferences.homeStationCode = CommutePreferences.normalizedStationCode(preferences.homeStationCode)
+        preferences.workStationCode = CommutePreferences.normalizedStationCode(preferences.workStationCode)
+        if !preferences.hasValidStations {
+            preferences.toWork.enabled = false
+            preferences.toHome.enabled = false
+        }
+        guard let data = try? JSONEncoder().encode(preferences) else { return false }
         defaults.set(data, forKey: key(server: server, userID: userID))
         return true
     }

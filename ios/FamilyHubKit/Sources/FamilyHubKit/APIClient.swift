@@ -477,9 +477,13 @@ public final class APIClient: APIClientProtocol {
         try await get("api/me")
     }
 
-    public func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard {
-        try await get("api/commute/trains", queryItems: [
-            URLQueryItem(name: "direction", value: direction.rawValue),
+    public func fetchCommuteTrains(from origin: String, to destination: String, count: Int) async throws -> CommuteBoard {
+        let origin = CommutePreferences.normalizedStationCode(origin)
+        let destination = CommutePreferences.normalizedStationCode(destination)
+        guard CommutePreferences.isValidStationCode(origin), CommutePreferences.isValidStationCode(destination), (1...10).contains(count) else {
+            throw APIError.badRequest(serverMessage: "Enter valid station codes and a train count from 1 to 10.")
+        }
+        return try await get("api/commute/trains/from/\(origin)/to/\(destination)", queryItems: [
             URLQueryItem(name: "count", value: String(count)),
         ])
     }

@@ -2,16 +2,13 @@ import Foundation
 
 public struct CommuteStation: Codable, Equatable, Sendable {
     public let code: String
-    public let name: String
 
-    public init(code: String, name: String) {
+    public init(code: String) {
         self.code = code
-        self.name = name
     }
 }
 
 public struct CommuteBoard: Codable, Equatable, Sendable {
-    public let direction: CommuteDirection
     public let origin: CommuteStation
     public let destination: CommuteStation
     public let generatedAt: String
@@ -27,9 +24,8 @@ public struct CommuteBoard: Codable, Equatable, Sendable {
         return formatter.date(from: fetchedAt)
     }
 
-    public init(direction: CommuteDirection, origin: CommuteStation, destination: CommuteStation,
+    public init(origin: CommuteStation, destination: CommuteStation,
                 generatedAt: String, fetchedAt: String, timezone: String = "Europe/London", trains: [CommuteTrain]) {
-        self.direction = direction
         self.origin = origin
         self.destination = destination
         self.generatedAt = generatedAt

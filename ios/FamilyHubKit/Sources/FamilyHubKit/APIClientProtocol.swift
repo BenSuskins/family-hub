@@ -48,7 +48,7 @@ public protocol APIClientProtocol: AnyObject {
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
     func deleteMeal(date: String, mealType: String) async throws
     func fetchMe() async throws -> User
-    func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard
+    func fetchCommuteTrains(from origin: String, to destination: String, count: Int) async throws -> CommuteBoard
 
     // Avatar
     func uploadAvatar(imageData: Data, mimeType: String) async throws -> User

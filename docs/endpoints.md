@@ -58,28 +58,29 @@ their binary success responses.
 
 ### JSON API routes
 
-### `GET /api/commute/trains`
+### `GET /api/commute/trains/from/{origin}/to/{destination}`
 
-- **Use case:** Return upcoming trains between Kelvedon (`KEL`) and London Liverpool Street (`LST`).
-- **Callers:** The iOS Today commute card, the iPad display, and other authenticated clients. The iOS card requests three trains per active direction.
+- **Use case:** Return upcoming trains for the requested National Rail station route. The server does not store Home or Work station codes.
+- **Callers:** The iOS Today commute card. iOS sends Home → Work or Work → Home codes for the active card.
 - **Security:** Bearer API token. The provider token stays on the server.
-- **Parameters:** `direction=to_work` (default) or `to_home`; `count=1..10` (default: `5`).
+- **Parameters:** `origin` and `destination` are three-letter alphabetic CRS codes in the path. The server trims and uppercases them. `count=1..10` is optional and defaults to `5`.
+- **Direction:** The path's origin and destination define the route. The response has no Home/Work direction field; the iOS app maps it to the card it requested.
 - **Window:** The provider returns up to the requested count within the next two hours. This is not an all-day timetable.
 - **Order:** Scheduled departure order, including cancelled trains. Return `trains: []` when no trains are available.
 - **Times:** Train times use `HH:mm` in `Europe/London`. Arrival means arrival at the commute destination, including intermediate stops.
 - **Platform:** The departure platform. Unknown platforms and times are `null`.
 - **Status:** `on_time`, `delayed`, `cancelled`, or `unknown`. A cancelled destination stop means a cancelled commute.
 - **Estimates:** An "On time" estimate uses the scheduled time. An unspecified estimate is `null`. Cancelled trains have null estimates.
-- **Freshness:** Successful results use a 30-second cache for each direction and count. Expired results are never returned.
+- **Freshness:** Successful results use a 30-second cache for each origin, destination, and count. Expired results are never returned.
 - **Timestamps:** `generatedAt` comes from the provider. `fetchedAt` records the server fetch. Both use RFC 3339.
 - **Errors:** `400` for invalid parameters; `503` for an absent provider token; `502` for provider failures; `504` for provider timeouts.
 - **Configuration:** Set `HUXLEY_ACCESS_TOKEN` to the National Rail token. `HUXLEY_BASE_URL` defaults to `https://huxley2.azurewebsites.net`.
 
 ```bash
-curl -s "$BASE_URL/api/commute/trains?direction=to_work&count=5" \
+curl -s "$BASE_URL/api/commute/trains/from/KEL/to/LST?count=5" \
   -H "Authorization: Bearer $API_TOKEN" | jq
 
-curl -s "$BASE_URL/api/commute/trains?direction=to_home&count=3" \
+curl -s "$BASE_URL/api/commute/trains/from/LST/to/KEL?count=3" \
   -H "Authorization: Bearer $API_TOKEN" | jq
 ```
 
@@ -87,9 +88,8 @@ Example response:
 
 ```json
 {
-  "direction": "to_work",
-  "origin": {"code": "KEL", "name": "Kelvedon"},
-  "destination": {"code": "LST", "name": "London Liverpool Street"},
+  "origin": {"code": "KEL"},
+  "destination": {"code": "LST"},
   "generatedAt": "2026-10-18T08:00:00+01:00",
   "fetchedAt": "2026-10-18T07:00:01Z",
   "timezone": "Europe/London",

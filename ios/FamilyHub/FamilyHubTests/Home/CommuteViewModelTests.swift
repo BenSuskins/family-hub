@@ -17,7 +17,7 @@ final class CommuteViewModelTests: XCTestCase {
         let fake = FakeAPIClient()
         fake.serverIdentifier = "https://hub.example"
         let store = makeStore()
-        var preferences = CommutePreferences()
+        var preferences = configuredPreferences()
         preferences.toWork.enabled = true
         store.save(preferences, server: fake.serverIdentifier!, userID: "one")
         var now = ISO8601DateFormatter().date(from: "2026-10-19T06:30:00Z")!
@@ -33,14 +33,14 @@ final class CommuteViewModelTests: XCTestCase {
         now = ISO8601DateFormatter().date(from: "2026-10-19T08:30:00Z")!
         await model.refresh(force: true)
         XCTAssertTrue(model.activeDirections.isEmpty)
-        XCTAssertEqual(fake.commuteRequests, [.toWork])
+        XCTAssertEqual(fake.commuteRequests, [.init(origin: "KEL", destination: "LST", count: 3)])
     }
 
     func testAccountChangeDiscardsAnInFlightBoard() async {
         let fake = FakeAPIClient()
         fake.serverIdentifier = "https://hub.example"
         let store = makeStore()
-        var preferences = CommutePreferences()
+        var preferences = configuredPreferences()
         preferences.toWork.enabled = true
         store.save(preferences, server: fake.serverIdentifier!, userID: "one")
         let now = ISO8601DateFormatter().date(from: "2026-10-19T06:30:00Z")!
@@ -61,7 +61,7 @@ final class CommuteViewModelTests: XCTestCase {
     func testLeavingHomeCancelsTheRequestAndIgnoresItsResult() async {
         let fake = FakeAPIClient()
         let store = makeStore()
-        var preferences = CommutePreferences()
+        var preferences = configuredPreferences()
         preferences.toWork.enabled = true
         store.save(preferences, server: "demo", userID: "one")
         let now = ISO8601DateFormatter().date(from: "2026-10-19T06:30:00Z")!
@@ -86,7 +86,7 @@ final class CommuteViewModelTests: XCTestCase {
     func testFailedRequestCanBeRetriedWithoutWaitingThirtySeconds() async {
         let fake = FakeAPIClient()
         let store = makeStore()
-        var preferences = CommutePreferences()
+        var preferences = configuredPreferences()
         preferences.toWork.enabled = true
         store.save(preferences, server: "demo", userID: "one")
         let now = ISO8601DateFormatter().date(from: "2026-10-19T06:30:00Z")!
@@ -102,7 +102,7 @@ final class CommuteViewModelTests: XCTestCase {
     func testRefreshUsesTheProviderFetchTimeForItsThirtySecondLimit() async {
         let fake = FakeAPIClient()
         let store = makeStore()
-        var preferences = CommutePreferences()
+        var preferences = configuredPreferences()
         preferences.toWork.enabled = true
         store.save(preferences, server: "demo", userID: "one")
         var now = ISO8601DateFormatter().date(from: "2026-10-19T06:30:00Z")!
@@ -112,11 +112,11 @@ final class CommuteViewModelTests: XCTestCase {
         await model.refresh()
         now = now.addingTimeInterval(9)
         await model.refresh()
-        XCTAssertEqual(fake.commuteRequests, [.toWork])
+        XCTAssertEqual(fake.commuteRequests, [.init(origin: "KEL", destination: "LST", count: 3)])
         now = now.addingTimeInterval(1)
         fake.commuteResult = .success(board(at: now))
         await model.refresh()
-        XCTAssertEqual(fake.commuteRequests, [.toWork, .toWork])
+        XCTAssertEqual(fake.commuteRequests, [.init(origin: "KEL", destination: "LST", count: 3), .init(origin: "KEL", destination: "LST", count: 3)])
         guard case .loaded = model.states[.toWork] else { return XCTFail("Expected a refreshed board") }
     }
 
@@ -127,10 +127,13 @@ final class CommuteViewModelTests: XCTestCase {
         return CommutePreferencesStore(defaults: defaults)
     }
 
+    private func configuredPreferences() -> CommutePreferences {
+        CommutePreferences(homeStationCode: "KEL", workStationCode: "LST")
+    }
+
     private func board(at date: Date) -> CommuteBoard {
         let timestamp = ISO8601DateFormatter().string(from: date)
-        return CommuteBoard(direction: .toWork, origin: CommuteStation(code: "KEL", name: "Kelvedon"),
-                            destination: CommuteStation(code: "LST", name: "London Liverpool Street"),
+        return CommuteBoard(origin: CommuteStation(code: "KEL"), destination: CommuteStation(code: "LST"),
                             generatedAt: timestamp, fetchedAt: timestamp,
                             trains: [CommuteTrain(serviceID: "first", status: "on_time", scheduledDeparture: "07:42", expectedDeparture: "07:42", expectedArrival: "08:34")])
     }

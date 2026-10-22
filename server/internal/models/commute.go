@@ -4,11 +4,9 @@ import "time"
 
 type CommuteStation struct {
 	Code string `json:"code"`
-	Name string `json:"name"`
 }
 
 type CommuteBoard struct {
-	Direction   string         `json:"direction"`
 	Origin      CommuteStation `json:"origin"`
 	Destination CommuteStation `json:"destination"`
 	GeneratedAt time.Time      `json:"generatedAt"`

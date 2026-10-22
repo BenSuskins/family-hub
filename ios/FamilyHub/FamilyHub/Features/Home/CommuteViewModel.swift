@@ -103,7 +103,11 @@ final class CommuteViewModel {
             requests[direction] = Task { [weak self] in
                 guard let self else { return }
                 let result: Result<CommuteBoard, Error>
-                do { result = .success(try await apiClient.fetchCommuteTrains(direction: direction, count: 3)) }
+                let origin = direction == .toWork ? preferences.homeStationCode : preferences.workStationCode
+                let destination = direction == .toWork ? preferences.workStationCode : preferences.homeStationCode
+                do {
+                    result = .success(try await apiClient.fetchCommuteTrains(from: origin, to: destination, count: preferences.trainCount))
+                }
                 catch { result = .failure(error) }
                 guard session == requestSession, requestIDs[direction] == requestID else { return }
                 requests.removeValue(forKey: direction)
@@ -113,7 +117,7 @@ final class CommuteViewModel {
                 guard activeDirections.contains(direction) else { return }
                 switch result {
                 case .success(let board):
-                    guard board.direction == direction else {
+                    guard board.origin.code == origin, board.destination.code == destination else {
                         states[direction] = .failed(.decoding)
                         return
                     }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/bensuskins/family-hub/internal/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type CommuteHandler struct {
@@ -25,14 +26,6 @@ func (handler *CommuteHandler) ListTrains(writer http.ResponseWriter, request *h
 		writeJSONError(writer, http.StatusBadRequest, "invalid query parameters")
 		return
 	}
-	direction := "to_work"
-	if values, exists := query["direction"]; exists {
-		if len(values) != 1 || (values[0] != "to_work" && values[0] != "to_home") {
-			writeJSONError(writer, http.StatusBadRequest, "direction must be to_work or to_home")
-			return
-		}
-		direction = values[0]
-	}
 	count := 5
 	if values, exists := query["count"]; exists {
 		if len(values) != 1 {
@@ -45,9 +38,11 @@ func (handler *CommuteHandler) ListTrains(writer http.ResponseWriter, request *h
 			return
 		}
 	}
-	board, err := handler.service.FetchTrains(request.Context(), direction, count)
+	board, err := handler.service.FetchTrains(request.Context(), chi.URLParam(request, "origin"), chi.URLParam(request, "destination"), count)
 	if err != nil {
 		switch {
+		case errors.Is(err, services.ErrInvalidCommuteRequest):
+			writeJSONError(writer, http.StatusBadRequest, "origin and destination must be three-letter station codes")
 		case errors.Is(err, services.ErrCommuteUnavailable):
 			writeJSONError(writer, http.StatusServiceUnavailable, "train provider is not configured")
 		case errors.Is(err, services.ErrCommuteTimeout):

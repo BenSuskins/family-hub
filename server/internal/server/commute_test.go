@@ -44,7 +44,7 @@ func TestCommuteRouteRequiresBearerToken(t *testing.T) {
 		{"valid bearer", "valid-test-token", http.StatusOK},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodGet, "/api/commute/trains", nil)
+			request := httptest.NewRequest(http.MethodGet, "/api/commute/trains/from/KEL/to/LST", nil)
 			if test.bearer != "" {
 				request.Header.Set("Authorization", "Bearer "+test.bearer)
 			}

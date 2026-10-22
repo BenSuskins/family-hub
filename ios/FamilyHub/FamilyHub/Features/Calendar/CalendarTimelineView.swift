@@ -96,32 +96,9 @@ struct CalendarTimelineView: View {
                 HStack(spacing: 1) {
                     ForEach(days, id: \.self) { day in
                         let items = viewModel.items(for: day, untimedOnly: true)
-                        Button {
-                            guard !items.isEmpty else { return }
+                        CompactAllDayButton(day: day, items: items, dayKey: viewModel.schedule.dayKey(day)) {
                             allDaySheetDate = day
-                        } label: {
-                            VStack(alignment: .leading, spacing: 1) {
-                                if let first = items.first {
-                                    Text(first.title)
-                                        .font(.caption2.weight(.medium))
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                    if items.count > 1 {
-                                        Text("+\(items.count - 1) ⌄")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(AppTheme.accent)
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .padding(.horizontal, 2)
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .disabled(items.isEmpty)
-                        .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)), \(items.count) all-day items")
-                        .accessibilityHint(items.isEmpty ? "No all-day items" : "Show all-day items")
-                        .accessibilityIdentifier("calendar-all-day-count-\(viewModel.schedule.dayKey(day))")
                         .frame(width: max(1, (geometry.size.width - CGFloat(days.count - 1)) / CGFloat(days.count)))
                     }
                 }
@@ -312,6 +289,39 @@ struct CalendarTimelineView: View {
                 .allowsHitTesting(false)
             }
         }
+    }
+}
+
+private struct CompactAllDayButton: View {
+    let day: Date
+    let items: [CalendarDisplayItem]
+    let dayKey: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 1) {
+                if let first = items.first {
+                    Text(first.title)
+                        .font(.caption2.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if items.count > 1 {
+                        Text("+\(items.count - 1) ⌄")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(items.isEmpty)
+        .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)), \(items.count) all-day items")
+        .accessibilityHint(items.isEmpty ? "No all-day items" : "Show all-day items")
+        .accessibilityIdentifier("calendar-all-day-count-\(dayKey)")
     }
 }
 

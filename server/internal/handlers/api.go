@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -19,22 +20,37 @@ import (
 )
 
 type APIHandler struct {
-	choreRepo       repository.ChoreRepository
-	userRepo        repository.UserRepository
-	categoryRepo    repository.CategoryRepository
-	assignmentRepo  repository.ChoreAssignmentRepository
-	tokenRepo       repository.APITokenRepository
-	settingsRepo    repository.SettingsRepository
-	choreService    *services.ChoreService
-	mealPlanRepo    repository.MealPlanRepository
-	recipeRepo      repository.RecipeRepository
-	inventoryRepo   repository.InventoryRepository
-	icalFetcher     *services.ICalFetcher
-	recipeExtractor *services.RecipeExtractor
-	oidcUserInfoURL string
-	clientID        string
-	oidcIssuer      string
+	choreRepo          repository.ChoreRepository
+	userRepo           repository.UserRepository
+	categoryRepo       repository.CategoryRepository
+	assignmentRepo     repository.ChoreAssignmentRepository
+	tokenRepo          repository.APITokenRepository
+	settingsRepo       repository.SettingsRepository
+	choreService       *services.ChoreService
+	mealPlanRepo       repository.MealPlanRepository
+	recipeRepo         repository.RecipeRepository
+	inventoryRepo      repository.InventoryRepository
+	icalFetcher        *services.ICalFetcher
+	recipeExtractor    *services.RecipeExtractor
+	oidcUserInfoURL    string
+	oidcUserInfoClient *http.Client
+	clientID           string
+	oidcIssuer         string
 }
+
+type oidcUserInfo struct {
+	Sub               string `json:"sub"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
+	Picture           string `json:"picture"`
+}
+
+const (
+	maxJSONRequestBytes  int64 = 10 << 20
+	maxOIDCResponseBytes int64 = 1 << 20
+	oidcUserInfoTimeout        = 10 * time.Second
+)
 
 func NewAPIHandler(
 	choreRepo repository.ChoreRepository,
@@ -54,21 +70,22 @@ func NewAPIHandler(
 	oidcIssuer string,
 ) *APIHandler {
 	return &APIHandler{
-		choreRepo:       choreRepo,
-		userRepo:        userRepo,
-		categoryRepo:    categoryRepo,
-		assignmentRepo:  assignmentRepo,
-		tokenRepo:       tokenRepo,
-		settingsRepo:    settingsRepo,
-		choreService:    choreService,
-		mealPlanRepo:    mealPlanRepo,
-		recipeRepo:      recipeRepo,
-		inventoryRepo:   inventoryRepo,
-		icalFetcher:     icalFetcher,
-		recipeExtractor: recipeExtractor,
-		oidcUserInfoURL: oidcUserInfoURL,
-		clientID:        clientID,
-		oidcIssuer:      oidcIssuer,
+		choreRepo:          choreRepo,
+		userRepo:           userRepo,
+		categoryRepo:       categoryRepo,
+		assignmentRepo:     assignmentRepo,
+		tokenRepo:          tokenRepo,
+		settingsRepo:       settingsRepo,
+		choreService:       choreService,
+		mealPlanRepo:       mealPlanRepo,
+		recipeRepo:         recipeRepo,
+		inventoryRepo:      inventoryRepo,
+		icalFetcher:        icalFetcher,
+		recipeExtractor:    recipeExtractor,
+		oidcUserInfoURL:    oidcUserInfoURL,
+		oidcUserInfoClient: &http.Client{Timeout: oidcUserInfoTimeout},
+		clientID:           clientID,
+		oidcIssuer:         oidcIssuer,
 	}
 }
 
@@ -96,21 +113,19 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 	}
 	req.Header.Set("Authorization", "Bearer "+oidcToken)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
+	resp, err := handler.oidcUserInfoClient.Do(req)
+	if err != nil {
 		writeJSONError(w, http.StatusUnauthorized, "invalid token")
 		return
 	}
 	defer resp.Body.Close()
-
-	var userInfo struct {
-		Sub               string `json:"sub"`
-		Email             string `json:"email"`
-		Name              string `json:"name"`
-		PreferredUsername string `json:"preferred_username"`
-		Picture           string `json:"picture"`
+	if resp.StatusCode != http.StatusOK {
+		writeJSONError(w, http.StatusUnauthorized, "invalid token")
+		return
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil || userInfo.Sub == "" {
+
+	userInfo, err := decodeOIDCUserInfo(resp.Body)
+	if err != nil {
 		writeJSONError(w, http.StatusUnauthorized, "invalid userinfo response")
 		return
 	}
@@ -1169,12 +1184,49 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-// decodeJSONBody decodes r.Body into dest. On failure it writes a 400 JSON
-// error and returns false.
+// decodeJSONBody decodes a size-limited JSON body into dest.
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, dest interface{}) bool {
-	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
+	return decodeJSONBodyWithLimit(w, r, dest, maxJSONRequestBytes)
+}
+
+func decodeJSONBodyWithLimit(w http.ResponseWriter, r *http.Request, dest interface{}, maximumBytes int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maximumBytes)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dest); err != nil {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "request body exceeds size limit")
+			return false
+		}
 		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 		return false
 	}
+	if err := decoder.Decode(new(interface{})); err != io.EOF {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "request body exceeds size limit")
+		} else {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		}
+		return false
+	}
 	return true
+}
+
+func decodeOIDCUserInfo(responseBody io.Reader) (oidcUserInfo, error) {
+	var userInfo oidcUserInfo
+	body, err := io.ReadAll(io.LimitReader(responseBody, maxOIDCResponseBytes+1))
+	if err != nil {
+		return userInfo, err
+	}
+	if int64(len(body)) > maxOIDCResponseBytes {
+		return userInfo, errors.New("OIDC user-info response exceeds size limit")
+	}
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return userInfo, err
+	}
+	if userInfo.Sub == "" {
+		return userInfo, errors.New("OIDC user-info response has no subject")
+	}
+	return userInfo, nil
 }

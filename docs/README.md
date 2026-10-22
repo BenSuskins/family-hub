@@ -48,7 +48,7 @@ family-hub/
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.27+
 - An OIDC provider supporting public PKCE clients (e.g. Authelia, Keycloak, Auth0) — see [oidc-setup.md](oidc-setup.md)
 
 ### Setup — Quick Start (Docker)

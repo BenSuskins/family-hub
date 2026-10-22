@@ -55,24 +55,24 @@ func decodeDataURI(dataURI string) ([]byte, bool) {
 func readUploadedImage(w http.ResponseWriter, r *http.Request, field string, maxBytes int) (imageBytes []byte, contentType string, ok bool) {
 	file, _, err := r.FormFile(field)
 	if err != nil {
-		http.Error(w, "Missing "+field+" file", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "missing "+field+" file")
 		return nil, "", false
 	}
 	defer file.Close()
 
 	imageBytes, err = io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err != nil {
-		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "failed to read file")
 		return nil, "", false
 	}
 	if len(imageBytes) > maxBytes {
-		http.Error(w, "Image exceeds size limit", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "image exceeds size limit")
 		return nil, "", false
 	}
 
 	contentType, ok = detectImageContentType(imageBytes)
 	if !ok {
-		http.Error(w, "Unsupported image format", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "unsupported image format")
 		return nil, "", false
 	}
 	return imageBytes, contentType, true

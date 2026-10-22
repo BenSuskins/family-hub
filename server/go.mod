@@ -3,23 +3,18 @@ module github.com/bensuskins/family-hub
 go 1.25.5
 
 require (
-	github.com/a-h/templ v0.3.977
 	github.com/arran4/golang-ical v0.3.2
-	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/httprate v0.15.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/securecookie v1.1.2
 	golang.org/x/image v0.32.0
 	golang.org/x/net v0.52.0
-	golang.org/x/oauth2 v0.35.0
 	modernc.org/sqlite v1.45.0
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

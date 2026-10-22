@@ -35,7 +35,7 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 	tempFile, err := os.CreateTemp("", "family-hub-backup-*.db")
 	if err != nil {
 		slog.Error("creating temp backup file", "error", err)
-		http.Error(w, "backup failed", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "backup failed")
 		return
 	}
 	tempPath := tempFile.Name()
@@ -45,14 +45,14 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := handler.db.ExecContext(ctx, "VACUUM INTO ?", tempPath); err != nil {
 		slog.Error("vacuuming database to backup", "error", err)
-		http.Error(w, "backup failed", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "backup failed")
 		return
 	}
 
 	source, err := os.Open(tempPath)
 	if err != nil {
 		slog.Error("opening backup file", "error", err)
-		http.Error(w, "backup failed", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "backup failed")
 		return
 	}
 	defer source.Close()
@@ -76,25 +76,25 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 
 func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
 	file, fileHeader, err := r.FormFile("backup")
 	if err != nil {
-		http.Error(w, "backup file required", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "backup file required")
 		return
 	}
 	defer file.Close()
 
 	if !strings.HasSuffix(fileHeader.Filename, ".db.gz") {
-		http.Error(w, "file must be a .db.gz archive", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "file must be a .db.gz archive")
 		return
 	}
 
 	gzReader, err := gzip.NewReader(file)
 	if err != nil {
-		http.Error(w, "invalid gzip archive", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "invalid gzip archive")
 		return
 	}
 	defer gzReader.Close()
@@ -102,7 +102,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	tempFile, err := os.CreateTemp("", "family-hub-restore-*.db")
 	if err != nil {
 		slog.Error("creating temp restore file", "error", err)
-		http.Error(w, "restore failed", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "restore failed")
 		return
 	}
 	tempPath := tempFile.Name()
@@ -110,7 +110,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(tempFile, gzReader); err != nil {
 		tempFile.Close()
 		os.Remove(tempPath)
-		http.Error(w, "invalid backup file", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "invalid backup file")
 		return
 	}
 	tempFile.Close()
@@ -118,7 +118,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	validationDB, err := database.Open(tempPath)
 	if err != nil {
 		os.Remove(tempPath)
-		http.Error(w, "uploaded file is not a valid SQLite database", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "uploaded file is not a valid SQLite database")
 		return
 	}
 	validationDB.Close()
@@ -126,7 +126,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	if err := replaceFile(tempPath, handler.databasePath); err != nil {
 		os.Remove(tempPath)
 		slog.Error("replacing database file", "error", err)
-		http.Error(w, "restore failed", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "restore failed")
 		return
 	}
 

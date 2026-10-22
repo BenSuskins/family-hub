@@ -4,17 +4,15 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
-func TestCommuteRouteRequiresSessionOrBearer(t *testing.T) {
+func TestCommuteRouteRequiresBearerToken(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	users := repository.NewUserRepository(database)
 	user, err := users.Create(context.Background(), models.User{
@@ -34,34 +32,21 @@ func TestCommuteRouteRequiresSessionOrBearer(t *testing.T) {
 		writer.Write([]byte(`{"generatedAt":"2026-10-18T08:00:00+01:00","trainServices":[]}`))
 	}))
 	t.Cleanup(provider.Close)
-	configuration := config.Config{SessionSecret: strings.Repeat("s", 32), HuxleyBaseURL: provider.URL, HuxleyAccessToken: "test-provider-token"}
-	auth, err := services.NewAuthService(context.Background(), configuration, users)
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := New(database, configuration, auth)
-	session := httptest.NewRecorder()
-	if err := auth.SetSession(session, user.ID); err != nil {
-		t.Fatal(err)
-	}
+	configuration := config.Config{HuxleyBaseURL: provider.URL, HuxleyAccessToken: "test-provider-token"}
+	server := New(database, configuration)
 	for _, test := range []struct {
 		name     string
 		bearer   string
-		cookie   bool
 		expected int
 	}{
-		{"no credentials", "", false, http.StatusFound},
-		{"invalid bearer", "invalid-test-token", false, http.StatusUnauthorized},
-		{"valid bearer", "valid-test-token", false, http.StatusOK},
-		{"valid session", "", true, http.StatusOK},
+		{"no credentials", "", http.StatusUnauthorized},
+		{"invalid bearer", "invalid-test-token", http.StatusUnauthorized},
+		{"valid bearer", "valid-test-token", http.StatusOK},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/commute/trains", nil)
 			if test.bearer != "" {
 				request.Header.Set("Authorization", "Bearer "+test.bearer)
-			}
-			if test.cookie {
-				request.AddCookie(session.Result().Cookies()[0])
 			}
 			recorder := httptest.NewRecorder()
 			server.router.ServeHTTP(recorder, request)

@@ -144,6 +144,15 @@ func calendarSubscriptionResponse(subscription models.ICalSubscription) Calendar
 	}
 }
 
+func isValidSubscriptionColor(color string) bool {
+	switch color {
+	case "indigo", "violet", "rose", "red", "orange", "amber", "emerald", "teal", "sky", "blue":
+		return true
+	default:
+		return false
+	}
+}
+
 func writeCalendarSubscriptionError(w http.ResponseWriter, err error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "calendar not found")

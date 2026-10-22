@@ -48,7 +48,6 @@ type ChoreRepository interface {
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
 	CountBySeries(ctx context.Context, seriesID string) (int, error)
-	DeleteCompletedByName(ctx context.Context, name string) error
 }
 
 type SQLiteChoreRepository struct {
@@ -376,17 +375,6 @@ func (repository *SQLiteChoreRepository) CountBySeries(ctx context.Context, seri
 		return 0, fmt.Errorf("counting chores by series: %w", err)
 	}
 	return count, nil
-}
-
-func (repository *SQLiteChoreRepository) DeleteCompletedByName(ctx context.Context, name string) error {
-	_, err := repository.database.ExecContext(ctx,
-		`DELETE FROM chores WHERE name = ? AND status = 'completed'`,
-		name,
-	)
-	if err != nil {
-		return fmt.Errorf("deleting completed chores by name: %w", err)
-	}
-	return nil
 }
 
 func IsOverdue(chore models.Chore, now time.Time) bool {

@@ -10,28 +10,26 @@
 
 ## Overview
 
-Family Hub is a self-hosted web app for managing a household: chores with
-recurring schedules and random assignment, a weekly meal planner backed by a
-recipe library, unified calendar view with external iCal subscriptions, and
-a per-user dashboard. The Go server serves both an HTMX/Templ web UI and a
-SwiftUI iOS app from the same REST API. Auth is OIDC via a single public
-PKCE client shared across web and iOS.
+Family Hub is a self-hosted household service for chores, meals, recipes,
+calendars, shopping, and inventory. The Go server provides a JSON and media API
+for the SwiftUI iOS app and its extensions. The iOS app handles OIDC PKCE sign-in
+and exchanges the OIDC access token for a long-lived API token.
 
 ## Features
 
 - **Chores** — recurring schedules (daily/weekly/monthly/cron), random assignment, overdue tracking
 - **Notifications** — two daily chore reminders and admin family messages on enabled iPhones; see [setup](chore-reminders.md)
-- **Dashboard** — today's chores, overdue items, upcoming events, completion stats, household leaderboard
+- **Dashboard** — today's chores, overdue items, upcoming events, and completion stats
 - **Calendar** — unified view of chores, family events, and external iCal subscriptions
 - **iCal subscriptions** — admin-managed feeds (school, sports, etc.)
 - **Meal planning** — weekly planner (breakfast/lunch/dinner) linked to the recipe library
 - **Recipes** — ingredient groups, cooking times, import from URL (JSON-LD + HTML fallback)
-- **REST API** — session cookie or Bearer token; same surface for web and iOS. See [`endpoints.md`](endpoints.md)
-- **Admin panel** — user/role management, chore categories, API tokens, DB backup/restore
+- **REST API** — Bearer token authentication for the iOS app. See [`endpoints.md`](endpoints.md)
+- **Admin operations** — user/role management, chore categories, API tokens, and database backup/restore through the API
 
 ## Tech Stack
 
-- **Backend:** Go, [Chi](https://github.com/go-chi/chi) router, [Templ](https://templ.guide/), [HTMX](https://htmx.org/), Tailwind
+- **Backend:** Go, [Chi](https://github.com/go-chi/chi) router, JSON REST API
 - **Database:** SQLite (`modernc.org/sqlite` — pure Go, no CGO)
 - **Auth:** OIDC via Authelia (single public PKCE client, no client secret)
 - **iOS:** SwiftUI, MVVM
@@ -40,7 +38,7 @@ PKCE client shared across web and iOS.
 
 ```
 family-hub/
-├── server/                  # Go backend (HTTP server, templates, REST API)
+├── server/                  # Go API server
 ├── ios/                     # SwiftUI iOS app
 ├── data/                    # Runtime data (SQLite, gitignored)
 └── docs/                    # README, ARCHITECTURE, TROUBLESHOOTING, OIDC setup, endpoints
@@ -51,8 +49,6 @@ family-hub/
 ### Prerequisites
 
 - Go 1.22+
-- Node.js (for Tailwind)
-- [Templ](https://templ.guide/) CLI
 - An OIDC provider supporting public PKCE clients (e.g. Authelia, Keycloak, Auth0) — see [oidc-setup.md](oidc-setup.md)
 
 ### Setup — Quick Start (Docker)
@@ -64,18 +60,18 @@ cp .env.example .env                                   # fill in OIDC + secrets
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Verify: open `http://localhost:8080`. **The first user to sign in is auto-promoted to admin.**
+Verify the server with `curl http://localhost:8080/health`. The first user who
+exchanges an OIDC token is auto-promoted to admin.
 
 ### Setup — Local
 
 ```bash
 cd server
 go mod download
-npm install
 make run
 ```
 
-For hot reload: `make dev` (Air watches Go + Templ changes).
+For hot reload, run `make dev`.
 
 ## Environment Variables
 
@@ -84,13 +80,8 @@ For hot reload: `make dev` (Air watches Go + Templ changes).
 | `DATABASE_PATH` | no | `./data/family-hub.db` | SQLite file path |
 | `OIDC_ISSUER` | yes | — | OpenID Connect issuer URL |
 | `OIDC_CLIENT_ID` | yes | — | OAuth2 client ID (single public PKCE client) |
-| `OIDC_REDIRECT_URL` | yes | — | OAuth2 callback URL |
-| `SESSION_SECRET` | yes | — | Session encryption key |
-| `BASE_URL` | no | `http://localhost:8080` | Public base URL of the app |
-| `SESSION_ENCRYPTION_KEY` | no | — | 16 or 32 ASCII chars to encrypt session cookies. Unset = signed-only |
 | `LOG_LEVEL` | no | `info` | `debug`/`info`/`warn`/`error` |
 | `PORT` | no | `8080` | Server port |
-| `DEV_MODE` | no | `false` | Bypass OIDC + auto-login as dev admin (**never in prod**) |
 
 For provider-specific OIDC client configuration (Authelia, Keycloak, Auth0), see [oidc-setup.md](oidc-setup.md).
 
@@ -100,11 +91,9 @@ Run from `server/`:
 
 | Command | Purpose |
 |---------|---------|
-| `make build` | Regenerate templates, rebuild CSS, compile Go binary |
+| `make build` | Compile the Go server |
 | `make run` | Build and run |
 | `make dev` | Air hot reload |
-| `make templ` | Regenerate Templ templates |
-| `make css` | Rebuild Tailwind CSS |
 | `make test` | Run all tests |
 | `make test-coverage` | Generate HTML coverage report |
 | `make docker-dev` | Dev stack via Docker Compose |
@@ -135,7 +124,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the system diagram, request flow, OID
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues (redirect URI mismatches, missing templ CLI, iOS connectivity, etc.).
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common server and iOS connectivity issues.
 
 ## Security
 

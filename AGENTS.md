@@ -1,38 +1,36 @@
 # Family Hub — Developer Context
 
-Family organization hub for managing chores, meals, recipes, and calendars.
-Go backend with server-side rendering via Templ + HTMX, SQLite database.
+Family organization hub for chores, meals, recipes, calendars, shopping, and
+inventory. The Go server is a JSON and media API for the native Apple clients.
 
 ## Endpoint Reference
 
-`docs/endpoints.md` is the canonical list of every HTTP route (usecase, callers,
-security, runnable `curl` example). **Whenever you add, remove, rename, or change
-the auth/behavior of a route in `server/internal/server/server.go` or any handler,
-update `docs/endpoints.md` in the same change.** Do not let it drift.
+`docs/endpoints.md` is the canonical list of every HTTP route (use case,
+callers, security, runnable `curl` example). Whenever you add, remove, rename,
+or change the auth or behavior of a route in
+`server/internal/server/server.go` or a handler, update that file in the same
+change.
 
 ## Monorepo Layout
 
 | Component | Directory | Description |
 |-----------|-----------|-------------|
-| Go backend | `server/` | HTTP server, templates, API |
+| Go API server | `server/` | HTTP API, business logic, SQLite |
 | iOS app | `ios/` | SwiftUI native client |
-| Home Assistant | `home-assistant/` | Custom HACS integration |
 
 ### iOS targets
 
 | Target | Directory | Notes |
 |--------|-----------|-------|
 | `FamilyHub` | `ios/FamilyHub/FamilyHub/` | The app |
-| `FamilyHubWidgets` | `ios/FamilyHub/FamilyHubWidgets/` | WidgetKit extension (Today: the day's events, chores and meals) |
+| `FamilyHubWidgets` | `ios/FamilyHub/FamilyHubWidgets/` | WidgetKit extension |
 | `ShareExtension` | `ios/FamilyHub/ShareExtension/` | Recipe share sheet |
 | `FamilyHubWatch Watch App` | `ios/FamilyHub/FamilyHubWatch Watch App/` | Cook mode on the wrist |
-| `FamilyHubKit` | `ios/FamilyHubKit/` | Shared models + networking, Foundation-only so CI tests it on Linux |
+| `FamilyHubKit` | `ios/FamilyHubKit/` | Shared models and networking, Foundation-only for Linux CI |
 
-Only the app can run the OIDC flow, so it mirrors the server URL and the
-long-lived API token into the shared app group for the extensions to read — see
-`SharedContainer` in FamilyHubKit. New logic that an extension needs belongs in
-FamilyHubKit, where the Linux CI job tests it in seconds; the widget target
-itself should stay close to pure SwiftUI.
+Only the app can run the OIDC flow. It mirrors the server URL and long-lived
+API token into the shared app group so extensions can read them. See
+`SharedContainer` in FamilyHubKit. Put new extension logic in FamilyHubKit.
 
 ## Architecture
 
@@ -41,82 +39,73 @@ Request flow: HTTP → Chi router → Middleware → Handler → Service → Rep
 ```
 server/
 ├── internal/
-│   ├── config/          # Env var parsing
-│   ├── database/        # DB connection + migration runner
-│   ├── models/          # Domain types (Chore, User, Recipe, etc.)
-│   ├── repository/      # Interfaces + SQLite implementations
-│   ├── services/        # Business logic (recurrence, chore assignment, iCal fetch, recipe extraction, SSRF guard)
-│   ├── handlers/        # HTTP handlers (one file per feature area)
-│   ├── middleware/      # Auth + admin enforcement
+│   ├── config/          # Environment parsing
+│   ├── database/        # DB connection and migration runner
+│   ├── models/          # Domain types
+│   ├── repository/      # Interfaces and SQLite implementations
+│   ├── services/        # Business logic and external URL guards
+│   ├── handlers/        # JSON and binary API handlers
+│   ├── middleware/      # Bearer auth and admin enforcement
 │   ├── server/          # Chi router wiring
 │   └── testutil/        # Shared test helpers
-templates/           (under server/)
-├── layouts/         # Base page layout
-├── pages/           # Full-page templ files
-└── components/      # Reusable UI components
 ```
 
 ## Key Patterns
 
-**Repositories** — Each feature area has an interface in `internal/repository/` with a SQLite
-implementation. Tests use in-memory SQLite (`:memory:`).
+**Repositories** — Each feature area has an interface in
+`internal/repository/` with a SQLite implementation. Tests use in-memory
+SQLite (`:memory:`).
 
-**Services** — Business logic lives in `internal/services/`. Handlers call services; services
-call repositories. Direct repository access from handlers is avoided.
+**Services** — Business logic lives in `internal/services/`. Handlers call
+services; services call repositories. Avoid direct repository access from
+handlers when logic belongs in a service.
 
-**Templ** — Type-safe templates compiled to Go. Run `templ generate` after editing `.templ`
-files. The generated `*_templ.go` files are gitignored — CI (and any fresh checkout)
-must run `templ generate` before `go build`/`go test`.
+**Authentication** — `POST /api/auth/exchange` exchanges a one-time OIDC bearer
+token for a Family Hub API token. All other authenticated routes require
+`Authorization: Bearer <token>`. Admin routes also require the admin role.
+The API does not issue web sessions or serve HTML.
 
-**HTMX** — Handlers return either full pages or HTML fragments depending on whether the
-request is an HTMX partial. Fragments are returned for `HX-Request` headers.
+**Errors and media** — API errors use a JSON object with an `error` field.
+Image and database backup routes return binary data on success.
 
-**SSRF guard** — Any handler that fetches an external URL on behalf of a user
-(iCal subscriptions, recipe URL import) must route the request through
-`services.ValidateExternalURL` / `services.NewSafeHTTPClient` in `services/safenet.go`.
-This blocks private IP ranges and non-HTTP(S) schemes.
-
-**Auth** — OIDC via Authelia. Single public PKCE client shared by web + iOS
-(two redirect URIs, no client secret). Two post-login flows: *authed user*
-(session cookie OR Bearer API token, unified in `RequireUser`) and *admin
-user* (`+ RequireAdmin`). Both mechanisms populate the same `UserContextKey`,
-so handlers are mechanism-agnostic. Public routes: `/health`, `/static/*`,
-`/api/client-config`, `/login`, `/auth/callback`, `/logout`. Mobile clients
-obtain an API token via `POST /api/auth/exchange` (one-time OIDC bearer).
-No onboarding flow; no iCal feed export.
+**SSRF guard** — Any handler that fetches an external URL for a user must use
+`services.ValidateExternalURL` and `services.NewSafeHTTPClient` in
+`services/safenet.go`.
 
 ## Feature Map
 
 | Area | Handler | Service | Notes |
 |------|---------|---------|-------|
-| Chores | `handlers/chores.go` | `services/chores.go`, `services/recurrence.go` | Recurrence: daily, weekly, monthly, custom cron |
-| Calendar | `handlers/calendar.go` | — | Unified view: chores + events + iCal subscriptions |
-| iCal import | `handlers/ical_subscriptions.go` | `services/ical_fetcher.go` | Admin-managed external feeds |
-| Meals | `handlers/meals.go` | — | Weekly planner (breakfast/lunch/dinner), backed by `meal_plans` table |
-| Recipes | `handlers/recipes.go` | `services/recipe_extractor.go` | Ingredient groups, cooking times, linked to meals. Extractor imports recipes from a URL (JSON-LD + HTML fallback) |
-| Dashboard | `handlers/dashboard.go` | — | Stats + leaderboard |
-| Admin | `handlers/admin.go` | — | Users, categories, token CRUD |
-| REST API | `handlers/api.go` | — | Session or Bearer; chores/users/categories/dashboard/recipes/meals |
+| Chores | `handlers/api.go` | `services/chores.go`, `services/recurrence.go` | Recurrence: daily, weekly, monthly, custom cron |
+| Calendar | `handlers/api.go`, `handlers/calendar_subscriptions_api.go` | `services/ical_fetcher.go` | Unified events and admin-managed iCal feeds |
+| Meals | `handlers/api.go` | — | Weekly planner backed by `meal_plans` |
+| Recipes | `handlers/api.go` | `services/recipe_extractor.go` | URL extraction and API CRUD; share sheet uses JSON routes |
+| Inventory | `handlers/api_inventory.go` | — | Areas, items, stock |
+| Shopping | `handlers/shopping.go` | — | Shared shopping list |
+| Admin | `handlers/api.go`, `handlers/backup.go` | — | Users, categories, tokens, settings, backup/restore |
 
 ## Gotchas
 
-- `templ generate` requires `$(go env GOPATH)/bin` in `PATH`
-- Multi-return Go functions cannot be called directly inside templ format strings — assign to a variable first
-- `modernc.org/sqlite` is pure Go (no CGO). Use `:memory:` for in-memory DBs in tests
-- Migrations run automatically on startup from `internal/database/migrations/`
+- `modernc.org/sqlite` is pure Go (no CGO). Use `:memory:` for isolated tests.
+- Database migrations run automatically on startup from
+  `internal/database/migrations/`.
+- OIDC tokens are accepted only by `/api/auth/exchange`; other API routes need
+  the long-lived Family Hub Bearer token.
 
 ## Testing
 
-- Table-driven tests throughout
-- Repository tests use in-memory SQLite for isolation
-- Prefer fakes over mocks; fake implementations live alongside the interface
-- Run tests: `cd server && make test`
+- Tests are table-driven where practical.
+- Repository tests use in-memory SQLite.
+- Prefer fakes over mocks; fake implementations live alongside the interface.
+- Run server tests: `cd server && go test ./...`.
+- Run FamilyHubKit API contract tests from the iOS project’s documented test
+  workflow.
 
 ## Dev Workflow
 
 ```bash
-cd server && make dev          # Air hot reload (watches Go + templ changes)
-docker compose up              # Full stack with Docker (run from server/)
-cd server && make templ        # Regenerate templ files manually
-cd server && make css          # Rebuild Tailwind CSS
+cd server && make run
+cd server && make test
+cd server && make docker-dev
+cd server && make docker-prod
 ```

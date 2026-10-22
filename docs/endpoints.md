@@ -3,14 +3,13 @@
 All routes wired in `server/internal/server/server.go`.
 
 **Global middleware** (all routes): logger, recoverer, gzip compression, security headers,
-per-IP rate limit (100 req/min), family-name injector.
+and per-IP rate limit (100 req/min). Authenticated routes require a Bearer API token.
 
 **Conventions used below:**
 
 ```bash
 export BASE_URL="http://localhost:8080"
 export API_TOKEN="<token from /api/auth/exchange or POST /api/tokens>"
-export SESSION="<session cookie value, for web routes>"
 ```
 
 ---
@@ -24,43 +23,6 @@ export SESSION="<session cookie value, for web routes>"
 
 ```bash
 curl -s $BASE_URL/health
-```
-
-### `GET /static/*`
-- **Usecase:** Serves Tailwind CSS, JS, images from `server/static/`.
-- **Callers:** Browser (via templ layouts).
-- **Security:** None. `http.FileServer` with `StripPrefix`.
-
-```bash
-curl -sI $BASE_URL/static/app.css
-```
-
-### `GET /login`
-- **Usecase:** Renders login page that redirects to the OIDC provider.
-- **Callers:** Browser (any unauthenticated request redirects here).
-- **Security:** Rate limited 10/min per IP.
-
-```bash
-curl -s $BASE_URL/login
-```
-
-### `GET /auth/callback`
-- **Usecase:** OIDC redirect target; exchanges code, creates session cookie.
-- **Callers:** OIDC provider redirect after successful login.
-- **Security:** Rate limited 10/min per IP. State param validated.
-
-```bash
-# Triggered by browser redirect, not manually
-curl -s "$BASE_URL/auth/callback?code=XYZ&state=ABC"
-```
-
-### `GET /logout`
-- **Usecase:** Clears session cookie, redirects to `/login`.
-- **Callers:** Browser (user clicks logout).
-- **Security:** None beyond cookie clear.
-
-```bash
-curl -s -b "session=$SESSION" $BASE_URL/logout
 ```
 
 ### `GET /api/client-config`
@@ -88,12 +50,11 @@ curl -s -X POST $BASE_URL/api/auth/exchange \
 
 ---
 
-## Authenticated surface (session cookie OR Bearer token)
+## Authenticated surface (Bearer token)
 
-Every route below resolves a user via either the session cookie (browser) or
-`Authorization: Bearer $API_TOKEN` (mobile/API). A single `RequireUser`
-middleware handles both. The `curl` examples use Bearer for brevity; swap in
-`-b "session=$SESSION"` for the web equivalent.
+Every route below resolves a user from `Authorization: Bearer $API_TOKEN`.
+The API returns JSON errors for failed requests. Image and backup endpoints keep
+their binary success responses.
 
 ### JSON API routes
 
@@ -101,7 +62,7 @@ middleware handles both. The `curl` examples use Bearer for brevity; swap in
 
 - **Use case:** Return upcoming trains between Kelvedon (`KEL`) and London Liverpool Street (`LST`).
 - **Callers:** The iOS Today commute card, the iPad display, and other authenticated clients. The iOS card requests three trains per active direction.
-- **Security:** Session cookie or Bearer API token. The provider token stays on the server.
+- **Security:** Bearer API token. The provider token stays on the server.
 - **Parameters:** `direction=to_work` (default) or `to_home`; `count=1..10` (default: `5`).
 - **Window:** The provider returns up to the requested count within the next two hours. This is not an all-day timetable.
 - **Order:** Scheduled departure order, including cancelled trains. Return `trains: []` when no trains are available.
@@ -169,7 +130,7 @@ curl -s $BASE_URL/api/me -H "Authorization: Bearer $API_TOKEN" | jq
 ### `POST /api/profile/avatar`
 - **Usecase:** Upload a custom avatar for the authenticated user. Stores as data URI.
 - **Callers:** iOS app settings — Change Photo.
-- **Security:** API token. Multipart form-data, field `avatar`, max 1 MB. Returns updated `User`.
+- **Security:** API token. Multipart form-data, field `avatar`, max 2 MB. Returns updated `User`.
 
 ```bash
 curl -s -X POST $BASE_URL/api/profile/avatar \
@@ -184,6 +145,16 @@ curl -s -X POST $BASE_URL/api/profile/avatar \
 
 ```bash
 curl -s -X DELETE $BASE_URL/api/profile/avatar -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
+```
+
+### `GET /avatar/{userID}`
+- **Usecase:** Serve the selected user's avatar image bytes.
+- **Callers:** iOS app and extensions.
+- **Security:** Bearer API token.
+
+```bash
+curl -s $BASE_URL/avatar/<userID> \
+  -H "Authorization: Bearer $API_TOKEN" -o avatar.png
 ```
 
 ### `GET /api/settings`
@@ -202,7 +173,7 @@ Current tasks without a due date appear in Today.
 Tasks uses definitions. A definition owns the rule and eligible people.
 Each definition has at most one pending or overdue task.
 
-All routes below accept a session cookie or a Bearer API token.
+All routes below require a Bearer API token.
 Any signed-in family member can create, edit, delete, complete, or skip.
 
 | Route | Behaviour |
@@ -240,7 +211,7 @@ curl -s "$BASE_URL/api/chores?status=pending&assigned_to=<userID>" \
 ```
 
 ### `POST /api/chores`
-- **Usecase:** Create a chore (full parity with the web form).
+- **Usecase:** Create a chore.
 - **Callers:** iOS app.
 - **Security:** API token. Body JSON: `name` required; all other fields optional.
 - **Body fields:** `name`, `description`, `categoryId`, `assignees` (eligible-assignee
@@ -328,7 +299,7 @@ curl -s $BASE_URL/api/categories -H "Authorization: Bearer $API_TOKEN" | jq
 
 ### `GET /api/dashboard`
 - **Usecase:** Counts + lists for today/overdue chores and today/week meals.
-- **Callers:** iOS app dashboard, iOS Today widget, HA integration.
+- **Callers:** iOS app dashboard and iOS Today widget.
 - **Security:** API token.
 
 ```bash
@@ -338,8 +309,8 @@ curl -s $BASE_URL/api/dashboard -H "Authorization: Bearer $API_TOKEN" | jq
 ### `GET /api/meals?week=YYYY-MM-DD`
 - **Usecase:** Meal plans for the seven days starting at `week`. The date is **not**
   snapped to a week boundary — the value you pass *is* the first day, and the range
-  is `[week, week+6]`. The web planner and the iOS app both anchor their weeks to
-  the preceding Friday before calling this.
+  is `[week, week+6]`. The iOS app anchors its weeks to the preceding Friday
+  before calling this.
 - **Callers:** iOS app meal planner.
 - **Security:** API token.
 
@@ -655,7 +626,7 @@ curl -s -X PUT $BASE_URL/api/categories/<categoryID> \
 
 ### Calendar feed management
 
-These routes use a session cookie or Bearer API token and require the admin role.
+These routes require a Bearer API token and the admin role.
 List and create feeds with `GET /api/calendars` and `POST /api/calendars`.
 The create body is `{"name":"School","url":"https://example.com/calendar.ics","color":"indigo"}`.
 The response includes feed metadata but never includes cached calendar contents.
@@ -673,7 +644,7 @@ Create validates the feed URL with the existing external URL safety checks.
 
 ### Database backup and restore
 
-These routes use a session cookie or Bearer API token and require the admin role.
+These routes require a Bearer API token and the admin role.
 `GET /api/admin/backup` streams a gzip-compressed SQLite database with a
 `Content-Disposition` filename. `POST /api/admin/restore` accepts a multipart
 file field named `backup` whose filename ends in `.db.gz`. A successful restore
@@ -722,165 +693,26 @@ curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -H "Authorization: Bearer $API_
 
 ---
 
-## Web routes
-
-All routes below render HTML (full page or HTMX fragment). Called by the browser
-navigating the app. Gated by `RequireUser` (session cookie or Bearer).
-
-### Dashboard / profile (authenticated)
-
-| Method + Path | Usecase | Extra Security |
-|---|---|---|
-| `GET /` | Dashboard (stats, today's chores, meals) | — |
-| `GET /leaderboard` | Chore completion leaderboard | — |
-| `GET /profile` | Profile page | — |
-| `POST /profile/avatar` | Upload avatar (multipart) | — |
-| `POST /profile/avatar/delete` | Remove avatar | — |
-| `GET /avatar/{userID}` | Serve avatar bytes | — |
-
-```bash
-curl -s $BASE_URL/ -b "session=$SESSION"
-curl -s $BASE_URL/avatar/<userID> -b "session=$SESSION" -o avatar.png
-```
-
-### Chores (web)
-
-| Method + Path | Usecase | Admin? |
-|---|---|---|
-| `GET /chores` | Chore list page/HTMX partial | no |
-| `GET /chores/{id}/detail` | Chore detail fragment | no |
-| `POST /chores/{id}/complete` | Mark complete | no |
-| `GET /chores/new` | Create form | no |
-| `POST /chores` | Create | no |
-| `GET /chores/{id}/edit` | Edit form | no |
-| `POST /chores/{id}` | Update | no |
-| `POST /chores/{id}/delete` | Delete | no |
-| `POST /chores/history/delete` | Clear completed chore history | no |
-
-`POST /chores` and `POST /chores/{id}` accept optional recurrence end conditions:
-`recurrence_until` (date, `YYYY-MM-DD`) and `recurrence_count` (positive integer).
-Either bounds how far a recurring series is generated.
-
-```bash
-curl -s $BASE_URL/chores -b "session=$SESSION"
-curl -s -X POST $BASE_URL/chores/<id>/complete -b "session=$SESSION"
-```
-
-### Calendar subscriptions (`/calendars`, web)
-
-| Method + Path | Usecase | Admin? |
-|---|---|---|
-| `GET /calendars` | List external iCal subscriptions | no |
-| `POST /calendars` | Add subscription | yes |
-| `POST /calendars/{id}/delete` | Remove | yes |
-| `POST /calendars/{id}/refresh` | Force refetch feed | yes |
-| `POST /calendars/{id}/color` | Update display color | yes |
-
-```bash
-curl -s $BASE_URL/calendars -b "session=$SESSION"
-```
-
-### Meals (web)
-
-| Method + Path | Usecase |
-|---|---|
-| `GET /meals` | Weekly planner page |
-| `POST /meals` | Save meal cell |
-| `POST /meals/delete` | Clear meal cell |
-| `GET /meals/cell` | HTMX fragment for a single cell |
-| `GET /meals/recipes` | Recipe picker fragment |
-| `GET /meals/dismiss` | Dismiss picker fragment |
-
-```bash
-curl -s $BASE_URL/meals -b "session=$SESSION"
-```
-
-### Recipes (web)
-
-| Method + Path | Usecase |
-|---|---|
-| `GET /recipes/import` | Import-from-URL form |
-| `GET /recipes` | List page |
-| `GET /recipes/new` | Create form |
-| `GET /recipes/ingredient-group` | HTMX: add ingredient group row |
-| `GET /recipes/step` | HTMX: add step row |
-| `GET /recipes/{id}` | Detail page |
-| `GET /recipes/{id}/image` | Serve image |
-| `GET /recipes/{id}/cook` | Cook mode page |
-| `POST /recipes` | Create |
-| `POST /recipes/{id}/image` | Upload image |
-| `POST /recipes/{id}/image/delete` | Remove image |
-| `GET /recipes/{id}/edit` | Edit form |
-| `POST /recipes/{id}` | Update |
-| `POST /recipes/{id}/delete` | Delete |
-
-```bash
-curl -s $BASE_URL/recipes -b "session=$SESSION"
-curl -s $BASE_URL/recipes/<id> -b "session=$SESSION"
-```
-
-### Calendar view (web)
-
-| Method + Path | Usecase |
-|---|---|
-| `GET /calendar` | Unified calendar page |
-| `GET /calendar/event-detail` | Event detail fragment |
-
-```bash
-curl -s "$BASE_URL/calendar?view=month&month=2026-04" -b "session=$SESSION"
-```
-
-### Categories (admin, web)
-
-| Method + Path | Usecase |
-|---|---|
-| `POST /categories` | Create |
-| `GET /categories/{id}/edit` | Edit form fragment |
-| `GET /categories/{id}/cancel` | Cancel edit fragment |
-| `POST /categories/{id}` | Update |
-| `POST /categories/{id}/delete` | Delete |
-
-### Admin panel (admin, web)
-
-| Method + Path | Usecase |
-|---|---|
-| `GET /admin/users` | User management page |
-| `POST /admin/users/{id}/promote` | Grant admin role |
-| `POST /admin/users/{id}/demote` | Revoke admin role |
-| `POST /admin/settings` | Update family settings |
-| `POST /admin/tokens` | Create API token |
-| `GET /admin/backup` | Download SQLite backup |
-| `POST /admin/restore` | Upload SQLite backup to restore |
-
-```bash
-curl -s $BASE_URL/admin/users -b "session=$SESSION"
-curl -s $BASE_URL/admin/backup -b "session=$SESSION" -o backup.db
-```
-
----
-
 ## Auth summary
 
 Only three flows:
 
 | Flow | Routes |
 |---|---|
-| **Public** | `/health`, `/static/*`, `/api/client-config`, `/login`, `/auth/callback`, `/logout` |
+| **Public** | `/health`, `/api/client-config` |
 | **OIDC bearer (one-time)** | `POST /api/auth/exchange` |
-| **Authed user** (session OR Bearer, via `RequireUser`) | Everything else |
-| **Admin user** (`+ RequireAdmin`) | `/admin/*`, category writes, calendar feed management, `/api/tokens*`, `/api/admin/*` |
+| **Authed user** (Bearer, via `RequireUser`) | JSON API and media routes |
+| **Admin user** (`+ RequireAdmin`) | User/setting/category/calendar-feed management, `/api/tokens*`, `/api/admin/*` |
 
-Session cookie and Bearer token both resolve to the same `User` via `RequireUser`
-— handlers are mechanism-agnostic. Chores, recipes, and meals are open to any
-authed user (no admin gate).
+Chores, recipes, and meals are available to any authenticated user. Admin
+management routes require the admin role.
 
-All login-adjacent routes (`/login`, `/auth/callback`, `/api/auth/exchange`) carry an
-additional 10-req/min per-IP limit on top of the global 100/min limit.
+`POST /api/auth/exchange` carries an additional 10-req/min per-IP limit on top
+of the global 100/min limit.
 
 ## Household location and weather
 
-These endpoints require a session cookie or Bearer API token. The iOS app calls
-them. Existing clients do not need to call them.
+These endpoints require a Bearer API token. The iOS app calls them.
 
 ### `GET /api/home-info`
 
@@ -941,7 +773,7 @@ curl -s "$BASE_URL/api/departures" -H "Authorization: Bearer $API_TOKEN"
 
 ## Shared shopping list
 
-All shopping endpoints require a session cookie or Bearer API token. All members
+All shopping endpoints require a Bearer API token. All members
 can change the shared household list. The iOS app calls these routes.
 
 An item has `id`, `name`, `inventoryItemID`, `purchased`, `purchaseID`, `restocked`,
@@ -1017,7 +849,7 @@ curl -s -X POST "$BASE_URL/api/shopping/items/$ITEM_ID/restock" \
 
 ## Chore reminders and notification devices
 
-All endpoints use the existing session or Bearer authentication.
+All endpoints require a Bearer API token.
 
 ### `GET /api/chore-reminders`
 
@@ -1096,8 +928,8 @@ The server retains messages and delivery results for 30 days, then removes them 
 ### `PATCH /api/inventory/items/{id}/stock`
 
 Change stock without replacing the item's name, area, unit, tracking mode, or
-low-stock threshold. Use the same session or bearer authentication as the other
-inventory endpoints. Siri uses this endpoint for stock updates.
+low-stock threshold. Use a Bearer API token as for the other inventory
+endpoints. Siri uses this endpoint for stock updates.
 
 Supply exactly one integer field:
 

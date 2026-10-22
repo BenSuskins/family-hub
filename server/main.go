@@ -34,13 +34,6 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db)
 
-	ctx := context.Background()
-	authService, err := services.NewAuthService(ctx, cfg, userRepo)
-	if err != nil {
-		slog.Error("creating auth service", "error", err)
-		os.Exit(1)
-	}
-
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
@@ -62,11 +55,11 @@ func main() {
 		reminderSender = sender
 		messageSender = sender
 	}
-	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender,userRepo)
+	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
 	go runChoreReminders(reminderService)
 	go runOverdueChecker(choreService)
 
-	srv := server.New(db, cfg, authService, messageSender)
+	srv := server.New(db, cfg, messageSender)
 	if err := srv.Start(); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)

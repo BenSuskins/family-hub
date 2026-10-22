@@ -394,31 +394,6 @@ func TestChoreRepository_FindAll_LimitZeroReturnsAll(t *testing.T) {
 	}
 }
 
-func TestChoreRepository_DeleteCompletedByName(t *testing.T) {
-	db := testutil.NewTestDatabase(t)
-	repo := repository.NewChoreRepository(db)
-	userRepo := repository.NewUserRepository(db)
-	ctx := context.Background()
-
-	user, _ := userRepo.Create(ctx, models.User{OIDCSubject: "sub3", Email: "c@b.com", Name: "C", Role: models.RoleMember})
-	past := time.Now().AddDate(0, 0, -1)
-
-	repo.Create(ctx, models.Chore{Name: "Dishes", CreatedByUserID: user.ID, DueDate: &past, Status: models.ChoreStatusCompleted})
-	repo.Create(ctx, models.Chore{Name: "Dishes", CreatedByUserID: user.ID, DueDate: &past, Status: models.ChoreStatusCompleted})
-	pending := time.Now().AddDate(0, 0, 1)
-	repo.Create(ctx, models.Chore{Name: "Dishes", CreatedByUserID: user.ID, DueDate: &pending, Status: models.ChoreStatusPending})
-	repo.Create(ctx, models.Chore{Name: "Laundry", CreatedByUserID: user.ID, DueDate: &past, Status: models.ChoreStatusCompleted})
-
-	if err := repo.DeleteCompletedByName(ctx, "Dishes"); err != nil {
-		t.Fatalf("DeleteCompletedByName: %v", err)
-	}
-
-	all, _ := repo.FindAll(ctx, repository.ChoreFilter{})
-	if len(all) != 2 {
-		t.Errorf("want 2 remaining (1 pending Dishes + 1 completed Laundry), got %d", len(all))
-	}
-}
-
 func TestChoreRepository_CountByStatusAndUser(t *testing.T) {
 	db := testutil.NewTestDatabase(t)
 	userRepo := repository.NewUserRepository(db)

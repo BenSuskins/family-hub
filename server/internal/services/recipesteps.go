@@ -8,8 +8,8 @@ import (
 
 // SplitIntoSteps splits a legacy free-text instructions blob into one step per
 // non-empty line. Recipes created before the `steps` column existed still carry
-// their method in Recipe.Instructions, and both the web cook mode and the JSON
-// API fall back to this so those recipes remain cookable.
+// their method in Recipe.Instructions, and the JSON API falls back to this so
+// those recipes remain cookable in iOS cook mode.
 func SplitIntoSteps(text string) []string {
 	var steps []string
 	for _, line := range strings.Split(text, "\n") {

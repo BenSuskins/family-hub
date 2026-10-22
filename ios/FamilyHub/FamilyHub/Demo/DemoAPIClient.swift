@@ -416,6 +416,47 @@ final class DemoAPIClient: APIClientProtocol {
     }
 
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
+        if ProcessInfo.processInfo.arguments.contains("-home-agenda-fixtures") {
+            let endedAt = date.addingTimeInterval(-3_600)
+            let currentTime = date.addingTimeInterval(1_800)
+            let upcomingStart = date.addingTimeInterval(3_600)
+            return CalendarResponse(
+                chores: [],
+                events: [
+                    CalendarEvent(
+                        id: "home-ended-event",
+                        title: "Earlier event",
+                        description: "This event has ended.",
+                        location: "",
+                        startTime: endedAt.addingTimeInterval(-3_600),
+                        endTime: endedAt,
+                        allDay: false,
+                        color: "#007AFF"
+                    ),
+                    CalendarEvent(
+                        id: "home-current-event",
+                        title: "Current event",
+                        description: "This event is in progress.",
+                        location: "",
+                        startTime: date.addingTimeInterval(-900),
+                        endTime: currentTime,
+                        allDay: false,
+                        color: "#34C759"
+                    ),
+                    CalendarEvent(
+                        id: "home-upcoming-event",
+                        title: "Upcoming event",
+                        description: "This event has not started.",
+                        location: "",
+                        startTime: upcomingStart,
+                        endTime: upcomingStart.addingTimeInterval(3_600),
+                        allDay: false,
+                        color: "#FF9500"
+                    )
+                ],
+                meals: []
+            )
+        }
         if CalendarDemoData.isEnabled { return CalendarDemoData.response(view: view, date: date) }
         return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)
     }

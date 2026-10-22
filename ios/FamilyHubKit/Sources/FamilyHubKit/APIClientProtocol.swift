@@ -37,6 +37,13 @@ public protocol APIClientProtocol: AnyObject {
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe
     func deleteRecipe(id: String) async throws
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse
+    func fetchCalendarSubscriptions() async throws -> [CalendarSubscription]
+    func createCalendarSubscription(name: String, url: String, color: String) async throws -> CalendarSubscription
+    func updateCalendarSubscriptionColor(id: String, color: String) async throws -> CalendarSubscription
+    func refreshCalendarSubscription(id: String) async throws
+    func deleteCalendarSubscription(id: String) async throws
+    func downloadDatabaseBackup() async throws -> URL
+    func restoreDatabaseBackup(from url: URL) async throws
     func fetchUsers() async throws -> [User]
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
     func deleteMeal(date: String, mealType: String) async throws

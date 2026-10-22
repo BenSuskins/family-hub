@@ -91,6 +91,88 @@ public final class APIClient: APIClientProtocol {
         return try decode(T.self, from: responseData)
     }
 
+    private func uploadMultipartFile(_ path: String, field: String, fileURL: URL, mimeType: String) async throws {
+        let boundary = UUID().uuidString
+        let filename = fileURL.lastPathComponent.replacingOccurrences(of: "\"", with: "")
+        let bodyURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: bodyURL) }
+
+        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
+        let output = try FileHandle(forWritingTo: bodyURL)
+        let input = try FileHandle(forReadingFrom: fileURL)
+        defer {
+            try? input.close()
+            try? output.close()
+        }
+        output.write(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(field)\"; filename=\"\(filename)\"\r\nContent-Type: \(mimeType)\r\n\r\n".utf8))
+        while let chunk = try input.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+            output.write(chunk)
+        }
+        output.write(Data("\r\n--\(boundary)--\r\n".utf8))
+
+        try await performFileUploadValidated(
+            path: path,
+            method: "POST",
+            bodyFileURL: bodyURL,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+    }
+
+    private func performFileUploadValidated(path: String, method: String, bodyFileURL: URL, contentType: String) async throws {
+        _ = try await withRetry(
+            policy: retryPolicy,
+            shouldRetry: { Self.idempotentMethods.contains(method) && $0.isRetryable }
+        ) {
+            let request = try await self.buildRequest(path: path, method: method, contentType: contentType)
+            do {
+                let (data, response) = try await self.session.upload(for: request, fromFile: bodyFileURL)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw APIError.network(URLError(.badServerResponse))
+                }
+                try self.validate(data: data, response: httpResponse)
+                return (data, httpResponse)
+            } catch {
+                throw APIError.from(error)
+            }
+        }
+    }
+
+    private func downloadFile(_ path: String) async throws -> URL {
+        try await withRetry(policy: retryPolicy, shouldRetry: { $0.isRetryable }) {
+            let request = try await self.buildRequest(path: path, method: "GET")
+            do {
+                let (temporaryURL, response) = try await self.session.download(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw APIError.network(URLError(.badServerResponse))
+                }
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    try self.validate(data: Data(contentsOf: temporaryURL), response: httpResponse)
+                    throw APIError.server(status: httpResponse.statusCode, serverMessage: nil)
+                }
+
+                let name = Self.downloadFilename(httpResponse) ?? "family-hub-backup.db.gz"
+                let directory = FileManager.default.temporaryDirectory.appendingPathComponent("family-hub-\(UUID().uuidString)", isDirectory: true)
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let destination = directory.appendingPathComponent(name)
+                try FileManager.default.moveItem(at: temporaryURL, to: destination)
+                return destination
+            } catch {
+                throw APIError.from(error)
+            }
+        }
+    }
+
+    private static func downloadFilename(_ response: HTTPURLResponse) -> String? {
+        guard let disposition = response.value(forHTTPHeaderField: "Content-Disposition"),
+              let component = disposition.split(separator: ";").map(String.init).first(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("filename=") }) else {
+            return nil
+        }
+        let value = component.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "filename=", with: "")
+        let filename = value.trimmingCharacters(in: CharacterSet(charactersIn: "\" "))
+        let safeFilename = URL(fileURLWithPath: filename).lastPathComponent
+        return safeFilename.isEmpty ? nil : safeFilename
+    }
+
     // MARK: - Unified request core
 
     /// Build, send (with retries for idempotent methods), validate, and decode.
@@ -325,6 +407,36 @@ public final class APIClient: APIClientProtocol {
             queryItems.append(URLQueryItem(name: "date", value: CalendarSchedule().dayKey(date)))
         }
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
+    }
+
+    public func fetchCalendarSubscriptions() async throws -> [CalendarSubscription] {
+        try await get("api/calendars", decoder: Self.isoDecoder)
+    }
+
+    public func createCalendarSubscription(name: String, url: String, color: String) async throws -> CalendarSubscription {
+        struct Request: Encodable { let name: String; let url: String; let color: String }
+        return try await send(path: "api/calendars", method: "POST", body: Request(name: name, url: url, color: color), decoder: Self.isoDecoder)
+    }
+
+    public func updateCalendarSubscriptionColor(id: String, color: String) async throws -> CalendarSubscription {
+        struct Request: Encodable { let color: String }
+        return try await send(path: "api/calendars/\(id)/color", method: "PATCH", body: Request(color: color), decoder: Self.isoDecoder)
+    }
+
+    public func refreshCalendarSubscription(id: String) async throws {
+        try await post("api/calendars/\(id)/refresh")
+    }
+
+    public func deleteCalendarSubscription(id: String) async throws {
+        try await delete("api/calendars/\(id)")
+    }
+
+    public func downloadDatabaseBackup() async throws -> URL {
+        try await downloadFile("api/admin/backup")
+    }
+
+    public func restoreDatabaseBackup(from url: URL) async throws {
+        try await uploadMultipartFile("api/admin/restore", field: "backup", fileURL: url, mimeType: "application/gzip")
     }
 
     public func fetchUsers() async throws -> [User] {

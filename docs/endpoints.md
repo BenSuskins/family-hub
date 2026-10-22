@@ -653,6 +653,39 @@ curl -s -X PUT $BASE_URL/api/categories/<categoryID> \
 - **Callers:** iOS app admin settings — Categories.
 - **Security:** API token + admin role. Returns 204.
 
+### Calendar feed management
+
+These routes use a session cookie or Bearer API token and require the admin role.
+List and create feeds with `GET /api/calendars` and `POST /api/calendars`.
+The create body is `{"name":"School","url":"https://example.com/calendar.ics","color":"indigo"}`.
+The response includes feed metadata but never includes cached calendar contents.
+
+| Route | Behaviour |
+|---|---|
+| `GET /api/calendars` | List feeds with `id`, `name`, `url`, `color`, `lastFetchedAt`, and `createdAt`. |
+| `POST /api/calendars` | Create a feed. Name and URL are required; color defaults to `indigo`. |
+| `PATCH /api/calendars/{id}/color` | Update the color with `{"color":"teal"}`. |
+| `POST /api/calendars/{id}/refresh` | Force a fetch and cache refresh. Returns 204. |
+| `DELETE /api/calendars/{id}` | Delete a feed. Returns 204. |
+
+Colors: `indigo`, `violet`, `rose`, `red`, `orange`, `amber`, `emerald`, `teal`, `sky`, or `blue`.
+Create validates the feed URL with the existing external URL safety checks.
+
+### Database backup and restore
+
+These routes use a session cookie or Bearer API token and require the admin role.
+`GET /api/admin/backup` streams a gzip-compressed SQLite database with a
+`Content-Disposition` filename. `POST /api/admin/restore` accepts a multipart
+file field named `backup` whose filename ends in `.db.gz`. A successful restore
+replaces the database and restarts the server.
+
+```bash
+curl -s $BASE_URL/api/admin/backup -H "Authorization: Bearer $API_TOKEN" -o backup.db.gz
+curl -s -X POST $BASE_URL/api/admin/restore \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -F "backup=@backup.db.gz"
+```
+
 ```bash
 curl -s -X DELETE $BASE_URL/api/categories/<categoryID> -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
@@ -835,7 +868,7 @@ Only three flows:
 | **Public** | `/health`, `/static/*`, `/api/client-config`, `/login`, `/auth/callback`, `/logout` |
 | **OIDC bearer (one-time)** | `POST /api/auth/exchange` |
 | **Authed user** (session OR Bearer, via `RequireUser`) | Everything else |
-| **Admin user** (`+ RequireAdmin`) | `/admin/*`, categories write, calendars write, `/api/tokens*` |
+| **Admin user** (`+ RequireAdmin`) | `/admin/*`, category writes, calendar feed management, `/api/tokens*`, `/api/admin/*` |
 
 Session cookie and Bearer token both resolve to the same `User` via `RequireUser`
 — handlers are mechanism-agnostic. Chores, recipes, and meals are open to any

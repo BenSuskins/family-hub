@@ -40,6 +40,8 @@ final class CommuteTests: XCTestCase {
             XCTAssertFalse(schedule.contains(date("2026-10-19T06:30:00Z")))
         }
         var preferences = CommutePreferences()
+        preferences.homeStationCode = "KEL"
+        preferences.workStationCode = "LST"
         preferences.toWork.enabled = true
         preferences.toHome = preferences.toWork
         XCTAssertEqual(preferences.activeDirections(at: date("2026-10-19T06:30:00Z")), [.toWork, .toHome])
@@ -52,7 +54,10 @@ final class CommuteTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = CommutePreferencesStore(defaults: defaults)
         var preferences = CommutePreferences()
+        preferences.homeStationCode = "KEL"
+        preferences.workStationCode = "LST"
         preferences.toWork.enabled = true
+        preferences.trainCount = 6
         XCTAssertTrue(store.save(preferences, server: "https://HUB.example:443/", userID: "one"))
         let reloaded = CommutePreferencesStore(defaults: defaults)
         XCTAssertEqual(reloaded.load(server: "https://hub.example", userID: "one"), preferences)

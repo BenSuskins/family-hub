@@ -22,11 +22,11 @@ func TestHuxleyLive(t *testing.T) {
 		baseURL = "https://huxley2.azurewebsites.net"
 	}
 	client := services.NewHuxleyClient(baseURL, token, nil)
-	for _, direction := range []string{"to_work", "to_home"} {
-		t.Run(direction, func(t *testing.T) {
+	for _, route := range []struct{ origin, destination string }{{"KEL", "LST"}, {"LST", "KEL"}} {
+		t.Run(route.origin+"-"+route.destination, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			board, err := client.FetchTrains(ctx, direction, 5)
+			board, err := client.FetchTrains(ctx, route.origin, route.destination, 5)
 			if err != nil {
 				t.Fatal(err)
 			}

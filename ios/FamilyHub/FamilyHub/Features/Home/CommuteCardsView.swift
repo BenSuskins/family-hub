@@ -15,7 +15,7 @@ struct CommuteCardsView: View {
                             Label(direction.title, systemImage: "tram.fill")
                                 .font(.headline)
                                 .foregroundStyle(AppTheme.accent)
-                            Text(direction == .toWork ? "Kelvedon → London Liverpool Street" : "London Liverpool Street → Kelvedon")
+                            Text(direction == .toWork ? "Home → Work" : "Work → Home")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.secondary)
                                 .fixedSize(horizontal: false, vertical: true)

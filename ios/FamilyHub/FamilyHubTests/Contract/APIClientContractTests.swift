@@ -20,18 +20,17 @@ class APIClientContractTests: XCTestCase {
         throw XCTSkip("Abstract contract base — no client to exercise.")
     }
 
-    func test_commuteReturnsTheRequestedDirectionAndCount() async throws {
+    func test_commuteReturnsTheRequestedRouteAndCount() async throws {
         let client = try makeClient()
-        for direction in CommuteDirection.allCases {
-            let board = try await client.fetchCommuteTrains(direction: direction, count: 2)
-            XCTAssertEqual(board.direction, direction)
-            XCTAssertEqual(board.origin.code, direction == .toWork ? "KEL" : "LST")
-            XCTAssertEqual(board.destination.code, direction == .toWork ? "LST" : "KEL")
+        for (origin, destination) in [("KEL", "LST"), ("LST", "KEL")] {
+            let board = try await client.fetchCommuteTrains(from: origin, to: destination, count: 2)
+            XCTAssertEqual(board.origin.code, origin)
+            XCTAssertEqual(board.destination.code, destination)
             XCTAssertLessThanOrEqual(board.trains.count, 2)
             XCTAssertEqual(board.timezone, "Europe/London")
             XCTAssertNotNil(board.fetchedDate)
         }
-        await assertThrows { _ = try await client.fetchCommuteTrains(direction: .toWork, count: 0) }
+        await assertThrows { _ = try await client.fetchCommuteTrains(from: "KEL", to: "LST", count: 0) }
     }
 
     func test_shoppingPurchaseRestockIsAppliedOnce() async throws {

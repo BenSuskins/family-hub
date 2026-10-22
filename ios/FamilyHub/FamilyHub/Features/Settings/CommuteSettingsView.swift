@@ -14,6 +14,8 @@ struct CommuteSettingsView: View {
     var body: some View {
         StateContentView(state: state, retry: load) { _ in
             Form {
+                stationSection
+                countSection
                 ForEach(CommuteDirection.allCases, id: \.self) { direction in
                     scheduleSection(direction)
                 }
@@ -32,11 +34,44 @@ struct CommuteSettingsView: View {
         .task { await load() }
     }
 
+    private var stationSection: some View {
+        Section {
+            TextField("Home station code", text: stationCodeBinding(\.homeStationCode))
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("commute-home-station-code")
+            TextField("Work station code", text: stationCodeBinding(\.workStationCode))
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("commute-work-station-code")
+            if !preferences.hasValidStations {
+                Text("Enter a three-letter station code for Home and Work before enabling commute trains.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondary)
+                    .accessibilityIdentifier("commute-station-validation")
+            }
+        } header: {
+            Text("Stations")
+        } footer: {
+            Text("Enter National Rail station codes. These settings are saved on this device for your account.")
+        }
+        .listRowBackground(AppTheme.surface)
+    }
+
+    private var countSection: some View {
+        Section("Train count") {
+            Stepper("Trains per direction: \(preferences.trainCount)", value: trainCountBinding, in: 1...10)
+                .accessibilityIdentifier("commute-train-count")
+        }
+        .listRowBackground(AppTheme.surface)
+    }
+
     private func scheduleSection(_ direction: CommuteDirection) -> some View {
         Section {
             Toggle("Show trains \(direction == .toWork ? "to work" : "to home")", isOn: scheduleBinding(direction, \.enabled))
                 .accessibilityIdentifier("commute-\(direction.rawValue)-enabled")
-            Text(direction == .toWork ? "Kelvedon → London Liverpool Street" : "London Liverpool Street → Kelvedon")
+                .disabled(!preferences.hasValidStations)
+            Text(direction == .toWork ? "Home → Work" : "Work → Home")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondary)
             Group {
@@ -83,6 +118,29 @@ struct CommuteSettingsView: View {
         .listRowBackground(AppTheme.surface)
     }
 
+    private func stationCodeBinding(_ keyPath: WritableKeyPath<CommutePreferences, String>) -> Binding<String> {
+        Binding(get: { preferences[keyPath: keyPath] }, set: { value in
+            let normalized = CommutePreferences.normalizedStationCode(value)
+            preferences[keyPath: keyPath] = normalized
+            savedPreferences[keyPath: keyPath] = normalized
+            if !preferences.hasValidStations {
+                preferences.toWork.enabled = false
+                preferences.toHome.enabled = false
+                savedPreferences.toWork.enabled = false
+                savedPreferences.toHome.enabled = false
+            }
+            savePreferences()
+        })
+    }
+
+    private var trainCountBinding: Binding<Int> {
+        Binding(get: { preferences.trainCount }, set: { value in
+            preferences.trainCount = value
+            savedPreferences.trainCount = value
+            savePreferences()
+        })
+    }
+
     private func scheduleBinding<Value>(_ direction: CommuteDirection, _ keyPath: WritableKeyPath<CommuteSchedule, Value>) -> Binding<Value> {
         Binding(get: { preferences[direction][keyPath: keyPath] }, set: { value in
             updateSchedule(direction) { $0[keyPath: keyPath] = value }
@@ -120,6 +178,11 @@ struct CommuteSettingsView: View {
         } else if schedule.validationMessage == nil {
             savedPreferences[direction] = schedule
         }
+        store.save(savedPreferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
+    }
+
+    private func savePreferences() {
+        guard case .loaded(let userID) = state else { return }
         store.save(savedPreferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
     }
 

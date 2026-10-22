@@ -5,11 +5,16 @@ import FamilyHubKit
 final class FakeAPIClient: APIClientProtocol {
     var serverIdentifier: String?
     var commuteResult: Result<CommuteBoard, Error> = .failure(APIError.offline)
-    var commuteRequests: [CommuteDirection] = []
+    struct CommuteRequest: Equatable {
+        let origin: String
+        let destination: String
+        let count: Int
+    }
+    var commuteRequests: [CommuteRequest] = []
     var beforeFetchCommute: (() async -> Void)?
 
-    func fetchCommuteTrains(direction: CommuteDirection, count: Int) async throws -> CommuteBoard {
-        commuteRequests.append(direction)
+    func fetchCommuteTrains(from origin: String, to destination: String, count: Int) async throws -> CommuteBoard {
+        commuteRequests.append(CommuteRequest(origin: origin, destination: destination, count: count))
         await beforeFetchCommute?()
         return try commuteResult.get()
     }

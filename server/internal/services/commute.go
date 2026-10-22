@@ -23,7 +23,7 @@ var (
 	ErrCommuteUnavailable    = errors.New("train provider is not configured")
 	ErrCommuteProvider       = errors.New("train provider is unavailable")
 	ErrCommuteTimeout        = errors.New("train provider timed out")
-	ErrInvalidCommuteRequest = errors.New("invalid commute direction or count")
+	ErrInvalidCommuteRequest = errors.New("invalid commute route or count")
 )
 
 type HuxleyClient struct {
@@ -70,18 +70,17 @@ type huxleyCallingPoint struct {
 	IsCancelled bool   `json:"isCancelled"`
 }
 
-func (client *HuxleyClient) FetchTrains(ctx context.Context, direction string, count int) (models.CommuteBoard, error) {
-	if (direction != "to_work" && direction != "to_home") || count < 1 || count > MaxCommuteTrains {
+func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destinationCode string, count int) (models.CommuteBoard, error) {
+	originCode, originValid := normalizeCommuteStationCode(originCode)
+	destinationCode, destinationValid := normalizeCommuteStationCode(destinationCode)
+	if !originValid || !destinationValid || count < 1 || count > MaxCommuteTrains {
 		return models.CommuteBoard{}, ErrInvalidCommuteRequest
 	}
 	if client.token == "" {
 		return models.CommuteBoard{}, ErrCommuteUnavailable
 	}
-	origin := models.CommuteStation{Code: "KEL", Name: "Kelvedon"}
-	destination := models.CommuteStation{Code: "LST", Name: "London Liverpool Street"}
-	if direction == "to_home" {
-		origin, destination = destination, origin
-	}
+	origin := models.CommuteStation{Code: originCode}
+	destination := models.CommuteStation{Code: destinationCode}
 	endpoint, err := url.Parse(fmt.Sprintf("%s/departures/%s/to/%s/%d", client.baseURL, origin.Code, destination.Code, count))
 	if err != nil || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return models.CommuteBoard{}, ErrCommuteProvider
@@ -113,7 +112,7 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, direction string, c
 		return models.CommuteBoard{}, ErrCommuteProvider
 	}
 	board := models.CommuteBoard{
-		Direction: direction, Origin: origin, Destination: destination,
+		Origin: origin, Destination: destination,
 		GeneratedAt: source.GeneratedAt, FetchedAt: time.Now().UTC(), Timezone: "Europe/London",
 		Trains: make([]models.CommuteTrain, 0, len(source.TrainServices)),
 	}
@@ -160,6 +159,19 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, direction string, c
 		board.Trains = board.Trains[:count]
 	}
 	return board, nil
+}
+
+func normalizeCommuteStationCode(value string) (string, bool) {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if len(value) != 3 {
+		return "", false
+	}
+	for _, character := range value {
+		if character < 'A' || character > 'Z' {
+			return "", false
+		}
+	}
+	return value, true
 }
 
 func commuteRequestError(err error) error {
@@ -227,8 +239,9 @@ func commuteDepartureOrder(scheduled *string, generatedAt time.Time) int {
 }
 
 type commuteCacheKey struct {
-	direction string
-	count     int
+	origin      string
+	destination string
+	count       int
 }
 
 type commuteCacheEntry struct {
@@ -250,15 +263,20 @@ func NewCommuteService(client *HuxleyClient, now func() time.Time) *CommuteServi
 	return &CommuteService{client: client, now: now, cache: make(map[commuteCacheKey]commuteCacheEntry)}
 }
 
-func (service *CommuteService) FetchTrains(ctx context.Context, direction string, count int) (models.CommuteBoard, error) {
-	key := commuteCacheKey{direction: direction, count: count}
+func (service *CommuteService) FetchTrains(ctx context.Context, origin, destination string, count int) (models.CommuteBoard, error) {
+	origin, originValid := normalizeCommuteStationCode(origin)
+	destination, destinationValid := normalizeCommuteStationCode(destination)
+	if !originValid || !destinationValid || count < 1 || count > MaxCommuteTrains {
+		return models.CommuteBoard{}, ErrInvalidCommuteRequest
+	}
+	key := commuteCacheKey{origin: origin, destination: destination, count: count}
 	service.mutex.Lock()
 	entry, exists := service.cache[key]
 	service.mutex.Unlock()
 	if exists && service.now().Before(entry.expiresAt) {
 		return entry.board, nil
 	}
-	board, err := service.client.FetchTrains(ctx, direction, count)
+	board, err := service.client.FetchTrains(ctx, origin, destination, count)
 	if err != nil {
 		return models.CommuteBoard{}, err
 	}

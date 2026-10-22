@@ -1,5 +1,5 @@
-github.com/arran4/golang-ical v0.3.2 h1:MGNjcXJFSuCXmYX/RpZhR2HDCYoFuK8vTPFLEdFC3JY=
-github.com/arran4/golang-ical v0.3.2/go.mod h1:xblDGxxIUMWwFZk9dlECUlc1iXNV65LJZOTHLVwu8bo=
+github.com/arran4/golang-ical v0.3.8 h1:2Y1Yo0MG4zBZxU17iZo+34Z9aLF4z0/5s2ToVBT0VEQ=
+github.com/arran4/golang-ical v0.3.8/go.mod h1:OnguFgjN0Hmx8jzpmWcC+AkHio94ujmLHKoaef7xQh8=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=

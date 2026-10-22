@@ -3,9 +3,9 @@ name: Server CI
 on:
   push:
     branches: [main]
-    paths: ["server/**", ".github/workflows/server.yml"]
+    paths: ["server/**", ".github/workflows/server.yml", ".github/dependabot.yml"]
   pull_request:
-    paths: ["server/**", ".github/workflows/server.yml"]
+    paths: ["server/**", ".github/workflows/server.yml", ".github/dependabot.yml"]
 
 permissions:
   contents: read

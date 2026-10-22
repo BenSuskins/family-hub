@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"time"
@@ -109,19 +110,23 @@ func (handler *HouseholdHandler) Departures(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Cache-Control", "no-store")
 	home, err := handler.loadHome(r.Context())
 	if err != nil {
+		slog.Error("loading home information for departure estimates", "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
 		return
 	}
 	if home.Latitude == nil || home.Longitude == nil {
+		slog.Info("departure estimates unavailable", "reason", "home_location_not_configured", "latitude_configured", home.Latitude != nil, "longitude_configured", home.Longitude != nil)
 		writeJSON(w, http.StatusOK, models.Departures{Status: "setup_required", Items: []models.Departure{}})
 		return
 	}
 	if handler.departures == nil {
+		slog.Error("departure estimates unavailable", "reason", "departure_service_not_configured")
 		writeJSONError(w, http.StatusServiceUnavailable, "departures unavailable")
 		return
 	}
 	departures, err := handler.departures.Departures(r.Context(), home)
 	if err != nil {
+		slog.Error("departure estimate calculation failed", "error", err)
 		writeJSONError(w, http.StatusBadGateway, "departures unavailable")
 		return
 	}

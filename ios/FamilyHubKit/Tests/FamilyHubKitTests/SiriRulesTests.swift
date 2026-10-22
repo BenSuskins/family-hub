@@ -3,7 +3,7 @@ import XCTest
 
 final class SiriRulesTests: XCTestCase {
     @MainActor
-    func testExplicitMealDateDoesNotShiftAcrossTimezones() throws {
+    func testExplicitMealDateDoesNotShiftAcrossTimezones() async throws {
         let rules = try SiriDateRules(timezone: "Pacific/Auckland")
         let day = try rules.day(DateComponents(year: 2026, month: 10, day: 27), now: Date(timeIntervalSince1970: 0))
         XCTAssertEqual(day.key, "2026-10-27")
@@ -13,7 +13,7 @@ final class SiriRulesTests: XCTestCase {
 
 extension SiriRulesTests {
     @MainActor
-    func testTodayUsesHouseholdTimezoneAtExecution() throws {
+    func testTodayUsesHouseholdTimezoneAtExecution() async throws {
         let rules = try SiriDateRules(timezone: "Pacific/Auckland")
         let before = APIDate.iso.date(from: "2026-10-26T10:30:00Z")!
         let after = APIDate.iso.date(from: "2026-10-26T11:30:00Z")!
@@ -22,7 +22,7 @@ extension SiriRulesTests {
     }
 
     @MainActor
-    func testMyChoresExcludeFutureUndatedCompletedAndOtherPeople() throws {
+    func testMyChoresExcludeFutureUndatedCompletedAndOtherPeople() async throws {
         let rules = try SiriDateRules(timezone: "Europe/London")
         let chores = [
             Chore(id: "today", name: "Dishes", description: "", status: .pending, dueDate: "2026-10-19T23:00:00Z", assignedToUserID: "me"),
@@ -37,7 +37,7 @@ extension SiriRulesTests {
     }
 
     @MainActor
-    func testStockChangesPreserveDetailsAndClampCount() throws {
+    func testStockChangesPreserveDetailsAndClampCount() async throws {
         let item = InventoryItem(id: "soap", areaID: "bathroom", name: "Soap", quantity: 3, unit: "bars", lowAt: 1)
         let saved = try InventoryStockChange.quantityDelta(-5).applying(to: item)
         XCTAssertEqual(saved.quantity, 0)
@@ -47,7 +47,7 @@ extension SiriRulesTests {
     }
 
     @MainActor
-    func testRecipeNamesMatchWithoutCaseOrExtraWhitespace() {
+    func testRecipeNamesMatchWithoutCaseOrExtraWhitespace() async {
         let recipes = [Recipe(id: "one", title: "Butter Chicken"), Recipe(id: "two", title: "Butter Chicken Curry")]
         XCTAssertEqual(SiriNames.recipes(named: " butter  CHICKEN ", in: recipes).map(\.id), ["one"])
     }
@@ -55,7 +55,7 @@ extension SiriRulesTests {
 
 extension SiriRulesTests {
     @MainActor
-    func testChoreDueDayMatchesServerWithoutTimezoneShift() throws {
+    func testChoreDueDayMatchesServerWithoutTimezoneShift() async throws {
         let rules = try SiriDateRules(timezone: "America/Los_Angeles")
         let tomorrow = Chore(id: "tomorrow", name: "Bins", description: "", status: .pending, dueDate: "2026-10-20T00:00:00Z", assignedToUserID: "me")
         let today = Chore(id: "today", name: "Dishes", description: "", status: .pending, dueDate: "2026-10-19T00:00:00.000Z", assignedToUserID: "me")
@@ -66,7 +66,7 @@ extension SiriRulesTests {
 
 extension SiriRulesTests {
     @MainActor
-    func testCalendarDatesStayStableAcrossDaylightSavingAndYearBoundaries() throws {
+    func testCalendarDatesStayStableAcrossDaylightSavingAndYearBoundaries() async throws {
         let rules = try SiriDateRules(timezone: "Europe/London")
         let cases: [(DateComponents, String)] = [
             (DateComponents(year: 2026, month: 10, day: 25), "2026-10-25"),
@@ -82,14 +82,14 @@ extension SiriRulesTests {
     }
 
     @MainActor
-    func testDuplicateRecipeMatchesRemainAvailableForAChoice() {
+    func testDuplicateRecipeMatchesRemainAvailableForAChoice() async {
         let recipes = [Recipe(id: "one", title: "Butter Chicken"), Recipe(id: "two", title: "butter chicken")]
         XCTAssertEqual(SiriNames.recipes(named: "Butter chicken", in: recipes).map(\.id), ["one", "two"])
         XCTAssertEqual(SiriNames.recipes(named: "New meal", in: recipes), [])
     }
 
     @MainActor
-    func testLongListSummaryDoesNotReadEveryItem() {
+    func testLongListSummaryDoesNotReadEveryItem() async {
         let summary = SiriNames.summary(["One", "Two", "Three", "Four", "Five", "Six"], empty: "Empty")
         XCTAssertTrue(summary.contains("6 items"))
         XCTAssertTrue(summary.contains("Five"))
@@ -99,7 +99,7 @@ extension SiriRulesTests {
 
 extension SiriRulesTests {
     @MainActor
-    func testResolvedAndForecastChoresCannotBeCompletedThroughSiri() throws {
+    func testResolvedAndForecastChoresCannotBeCompletedThroughSiri() async throws {
         let rules = try SiriDateRules(timezone: "Europe/London")
         let chores = [
             Chore(id: "due", name: "Due", description: "", status: .pending, dueDate: "2026-10-19", assignedToUserID: "me"),

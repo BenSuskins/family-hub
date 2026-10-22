@@ -125,7 +125,12 @@ public final class APIClient: APIClientProtocol {
         ) {
             let request = try await self.buildRequest(path: path, method: method, contentType: contentType)
             do {
+#if os(Linux)
+                let body = try Data(contentsOf: bodyFileURL)
+                let (data, response) = try await self.session.upload(for: request, from: body)
+#else
                 let (data, response) = try await self.session.upload(for: request, fromFile: bodyFileURL)
+#endif
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw APIError.network(URLError(.badServerResponse))
                 }

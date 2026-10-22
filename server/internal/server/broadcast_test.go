@@ -49,7 +49,7 @@ func TestAdminBroadcastIsValidatedAndDoesNotRepeatOnRetry(t *testing.T) {
 		}
 	}
 	sender := &fakeBroadcastSender{attempts: map[string]int{}}
-	server := New(database, config.Config{}, nil, sender)
+	server := New(database, config.Config{}, sender)
 	call := func(body, token string, status int) models.BroadcastResult {
 		t.Helper()
 		request := httptest.NewRequest(http.MethodPost, "/api/notifications/broadcast", strings.NewReader(body))

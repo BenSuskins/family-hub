@@ -531,7 +531,7 @@ func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Recipes predating the steps column keep their method in Instructions;
-	// fall back so they stay cookable, matching the web cook mode.
+	// fall back so they remain cookable in the iOS clients.
 	if len(recipe.Steps) == 0 && recipe.Instructions != "" {
 		recipe.Steps = services.SplitIntoSteps(recipe.Instructions)
 	}
@@ -605,8 +605,7 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 }
 
 // choreAPIBody is the JSON request body shared by CreateChore and UpdateChore.
-// It mirrors the full set of options the web chore form exposes so API clients
-// (the iOS app) reach parity.
+// It exposes the chore options needed by the iOS app.
 type choreAPIBody struct {
 	Name                 string   `json:"name"`
 	Description          string   `json:"description"`

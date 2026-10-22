@@ -1,21 +1,13 @@
-GOPATH_BIN := $(shell go env GOPATH)/bin
+.PHONY: build run test test-coverage dev docker-dev docker-prod clean
 
-.PHONY: build run test test-coverage templ css dev docker-dev docker-prod clean
-
-build: templ css
+build:
 	go build -o bin/family-hub .
 
 run: build
 	./bin/family-hub
 
-templ:
-	$(GOPATH_BIN)/templ generate
-
-css:
-	bunx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
-
 dev:
-	$(GOPATH_BIN)/air
+	go run github.com/air-verse/air@latest
 
 docker-dev:
 	docker compose up --build
@@ -35,4 +27,4 @@ test-coverage:
 	go tool cover -html=coverage.out
 
 clean:
-	rm -rf bin/ tmp/ static/css/styles.css coverage.out
+	rm -rf bin/ tmp/ coverage.out

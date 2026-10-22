@@ -1,13 +1,11 @@
 package config
 
 import (
-	"strings"
 	"testing"
 )
 
 func TestLoadCommuteConfiguration(t *testing.T) {
-	t.Setenv("SESSION_SECRET", strings.Repeat("s", 32))
-	t.Setenv("DEV_MODE", "true")
+	t.Setenv("OIDC_ISSUER", "https://auth.example.com")
 	t.Setenv("HUXLEY_BASE_URL", "")
 	t.Setenv("HUXLEY_ACCESS_TOKEN", "")
 	configuration, err := Load()

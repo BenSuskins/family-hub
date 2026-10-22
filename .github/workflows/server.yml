@@ -27,26 +27,8 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: server/go.sum
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
       - name: Download Go modules
         run: go mod download
-
-      - name: Install Node modules
-        run: npm install
-
-      - name: Install templ
-        run: go install github.com/a-h/templ/cmd/templ@v0.3.977
-
-      - name: Generate templ files
-        run: |
-          export PATH="$PATH:$(go env GOPATH)/bin"
-          templ generate
-
-      - name: Build CSS
-        run: npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
 
       - name: Test
         run: go test -v ./...

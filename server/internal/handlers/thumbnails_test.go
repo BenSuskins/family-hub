@@ -64,9 +64,9 @@ func serveRecipeImage(t *testing.T, dataURI, query string, headers map[string]st
 		t.Fatalf("storing image: %v", err)
 	}
 
-	handler := NewRecipeHandler(recipeRepo, nil, nil, nil)
+	handler := NewImageHandler(recipeRepo)
 	router := chi.NewRouter()
-	router.Get("/api/recipes/{id}/image", handler.ServeImage)
+	router.Get("/api/recipes/{id}/image", handler.ServeRecipeImage)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/recipes/"+created.ID+"/image"+query, nil)
 	for name, value := range headers {

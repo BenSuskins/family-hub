@@ -146,7 +146,7 @@ private struct SetupInfoSheet: View {
                         VStack(alignment: .leading, spacing: 16) {
                             SetupStep(number: 1, title: "Deploy with Docker", detail: "Run docker compose -f docker-compose.prod.yml up from the server/ directory in the repository.")
                             SetupStep(number: 2, title: "Configure an OIDC provider", detail: "Set up a public PKCE client in Authelia, Keycloak, or Auth0. Add your app's callback URL as a redirect URI.")
-                            SetupStep(number: 3, title: "Set environment variables", detail: "Required: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_REDIRECT_URL, and SESSION_SECRET. A .env.example file is included in the repository.")
+                            SetupStep(number: 3, title: "Set environment variables", detail: "Required: OIDC_ISSUER and OIDC_CLIENT_ID. A .env.example file is included in the repository.")
                             SetupStep(number: 4, title: "Enter your server URL here", detail: "Once the server is running, enter its public URL above and tap Connect. The first user to sign in becomes admin.")
                         }
 

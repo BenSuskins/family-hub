@@ -48,7 +48,7 @@ func TestRequireUser_RejectsNonAPIScopedToken(t *testing.T) {
 
 	router := chi.NewRouter()
 	router.Group(func(r chi.Router) {
-		r.Use(middleware.RequireUser(nil, tokenRepo, userRepo))
+		r.Use(middleware.RequireUser(tokenRepo, userRepo))
 		r.Get("/api/chores", apiHandler.ListChores)
 	})
 
@@ -480,9 +480,8 @@ func getRecipeJSON(t *testing.T, seed models.Recipe) models.Recipe {
 	return recipe
 }
 
-// Recipes predating the steps column keep their method in Instructions. The web
-// cook mode has always split that blob into steps; the JSON API now does too,
-// so those recipes are cookable on the phone and the watch.
+// Recipes predating the steps column keep their method in Instructions. The API
+// splits that blob into steps so those recipes work on iPhone and Apple Watch.
 func TestGetRecipe_API_FallsBackToInstructions(t *testing.T) {
 	recipe := getRecipeJSON(t, models.Recipe{
 		Title:        "Legacy Stew",

@@ -382,6 +382,15 @@ func extractServings(recipe map[string]any) *int {
 
 var digitsRegex = regexp.MustCompile(`\d+`)
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func firstInt(text string) int {
 	match := digitsRegex.FindString(text)
 	if match == "" {

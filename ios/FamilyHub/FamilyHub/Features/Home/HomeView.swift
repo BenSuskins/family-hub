@@ -6,6 +6,9 @@ struct HomeView: View {
     @State private var mealsViewModel: MealsViewModel
     @State private var recipesViewModel: RecipesViewModel
     @State private var householdViewModel: HouseholdViewModel
+    @State private var commuteViewModel: CommuteViewModel
+    @State private var commuteRefreshID = 0
+    @State private var avatarRefreshID = UUID()
     @State private var isVisible = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var activeSheet: ActiveSheet?
@@ -31,6 +34,7 @@ struct HomeView: View {
         _mealsViewModel = State(wrappedValue: MealsViewModel(apiClient: apiClient))
         _recipesViewModel = State(wrappedValue: RecipesViewModel(apiClient: apiClient))
         _householdViewModel = State(wrappedValue: HouseholdViewModel(apiClient: apiClient))
+        _commuteViewModel = State(wrappedValue: CommuteViewModel(apiClient: apiClient))
     }
 
     var body: some View {
@@ -45,6 +49,9 @@ struct HomeView: View {
                         }
                         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
                             mealsSection(stats)
+                        }
+                        CommuteCardsView(model: commuteViewModel)
+                        if case .loaded(let stats) = viewModel.state {
                             agendaSection
                             choresSection(stats)
                         }
@@ -54,10 +61,18 @@ struct HomeView: View {
                 .refreshable {
                     async let dashboard: Void = viewModel.load()
                     async let household: Void = householdViewModel.load(force: true)
-                    _ = await (dashboard, household)
+                    async let commute: Void = commuteViewModel.refresh(force: true)
+                    _ = await (dashboard, household, commute)
                 }
                 .onAppear { isVisible = true }
-                .onDisappear { isVisible = false }
+                .onDisappear {
+                    isVisible = false
+                    commuteViewModel.stop()
+                }
+                .task(id: scenePhase == .active && isVisible && activeSheet == nil ? commuteRefreshID : nil) {
+                    guard scenePhase == .active, isVisible, activeSheet == nil else { return }
+                    await commuteViewModel.run()
+                }
                 .task(id: scenePhase == .active && isVisible) { [shouldRefresh = scenePhase == .active && isVisible] in
                     guard shouldRefresh else { return }
                     await viewModel.load()
@@ -77,14 +92,18 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .profile } label: {
-                        Image(systemName: "gearshape").font(.title3)
+                        UserAvatar(user: viewModel.currentUser, size: 32, apiClient: apiClient)
+                            .id(avatarRefreshID)
                             .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Settings")
                     .accessibilityIdentifier("Open profile")
                 }
             }
             .sheet(item: $activeSheet, onDismiss: {
+                commuteRefreshID += 1
+                avatarRefreshID = UUID()
                 Task { await viewModel.load() }
             }) { sheet in
                 switch sheet {
@@ -101,7 +120,11 @@ struct HomeView: View {
             if tab == .today { Task { await viewModel.load() } }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase != .active { commuteViewModel.stop() }
             if phase == .active && isVisible { Task { await viewModel.load() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            commuteViewModel.tick()
         }
     }
 
@@ -280,7 +303,7 @@ struct HomeView: View {
 
 // MARK: - HomeSectionHeader
 
-private struct HomeSectionHeader<Action: View>: View {
+struct HomeSectionHeader<Action: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     @ViewBuilder var action: () -> Action

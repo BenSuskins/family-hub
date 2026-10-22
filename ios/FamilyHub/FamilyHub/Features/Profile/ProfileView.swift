@@ -15,6 +15,7 @@ struct ProfileView: View {
     @State private var isUploadingAvatar = false
     @State private var avatarError: APIError?
     @State private var confirmRemovePhoto = false
+    @State private var avatarRefreshID = UUID()
 
     private var displayName: String { currentUser?.name ?? authManager.displayName }
     private var displayEmail: String { currentUser?.email ?? authManager.email }
@@ -62,6 +63,7 @@ struct ProfileView: View {
             HStack(spacing: 14) {
                 ZStack(alignment: .bottomTrailing) {
                     UserAvatar(user: currentUser, size: 42, apiClient: apiClient)
+                        .id(avatarRefreshID)
                     if isUploadingAvatar {
                         ProgressView()
                             .scaleEffect(0.7)
@@ -108,6 +110,12 @@ struct ProfileView: View {
                 FeatureEntryLabel(title: "Notifications", subtitle: "Device permission and reminder schedule", systemImage: "bell")
             }
             .accessibilityIdentifier("Chore Reminders")
+            NavigationLink {
+                CommuteSettingsView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "Commute", subtitle: "Train times and display schedule", systemImage: "tram.fill")
+            }
+            .accessibilityIdentifier("Commute settings")
         }.listRowBackground(AppTheme.surface)
     }
 
@@ -200,6 +208,7 @@ struct ProfileView: View {
             let (uploadData, mimeType) = normalizedImageData(rawData)
             let updated = try await apiClient.uploadAvatar(imageData: uploadData, mimeType: mimeType)
             currentUser = updated
+            avatarRefreshID = UUID()
         } catch {
             avatarError = .from(error)
         }
@@ -222,6 +231,7 @@ struct ProfileView: View {
         do {
             try await apiClient.deleteAvatar()
             currentUser = try await apiClient.fetchMe()
+            avatarRefreshID = UUID()
         } catch {
             avatarError = .from(error)
         }

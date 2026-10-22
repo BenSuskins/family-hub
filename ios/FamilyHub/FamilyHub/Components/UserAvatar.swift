@@ -43,11 +43,13 @@ struct UserAvatar: View {
                 }
             }
             .clipShape(Circle())
-            .task(id: user?.id) {
+            .task(id: "\(user?.id ?? "")|\(user?.avatarURL ?? "")") {
                 loadedImageData = nil
                 guard let user, user.avatarURL.hasPrefix("/avatar/") else { return }
                 let avatarID = String(user.avatarURL.dropFirst("/avatar/".count))
-                loadedImageData = try? await apiClient?.fetchUserAvatar(id: avatarID)
+                let data = try? await apiClient?.fetchUserAvatar(id: avatarID)
+                guard !Task.isCancelled else { return }
+                loadedImageData = data
             }
     }
 

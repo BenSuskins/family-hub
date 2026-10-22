@@ -72,9 +72,6 @@ struct MealsView: View {
                         .accessibilityLabel("Go to current meal week")
                 }
             }
-            if isFoodHome {
-                ToolbarItem(placement: .topBarTrailing) { FeatureProfileButton(apiClient: apiClient) }
-            }
         }
         .refreshable {
             await viewModel.load()

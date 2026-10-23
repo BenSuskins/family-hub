@@ -56,8 +56,10 @@ final class AppNavigation {
         guard url.scheme == "familyhub" else { return }
         switch url.host {
         case "chores":
+            rootRefreshIDs[.tasks] = UUID()
             selectedTab = .tasks
         case "today":
+            rootRefreshIDs[.today] = UUID()
             selectedTab = .today
         case "calendar": selectedTab = .calendar
         case "meals": openMealPlan()

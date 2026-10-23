@@ -145,9 +145,9 @@ final class HomeSkipTests: XCTestCase {
     func testReminderOpensHomeAndRequestsFreshData() {
         let navigation = AppNavigation()
         navigation.selectedTab = .tasks
-        let previous = navigation.choreRefreshID
+        let previous = navigation.rootRefreshID(for: .today)
         navigation.open(URL(string: "familyhub://today")!)
         XCTAssertEqual(navigation.selectedTab, .today)
-        XCTAssertNotEqual(navigation.choreRefreshID, previous)
+        XCTAssertNotEqual(navigation.rootRefreshID(for: .today), previous)
     }
 }

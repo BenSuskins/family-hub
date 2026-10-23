@@ -120,7 +120,7 @@ struct HomeView: View {
                 RecipeDetailView(recipe: recipe, apiClient: apiClient, viewModel: recipesViewModel)
             }
         }
-        .task(id: navigation.choreRefreshID) { await viewModel.load() }
+        .task(id: navigation.rootRefreshID(for: .today)) { await viewModel.load() }
         .onChange(of: navigation.selectedTab) { _, tab in
             if tab == .today { Task { await viewModel.load() } }
         }

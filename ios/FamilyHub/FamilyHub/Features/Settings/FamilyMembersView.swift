@@ -51,6 +51,7 @@ final class FamilyMembersViewModel {
 
 struct FamilyMembersView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(ConfigStore.self) private var configStore
     let apiClient: any APIClientProtocol
     let currentUserID: String
 
@@ -64,6 +65,20 @@ struct FamilyMembersView: View {
 
     var body: some View {
         List {
+            Section {
+                ShareLink(
+                    item: inviteMessage,
+                    subject: Text("Join our family on Family Hub")
+                ) {
+                    Label("Invite family member", systemImage: "person.badge.plus")
+                }
+                .accessibilityIdentifier("Invite family member")
+                Text("They need an account enabled by your family’s sign-in provider.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondary)
+            }
+            .listRowBackground(AppTheme.surface)
+
             if viewModel.users.isEmpty && viewModel.hasLoaded {
                 Section {
                     ContentUnavailableView("No Family Members", systemImage: "person.2", description: Text("No family members were found."))
@@ -124,6 +139,22 @@ struct FamilyMembersView: View {
         .errorAlert($viewModel.actionError)
         .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
+    }
+
+    private var inviteMessage: String {
+        let serverAddress = configStore.baseURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        return """
+        Join our family on Family Hub.
+
+        1. Download Family Home Hub: https://apps.apple.com/gb/app/family-home-hub/id6761337807
+        2. On the Welcome screen, enter this server address and tap Connect: \(serverAddress)
+        3. Sign in with an account accepted by your family’s sign-in provider.
+
+        Family Hub adds your account after your first sign-in.
+        """
     }
 }
 

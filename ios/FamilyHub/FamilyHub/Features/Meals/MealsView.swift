@@ -384,7 +384,10 @@ struct MealEditSheet: View {
                 }
             }
             .interactiveDismissDisabled(isSaving)
-            .task { await loadRecipes() }
+            .task {
+                nameIsFocused = true
+                await loadRecipes()
+            }
         }
     }
 

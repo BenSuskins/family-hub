@@ -5,6 +5,7 @@ struct FamilyNameView: View {
     let apiClient: any APIClientProtocol
 
     @State private var familyName = ""
+    @State private var savedFamilyName = ""
     @State private var isLoading = true
     @State private var hasLoaded = false
     @State private var isSaving = false
@@ -20,16 +21,18 @@ struct FamilyNameView: View {
             } header: { Text("Family name") } footer: {
                 Text("Displayed in the app header for all family members.")
             }.listRowBackground(AppTheme.surface)
-            Section {
-                Button("Save family name") { Task { await save() } }
-                    .buttonStyle(AppPrimaryButtonStyle())
-                    .accessibilityIdentifier("Save")
-                    .disabled(familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving || !hasLoaded)
-            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .appListStyle()
         .navigationTitle("Family name")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
+                    .buttonStyle(AppCommitButtonStyle())
+                    .accessibilityIdentifier("Save")
+                    .disabled(trimmedFamilyName.isEmpty || trimmedFamilyName == savedFamilyName || isSaving || !hasLoaded)
+            }
+        }
         .overlay {
             if isLoading {
                 ProgressView()
@@ -54,6 +57,7 @@ struct FamilyNameView: View {
         do {
             let settings = try await apiClient.fetchSettings()
             familyName = settings.familyName
+            savedFamilyName = settings.familyName
             hasLoaded = true
         } catch {
             actionError = .from(error)
@@ -64,10 +68,14 @@ struct FamilyNameView: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await apiClient.updateFamilyName(familyName.trimmingCharacters(in: .whitespacesAndNewlines))
+            try await apiClient.updateFamilyName(trimmedFamilyName)
             dismiss()
         } catch {
             actionError = .from(error)
         }
+    }
+
+    private var trimmedFamilyName: String {
+        familyName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

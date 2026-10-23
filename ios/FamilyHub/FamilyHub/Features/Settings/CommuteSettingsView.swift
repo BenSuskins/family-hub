@@ -7,6 +7,7 @@ struct CommuteSettingsView: View {
     @State private var state: ViewState<String> = .idle
     @State private var preferences = CommutePreferences()
     @State private var savedPreferences = CommutePreferences()
+    @State private var isSaving = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -30,6 +31,13 @@ struct CommuteSettingsView: View {
         .groupedBackground()
         .navigationTitle("Commute")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
+                    .buttonStyle(AppCommitButtonStyle())
+                    .disabled(!hasChanges || !canSave || isSaving)
+            }
+        }
         .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
         .task { await load() }
     }
@@ -122,22 +130,16 @@ struct CommuteSettingsView: View {
         Binding(get: { preferences[keyPath: keyPath] }, set: { value in
             let normalized = CommutePreferences.normalizedStationCode(value)
             preferences[keyPath: keyPath] = normalized
-            savedPreferences[keyPath: keyPath] = normalized
             if !preferences.hasValidStations {
                 preferences.toWork.enabled = false
                 preferences.toHome.enabled = false
-                savedPreferences.toWork.enabled = false
-                savedPreferences.toHome.enabled = false
             }
-            savePreferences()
         })
     }
 
     private var trainCountBinding: Binding<Int> {
         Binding(get: { preferences.trainCount }, set: { value in
             preferences.trainCount = value
-            savedPreferences.trainCount = value
-            savePreferences()
         })
     }
 
@@ -171,19 +173,21 @@ struct CommuteSettingsView: View {
 
     private func updateSchedule(_ direction: CommuteDirection, change: (inout CommuteSchedule) -> Void) {
         change(&preferences[direction])
-        guard case .loaded(let userID) = state else { return }
-        let schedule = preferences[direction]
-        if !schedule.enabled {
-            savedPreferences[direction].enabled = false
-        } else if schedule.validationMessage == nil {
-            savedPreferences[direction] = schedule
-        }
-        store.save(savedPreferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
     }
 
-    private func savePreferences() {
-        guard case .loaded(let userID) = state else { return }
-        store.save(savedPreferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
+    private var hasChanges: Bool { preferences != savedPreferences }
+
+    private var canSave: Bool {
+        preferences.toWork.validationMessage == nil && preferences.toHome.validationMessage == nil
+    }
+
+    private func save() async {
+        guard case .loaded(let userID) = state, canSave, hasChanges else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let saved = store.save(preferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
+        guard saved else { return }
+        savedPreferences = preferences
     }
 
     private func load() async {

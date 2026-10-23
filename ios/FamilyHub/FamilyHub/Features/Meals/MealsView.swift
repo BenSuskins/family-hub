@@ -278,8 +278,57 @@ struct MealEditSheet: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        let query = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return recipes.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }
+        let query = Self.searchWords(draft.name)
+        guard !query.isEmpty else { return recipes }
+        var scoredRecipes: [(recipe: Recipe, score: Int)] = []
+        for recipe in recipes {
+            guard let score = Self.matchScore(query, against: recipe.title) else { continue }
+            scoredRecipes.append((recipe: recipe, score: score))
+        }
+        scoredRecipes.sort { left, right in
+            if left.score != right.score { return left.score < right.score }
+            return left.recipe.title.localizedCaseInsensitiveCompare(right.recipe.title) == .orderedAscending
+        }
+        return scoredRecipes.map(\.recipe)
+    }
+
+    private static func searchWords(_ text: String) -> [String] {
+        text.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+    }
+
+    private static func matchScore(_ query: [String], against title: String) -> Int? {
+        let normalizedTitle = title.localizedLowercase
+        if normalizedTitle.contains(query.joined(separator: " ")) { return 0 }
+
+        let titleWords = searchWords(title)
+        var score = 0
+        for queryWord in query {
+            let bestDistance = titleWords.map { word in
+                word.contains(queryWord) ? 0 : editDistance(queryWord, word)
+            }.min() ?? Int.max
+            let allowedDistance = queryWord.count >= 7 ? 2 : (queryWord.count >= 4 ? 1 : 0)
+            guard bestDistance <= allowedDistance else { return nil }
+            score += bestDistance
+        }
+        return score
+    }
+
+    private static func editDistance(_ left: String, _ right: String) -> Int {
+        let rightCharacters = Array(right)
+        var previousRow = Array(0...rightCharacters.count)
+        for (leftIndex, leftCharacter) in left.enumerated() {
+            var currentRow = [leftIndex + 1]
+            for (rightIndex, rightCharacter) in rightCharacters.enumerated() {
+                let substitutionCost = leftCharacter == rightCharacter ? 0 : 1
+                currentRow.append(min(
+                    currentRow[rightIndex] + 1,
+                    previousRow[rightIndex + 1] + 1,
+                    previousRow[rightIndex] + substitutionCost
+                ))
+            }
+            previousRow = currentRow
+        }
+        return previousRow.last ?? left.count
     }
 
     private var canSave: Bool {

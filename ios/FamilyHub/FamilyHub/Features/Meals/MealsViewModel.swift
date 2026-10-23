@@ -8,6 +8,8 @@ import FamilyHubKit
 final class MealsViewModel {
     var actionError: APIError?
     var state: ViewState<[MealPlan]> = .idle
+    private(set) var refreshError: APIError?
+    private(set) var snapshotMetadata: SnapshotMetadata?
     var currentWeek: Date = MealsViewModel.fridayStartOfWeek(for: Date())
     private(set) var selectedDay: Date = Date()
 
@@ -21,16 +23,21 @@ final class MealsViewModel {
         self.apiClient = apiClient
     }
 
-    func load() async {
+    func load(forceRefresh: Bool = false) async {
         let week = currentWeek
-        state = .loading
+        if case .loaded = state {} else { state = .loading }
+        refreshError = nil
         do {
-            let meals = try await apiClient.fetchMeals(week: week)
-            guard week == currentWeek else { return }
+            let meals = try await apiClient.fetchMeals(week: week, forceRefresh: forceRefresh)
+            guard !Task.isCancelled, week == currentWeek else { return }
+            snapshotMetadata = await apiClient.snapshotMetadata(for: "meals-\(APIDate.dayString(week))")
             state = .loaded(meals)
-        } catch {
-            guard week == currentWeek else { return }
-            state = .failed(.from(error))
+        }
+        catch {
+            guard !Task.isCancelled, week == currentWeek else { return }
+            let apiError = APIError.from(error)
+            refreshError = apiError
+            if case .loading = state { state = .failed(apiError) }
         }
     }
 

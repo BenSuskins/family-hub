@@ -135,6 +135,37 @@ final class MealsViewModelTests: XCTestCase {
         XCTAssertEqual(meals.first?.name, "Pasta")
     }
 
+    func testFailedRefreshKeepsPreviouslyLoadedMeals() async {
+        let fake = FakeAPIClient()
+        let original = makeMeal(date: "2026-10-18", mealType: "dinner", name: "Pasta")
+        fake.mealsResult = .success([original])
+        let viewModel = MealsViewModel(apiClient: fake)
+        await viewModel.load()
+        fake.mealsResult = .failure(APIError.offline)
+
+        await viewModel.load(forceRefresh: true)
+
+        guard case .loaded(let meals) = viewModel.state else { return XCTFail("Previous meal content stays visible") }
+        XCTAssertEqual(meals.first?.name, "Pasta")
+        XCTAssertEqual(viewModel.refreshError, .offline)
+    }
+
+    func testSuccessfulSaveStaysSuccessfulWhenRefreshFails() async {
+        let fake = FakeAPIClient()
+        fake.mealsResult = .success([makeMeal(date: "2026-10-18", mealType: "dinner", name: "Pasta")])
+        let viewModel = MealsViewModel(apiClient: fake)
+        await viewModel.load()
+        fake.saveMealResult = .success(makeMeal(date: "2026-10-18", mealType: "dinner", name: "Soup"))
+        fake.mealsResult = .failure(APIError.offline)
+
+        let saved = await viewModel.saveMeal(date: "2026-10-18", mealType: "dinner", name: "Soup")
+
+        XCTAssertTrue(saved)
+        XCTAssertNil(viewModel.actionError)
+        XCTAssertNotNil(viewModel.refreshError)
+        guard case .loaded = viewModel.state else { return XCTFail("Loaded meals stay visible") }
+    }
+
 }
 
 final class MealDraftTests: XCTestCase {

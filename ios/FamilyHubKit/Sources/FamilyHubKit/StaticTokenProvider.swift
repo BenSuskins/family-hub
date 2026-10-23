@@ -34,4 +34,8 @@ public final class StaticTokenProvider: TokenProviding {
         }
         return token
     }
+
+    public func cacheIdentity() async throws -> String? {
+        try await validAPIToken()
+    }
 }

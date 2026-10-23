@@ -15,6 +15,8 @@ final class RecipesViewModel: @MainActor MutableListViewModel {
     var selectedMealType: String? = nil
     var actionError: APIError?
     var recipeImages: [String: Data] = [:]
+    private(set) var refreshError: APIError?
+    private(set) var snapshotMetadata: SnapshotMetadata?
 
     static let mealTypeOptions: [String] = ["breakfast", "lunch", "dinner", "side", "dessert"]
 
@@ -73,13 +75,19 @@ final class RecipesViewModel: @MainActor MutableListViewModel {
     }
 
     func load(forceRefresh: Bool = false) async {
-        state = .loading
+        if case .loaded = state {} else { state = .loading }
+        refreshError = nil
         do {
             let recipes = try await apiClient.fetchRecipes(forceRefresh: forceRefresh)
+            guard !Task.isCancelled else { return }
+            snapshotMetadata = await apiClient.snapshotMetadata(for: "recipes-summary")
             state = .loaded(recipes)
             await preloadImages(for: recipes)
         } catch {
-            state = .failed(.from(error))
+            guard !Task.isCancelled else { return }
+            let apiError = APIError.from(error)
+            refreshError = apiError
+            if case .loading = state { state = .failed(apiError) }
         }
     }
 
@@ -90,7 +98,7 @@ final class RecipesViewModel: @MainActor MutableListViewModel {
         let fetched: [(String, Data)] = await withTaskGroup(of: (String, Data)?.self) { group in
             for recipe in missing {
                 group.addTask {
-                    guard let data = try? await client.fetchRecipeImage(id: recipe.id) else { return nil }
+                    guard let data = try? await client.fetchRecipeImage(id: recipe.id, variant: .thumbnail) else { return nil }
                     return (recipe.id, data)
                 }
             }

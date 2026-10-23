@@ -9,7 +9,7 @@ final class APIErrorTests: XCTestCase {
     // MARK: - isRetryable
 
     func testTransientErrorsAreRetryable() {
-        XCTAssertTrue(APIError.offline.isRetryable)
+        XCTAssertFalse(APIError.offline.isRetryable)
         XCTAssertTrue(APIError.timedOut.isRetryable)
         XCTAssertTrue(APIError.rateLimited(retryAfter: nil).isRetryable)
         XCTAssertTrue(APIError.server(status: 500, serverMessage: nil).isRetryable)

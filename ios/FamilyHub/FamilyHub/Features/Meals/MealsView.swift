@@ -58,6 +58,18 @@ struct MealsView: View {
                     .textCase(nil)
                 }
             }
+            if (viewModel.refreshError != nil || viewModel.snapshotMetadata?.isFresh == false), case .loaded = viewModel.state {
+                Section {
+                    HStack {
+                        Label(refreshNoticeTitle, systemImage: "arrow.clockwise.circle")
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.secondary)
+                        Spacer()
+                        Button("Retry") { Task { await viewModel.load() } }
+                            .font(.footnote.weight(.semibold))
+                    }
+                }.listRowBackground(AppTheme.surface)
+            }
             if isFoodHome && !isOverview {
                 Section { recipesEntry }.listRowBackground(AppTheme.surface)
             }
@@ -74,7 +86,7 @@ struct MealsView: View {
             }
         }
         .refreshable {
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
             if isFoodHome { await recipesViewModel.load(forceRefresh: true) }
         }
         .sheet(item: $editingMeal) { meal in
@@ -87,6 +99,13 @@ struct MealsView: View {
     }
 
     private var isOverview: Bool { isFoodHome && UIDevice.current.userInterfaceIdiom == .phone }
+
+    private var refreshNoticeTitle: String {
+        guard let snapshot = viewModel.snapshotMetadata, !snapshot.isFresh else {
+            return "Couldn’t refresh · Showing saved meals"
+        }
+        return "Saved meals · Last updated \(snapshot.savedAt.formatted(date: .abbreviated, time: .shortened))"
+    }
 
     private var recipesEntry: some View {
         NavigationLink(value: FoodDestination.recipes) {

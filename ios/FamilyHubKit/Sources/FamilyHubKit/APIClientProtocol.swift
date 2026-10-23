@@ -7,18 +7,30 @@ public enum ViewState<T> {
     case failed(APIError)
 }
 
+public enum RecipeImageVariant: String, CaseIterable, Sendable {
+    case thumbnail
+    case original
+}
+
 /// Supplies the bearer token for outgoing requests. APIClient depends on this
 /// rather than on AuthManager, which is iOS-only: it drives
 /// ASWebAuthenticationSession, which does not exist on watchOS. AnyObject so the
 /// client can hold it weakly and avoid a retain cycle.
 public protocol TokenProviding: AnyObject {
     func validAPIToken() async throws -> String
+    func cacheIdentity() async throws -> String?
+}
+
+public extension TokenProviding {
+    func cacheIdentity() async throws -> String? { nil }
 }
 
 public protocol APIClientProtocol: AnyObject {
     func fetchDashboardStats() async throws -> DashboardStats
+    func fetchDashboardStats(forceRefresh: Bool) async throws -> DashboardStats
     func fetchChores() async throws -> [Chore]
     func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition]
+    func fetchChoreDefinitions(includeInactive: Bool, forceRefresh: Bool) async throws -> [ChoreDefinition]
     func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition
     func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition
     func deleteChoreDefinition(id: String) async throws
@@ -30,13 +42,16 @@ public protocol APIClientProtocol: AnyObject {
     func deleteChore(id: String) async throws
     func fetchUserAvatar(id: String) async throws -> Data
     func fetchMeals(week: Date) async throws -> [MealPlan]
+    func fetchMeals(week: Date, forceRefresh: Bool) async throws -> [MealPlan]
     func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe]
     func fetchRecipe(id: String) async throws -> Recipe
     func fetchRecipeImage(id: String) async throws -> Data
+    func fetchRecipeImage(id: String, variant: RecipeImageVariant) async throws -> Data
     func createRecipe(_ request: RecipeRequest) async throws -> Recipe
     func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe
     func deleteRecipe(id: String) async throws
     func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse
+    func fetchCalendar(view: String, date: Date, forceRefresh: Bool) async throws -> CalendarResponse
     func fetchCalendarSubscriptions() async throws -> [CalendarSubscription]
     func createCalendarSubscription(name: String, url: String, color: String) async throws -> CalendarSubscription
     func updateCalendarSubscriptionColor(id: String, color: String) async throws -> CalendarSubscription
@@ -45,9 +60,11 @@ public protocol APIClientProtocol: AnyObject {
     func downloadDatabaseBackup() async throws -> URL
     func restoreDatabaseBackup(from url: URL) async throws
     func fetchUsers() async throws -> [User]
+    func fetchUsers(forceRefresh: Bool) async throws -> [User]
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
     func deleteMeal(date: String, mealType: String) async throws
     func fetchMe() async throws -> User
+    func fetchMe(forceRefresh: Bool) async throws -> User
     func fetchCommuteTrains(from origin: String, to destination: String, count: Int) async throws -> CommuteBoard
 
     // Avatar
@@ -71,6 +88,7 @@ public protocol APIClientProtocol: AnyObject {
 
     // Categories (admin)
     func fetchCategories() async throws -> [ChoreCategory]
+    func fetchCategories(forceRefresh: Bool) async throws -> [ChoreCategory]
     func createCategory(name: String) async throws -> ChoreCategory
     func updateCategory(id: String, name: String) async throws -> ChoreCategory
     func deleteCategory(id: String) async throws
@@ -81,6 +99,7 @@ public protocol APIClientProtocol: AnyObject {
     func deleteToken(id: String) async throws
 
     var serverIdentifier: String? { get }
+    func snapshotMetadata(for key: String) async -> SnapshotMetadata?
     func fetchHomeInfo() async throws -> HomeInfo
     func updateHomeInfo(_ home: HomeInfo) async throws
     func fetchWeather() async throws -> HouseholdWeather
@@ -104,6 +123,19 @@ public protocol APIClientProtocol: AnyObject {
 }
 
 extension APIClientProtocol {
+    public func fetchDashboardStats(forceRefresh: Bool) async throws -> DashboardStats { try await fetchDashboardStats() }
+    public func fetchMeals(week: Date, forceRefresh: Bool) async throws -> [MealPlan] { try await fetchMeals(week: week) }
+    public func fetchCalendar(view: String, date: Date, forceRefresh: Bool) async throws -> CalendarResponse { try await fetchCalendar(view: view, date: date) }
+    public func fetchChoreDefinitions(includeInactive: Bool, forceRefresh: Bool) async throws -> [ChoreDefinition] { try await fetchChoreDefinitions(includeInactive: includeInactive) }
+    public func fetchUsers(forceRefresh: Bool) async throws -> [User] { try await fetchUsers() }
+    public func fetchMe(forceRefresh: Bool) async throws -> User { try await fetchMe() }
+    public func fetchCategories(forceRefresh: Bool) async throws -> [ChoreCategory] { try await fetchCategories() }
+    public func snapshotMetadata(for key: String) async -> SnapshotMetadata? { nil }
+
+    public func fetchRecipeImage(id: String, variant: RecipeImageVariant) async throws -> Data {
+        try await fetchRecipeImage(id: id)
+    }
+
     /// Cache-friendly convenience used by callers that don't force a refresh.
     public func fetchRecipes() async throws -> [Recipe] {
         try await fetchRecipes(forceRefresh: false)

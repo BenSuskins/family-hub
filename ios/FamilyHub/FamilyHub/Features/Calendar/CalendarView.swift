@@ -116,6 +116,14 @@ struct CalendarView: View {
             }
             .padding(12).background(AppTheme.surface)
             .accessibilityIdentifier("calendar-error")
+        } else if let metadata = viewModel.currentMonthSnapshotMetadata, !metadata.isFresh {
+            HStack {
+                Text("Saved calendar · Last updated \(metadata.savedAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                Spacer()
+                Button("Retry") { Task { await viewModel.load(forceRefresh: true) } }
+            }
+            .padding(12).background(AppTheme.surface)
         }
     }
 

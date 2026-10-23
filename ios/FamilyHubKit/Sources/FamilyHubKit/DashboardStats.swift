@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DashboardStats: Decodable {
+public struct DashboardStats: Codable {
     public let choresDueToday: Int
     public let choresOverdue: Int
     public let choresDueTodayList: [Chore]

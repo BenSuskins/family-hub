@@ -4,7 +4,8 @@ import FamilyHubKit
 @Observable
 final class CalendarSubscriptionsViewModel {
     var subscriptions: [CalendarSubscription] = []
-    var isLoading = false
+    var isLoading = true
+    var hasLoaded = false
     var actionError: APIError?
     var refreshingIDs: Set<String> = []
 
@@ -16,9 +17,11 @@ final class CalendarSubscriptionsViewModel {
 
     func load() async {
         isLoading = true
+        actionError = nil
         defer { isLoading = false }
         do {
             subscriptions = try await apiClient.fetchCalendarSubscriptions()
+            hasLoaded = true
         } catch {
             actionError = .from(error)
         }
@@ -89,7 +92,7 @@ struct CalendarSubscriptionsView: View {
                     .foregroundStyle(AppTheme.secondary)
             }.listRowBackground(Color.clear)
 
-            if viewModel.subscriptions.isEmpty && !viewModel.isLoading {
+            if viewModel.subscriptions.isEmpty && viewModel.hasLoaded {
                 Section {
                     ContentUnavailableView("No calendars", systemImage: "calendar.badge.plus", description: Text("Tap + to add an iCal feed."))
                 }.listRowBackground(AppTheme.surface)
@@ -158,6 +161,15 @@ struct CalendarSubscriptionsView: View {
         }
         .overlay {
             if viewModel.isLoading && viewModel.subscriptions.isEmpty { ProgressView() }
+            else if !viewModel.hasLoaded && !viewModel.isLoading {
+                ContentUnavailableView {
+                    Label("Calendars Unavailable", systemImage: "calendar.badge.exclamationmark")
+                } description: {
+                    Text("Calendar feeds could not be loaded.")
+                } actions: {
+                    Button("Retry") { Task { await viewModel.load() } }
+                }
+            }
         }
         .refreshable { await viewModel.load() }
         .sheet(isPresented: $showingCreate) {

@@ -4,7 +4,8 @@ import FamilyHubKit
 @Observable
 final class FamilyMembersViewModel {
     var users: [User] = []
-    var isLoading = false
+    var isLoading = true
+    var hasLoaded = false
     var actionError: APIError?
 
     private let apiClient: any APIClientProtocol
@@ -15,9 +16,11 @@ final class FamilyMembersViewModel {
 
     func load() async {
         isLoading = true
+        actionError = nil
         defer { isLoading = false }
         do {
             users = try await apiClient.fetchUsers()
+            hasLoaded = true
         } catch {
             actionError = .from(error)
         }
@@ -61,6 +64,11 @@ struct FamilyMembersView: View {
 
     var body: some View {
         List {
+            if viewModel.users.isEmpty && viewModel.hasLoaded {
+                Section {
+                    ContentUnavailableView("No Family Members", systemImage: "person.2", description: Text("No family members were found."))
+                }.listRowBackground(AppTheme.surface)
+            }
             ForEach(viewModel.users) { user in
             NavigationLink {
                 FamilyMemberRoleView(user: user, currentUserID: currentUserID, model: viewModel)
@@ -103,9 +111,18 @@ struct FamilyMembersView: View {
         .overlay {
             if viewModel.isLoading && viewModel.users.isEmpty {
                 ProgressView()
+            } else if !viewModel.hasLoaded && !viewModel.isLoading {
+                ContentUnavailableView {
+                    Label("Family Members Unavailable", systemImage: "person.2.slash")
+                } description: {
+                    Text("Family members could not be loaded.")
+                } actions: {
+                    Button("Retry") { Task { await viewModel.load() } }
+                }
             }
         }
         .errorAlert($viewModel.actionError)
+        .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
     }
 }

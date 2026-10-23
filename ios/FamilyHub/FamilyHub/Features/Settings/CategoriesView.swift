@@ -4,7 +4,8 @@ import FamilyHubKit
 @Observable
 final class CategoriesViewModel {
     var categories: [ChoreCategory] = []
-    var isLoading = false
+    var isLoading = true
+    var hasLoaded = false
     var actionError: APIError?
 
     private let apiClient: any APIClientProtocol
@@ -15,9 +16,11 @@ final class CategoriesViewModel {
 
     func load() async {
         isLoading = true
+        actionError = nil
         defer { isLoading = false }
         do {
             categories = try await apiClient.fetchCategories()
+            hasLoaded = true
         } catch {
             actionError = .from(error)
         }
@@ -89,7 +92,7 @@ struct CategoriesView: View {
         List {
             Section { Text("Use categories to organise chores.").font(.subheadline).foregroundStyle(AppTheme.secondary) }
                 .listRowBackground(Color.clear)
-            if viewModel.categories.isEmpty && !viewModel.isLoading {
+            if viewModel.categories.isEmpty && viewModel.hasLoaded {
                 Section {
                     ContentUnavailableView("No Categories", systemImage: "tag", description: Text("Tap + to add a category."))
                 }.listRowBackground(AppTheme.surface)
@@ -128,10 +131,6 @@ struct CategoriesView: View {
                         .tint(AppTheme.accent)
                     }
             }
-            Section {
-                Button("New category") { activeSheet = .create }
-                    .buttonStyle(AppSecondaryButtonStyle())
-            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
         }
         .appListStyle()
         .navigationTitle("Categories")
@@ -147,6 +146,14 @@ struct CategoriesView: View {
         .overlay {
             if viewModel.isLoading && viewModel.categories.isEmpty {
                 ProgressView()
+            } else if !viewModel.hasLoaded && !viewModel.isLoading {
+                ContentUnavailableView {
+                    Label("Categories Unavailable", systemImage: "tag.slash")
+                } description: {
+                    Text("Family categories could not be loaded.")
+                } actions: {
+                    Button("Retry") { Task { await viewModel.load() } }
+                }
             }
         }
         .sheet(item: $activeSheet) { sheet in
@@ -184,6 +191,7 @@ struct CategoriesView: View {
             }
         }
         .errorAlert($viewModel.actionError)
+        .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
     }
 }

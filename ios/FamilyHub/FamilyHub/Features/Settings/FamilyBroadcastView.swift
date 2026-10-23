@@ -20,12 +20,8 @@ struct FamilyBroadcastView: View {
     var body: some View {
         Form {
             Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Send a family message").font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Send a notification to registered family iPhones.")
-                        .font(.subheadline).foregroundStyle(AppTheme.secondary)
-                }
+                Text("Send a notification to registered family iPhones.")
+                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
             }.listRowBackground(Color.clear)
             Section {
                 TextField("Message", text: $message, axis: .vertical)
@@ -105,6 +101,11 @@ struct FamilyBroadcastView: View {
             }
         }
         .errorAlert($actionError)
+        .overlay {
+            if isLoading {
+                ProgressView()
+            }
+        }
         .task {
             defer { isLoading = false }
             do { pushAvailable = try await apiClient.fetchChoreReminders().pushAvailable }

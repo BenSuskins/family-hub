@@ -72,6 +72,11 @@ final class AuthManager: NSObject, TokenProviding {
         return token
     }
 
+    func cacheIdentity() async throws -> String? {
+        let token = try await validAPIToken()
+        return SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
     func signOut() {
         ChoreNotificationManager.shared.signedOut()
         keychain.clear()

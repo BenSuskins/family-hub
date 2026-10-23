@@ -75,6 +75,19 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.users["u1"]?.name, "Ben Suskins")
     }
 
+    func testIndependentHomeFailuresKeepDashboardVisible() async {
+        let fake = FakeAPIClient()
+        fake.usersResult = .failure(APIError.offline)
+        fake.calendarResult = .failure(APIError.server(status: 500, serverMessage: nil))
+        let viewModel = HomeViewModel(apiClient: fake)
+
+        await viewModel.load()
+
+        guard case .loaded(let stats) = viewModel.state else { return XCTFail("Dashboard remains visible") }
+        XCTAssertEqual(stats.choresDueToday, 0)
+        XCTAssertEqual(Set(viewModel.refreshErrors.keys), ["users", "calendar"])
+    }
+
     func testCompleteChoreSuccess() async {
         let fake = FakeAPIClient()
         fake.dashboardResult = .success(

@@ -35,6 +35,16 @@ final class HouseholdUITests: XCTestCase {
         field.typeText("Test bread")
         app.buttons["Add item"].tap()
         XCTAssertTrue(app.staticTexts["Test bread"].waitForExistence(timeout: 5))
+        let itemName = app.staticTexts["Test bread"]
+        itemName.tap()
+        let renameField = app.textFields["Rename item inline"]
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "items to buy")).firstMatch.tap()
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 2))
+        itemName.tap()
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        app.buttons["Save item name"].tap()
         app.buttons["Purchase Test bread"].tap()
         XCTAssertTrue(app.buttons["Restore Test bread"].waitForExistence(timeout: 5))
         let list = XCTAttachment(screenshot: app.screenshot())

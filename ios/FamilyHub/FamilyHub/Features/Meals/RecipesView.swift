@@ -15,6 +15,18 @@ struct RecipesView: View {
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { _ in
             List {
+                if viewModel.refreshError != nil || viewModel.snapshotMetadata?.isFresh == false {
+                    Section {
+                        HStack {
+                            Label(refreshNoticeTitle, systemImage: "arrow.clockwise.circle")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.secondary)
+                            Spacer()
+                            Button("Retry") { Task { await viewModel.load(forceRefresh: true) } }
+                                .font(.footnote.weight(.semibold))
+                        }
+                    }.listRowBackground(AppTheme.surface)
+                }
                 Section {
                     Picker("Meal Type", selection: $viewModel.selectedMealType) {
                         Text("All").tag(String?.none)
@@ -87,5 +99,12 @@ struct RecipesView: View {
         }
         .errorAlert($viewModel.actionError)
         .task { await viewModel.load() }
+    }
+
+    private var refreshNoticeTitle: String {
+        guard let snapshot = viewModel.snapshotMetadata, !snapshot.isFresh else {
+            return "Couldn’t refresh · Showing saved recipes"
+        }
+        return "Saved recipes · Last updated \(snapshot.savedAt.formatted(date: .abbreviated, time: .shortened))"
     }
 }

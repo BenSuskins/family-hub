@@ -11,6 +11,9 @@ final class HomeViewModel {
     var currentUser: User?
     var todayEvents: [CalendarEvent] = []
     var completedChoreIDs: Set<String> = []
+    private(set) var refreshErrors: [String: APIError] = [:]
+    private(set) var snapshotMetadata: SnapshotMetadata?
+    private var loadTask: Task<Void, Never>?
 
     let apiClient: any APIClientProtocol
 
@@ -25,35 +28,66 @@ final class HomeViewModel {
     nonisolated deinit {}
     #endif
 
-    func load() async {
-        await load(silent: false)
+    func load(forceRefresh: Bool = false) async {
+        if let loadTask {
+            await loadTask.value
+            return
+        }
+        let task = Task { await performLoad(forceRefresh: forceRefresh) }
+        loadTask = task
+        await task.value
+        loadTask = nil
     }
 
-    /// Loads the dashboard, users, current user and today's events together.
-    /// When `silent`, the existing UI is kept while refreshing (no spinner, and
-    /// transient failures don't replace already-loaded content).
-    private func load(silent: Bool) async {
-        if !silent { state = .loading }
-        async let statsTask = apiClient.fetchDashboardStats()
-        async let usersTask = apiClient.fetchUsers()
-        async let meTask = apiClient.fetchMe()
-        async let calTask = apiClient.fetchCalendar(view: "day", date: Date())
+    private func performLoad(forceRefresh: Bool) async {
+        if case .loaded = state {} else { state = .loading }
+        refreshErrors = [:]
+        async let dashboard: Void = loadDashboard(forceRefresh: forceRefresh)
+        async let users: Void = loadUsers(forceRefresh: forceRefresh)
+        async let profile: Void = loadProfile(forceRefresh: forceRefresh)
+        async let calendar: Void = loadCalendar(forceRefresh: forceRefresh)
+        _ = await (dashboard, users, profile, calendar)
+        if !Task.isCancelled { completedChoreIDs = [] }
+    }
+
+    private func loadDashboard(forceRefresh: Bool) async {
         do {
-            let (stats, userList, me, cal) = try await (statsTask, usersTask, meTask, calTask)
-            users = userList.keyedByID
-            currentUser = me
-            todayEvents = cal.events
+            let stats = try await apiClient.fetchDashboardStats(forceRefresh: forceRefresh)
+            guard !Task.isCancelled else { return }
+            snapshotMetadata = await apiClient.snapshotMetadata(for: "dashboard-\(APIDate.dayString(Date()))")
             state = .loaded(stats)
-            // The widget's own refresh budget is a few dozen a day, so every
-            // load here is worth far more to it than one of its own — and this
-            // is the only place that has the dashboard, the events and the
-            // users together, which is exactly what a day needs.
-            WidgetPublisher.publish(stats: stats, events: cal.events, users: users)
-            if silent { completedChoreIDs = [] }
-        } catch {
-            if !silent { state = .failed(.from(error)) }
-            else { actionError = .from(error) }
-        }
+            WidgetPublisher.publish(stats: stats, events: todayEvents, users: users)
+        } catch { record(error, section: "dashboard") }
+    }
+
+    private func loadUsers(forceRefresh: Bool) async {
+        do {
+            users = try await apiClient.fetchUsers(forceRefresh: forceRefresh).keyedByID
+            guard !Task.isCancelled else { return }
+            if case .loaded(let stats) = state { WidgetPublisher.publish(stats: stats, events: todayEvents, users: users) }
+        } catch { record(error, section: "users") }
+    }
+
+    private func loadProfile(forceRefresh: Bool) async {
+        do { currentUser = try await apiClient.fetchMe(forceRefresh: forceRefresh) }
+        catch { record(error, section: "profile") }
+    }
+
+    private func loadCalendar(forceRefresh: Bool) async {
+        do {
+            let response = try await apiClient.fetchCalendar(view: "day", date: Date(), forceRefresh: forceRefresh)
+            guard !Task.isCancelled else { return }
+            todayEvents = response.events
+            if case .loaded(let stats) = state { WidgetPublisher.publish(stats: stats, events: todayEvents, users: users) }
+        } catch { record(error, section: "calendar") }
+    }
+
+    private func record(_ error: Error, section: String) {
+        guard !Task.isCancelled else { return }
+        let apiError = APIError.from(error)
+        refreshErrors[section] = apiError
+        if section == "dashboard", case .idle = state { state = .failed(apiError) }
+        if section == "dashboard", case .loading = state { state = .failed(apiError) }
     }
 
     func completeChore(id: String) async -> Bool {
@@ -72,7 +106,7 @@ final class HomeViewModel {
             try await operation()
             WidgetPublisher.invalidate()
             NotificationCenter.default.post(name: .familyHubChoresChanged, object: nil)
-            await load(silent: true)
+            await load(forceRefresh: true)
             return true
         } catch {
             actionError = .from(error)

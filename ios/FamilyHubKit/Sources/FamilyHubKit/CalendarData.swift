@@ -1,6 +1,6 @@
 import Foundation
 
-public struct CalendarResponse: Decodable {
+public struct CalendarResponse: Codable {
     public let chores: [Chore]
     public let events: [CalendarEvent]
     public let meals: [MealPlan]

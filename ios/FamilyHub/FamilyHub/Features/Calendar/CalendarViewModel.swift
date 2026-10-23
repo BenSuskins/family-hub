@@ -21,6 +21,7 @@ final class CalendarViewModel {
     private(set) var hourHeight: Double
     private(set) var navigationRevision = 0
     private(set) var users: [String: User] = [:]
+    private(set) var snapshotMetadata: [String: SnapshotMetadata] = [:]
     private(set) var schedule: CalendarSchedule
 
     private let apiClient: any APIClientProtocol
@@ -47,6 +48,7 @@ final class CalendarViewModel {
     }
 
     var currentMonth: Date { schedule.monthStart(containing: selectedDate) }
+    var currentMonthSnapshotMetadata: SnapshotMetadata? { snapshotMetadata[schedule.monthKey(currentMonth)] }
     var currentWeekStart: Date { schedule.weekStart(containing: selectedDate) }
     var today: Date { now() }
     var requestKey: String { "\(viewMode.rawValue)-\(schedule.dayKey(selectedDate))-\(schedule.calendar.timeZone.identifier)-\(schedule.calendar.firstWeekday)" }
@@ -64,6 +66,7 @@ final class CalendarViewModel {
         schedule = CalendarSchedule(calendar: calendar)
         selectedDate = calendar.date(from: date)!
         responses = [:]
+        snapshotMetadata = [:]
         responseVersions = [:]
         combinedResponse = CalendarResponse(chores: [], events: [], meals: [])
         state = .idle
@@ -127,10 +130,10 @@ final class CalendarViewModel {
         }
         let visibleMonths = timelineDays.map { schedule.monthStart(containing: $0) }
         let required = Array(Set(visibleMonths + [currentMonth])).sorted()
-        let adjacent = (1...3).flatMap { distance in
-            [schedule.adding(.month, value: -distance, to: required.first!),
-             schedule.adding(.month, value: distance, to: required.last!)]
-        }
+        let adjacent = [
+            schedule.adding(.month, value: -1, to: required.first!),
+            schedule.adding(.month, value: 1, to: required.last!),
+        ]
         let months = required + adjacent.filter { !required.contains($0) }
         let keys = Set(months.map { schedule.monthKey($0) })
         for key in Array(requests.keys) where !keys.contains(key) || forceRefresh {
@@ -144,14 +147,24 @@ final class CalendarViewModel {
             guard !Task.isCancelled, loadIdentifier == identifier else { return }
             if !required.contains(month) { isLoading = false }
             let key = schedule.monthKey(month)
-            if !forceRefresh, responses[key] != nil { continue }
-            let request = requests[key] ?? Task { try await apiClient.fetchCalendar(view: "month", date: month) }
+            if !forceRefresh, responses[key] != nil {
+                let metadata: SnapshotMetadata?
+                if let storedMetadata = snapshotMetadata[key] {
+                    metadata = storedMetadata
+                } else {
+                    metadata = await apiClient.snapshotMetadata(for: "calendar-\(key)")
+                }
+                snapshotMetadata[key] = metadata
+                if metadata == nil || metadata?.isFresh == true { continue }
+            }
+            let request = requests[key] ?? Task { try await apiClient.fetchCalendar(view: "month", date: month, forceRefresh: forceRefresh) }
             requests[key] = request
             do {
                 let response = try await request.value
                 guard !Task.isCancelled, loadIdentifier == identifier else { return }
                 requests[key] = nil
                 responses[key] = response
+                snapshotMetadata[key] = await apiClient.snapshotMetadata(for: "calendar-\(key)")
                 responseVersion += 1
                 responseVersions[key] = responseVersion
                 publish()

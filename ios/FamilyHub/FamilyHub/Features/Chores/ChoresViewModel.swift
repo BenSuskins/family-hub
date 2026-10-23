@@ -7,6 +7,8 @@ import FamilyHubKit
 final class ChoresViewModel {
     var state: ViewState<[ChoreDefinition]> = .idle
     var actionError: APIError?
+    var refreshError: APIError?
+    var snapshotMetadata: SnapshotMetadata?
     var users: [String: User] = [:]
     var categories: [ChoreCategory] = []
     var showInactive = false
@@ -26,17 +28,20 @@ final class ChoresViewModel {
     }
 
     func load(refresh: Bool = false) async {
-        if !refresh { state = .loading }
-        async let definitions = apiClient.fetchChoreDefinitions(includeInactive: showInactive)
-        async let people = apiClient.fetchUsers()
-        async let categoryList = apiClient.fetchCategories()
+        if !refresh, case .loaded = state {} else if !refresh { state = .loading }
+        refreshError = nil
+        async let definitions = apiClient.fetchChoreDefinitions(includeInactive: showInactive, forceRefresh: refresh)
+        async let people = apiClient.fetchUsers(forceRefresh: refresh)
+        async let categoryList = apiClient.fetchCategories(forceRefresh: refresh)
         do {
             let (loaded, userList) = try await (definitions, people)
             users = userList.keyedByID
             categories = (try? await categoryList) ?? []
             state = .loaded(loaded)
+            snapshotMetadata = await apiClient.snapshotMetadata(for: "chore-definitions-\(showInactive)")
         } catch {
-            if refresh { actionError = .from(error) }
+            if refresh, case .loaded = state { refreshError = .from(error) }
+            else if refresh { actionError = .from(error) }
             else { state = .failed(.from(error)) }
         }
     }

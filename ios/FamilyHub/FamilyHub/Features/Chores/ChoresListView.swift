@@ -16,6 +16,26 @@ struct ChoresListView: View {
     var body: some View {
         StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { definitions in
             List {
+                if let refreshError = viewModel.refreshError {
+                    Section {
+                        HStack {
+                            Text("Couldn’t refresh chores · Last updated \(viewModel.snapshotMetadata?.savedAt.formatted(date: .abbreviated, time: .shortened) ?? "earlier")")
+                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            Spacer()
+                            Button("Retry") { Task { await viewModel.load(refresh: true) } }
+                        }
+                        Text(refreshError.localizedDescription).font(.caption).foregroundStyle(AppTheme.secondary)
+                    }
+                } else if let metadata = viewModel.snapshotMetadata, !metadata.isFresh {
+                    Section {
+                        HStack {
+                            Text("Saved chores · Last updated \(metadata.savedAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            Spacer()
+                            Button("Refresh") { Task { await viewModel.load(refresh: true) } }
+                        }
+                    }
+                }
                 Section {
                     Text("Set up chores and repeat rules.\nComplete today’s chores on Today.")
                         .font(.subheadline).foregroundStyle(AppTheme.secondary)
@@ -61,7 +81,7 @@ struct ChoresListView: View {
                 }.listRowBackground(AppTheme.surface)
             }
             .appListStyle()
-            .refreshable { await viewModel.load() }
+            .refreshable { await viewModel.load(refresh: true) }
         }
         .navigationTitle("Chores")
         .toolbar {

@@ -12,13 +12,15 @@ final class RedesignUITests: XCTestCase {
         selectFamilyTab("Household", in: app)
         capture(app, "small-household")
         openShoppingListIfNeeded(in: app)
-        app.buttons["Actions for Milk"].tap()
-        app.buttons["Rename"].tap()
+        app.staticTexts["Milk"].tap()
         let field = app.textFields["Rename item inline"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Shopping List"].exists)
         capture(app, "small-shopping-inline")
-        field.tap()
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "items to buy")).firstMatch.tap()
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 2))
+        app.staticTexts["Milk"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "Oat milk")
         app.buttons["Save item name"].tap()
         let purchase = app.buttons["Purchase Oat milk"]

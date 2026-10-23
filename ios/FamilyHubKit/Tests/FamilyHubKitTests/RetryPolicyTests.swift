@@ -8,10 +8,14 @@ final class RetryPolicyTests: XCTestCase {
 
     // MARK: - delay(forAttempt:)
 
-    func testRetryAfterTakesPrecedenceAndIsCapped() {
+    func testRetryAfterTakesPrecedenceWithoutBeingShortened() {
         let policy = RetryPolicy(baseDelay: 0.5, maxDelay: 8)
         XCTAssertEqual(policy.delay(forAttempt: 1, retryAfter: 3), 3, accuracy: 0.001)
-        XCTAssertEqual(policy.delay(forAttempt: 1, retryAfter: 100), 8, accuracy: 0.001)
+        XCTAssertEqual(policy.delay(forAttempt: 1, retryAfter: 100), 100, accuracy: 0.001)
+    }
+
+    func testExplicitOfflineErrorDoesNotRetryAutomatically() {
+        XCTAssertFalse(APIError.offline.isRetryable)
     }
 
     func testExponentialBackoffGrowsAndCaps() {

@@ -42,12 +42,17 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        if !viewModel.refreshErrors.isEmpty || viewModel.snapshotMetadata?.isFresh == false {
+                            refreshNotice(refreshNoticeTitle) { await viewModel.load(forceRefresh: true) }
+                                .padding(.horizontal, 16)
+                                .padding(.top, 8)
+                        }
                         homeHeader
                         if householdViewModel.departures?.items.isEmpty == false {
                             HouseholdCardsView(model: householdViewModel, apiClient: apiClient, events: viewModel.todayEvents)
                                 .padding(.top, 20)
                         }
-                        StateContentView(state: viewModel.state, retry: { await viewModel.load() }) { stats in
+                        StateContentView(state: viewModel.state, retry: { await viewModel.load(forceRefresh: true) }) { stats in
                             mealsSection(stats)
                         }
                         CommuteCardsView(model: commuteViewModel)
@@ -59,7 +64,7 @@ struct HomeView: View {
                     .padding(.bottom, 24)
                 }
                 .refreshable {
-                    async let dashboard: Void = viewModel.load()
+                    async let dashboard: Void = viewModel.load(forceRefresh: true)
                     async let household: Void = householdViewModel.load(force: true)
                     async let commute: Void = commuteViewModel.refresh(force: true)
                     _ = await (dashboard, household, commute)
@@ -126,6 +131,27 @@ struct HomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             commuteViewModel.tick()
         }
+    }
+
+    private func refreshNotice(_ title: String, retry: @escaping () async -> Void) -> some View {
+        HStack(spacing: 10) {
+            Label(title, systemImage: "arrow.clockwise.circle")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondary)
+            Spacer()
+            Button("Retry") { Task { await retry() } }
+                .font(.footnote.weight(.semibold))
+        }
+        .padding(12)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+    }
+
+    private var refreshNoticeTitle: String {
+        guard let snapshot = viewModel.snapshotMetadata, !snapshot.isFresh else {
+            return "Some Home details couldn’t refresh"
+        }
+        return "Saved copy · Last updated \(snapshot.savedAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
     private var homeHeader: some View {

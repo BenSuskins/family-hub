@@ -38,7 +38,11 @@ struct FamilyHubApp: App {
                         .environment(authManager)
                 }
             }
+            .background(KeyboardDismissalTap())
             .appAppearance()
+            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                if !isAuthenticated { Task { await clientStore.clear() } }
+            }
             .onChange(of: authManager.isDemoMode) { _, enabled in
                 if !enabled { demoClient = DemoAPIClient() }
             }
@@ -62,8 +66,14 @@ final class APIClientStore {
         if let cached, cached.baseURL == baseURL {
             return cached.client
         }
+        if let cached { Task { await cached.client.clearAccountCache() } }
         let client = APIClient(baseURL: baseURL, tokenProvider: tokenProvider)
         cached = (baseURL, client)
         return client
+    }
+
+    func clear() async {
+        await cached?.client.clearAccountCache()
+        cached = nil
     }
 }

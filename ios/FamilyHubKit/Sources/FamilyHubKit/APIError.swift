@@ -45,7 +45,9 @@ public enum APIError: Error, LocalizedError, Equatable {
     /// Only meaningful for idempotent requests — the caller gates on the HTTP method.
     public var isRetryable: Bool {
         switch self {
-        case .offline, .timedOut, .rateLimited:
+        case .offline:
+            return false
+        case .timedOut, .rateLimited:
             return true
         case .server(let status, _):
             return status >= 500

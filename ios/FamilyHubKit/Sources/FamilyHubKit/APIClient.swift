@@ -16,6 +16,12 @@ public final class APIClient: APIClientProtocol {
     private let retryPolicy: RetryPolicy
     private weak var tokenProvider: (any TokenProviding)?
     private let recipeCache = RecipeCache()
+    private let snapshotCache = SnapshotCache()
+    private let diskImageCache = DiskImageCache()
+    private var lastCacheNamespace: String?
+    private var cacheGeneration = 0
+    private var inFlightGets: [String: (id: UUID, task: Task<Data, Error>)] = [:]
+    private let freshness = CacheFreshness()
     private let imageCache: NSCache<NSString, NSData> = {
         let c = NSCache<NSString, NSData>()
         c.countLimit = 200
@@ -47,6 +53,171 @@ public final class APIClient: APIClientProtocol {
 
     private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem] = [], decoder: JSONDecoder = APIClient.defaultDecoder) async throws -> T {
         try await send(path: path, method: "GET", queryItems: queryItems, decoder: decoder)
+    }
+
+    private func cached<T: Codable>(
+        key: String,
+        freshness: TimeInterval,
+        forceRefresh: Bool = false,
+        operation: @MainActor @escaping () async throws -> T
+    ) async throws -> T {
+        guard let namespace = await cacheNamespace() else { return try await operation() }
+        let generation = cacheGeneration
+        let snapshot = await snapshotCache.read(namespace: namespace, key: key)
+        guard cacheGeneration == generation, lastCacheNamespace == namespace else { return try await operation() }
+        if !forceRefresh, let snapshot, snapshot.metadata.isFresh,
+           let value = try? JSONDecoder().decode(T.self, from: snapshot.data) { return value }
+        do {
+            let requestKey = "\(namespace)|\(key)"
+            let requestID: UUID
+            let request: Task<Data, Error>
+            if let existing = inFlightGets[requestKey] {
+                requestID = existing.id
+                request = existing.task
+            } else {
+                requestID = UUID()
+                request = Task { @MainActor in try JSONEncoder().encode(try await operation()) }
+                inFlightGets[requestKey] = (requestID, request)
+            }
+            let data: Data
+            do {
+                data = try await request.value
+            } catch {
+                if inFlightGets[requestKey]?.id == requestID { inFlightGets[requestKey] = nil }
+                throw error
+            }
+            if inFlightGets[requestKey]?.id == requestID { inFlightGets[requestKey] = nil }
+            if cacheGeneration == generation, lastCacheNamespace == namespace {
+                await snapshotCache.write(data, namespace: namespace, key: key, freshness: freshness, generation: generation)
+            }
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            if let snapshot, let value = try? JSONDecoder().decode(T.self, from: snapshot.data) { return value }
+            throw error
+        }
+    }
+
+    private func cacheNamespace() async -> String? {
+        guard let tokenProvider,
+              let identity = try? await tokenProvider.cacheIdentity() else { return nil }
+        let namespace = "\(baseURL.absoluteString)|\(Self.cacheScope(identity))"
+        if let previous = lastCacheNamespace, previous != namespace {
+            cacheGeneration += 1
+            await snapshotCache.remove(namespace: previous, generation: cacheGeneration)
+            await diskImageCache.remove(namespace: previous, generation: cacheGeneration)
+            await recipeCache.invalidateAll()
+            imageCache.removeAllObjects()
+        }
+        lastCacheNamespace = namespace
+        await snapshotCache.activate(namespace: namespace, generation: cacheGeneration)
+        await diskImageCache.activate(namespace: namespace, generation: cacheGeneration)
+        return namespace
+    }
+
+    private static func cacheScope(_ identity: String) -> String {
+        let hash = identity.utf8.reduce(into: UInt64(14_695_981_039_346_656_037)) { value, byte in
+            value = (value ^ UInt64(byte)) &* 1_099_511_628_211
+        }
+        return String(hash, radix: 16)
+    }
+
+    private func loadImage(path: String, queryItems: [URLQueryItem] = [], namespace: String?, key: String) async throws -> Data {
+        let requestKey = "\(namespace ?? baseURL.absoluteString)|image|\(key)"
+        let generation = cacheGeneration
+        let requestID: UUID
+        let request: Task<Data, Error>
+        if let existing = inFlightGets[requestKey] {
+            requestID = existing.id
+            request = existing.task
+        } else {
+            requestID = UUID()
+            request = Task { @MainActor in
+                let (data, _) = try await self.performValidated(path: path, method: "GET", queryItems: queryItems)
+                return data
+            }
+            inFlightGets[requestKey] = (requestID, request)
+        }
+        do {
+            let data = try await request.value
+            if inFlightGets[requestKey]?.id == requestID { inFlightGets[requestKey] = nil }
+            if let namespace, cacheGeneration == generation, lastCacheNamespace == namespace {
+                await diskImageCache.write(data, namespace: namespace, key: key, generation: generation)
+            }
+            return data
+        } catch {
+            if inFlightGets[requestKey]?.id == requestID { inFlightGets[requestKey] = nil }
+            throw error
+        }
+    }
+
+    public func snapshotMetadata(for key: String) async -> SnapshotMetadata? {
+        guard let namespace = await cacheNamespace() else { return nil }
+        return await snapshotCache.read(namespace: namespace, key: key)?.metadata
+    }
+
+    private func updateSnapshot<Value: Codable>(
+        key: String,
+        freshness: TimeInterval,
+        update: (inout Value) -> Void
+    ) async {
+        guard let namespace = await cacheNamespace(),
+              let snapshot = await snapshotCache.read(namespace: namespace, key: key) else { return }
+        let generation = cacheGeneration
+        guard var value = try? JSONDecoder().decode(Value.self, from: snapshot.data) else { return }
+        update(&value)
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        guard cacheGeneration == generation, lastCacheNamespace == namespace else { return }
+        await snapshotCache.write(data, namespace: namespace, key: key, freshness: freshness, generation: generation)
+    }
+
+    private func writeSnapshot<Value: Codable>(_ value: Value, key: String, freshness: TimeInterval) async {
+        guard let namespace = await cacheNamespace() else { return }
+        let generation = cacheGeneration
+        guard let data = try? JSONEncoder().encode(value),
+              cacheGeneration == generation, lastCacheNamespace == namespace else { return }
+        await snapshotCache.write(data, namespace: namespace, key: key, freshness: freshness, generation: generation)
+    }
+
+    private func removeSnapshot(key: String) async {
+        guard let namespace = await cacheNamespace() else { return }
+        await snapshotCache.remove(namespace: namespace, key: key)
+    }
+
+    private func invalidateDashboardAndCalendar(on date: Date = Date()) async {
+        await removeSnapshot(key: "dashboard-\(APIDate.dayString(date))")
+        await removeSnapshot(key: "calendar-\(CalendarSchedule().monthKey(date))")
+    }
+
+    private func mealWeekKey(_ dateString: String) -> String? {
+        guard let date = APIDate.parse("\(dateString)T00:00:00Z") else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let weekday = calendar.component(.weekday, from: date)
+        let daysSinceFriday = (weekday - 6 + 7) % 7
+        guard let week = calendar.date(byAdding: .day, value: -daysSinceFriday, to: calendar.startOfDay(for: date)) else { return nil }
+        return APIDate.dayString(week)
+    }
+
+    private func removeRecipeImages(id: String) async {
+        guard let namespace = await cacheNamespace() else { return }
+        for variant in RecipeImageVariant.allCases {
+            let key = "recipe-\(variant.rawValue)-\(id)"
+            await diskImageCache.remove(namespace: namespace, key: key)
+            imageCache.removeObject(forKey: "\(namespace)-\(key)" as NSString)
+        }
+    }
+
+    public func clearAccountCache() async {
+        cacheGeneration += 1
+        if let namespace = lastCacheNamespace {
+            await snapshotCache.remove(namespace: namespace, generation: cacheGeneration)
+            await diskImageCache.remove(namespace: namespace, generation: cacheGeneration)
+        }
+        await recipeCache.invalidateAll()
+        imageCache.removeAllObjects()
+        lastCacheNamespace = nil
     }
 
     private func post(_ path: String) async throws {
@@ -324,73 +495,117 @@ public final class APIClient: APIClientProtocol {
 
     private static func retryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
         guard let value = response.value(forHTTPHeaderField: "Retry-After") else { return nil }
-        return TimeInterval(value.trimmingCharacters(in: .whitespaces))
+        let trimmedValue = value.trimmingCharacters(in: .whitespaces)
+        if let seconds = TimeInterval(trimmedValue) { return max(0, seconds) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+        return formatter.date(from: trimmedValue).map { max(0, $0.timeIntervalSinceNow) }
     }
 
     // MARK: - APIClientProtocol
 
     public func fetchDashboardStats() async throws -> DashboardStats {
-        try await get("api/dashboard")
+        try await fetchDashboardStats(forceRefresh: false)
+    }
+
+    public func fetchDashboardStats(forceRefresh: Bool) async throws -> DashboardStats {
+        let date = APIDate.dayString(Date())
+        return try await cached(key: "dashboard-\(date)", freshness: freshness.dashboard, forceRefresh: forceRefresh) {
+            try await self.get("api/dashboard")
+        }
     }
 
     public func fetchChores() async throws -> [Chore] {
-        try await get("api/chores")
+        try await cached(key: "chores", freshness: freshness.chores) { try await self.get("api/chores") }
     }
 
     public func completeChore(id: String) async throws {
         try await post("api/chores/\(id)/complete")
+        await removeSnapshot(key: "chores")
+        await invalidateDashboardAndCalendar()
     }
 
     public func fetchMeals(week: Date) async throws -> [MealPlan] {
-        try await get("api/meals", queryItems: [
-            URLQueryItem(name: "week", value: APIDate.dayString(week))
-        ])
+        try await fetchMeals(week: week, forceRefresh: false)
+    }
+
+    public func fetchMeals(week: Date, forceRefresh: Bool) async throws -> [MealPlan] {
+        let weekKey = APIDate.dayString(week)
+        return try await cached(key: "meals-\(weekKey)", freshness: freshness.meals, forceRefresh: forceRefresh) {
+            try await self.get("api/meals", queryItems: [URLQueryItem(name: "week", value: weekKey)])
+        }
     }
 
     public func createChore(_ request: ChoreRequest) async throws -> Chore {
-        try await post("api/chores", body: request)
+        let chore: Chore = try await post("api/chores", body: request)
+        await removeSnapshot(key: "chores")
+        await invalidateDashboardAndCalendar()
+        return chore
     }
 
     public func updateChore(id: String, _ request: ChoreRequest) async throws -> Chore {
-        try await put("api/chores/\(id)", body: request)
+        let chore: Chore = try await put("api/chores/\(id)", body: request)
+        await removeSnapshot(key: "chores")
+        await invalidateDashboardAndCalendar()
+        return chore
     }
 
     public func deleteChore(id: String) async throws {
         try await delete("api/chores/\(id)")
+        await removeSnapshot(key: "chores")
+        await invalidateDashboardAndCalendar()
     }
 
     public func fetchUserAvatar(id: String) async throws -> Data {
-        let key = "avatar-\(id)" as NSString
+        let namespace = await cacheNamespace()
+        let generation = cacheGeneration
+        let key = "\(namespace ?? "")-avatar-\(id)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
-        let (data, _) = try await performValidated(path: "avatar/\(id)", method: "GET")
+        if let namespace, let cached = await diskImageCache.read(namespace: namespace, key: "avatar-\(id)") {
+            guard cacheGeneration == generation, lastCacheNamespace == namespace else { return try await fetchUserAvatar(id: id) }
+            imageCache.setObject(cached as NSData, forKey: key, cost: cached.count)
+            return cached
+        }
+        let data = try await loadImage(path: "avatar/\(id)", namespace: namespace, key: "avatar-\(id)")
         imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
 
     public func fetchRecipes(forceRefresh: Bool) async throws -> [Recipe] {
-        if forceRefresh {
-            await recipeCache.invalidateAll()
-        } else if let cached = await recipeCache.cachedList() {
-            return cached
+        let recipes: [Recipe] = try await cached(key: "recipes-summary", freshness: freshness.recipes, forceRefresh: forceRefresh) {
+            try await self.get("api/recipes")
         }
-        let recipes: [Recipe] = try await get("api/recipes")
         await recipeCache.storeList(recipes)
         return recipes
     }
 
     public func fetchRecipe(id: String) async throws -> Recipe {
-        if let cached = await recipeCache.cachedDetail(id: id) {
-            return cached
+        let recipe: Recipe = try await cached(key: "recipe-detail-\(id)", freshness: freshness.recipes) {
+            try await self.get("api/recipes/\(id)")
         }
-        let recipe: Recipe = try await get("api/recipes/\(id)")
         await recipeCache.storeDetail(recipe)
         return recipe
     }
 
     public func fetchRecipeImage(id: String) async throws -> Data {
-        let key = "recipe-\(id)" as NSString
+        try await fetchRecipeImage(id: id, variant: .original)
+    }
+
+    public func fetchRecipeImage(id: String, variant: RecipeImageVariant) async throws -> Data {
+        let namespace = await cacheNamespace()
+        let generation = cacheGeneration
+        let imageKey = "recipe-\(variant.rawValue)-\(id)"
+        let key = "\(namespace ?? "")-\(imageKey)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached as Data }
-        let (data, _) = try await performValidated(path: "api/recipes/\(id)/image", method: "GET")
+        if let namespace, let cached = await diskImageCache.read(namespace: namespace, key: imageKey) {
+            guard cacheGeneration == generation, lastCacheNamespace == namespace else { return try await fetchRecipeImage(id: id, variant: variant) }
+            imageCache.setObject(cached as NSData, forKey: key, cost: cached.count)
+            return cached
+        }
+        let queryItems = variant == .thumbnail ? [URLQueryItem(name: "size", value: "thumb")] : []
+        let data = try await loadImage(path: "api/recipes/\(id)/image", queryItems: queryItems, namespace: namespace, key: imageKey)
         imageCache.setObject(data as NSData, forKey: key, cost: data.count)
         return data
     }
@@ -398,26 +613,49 @@ public final class APIClient: APIClientProtocol {
     public func createRecipe(_ request: RecipeRequest) async throws -> Recipe {
         let created: Recipe = try await post("api/recipes", body: request)
         await recipeCache.upsert(created)
+        await updateSnapshot(key: "recipes-summary", freshness: freshness.recipes) { (recipes: inout [Recipe]) in
+            if let index = recipes.firstIndex(where: { $0.id == created.id }) { recipes[index] = created }
+            else { recipes.append(created) }
+        }
+        await writeSnapshot(created, key: "recipe-detail-\(created.id)", freshness: freshness.recipes)
         return created
     }
 
     public func updateRecipe(id: String, _ request: RecipeRequest) async throws -> Recipe {
         let updated: Recipe = try await put("api/recipes/\(id)", body: request)
         await recipeCache.storeDetail(updated)
+        await updateSnapshot(key: "recipes-summary", freshness: freshness.recipes) { (recipes: inout [Recipe]) in
+            if let index = recipes.firstIndex(where: { $0.id == id }) { recipes[index] = updated }
+        }
+        await writeSnapshot(updated, key: "recipe-detail-\(id)", freshness: freshness.recipes)
+        await removeRecipeImages(id: id)
         return updated
     }
 
     public func deleteRecipe(id: String) async throws {
         try await delete("api/recipes/\(id)")
         await recipeCache.remove(id: id)
+        await updateSnapshot(key: "recipes-summary", freshness: freshness.recipes) { (recipes: inout [Recipe]) in recipes.removeAll { $0.id == id } }
+        await removeSnapshot(key: "recipe-detail-\(id)")
+        await removeRecipeImages(id: id)
     }
 
     public func fetchCalendar(view: String, date: Date) async throws -> CalendarResponse {
+        try await fetchCalendar(view: view, date: date, forceRefresh: false)
+    }
+
+    public func fetchCalendar(view: String, date: Date, forceRefresh: Bool) async throws -> CalendarResponse {
         var queryItems = [URLQueryItem(name: "view", value: view)]
         if view == "month" {
             queryItems.append(URLQueryItem(name: "month", value: CalendarSchedule().monthKey(date)))
         } else {
             queryItems.append(URLQueryItem(name: "date", value: CalendarSchedule().dayKey(date)))
+        }
+        if view == "month" {
+            let monthKey = CalendarSchedule().monthKey(date)
+            return try await cached(key: "calendar-\(monthKey)", freshness: freshness.calendar, forceRefresh: forceRefresh) {
+                try await self.get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
+            }
         }
         return try await get("api/calendar", queryItems: queryItems, decoder: Self.isoDecoder)
     }
@@ -453,7 +691,11 @@ public final class APIClient: APIClientProtocol {
     }
 
     public func fetchUsers() async throws -> [User] {
-        try await get("/api/users")
+        try await fetchUsers(forceRefresh: false)
+    }
+
+    public func fetchUsers(forceRefresh: Bool) async throws -> [User] {
+        try await cached(key: "users", freshness: freshness.users, forceRefresh: forceRefresh) { try await self.get("/api/users") }
     }
 
     public func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan {
@@ -463,7 +705,15 @@ public final class APIClient: APIClientProtocol {
             let name: String
             let recipeID: String?
         }
-        return try await post("api/meals", body: SaveMealBody(date: date, mealType: mealType, name: name, recipeID: recipeID))
+        let meal: MealPlan = try await post("api/meals", body: SaveMealBody(date: date, mealType: mealType, name: name, recipeID: recipeID))
+        if let weekKey = mealWeekKey(date) {
+            await updateSnapshot(key: "meals-\(weekKey)", freshness: freshness.meals) { (meals: inout [MealPlan]) in
+                meals.removeAll { $0.date == date && $0.mealType == mealType }
+                meals.append(meal)
+            }
+        }
+        if let mealDate = APIDate.parse("\(date)T00:00:00Z") { await invalidateDashboardAndCalendar(on: mealDate) }
+        return meal
     }
 
     public func deleteMeal(date: String, mealType: String) async throws {
@@ -471,10 +721,20 @@ public final class APIClient: APIClientProtocol {
             URLQueryItem(name: "date", value: date),
             URLQueryItem(name: "mealType", value: mealType)
         ])
+        if let weekKey = mealWeekKey(date) {
+            await updateSnapshot(key: "meals-\(weekKey)", freshness: freshness.meals) { (meals: inout [MealPlan]) in
+                meals.removeAll { $0.date == date && $0.mealType == mealType }
+            }
+        }
+        if let mealDate = APIDate.parse("\(date)T00:00:00Z") { await invalidateDashboardAndCalendar(on: mealDate) }
     }
 
     public func fetchMe() async throws -> User {
-        try await get("api/me")
+        try await fetchMe(forceRefresh: false)
+    }
+
+    public func fetchMe(forceRefresh: Bool) async throws -> User {
+        try await cached(key: "current-user", freshness: freshness.users, forceRefresh: forceRefresh) { try await self.get("api/me") }
     }
 
     public func fetchCommuteTrains(from origin: String, to destination: String, count: Int) async throws -> CommuteBoard {
@@ -492,13 +752,27 @@ public final class APIClient: APIClientProtocol {
 
     public func uploadAvatar(imageData: Data, mimeType: String) async throws -> User {
         let user: User = try await uploadMultipart("api/profile/avatar", field: "avatar", data: imageData, mimeType: mimeType)
-        imageCache.removeObject(forKey: "avatar-\(user.id)" as NSString)
+        let namespace = await cacheNamespace()
+        if let namespace {
+            let key = "avatar-\(user.id)"
+            await diskImageCache.remove(namespace: namespace, key: key)
+        }
+        imageCache.removeObject(forKey: "\(namespace ?? "")-avatar-\(user.id)" as NSString)
+        await writeSnapshot(user, key: "current-user", freshness: freshness.users)
+        await updateSnapshot(key: "users", freshness: freshness.users) { (users: inout [User]) in
+            if let index = users.firstIndex(where: { $0.id == user.id }) { users[index] = user }
+        }
         return user
     }
 
     public func deleteAvatar() async throws {
         try await delete("api/profile/avatar")
-        imageCache.removeAllObjects()
+        if let namespace = await cacheNamespace() {
+            imageCache.removeAllObjects()
+            await diskImageCache.remove(namespace: namespace)
+        }
+        await removeSnapshot(key: "current-user")
+        await removeSnapshot(key: "users")
     }
 
     // MARK: - Settings
@@ -515,31 +789,55 @@ public final class APIClient: APIClientProtocol {
     // MARK: - User management
 
     public func promoteUser(id: String) async throws -> User {
-        try await post("api/users/\(id)/promote")
+        let user: User = try await post("api/users/\(id)/promote")
+        await updateSnapshot(key: "users", freshness: freshness.users) { (users: inout [User]) in
+            if let index = users.firstIndex(where: { $0.id == id }) { users[index] = user }
+        }
+        return user
     }
 
     public func demoteUser(id: String) async throws -> User {
-        try await post("api/users/\(id)/demote")
+        let user: User = try await post("api/users/\(id)/demote")
+        await updateSnapshot(key: "users", freshness: freshness.users) { (users: inout [User]) in
+            if let index = users.firstIndex(where: { $0.id == id }) { users[index] = user }
+        }
+        return user
     }
 
     // MARK: - Categories
 
     public func fetchCategories() async throws -> [ChoreCategory] {
-        try await get("api/categories")
+        try await fetchCategories(forceRefresh: false)
+    }
+
+    public func fetchCategories(forceRefresh: Bool) async throws -> [ChoreCategory] {
+        try await cached(key: "categories", freshness: freshness.categories, forceRefresh: forceRefresh) { try await self.get("api/categories") }
     }
 
     public func createCategory(name: String) async throws -> ChoreCategory {
         struct Body: Encodable { let name: String }
-        return try await post("api/categories", body: Body(name: name))
+        let category: ChoreCategory = try await post("api/categories", body: Body(name: name))
+        await updateSnapshot(key: "categories", freshness: freshness.categories) { (categories: inout [ChoreCategory]) in
+            categories.removeAll { $0.id == category.id }
+            categories.append(category)
+        }
+        return category
     }
 
     public func updateCategory(id: String, name: String) async throws -> ChoreCategory {
         struct Body: Encodable { let name: String }
-        return try await put("api/categories/\(id)", body: Body(name: name))
+        let category: ChoreCategory = try await put("api/categories/\(id)", body: Body(name: name))
+        await updateSnapshot(key: "categories", freshness: freshness.categories) { (categories: inout [ChoreCategory]) in
+            if let index = categories.firstIndex(where: { $0.id == id }) { categories[index] = category }
+        }
+        return category
     }
 
     public func deleteCategory(id: String) async throws {
         try await delete("api/categories/\(id)")
+        await updateSnapshot(key: "categories", freshness: freshness.categories) { (categories: inout [ChoreCategory]) in
+            categories.removeAll { $0.id == id }
+        }
     }
 
     // MARK: - API tokens
@@ -637,19 +935,38 @@ extension APIClient {
 
 extension APIClient {
     public func fetchChoreDefinitions(includeInactive: Bool) async throws -> [ChoreDefinition] {
-        try await get("api/chore-definitions", queryItems: [URLQueryItem(name: "include_inactive", value: String(includeInactive))])
+        try await fetchChoreDefinitions(includeInactive: includeInactive, forceRefresh: false)
+    }
+
+    public func fetchChoreDefinitions(includeInactive: Bool, forceRefresh: Bool) async throws -> [ChoreDefinition] {
+        let query = [URLQueryItem(name: "include_inactive", value: String(includeInactive))]
+        return try await cached(key: "chore-definitions-\(includeInactive)", freshness: freshness.chores, forceRefresh: forceRefresh) {
+            try await self.get("api/chore-definitions", queryItems: query)
+        }
     }
 
     public func createChoreDefinition(_ request: ChoreRequest) async throws -> ChoreDefinition {
-        try await post("api/chore-definitions", body: request)
+        let definition: ChoreDefinition = try await post("api/chore-definitions", body: request)
+        await updateChoreDefinitionSnapshots(definition, id: definition.id)
+        await invalidateDashboardAndCalendar()
+        return definition
     }
 
     public func updateChoreDefinition(id: String, _ request: ChoreRequest) async throws -> ChoreDefinition {
-        try await put("api/chore-definitions/\(id)", body: request)
+        let definition: ChoreDefinition = try await put("api/chore-definitions/\(id)", body: request)
+        await updateChoreDefinitionSnapshots(definition, id: id)
+        await invalidateDashboardAndCalendar()
+        return definition
     }
 
     public func deleteChoreDefinition(id: String) async throws {
         try await delete("api/chore-definitions/\(id)")
+        for includeInactive in [false, true] {
+            await updateSnapshot(key: "chore-definitions-\(includeInactive)", freshness: freshness.chores) { (definitions: inout [ChoreDefinition]) in
+                definitions.removeAll { $0.id == id }
+            }
+        }
+        await invalidateDashboardAndCalendar()
     }
 
     public func fetchChoreHistory(definitionID: String, cursor: String?) async throws -> ChoreHistoryPage {
@@ -661,5 +978,16 @@ extension APIClient {
 
     public func skipChore(id: String) async throws {
         try await post("api/chores/\(id)/skip")
+        await removeSnapshot(key: "chores")
+        await invalidateDashboardAndCalendar()
+    }
+
+    private func updateChoreDefinitionSnapshots(_ definition: ChoreDefinition, id: String) async {
+        for includeInactive in [false, true] {
+            await updateSnapshot(key: "chore-definitions-\(includeInactive)", freshness: freshness.chores) { (definitions: inout [ChoreDefinition]) in
+                definitions.removeAll { $0.id == id }
+                if includeInactive || definition.active { definitions.append(definition) }
+            }
+        }
     }
 }

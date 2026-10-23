@@ -256,6 +256,10 @@ struct ShoppingListView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { beginRename(item) }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Edit item name")
                 }
                 if renameID == item.id {
                     Button("Cancel") { renameID = nil; renameFocused = false }
@@ -266,7 +270,6 @@ struct ShoppingListView: View {
                         .disabled(!model.canEdit)
                 } else if renameID != item.id {
                     Menu {
-                        Button("Rename") { renameID = item.id; renameDraft = item.name; renameFocused = true }
                         Button("Delete", role: .destructive) { deletingItem = item }
                     } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                     .accessibilityLabel("Actions for \(item.name)")
@@ -288,5 +291,12 @@ struct ShoppingListView: View {
         Task {
             if await model.rename(item, name: renameDraft) { renameID = nil; renameFocused = false }
         }
+    }
+
+    private func beginRename(_ item: ShoppingItem) {
+        guard model.canEdit, !model.changingIDs.contains(item.id) else { return }
+        renameID = item.id
+        renameDraft = item.name
+        renameFocused = true
     }
 }

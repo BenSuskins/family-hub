@@ -8,7 +8,14 @@
   --clay: #8b503c;
   --border: #e6dfd2;
   --accent: var(--sage);
-  --sf: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --sf: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  --rounded: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@font-face {
+  font-family: "Family Hub Rounded";
+  src: url("file:///System/Library/Fonts/SFNSRounded.ttf") format("truetype");
+  font-weight: 100 900;
 }
 
 * { box-sizing: border-box; }
@@ -33,11 +40,12 @@ main {
 
 .brand {
   display: flex;
+  font-family: var(--rounded);
   align-items: center;
   gap: 18px;
   font-size: 35px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .brand-mark {
@@ -53,6 +61,7 @@ main {
 
 .eyebrow {
   margin: 0 0 28px;
+  font-family: var(--rounded);
   color: var(--accent);
   font-size: 28px;
   font-weight: 700;
@@ -62,11 +71,12 @@ main {
 
 h1 {
   max-width: 1090px;
+  font-family: var(--rounded);
   margin: 0;
   font-size: 108px;
   line-height: 1.03;
-  font-weight: 700;
-  letter-spacing: -0.055em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
@@ -94,21 +104,62 @@ h1 mark {
 }
 
 .phone {
+  position: relative;
   height: 100%;
   max-height: 1870px;
   aspect-ratio: 0.46;
-  padding: 15px;
-  border-radius: 86px;
-  background: #343c31;
-  box-shadow: 0 34px 90px rgba(52, 60, 49, 0.16);
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 91px;
+  background: linear-gradient(145deg, #d9d8d0 0%, #8e918b 8%, #30352f 18%, #151815 50%, #666a64 88%, #d8d6ce 100%);
+  box-shadow: 0 34px 90px rgba(52, 60, 49, 0.22), inset 0 0 0 1px rgba(20, 24, 20, 0.42);
+}
+
+.phone::before,
+.phone::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  width: 5px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #686c65, #d0d1c9 55%, #777b74);
+}
+
+.phone::before {
+  top: 300px;
+  left: -5px;
+  height: 86px;
+  box-shadow: 0 118px 0 #a6a8a1, 0 226px 0 #a6a8a1;
+}
+
+.phone::after {
+  top: 375px;
+  right: -5px;
+  height: 180px;
 }
 
 .screen {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 72px;
+  border: 4px solid #101210;
+  border-radius: 76px;
   background: var(--surface);
+}
+
+.screen::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 20px;
+  left: 50%;
+  width: 206px;
+  height: 56px;
+  transform: translateX(-50%);
+  border-radius: 32px;
+  background: #090a09;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12);
 }
 
 .capture {

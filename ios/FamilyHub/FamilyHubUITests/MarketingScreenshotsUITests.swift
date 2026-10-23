@@ -6,7 +6,7 @@ final class MarketingScreenshotsUITests: XCTestCase {
         continueAfterFailure = false
 
         let app = XCUIApplication()
-        app.launchArguments = ["-marketing-screenshots", "-demo-meal-card-images", "-AppleInterfaceStyle", "Light"]
+        app.launchArguments = ["-marketing-screenshots", "-AppleInterfaceStyle", "Light"]
         app.launch()
 
         let demo = app.buttons["Try Demo"]
@@ -16,7 +16,11 @@ final class MarketingScreenshotsUITests: XCTestCase {
         XCTAssertTrue(demo.waitForExistence(timeout: 10))
         demo.tap()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Blueberry Pancakes"].waitForExistence(timeout: 10))
         capture(app, named: "01-home")
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(app.staticTexts["Home → Work"].waitForExistence(timeout: 5))
+        capture(app, named: "10-commute")
 
         selectFamilyTab("Calendar", in: app)
         XCTAssertTrue(app.navigationBars["Calendar"].waitForExistence(timeout: 5))

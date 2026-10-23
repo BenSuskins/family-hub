@@ -23,6 +23,7 @@ captures=(
   "07-chores.png"
   "08-household.png"
   "09-shopping.png"
+  "10-commute.png"
 )
 
 missing=()

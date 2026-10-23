@@ -42,6 +42,7 @@ xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 xcrun simctl status_bar "$SIMULATOR_UDID" override \
   --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4
+xcrun simctl ui "$SIMULATOR_UDID" appearance light
 
 CLANG_MODULE_CACHE_PATH="$TMP_ROOT/family-hub-marketing-clang-cache" \
 SWIFT_MODULE_CACHE_PATH="$TMP_ROOT/family-hub-marketing-swift-cache" \
@@ -71,7 +72,7 @@ manifest_path = export_dir / "manifest.json"
 manifest = json.loads(manifest_path.read_text())
 expected = {
     "01-home", "02-recipe-detail", "03-meals", "04-recipes-book",
-    "05-inventory", "06-calendar", "07-chores", "08-household", "09-shopping",
+    "05-inventory", "06-calendar", "07-chores", "08-household", "09-shopping", "10-commute",
 }
 found = {}
 

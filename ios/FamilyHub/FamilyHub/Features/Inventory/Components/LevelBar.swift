@@ -24,11 +24,12 @@ struct LevelBar: View {
             }
             .frame(width: barWidth, height: 8)
 
-            Text("\(level)%")
+            Text("\(level)\u{00A0}%")
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(tint)
-                .frame(minWidth: 38, alignment: .trailing)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 42, alignment: .trailing)
         }
     }
 }

@@ -99,7 +99,10 @@ struct ShoppingListView: View {
         .navigationTitle(isHouseholdHome ? "Household" : "Shopping List")
         .onReceive(NotificationCenter.default.publisher(for: .familyHubIntentChanged)) { _ in Task { await refresh() } }
         .refreshable { await refresh() }
-        .errorAlert($model.error)
+        .errorAlert(Binding(
+            get: { model.error ?? inventoryModel.actionError },
+            set: { if $0 == nil { model.error = nil; inventoryModel.actionError = nil } }
+        ))
         .toolbar {
             if let item = model.items.first(where: { $0.id == renameID }) {
                 ToolbarItemGroup(placement: .keyboard) {

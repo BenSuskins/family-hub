@@ -70,16 +70,22 @@ struct HomeInfoView: View {
             }.listRowBackground(Color.clear)
             Section {
                 if let latitude = home.latitude, let longitude = home.longitude {
-                    HStack(spacing: 12) {
-                        WarmIcon(symbol: "house")
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Saved location")
-                            Text("\(latitude, specifier: "%.5f"), \(longitude, specifier: "%.5f")")
-                                .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            WarmIcon(symbol: "house")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Saved location").font(.headline)
+                                Text("\(latitude, specifier: "%.5f"), \(longitude, specifier: "%.5f")")
+                                    .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                            }
                         }
+                        Divider()
+                        LabeledContent("Time zone", value: home.timezone)
                     }
-                    LabeledContent("Time zone", value: home.timezone)
-                } else { Text("No home location set.") }
+                } else {
+                    Label("No home location set", systemImage: "mappin.and.ellipse")
+                        .foregroundStyle(AppTheme.secondary)
+                }
             }.listRowBackground(AppTheme.surface)
             Section {
                 Button(locationReader.isLocating ? "Locating…" : "Use this iPhone’s location") { locationReader.capture() }
@@ -87,18 +93,29 @@ struct HomeInfoView: View {
                     .accessibilityIdentifier("Use device location")
                     .disabled(locationReader.isLocating || !didLoad)
                 if let coordinate = locationReader.coordinate {
-                    Text("New location: \(coordinate.latitude, specifier: "%.5f"), \(coordinate.longitude, specifier: "%.5f")")
-                    Text("Confirm this location as home. Capture it while you are at home.")
-                    Button("Confirm home location") {
-                        home.latitude = coordinate.latitude
-                        home.longitude = coordinate.longitude
-                        home.timezone = TimeZone.current.identifier
-                        locationReader.coordinate = nil
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("New location", systemImage: "location.fill")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.accent)
+                        Text("\(coordinate.latitude, specifier: "%.5f"), \(coordinate.longitude, specifier: "%.5f")")
+                            .font(.subheadline.monospacedDigit())
+                        Text("Confirm this location while you are at home.")
+                            .font(.subheadline).foregroundStyle(AppTheme.secondary)
+                        Button("Set as home location") {
+                            home.latitude = coordinate.latitude
+                            home.longitude = coordinate.longitude
+                            home.timezone = TimeZone.current.identifier
+                            locationReader.coordinate = nil
+                        }
+                        .buttonStyle(AppSecondaryButtonStyle())
                     }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.sage.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 if let message = locationReader.message { Text(message).foregroundStyle(AppTheme.secondary) }
             } footer: { Text("Capture the location while you are at home. Review it before you save.") }
-            .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
             Section("Arrival margin") {
                 Stepper(value: $home.arrivalMarginMinutes, in: 0...120) {
                     LabeledContent("Arrive before the event", value: "\(home.arrivalMarginMinutes) min")

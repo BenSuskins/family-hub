@@ -7,6 +7,7 @@ import FamilyHubKit
 final class InventoryViewModel: @MainActor MutableListViewModel {
     var state: ViewState<[InventoryArea]> = .idle
     var actionError: APIError?
+    private var isLoading = false
 
     private let apiClient: any APIClientProtocol
 
@@ -47,12 +48,21 @@ final class InventoryViewModel: @MainActor MutableListViewModel {
     // MARK: - Loading
 
     func load() async {
-        state = .loading
+        guard !isLoading else { return }
+        isLoading = true
+        let hasLoadedAreas: Bool
+        if case .loaded = state { hasLoadedAreas = true } else { hasLoadedAreas = false }
+        if !hasLoadedAreas { state = .loading }
+        defer { isLoading = false }
         do {
             let areas = try await apiClient.fetchInventory()
             state = .loaded(areas)
         } catch {
-            state = .failed(.from(error))
+            if hasLoadedAreas {
+                actionError = .from(error)
+            } else {
+                state = .failed(.from(error))
+            }
         }
     }
 

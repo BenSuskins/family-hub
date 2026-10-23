@@ -65,3 +65,4 @@ ios/**/Config.plist
 # Rendered App Store screenshot assets
 ios/marketing/screenshots/out/
 ios/marketing/screenshots/raw/*.png
+plans/

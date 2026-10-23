@@ -1,57 +1,69 @@
-# App Store screenshot compositor
+# App Store screenshot pipeline
 
-Renders App Store screenshots as HTML/CSS templates through headless Chrome.
-Each slide shows a benefit headline plus a device frame. If a real capture
-exists in `raw/`, it fills the frame; otherwise a hand-built mock screen with
-curated demo data stands in.
+Capture genuine Family Hub screens from an iPhone simulator, then place them in the App Store templates.
+The templates follow [`DESIGN.md`](../../../DESIGN.md) and the app's Warm Sage Cosier palette.
 
-## Render
+## Requirements
+
+- macOS with Xcode and an available iPhone Simulator runtime
+- Python 3 (included with current macOS/Xcode installations)
+- Google Chrome
+
+## Generate and render
+
+From this directory, run:
 
 ```bash
+./capture.sh
 ./render.sh
 ```
 
-Output lands in `out/` at 1320×2868 (iPhone 6.9", the one set App Store
-Connect requires). Override the Chrome path with `CHROME=/path/to/chrome`.
+`capture.sh` selects an available iPhone Pro Max simulator when possible. To use a specific simulator, set its UDID:
 
-## Use real app captures
+```bash
+SIMULATOR_UDID=<simulator-udid> ./capture.sh
+```
 
-Drop simulator captures into `raw/` using these exact names:
+The capture script runs only `MarketingScreenshotsUITests/testCaptureMarketingScreens` in the `FamilyHub` scheme.
+It launches the app in a screenshot-only demo fixture, sets the status bar to 9:41, and exports the UI test attachments.
+It requires no Family Hub server or account.
 
-| File | Slide |
-|------|------------------|
-| `01-home.png` | Home dashboard |
-| `02-chores.png` | Chores + leaderboard |
-| `03-meals.png` | Meal plan week |
-| `04-recipes.png` | Recipe grid |
-| `05-calendar.png` | Unified calendar |
-| `06-selfhosted.png` | (no capture — typographic slide) |
+Set `CHROME` to override the default Chrome executable path. Set `OUT` to change the rendered-image directory.
+Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
 
-Slides reference `../raw/<name>.png`; when present, the image covers the mock
-screen (`object-fit: cover`). Capture at any 6.9"-aspect resolution
-(1320×2868 ideal): Simulator ⌘S, or `xcrun simctl io booted screenshot`.
+## Outputs
 
-### Capture checklist
+- `raw/generated/`: named full-resolution simulator captures, created by `capture.sh`
+- `out/`: temporary 1320×2868 PNG images, created by `render.sh` and ignored by Git
+- `1.3/`: versioned App Store images and release copy committed for version 1.3
 
-The old listing's core problem was empty states. Before capturing:
+Create a versioned image set with `OUT=1.3 ./render.sh` after capturing the current app screens. Keep `raw/generated/` and `out/` as working outputs; keep the reviewed release set in its numbered folder.
 
-- Fill every meal slot for today and the planned week.
-- Add 4+ chores across several family members, some completed.
-- No "Overdue", no grey AD/SD initials — use colourful avatars and real names.
-- Import 2–3 recipes so the grid has covers.
-- Subscribe to one iCal feed so the calendar shows all three source types.
-- Set Simulator status bar: `xcrun simctl status_bar booted override --time "9:41" --batteryLevel 100 --wifiBars 3`
+Existing JPEGs in `raw/` are retained as older reference captures; the current templates use only `raw/generated/`.
 
-## Editing design/copy
+## Capture set
 
-- Tokens, frame geometry, chips, mock-screen styles: `lib/slide.css`.
-- Headlines, eyebrows, chip text, accent colour: each `slides/*.html`
-  (`--accent` on `<body>` picks the tint; `<mark>` gets the highlight swipe).
-- Chip positions are global (`chip-a` right, `chip-b` left); override inline
-  per slide when a mock needs it (see `05-calendar.html`).
+| File | Screen |
+|------|--------|
+| `01-home.png` | Today overview |
+| `02-recipe-detail.png` | Recipe details and cooking action |
+| `03-meals.png` | Weekly meal plan |
+| `04-recipes-book.png` | Recipe collection |
+| `05-inventory.png` | Inventory overview |
+| `06-calendar.png` | Family calendar |
+| `07-chores.png` | Chore list |
+| `08-household.png` | Household overview |
+| `09-shopping.png` | Shared shopping list |
+| `10-commute.png` | Sample Southend Central → London Liverpool Street train board |
+| `11-selfhosted-iphone-6.9.png` | Text-led self-hosted feature slide; no app capture |
 
-## TODO
+The simulator flow records deterministic demo content. It does not change the normal demo data unless the app is launched with `-marketing-screenshots`.
 
-- **iPad set**: the app targets iPad (`TARGETED_DEVICE_FAMILY = 1,2`), so
-  App Store Connect requires a 13" iPad set (2064×2752). Slides are
-  fixed-pixel layouts; build iPad variants before shipping an iPad update.
+## Template design
+
+- `lib/slide.css` holds the shared cream, sage and clay palette, system typography, phone frame and benefit labels.
+- `assets/iphone-frame.png` supplies the transparent graphite iPhone bezel used by the screenshot slides.
+- `slides/*.html` holds per-screen headlines, copy and screenshot mappings.
+- `render.sh` checks for every required capture and fails before rendering if any are missing.
+
+Update `DESIGN.md` first when the app's visual direction changes, then align these templates with its tokens and product language.

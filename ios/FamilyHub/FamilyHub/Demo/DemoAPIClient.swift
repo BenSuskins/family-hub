@@ -178,7 +178,7 @@ final class DemoAPIClient: APIClientProtocol {
             let departure = now.addingTimeInterval(Double(12 + index * 22) * 60)
             let arrival = departure.addingTimeInterval(55 * 60)
             let delay = index == 1 ? 300.0 : 0
-            return CommuteTrain(serviceID: "demo-\(origin)-\(destination)-\(index)", operatorName: "Greater Anglia",
+            return CommuteTrain(serviceID: "demo-\(origin)-\(destination)-\(index)", operatorName: origin == "SOC" || destination == "SOC" ? "c2c" : "Greater Anglia",
                                 platform: index == 2 ? nil : origin == "KEL" ? "1" : "10",
                                 status: index == 1 ? "delayed" : "on_time",
                                 scheduledDeparture: formatter.string(from: departure), expectedDeparture: formatter.string(from: departure.addingTimeInterval(delay)),
@@ -207,6 +207,22 @@ final class DemoAPIClient: APIClientProtocol {
 
     init() {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") {
+            users = [
+                User(id: DemoData.alexID, name: "Alex", email: "alex@demo.example", avatarURL: "", role: "admin"),
+                User(id: DemoData.samID, name: "Sam", email: "sam@demo.example", avatarURL: "", role: "member"),
+            ]
+            chores = MarketingDemoData.chores
+            meals = MarketingDemoData.meals
+            recipes = MarketingDemoData.recipes
+            shoppingItems = [
+                ShoppingItem(id: "marketing-shopping-1", name: "Milk"),
+                ShoppingItem(id: "marketing-shopping-2", name: "Apples"),
+                ShoppingItem(id: "marketing-shopping-3", name: "Sourdough bread"),
+                ShoppingItem(id: "marketing-shopping-4", name: "Pasta"),
+            ]
+            CommutePreferencesStore().save(MarketingDemoData.commutePreferences, server: "demo", userID: DemoData.alexID)
+        }
         if ProcessInfo.processInfo.arguments.contains("-demo-commute"), !Self.didSeedCommute {
             Self.didSeedCommute = true
             var preferences = CommutePreferences()
@@ -215,7 +231,8 @@ final class DemoAPIClient: APIClientProtocol {
             preferences.toWork = CommuteSchedule(enabled: true, weekdays: Set(1...7), start: "00:00", end: "23:59")
             CommutePreferencesStore().save(preferences, server: "demo", userID: DemoData.alexID)
         }
-        if ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
+        if !ProcessInfo.processInfo.arguments.contains("-marketing-screenshots"),
+           ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
             let today = APIDate.dayString(Date())
             meals = [
                 MealPlan(date: today, mealType: "breakfast", name: "Eggs and toast", notes: "", recipeID: DemoData.chickenRecipeID),
@@ -366,6 +383,10 @@ final class DemoAPIClient: APIClientProtocol {
 
     func fetchRecipeImage(id: String) async throws -> Data {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") {
+            guard let imageData = MarketingDemoData.recipeImageData(for: id) else { throw APIError.notFound }
+            return imageData
+        }
         if ProcessInfo.processInfo.arguments.contains("-demo-meal-card-images") {
             guard id == DemoData.chickenRecipeID else { throw APIError.offline }
             return UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64)).pngData { context in
@@ -460,6 +481,9 @@ final class DemoAPIClient: APIClientProtocol {
                 ],
                 meals: []
             )
+        }
+        if ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") {
+            return CalendarResponse(chores: chores, events: MarketingDemoData.calendarEvents(around: date), meals: meals)
         }
         if CalendarDemoData.isEnabled { return CalendarDemoData.response(view: view, date: date) }
         return CalendarResponse(chores: chores, events: [DemoData.calendarEvent], meals: meals)

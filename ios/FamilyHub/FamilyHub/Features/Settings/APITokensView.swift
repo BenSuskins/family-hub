@@ -4,7 +4,8 @@ import FamilyHubKit
 @Observable
 final class APITokensViewModel {
     var tokens: [APIToken] = []
-    var isLoading = false
+    var isLoading = true
+    var hasLoaded = false
     var actionError: APIError?
     var newlyCreatedToken: CreatedToken?
 
@@ -16,9 +17,11 @@ final class APITokensViewModel {
 
     func load() async {
         isLoading = true
+        actionError = nil
         defer { isLoading = false }
         do {
             tokens = try await apiClient.fetchTokens()
+            hasLoaded = true
         } catch {
             actionError = .from(error)
         }
@@ -82,7 +85,7 @@ struct APITokensView: View {
                 Text("Connect trusted apps to Family Hub.")
                     .foregroundStyle(AppTheme.secondary)
             }.listRowBackground(Color.clear)
-            if viewModel.tokens.isEmpty && !viewModel.isLoading {
+            if viewModel.tokens.isEmpty && viewModel.hasLoaded {
                 Section {
                     ContentUnavailableView("No Tokens", systemImage: "key", description: Text("Tap + to create a token."))
                 }.listRowBackground(AppTheme.surface)
@@ -105,11 +108,9 @@ struct APITokensView: View {
                 pendingDeletion = offsets
             }
             .listRowBackground(AppTheme.surface)
-            Section {
-                Button("New token") { activeSheet = .create }.buttonStyle(AppSecondaryButtonStyle())
-            } footer: {
+            Section {} footer: {
                 Text("Treat tokens like passwords. Delete a token to stop that app’s access.")
-            }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+            }.listRowBackground(Color.clear)
         }
         .appListStyle()
         .navigationTitle("API tokens")
@@ -125,6 +126,14 @@ struct APITokensView: View {
         .overlay {
             if viewModel.isLoading && viewModel.tokens.isEmpty {
                 ProgressView()
+            } else if !viewModel.hasLoaded && !viewModel.isLoading {
+                ContentUnavailableView {
+                    Label("Tokens Unavailable", systemImage: "key.slash")
+                } description: {
+                    Text("API tokens could not be loaded.")
+                } actions: {
+                    Button("Retry") { Task { await viewModel.load() } }
+                }
             }
         }
         .sheet(item: $activeSheet, onDismiss: {
@@ -154,6 +163,7 @@ struct APITokensView: View {
             }
         }
         .errorAlert($viewModel.actionError)
+        .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
     }
 }

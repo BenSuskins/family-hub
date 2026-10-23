@@ -32,15 +32,15 @@ struct ProfileView: View {
                     LabeledContent("Version", value: appVersion)
                     Link("Privacy Policy", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/PRIVACY.md")!)
                     Link("Terms of Use", destination: URL(string: "https://github.com/bensuskins/family-hub/blob/main/TERMS.md")!)
-                }.listRowBackground(AppTheme.surface)
+                }
                 accountSection
             }
             .listStyle(.insetGrouped)
-        .appListStyle()
-        .navigationTitle("Settings")
+            .appListStyle()
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
@@ -56,22 +56,20 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Sections
-
     private var profileSection: some View {
-        Section {
+        Section("Your account") {
             HStack(spacing: 14) {
-                ZStack(alignment: .bottomTrailing) {
-                    UserAvatar(user: currentUser, size: 42, apiClient: apiClient)
-                        .id(avatarRefreshID)
-                    if isUploadingAvatar {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .padding(4)
-                            .background(AppTheme.surface)
-                            .clipShape(Circle())
+                UserAvatar(user: currentUser, size: 56, apiClient: apiClient)
+                    .id(avatarRefreshID)
+                    .overlay {
+                        if isUploadingAvatar {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .padding(6)
+                                .background(AppTheme.surface, in: Circle())
+                        }
                     }
-                }
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displayName)
@@ -81,17 +79,17 @@ struct ProfileView: View {
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.secondary)
                     }
+                    Label(isAdmin ? "Family admin" : "Family member", systemImage: isAdmin ? "person.2.fill" : "person.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondary)
+                        .padding(.top, 2)
                 }
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
 
-        }.listRowBackground(AppTheme.surface)
-    }
-
-    private var appSection: some View {
-        Section("This iPhone") {
             PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                FeatureEntryLabel(title: "Photo", subtitle: "Change your profile photo", systemImage: "person.crop.square")
+                FeatureEntryLabel(title: "Change Photo", subtitle: "Choose a profile photo", systemImage: "person.crop.square")
             }
             .disabled(isUploadingAvatar)
             .accessibilityIdentifier("Change Photo")
@@ -104,40 +102,48 @@ struct ProfileView: View {
                 }
                 .disabled(isUploadingAvatar)
             }
+        }
+        .listRowBackground(AppTheme.surface)
+    }
+
+    private var appSection: some View {
+        Section("This iPhone") {
             NavigationLink {
                 ChoreRemindersView(apiClient: apiClient, isAdmin: isAdmin)
             } label: {
-                FeatureEntryLabel(title: "Notifications", subtitle: "Device permission and reminder schedule", systemImage: "bell")
+                FeatureEntryLabel(title: "Notifications", subtitle: "Reminder schedule and permissions", systemImage: "bell")
             }
             .accessibilityIdentifier("Chore Reminders")
+
             NavigationLink {
                 CommuteSettingsView(apiClient: apiClient)
             } label: {
                 FeatureEntryLabel(title: "Commute", subtitle: "Train times and display schedule", systemImage: "tram.fill")
             }
             .accessibilityIdentifier("Commute settings")
-        }.listRowBackground(AppTheme.surface)
+        }
+        .listRowBackground(AppTheme.surface)
     }
 
     private var serverEntry: some View {
-            NavigationLink {
-                ConfigurationFormView(
-                    configStore: configStore,
-                    discoveryService: URLSessionOIDCDiscoveryService(),
-                    beforeSave: { try await ChoreNotificationManager.shared.disconnect() },
-                    onSave: { authManager.signOut() }
-                )
-                    .navigationTitle("Server")
-                    .navigationBarTitleDisplayMode(.large)
-            } label: {
-                LabeledContent("Server") {
-                    Text(configStore.baseURL)
-                        .foregroundStyle(AppTheme.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }.accessibilityIdentifier("Server configuration")
-
+        NavigationLink {
+            ConfigurationFormView(
+                configStore: configStore,
+                discoveryService: URLSessionOIDCDiscoveryService(),
+                beforeSave: { try await ChoreNotificationManager.shared.disconnect() },
+                onSave: { authManager.signOut() }
+            )
+            .navigationTitle("Server")
+            .navigationBarTitleDisplayMode(.large)
+        } label: {
+            LabeledContent("Server") {
+                Text(configStore.baseURL)
+                    .foregroundStyle(AppTheme.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .accessibilityIdentifier("Server configuration")
     }
 
     private var adminSection: some View {
@@ -145,47 +151,52 @@ struct ProfileView: View {
             NavigationLink {
                 FamilyNameView(apiClient: apiClient)
             } label: {
-                settingsEntry("Family name", detail: "Name shown to everyone")
+                FeatureEntryLabel(title: "Family name", subtitle: "Name shown to everyone", systemImage: "house")
             }.accessibilityIdentifier("Family Name")
+
             NavigationLink {
                 FamilyMembersView(apiClient: apiClient, currentUserID: currentUser?.id ?? "")
             } label: {
-                settingsEntry("Family members", detail: "People and admin roles")
+                FeatureEntryLabel(title: "Family members", subtitle: "People and admin roles", systemImage: "person.2")
             }.accessibilityIdentifier("Family Members")
+
             NavigationLink {
                 HomeInfoView(apiClient: apiClient)
             } label: {
-                settingsEntry("Home location", detail: "Weather and departure times")
+                FeatureEntryLabel(title: "Home location", subtitle: "Weather and departure times", systemImage: "mappin.and.ellipse")
             }.accessibilityLabel("Home location")
+
             NavigationLink {
                 FamilyBroadcastView(apiClient: apiClient)
             } label: {
-                settingsEntry("Send family message", detail: "Message all registered iPhones")
+                FeatureEntryLabel(title: "Send family message", subtitle: "Message all registered iPhones", systemImage: "megaphone")
             }.accessibilityIdentifier("Family message")
-            NavigationLink("Categories") {
+
+            NavigationLink {
                 CategoriesView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "Categories", subtitle: "Organize meals and chores", systemImage: "square.grid.2x2")
             }
+
             NavigationLink {
                 CalendarSubscriptionsView(apiClient: apiClient)
             } label: {
-                settingsEntry("Calendars", detail: "Manage external calendar feeds")
+                FeatureEntryLabel(title: "Calendars", subtitle: "Manage external calendar feeds", systemImage: "calendar")
             }.accessibilityIdentifier("Calendar feeds settings")
-            NavigationLink("API Tokens") {
+
+            NavigationLink {
                 APITokensView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "API Tokens", subtitle: "Manage service access", systemImage: "key.horizontal")
             }
+
             NavigationLink {
                 DatabaseBackupView(apiClient: apiClient)
             } label: {
-                settingsEntry("Database backup", detail: "Save or restore family data")
+                FeatureEntryLabel(title: "Database backup", subtitle: "Save or restore family data", systemImage: "externaldrive")
             }.accessibilityIdentifier("Database backup settings")
-        }.listRowBackground(AppTheme.surface)
-    }
-
-    private func settingsEntry(_ title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-            Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondary)
         }
+        .listRowBackground(AppTheme.surface)
     }
 
     private var accountSection: some View {
@@ -202,10 +213,9 @@ struct ProfileView: View {
                 Text("Sign Out")
                     .font(.body.weight(.medium))
             }
-        }.listRowBackground(AppTheme.surface)
+        }
+        .listRowBackground(AppTheme.surface)
     }
-
-    // MARK: - Avatar actions
 
     private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
         isUploadingAvatar = true
@@ -247,25 +257,9 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Helpers
-
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         return "\(version) (\(build))"
-    }
-}
-
-private extension Data {
-    var imagesMimeType: String? {
-        var byte: UInt8 = 0
-        copyBytes(to: &byte, count: 1)
-        switch byte {
-        case 0xFF: return "image/jpeg"
-        case 0x89: return "image/png"
-        case 0x47: return "image/gif"
-        case 0x49, 0x4D: return "image/tiff"
-        default: return nil
-        }
     }
 }

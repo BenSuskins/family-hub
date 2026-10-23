@@ -1,0 +1,71 @@
+import XCTest
+
+final class MarketingScreenshotsUITests: XCTestCase {
+    @MainActor
+    func testCaptureMarketingScreens() {
+        continueAfterFailure = false
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-marketing-screenshots", "-demo-meal-card-images", "-AppleInterfaceStyle", "Light"]
+        app.launch()
+
+        let demo = app.buttons["Try Demo"]
+        for _ in 0..<6 where !demo.exists || !demo.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(demo.waitForExistence(timeout: 10))
+        demo.tap()
+        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 10))
+        capture(app, named: "01-home")
+
+        selectFamilyTab("Calendar", in: app)
+        XCTAssertTrue(app.navigationBars["Calendar"].waitForExistence(timeout: 5))
+        capture(app, named: "06-calendar")
+
+        selectFamilyTab("Chores", in: app)
+        XCTAssertTrue(app.navigationBars["Chores"].waitForExistence(timeout: 5))
+        capture(app, named: "07-chores")
+
+        selectFamilyTab("Food", in: app)
+        XCTAssertTrue(app.navigationBars["Food"].waitForExistence(timeout: 5))
+        let mealPlan = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Meal plan")).firstMatch
+        XCTAssertTrue(mealPlan.waitForExistence(timeout: 5))
+        mealPlan.tap()
+        XCTAssertTrue(app.buttons["Previous week"].waitForExistence(timeout: 5))
+        capture(app, named: "03-meals")
+
+        selectFamilyTab("Food", in: app)
+        let recipes = app.buttons["Recipes"]
+        XCTAssertTrue(recipes.waitForExistence(timeout: 5))
+        recipes.tap()
+        XCTAssertTrue(app.navigationBars["Recipes"].waitForExistence(timeout: 5))
+        capture(app, named: "04-recipes-book")
+        let recipe = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Chicken Stir Fry")).firstMatch
+        XCTAssertTrue(recipe.waitForExistence(timeout: 5))
+        recipe.tap()
+        XCTAssertTrue(app.buttons["Start cooking"].waitForExistence(timeout: 5))
+        capture(app, named: "02-recipe-detail")
+
+        selectFamilyTab("Household", in: app)
+        XCTAssertTrue(app.navigationBars["Household"].waitForExistence(timeout: 5))
+        capture(app, named: "08-household")
+        openShoppingListIfNeeded(in: app)
+        XCTAssertTrue(app.textFields["Item name"].waitForExistence(timeout: 5))
+        capture(app, named: "09-shopping")
+
+        selectFamilyTab("Household", in: app)
+        let inventory = app.buttons["Inventory"]
+        XCTAssertTrue(inventory.waitForExistence(timeout: 5))
+        inventory.tap()
+        XCTAssertTrue(app.navigationBars["Inventory"].waitForExistence(timeout: 5))
+        capture(app, named: "05-inventory")
+    }
+
+    @MainActor
+    private func capture(_ app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

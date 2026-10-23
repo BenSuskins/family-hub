@@ -207,6 +207,25 @@ final class DemoAPIClient: APIClientProtocol {
 
     init() {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") {
+            users = [
+                User(id: DemoData.alexID, name: "Alex", email: "alex@demo.example", avatarURL: "", role: "admin"),
+                User(id: DemoData.samID, name: "Sam", email: "sam@demo.example", avatarURL: "", role: "member"),
+            ]
+            let today = APIDate.dayString(Date())
+            chores = [
+                Chore(id: "marketing-chore-1", name: "Set the table", description: "", status: .pending, dueDate: today, assignedToUserID: DemoData.alexID),
+                Chore(id: "marketing-chore-2", name: "Feed the cat", description: "", status: .pending, dueDate: today, assignedToUserID: DemoData.samID),
+                Chore(id: "marketing-chore-3", name: "Water the plants", description: "", status: .pending, dueDate: today, assignedToUserID: DemoData.alexID),
+                Chore(id: "marketing-chore-4", name: "Empty the dishwasher", description: "", status: .completed, dueDate: today, assignedToUserID: DemoData.samID),
+            ]
+            shoppingItems = [
+                ShoppingItem(id: "marketing-shopping-1", name: "Milk"),
+                ShoppingItem(id: "marketing-shopping-2", name: "Apples"),
+                ShoppingItem(id: "marketing-shopping-3", name: "Sourdough bread"),
+                ShoppingItem(id: "marketing-shopping-4", name: "Pasta"),
+            ]
+        }
         if ProcessInfo.processInfo.arguments.contains("-demo-commute"), !Self.didSeedCommute {
             Self.didSeedCommute = true
             var preferences = CommutePreferences()

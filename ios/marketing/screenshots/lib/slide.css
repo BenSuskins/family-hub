@@ -107,59 +107,28 @@ h1 mark {
   position: relative;
   height: 100%;
   max-height: 1870px;
-  aspect-ratio: 0.46;
-  padding: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.48);
-  border-radius: 91px;
-  background: linear-gradient(145deg, #d9d8d0 0%, #8e918b 8%, #30352f 18%, #151815 50%, #666a64 88%, #d8d6ce 100%);
-  box-shadow: 0 34px 90px rgba(52, 60, 49, 0.22), inset 0 0 0 1px rgba(20, 24, 20, 0.42);
-}
-
-.phone::before,
-.phone::after {
-  content: "";
-  position: absolute;
-  z-index: 3;
-  width: 5px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #686c65, #d0d1c9 55%, #777b74);
-}
-
-.phone::before {
-  top: 300px;
-  left: -5px;
-  height: 86px;
-  box-shadow: 0 118px 0 #a6a8a1, 0 226px 0 #a6a8a1;
+  aspect-ratio: 1350 / 2760;
+  filter: drop-shadow(0 34px 45px rgba(52, 60, 49, 0.22));
 }
 
 .phone::after {
-  top: 375px;
-  right: -5px;
-  height: 180px;
-}
-
-.screen {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border: 4px solid #101210;
-  border-radius: 76px;
-  background: var(--surface);
-}
-
-.screen::before {
   content: "";
   position: absolute;
   z-index: 2;
-  top: 20px;
-  left: 50%;
-  width: 206px;
-  height: 56px;
-  transform: translateX(-50%);
-  border-radius: 32px;
-  background: #090a09;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12);
+  inset: 0;
+  background: url("../assets/iphone-frame.png") center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+.screen {
+  position: absolute;
+  top: 2.50%;
+  left: 5.33%;
+  width: 89.33%;
+  height: 94.96%;
+  overflow: hidden;
+  border-radius: 18% / 6%;
+  background: transparent;
 }
 
 .capture {

@@ -62,6 +62,7 @@ The simulator flow records deterministic demo content. It does not change the no
 ## Template design
 
 - `lib/slide.css` holds the shared cream, sage and clay palette, system typography, phone frame and benefit labels.
+- `assets/iphone-frame.png` supplies the transparent graphite iPhone bezel used by the screenshot slides.
 - `slides/*.html` holds per-screen headlines, copy and screenshot mappings.
 - `render.sh` checks for every required capture and fails before rendering if any are missing.
 

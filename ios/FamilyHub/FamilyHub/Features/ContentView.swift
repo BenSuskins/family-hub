@@ -27,13 +27,21 @@ enum HouseholdDestination: Hashable { case shopping, inventory }
 
 @Observable
 final class AppNavigation {
-    var choreRefreshID = UUID()
     var selectedTab: AppTab = .today
     var foodPath: [FoodDestination] = []
     var householdPath: [HouseholdDestination] = []
+    private(set) var rootRefreshIDs = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, UUID()) })
+
+    func rootRefreshID(for tab: AppTab) -> UUID { rootRefreshIDs[tab]! }
 
     func select(_ tab: AppTab) {
         if selectedTab == tab {
+            rootRefreshIDs[tab] = UUID()
+            switch tab {
+            case .food: foodPath = []
+            case .household: householdPath = []
+            default: break
+            }
             return
         }
         selectedTab = tab
@@ -48,10 +56,8 @@ final class AppNavigation {
         guard url.scheme == "familyhub" else { return }
         switch url.host {
         case "chores":
-            choreRefreshID = UUID()
             selectedTab = .tasks
         case "today":
-            choreRefreshID = UUID()
             selectedTab = .today
         case "calendar": selectedTab = .calendar
         case "meals": openMealPlan()
@@ -82,17 +88,19 @@ struct ContentView: View {
         TabView(selection: $navigation.selectedTab) {
             Tab("Today", systemImage: "house", value: AppTab.today) {
                 HomeView(apiClient: apiClient, navigation: navigation)
+                    .id(navigation.rootRefreshID(for: .today))
                     .modifier(PhoneTabVisibility())
             }
             Tab("Calendar", systemImage: "calendar", value: AppTab.calendar) {
                 CalendarView(apiClient: apiClient)
+                    .id(navigation.rootRefreshID(for: .calendar))
                     .modifier(PhoneTabVisibility())
             }
             Tab("Chores", systemImage: "checklist", value: AppTab.tasks) {
                 NavigationStack {
                     ChoresListView(apiClient: apiClient)
                 }
-                .id(navigation.choreRefreshID)
+                .id(navigation.rootRefreshID(for: .tasks))
                 .modifier(PhoneTabVisibility())
             }
             Tab("Food", systemImage: "fork.knife", value: AppTab.food) {
@@ -105,6 +113,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .id(navigation.rootRefreshID(for: .food))
                 .modifier(PhoneTabVisibility())
             }
             Tab("Household", systemImage: "cabinet", value: AppTab.household) {
@@ -117,6 +126,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .id(navigation.rootRefreshID(for: .household))
                 .modifier(PhoneTabVisibility())
             }
         }
@@ -154,19 +164,31 @@ private struct FamilyTabBar: View {
     @Binding var selection: AppTab
     let onSelect: (AppTab) -> Void
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
-                Button { onSelect(tab) } label: {
+                Button {
+                    if reduceMotion {
+                        onSelect(tab)
+                    } else {
+                        withAnimation(.snappy(duration: 0.28)) { onSelect(tab) }
+                    }
+                } label: {
                     VStack(spacing: 5) {
                         Image(systemName: tab.symbol).font(.system(size: 21, weight: .medium))
+                            .symbolEffect(.bounce, value: selection == tab)
                         Text(tab.title).font(.caption.weight(.semibold))
                             .lineLimit(1).minimumScaleFactor(0.8)
                     }
                     .foregroundStyle(selection == tab ? AppTheme.accent : AppTheme.secondary)
                     .frame(maxWidth: .infinity, minHeight: 58)
-                    .background(selection == tab ? AppTheme.sage : .clear, in: Capsule())
+                    .background {
+                        if selection == tab {
+                            Capsule().fill(AppTheme.sage).matchedGeometryEffect(id: "selected-tab", in: tabSelectionAnimation)
+                        }
+                    }
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -188,6 +210,8 @@ private struct FamilyTabBar: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tab bar")
     }
+
+    @Namespace private var tabSelectionAnimation
 }
 
 private struct PhoneTabVisibility: ViewModifier {

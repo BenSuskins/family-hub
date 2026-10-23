@@ -5,6 +5,7 @@ struct MealsView: View {
     @State private var viewModel: MealsViewModel
     @State private var recipesViewModel: RecipesViewModel
     @State private var editingMeal: EditingMeal?
+    @State private var visibleMealID: String?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let apiClient: any APIClientProtocol
     private let isFoodHome: Bool
@@ -74,6 +75,8 @@ struct MealsView: View {
                 Section { recipesEntry }.listRowBackground(AppTheme.surface)
             }
         }
+        .scrollPosition(id: $visibleMealID)
+        .onChange(of: viewModel.currentWeek) { _, _ in visibleMealID = nil }
         .listStyle(.insetGrouped)
         .appListStyle()
         .navigationTitle(isFoodHome ? "Food" : (viewModel.weekDays.contains(where: { Calendar.current.isDateInToday($0) }) ? "This week" : "Meal plan"))
@@ -188,51 +191,70 @@ struct MealsView: View {
         let recipe = recipesViewModel.filteredRecipes.first { $0.id == plan?.recipeID }
         let planned = plan?.name.isEmpty == false
         return HStack(alignment: .center, spacing: 8) {
-            Button {
-                editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: plan?.recipeID)
-            } label: {
-                HStack(spacing: 12) {
-                    if let recipeID = plan?.recipeID {
-                        RecipeThumbView(recipeID: recipeID, apiClient: apiClient, size: 42, placeholderSymbol: "book.closed")
-                            .accessibilityHidden(true)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(planned ? plan!.name : mealType.capitalized)
-                            .font(.body.weight(.medium)).foregroundStyle(AppTheme.ink)
-                        if planned {
-                            let cookingTime = recipe?.cookTime.map { " · " + $0 } ?? ""
-                            Text(mealType.capitalized + cookingTime).font(.subheadline).foregroundStyle(AppTheme.secondary)
-                        } else {
-                            Text("Not planned").font(.subheadline).foregroundStyle(AppTheme.secondary)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(planned ? "Edit \(mealType): \(plan!.name)" : "Add \(mealType)")
-            .accessibilityValue(plan?.recipeID == nil ? "" : "Recipe linked")
             if let plan, let recipeID = plan.recipeID {
-                NavigationLink {
-                    RecipeDetailView(recipe: recipe ?? Recipe(id: recipeID, title: plan.name), apiClient: apiClient, viewModel: recipesViewModel)
+                // Keep editing on the thumbnail, and make the entire text area a recipe link.
+                Button {
+                    editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan.name, recipeID: recipeID)
                 } label: {
-                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                    RecipeThumbView(recipeID: recipeID, apiClient: apiClient, size: 42, placeholderSymbol: "book.closed")
+                        .frame(minWidth: 44, minHeight: 52)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .frame(width: 44)
+                .accessibilityLabel("Edit \(mealType): \(plan.name)")
+
+                NavigationLink {
+                    RecipeDetailView(recipe: recipe ?? Recipe(id: recipeID, title: plan.name), apiClient: apiClient, viewModel: recipesViewModel)
+                } label: {
+                    HStack(spacing: 8) {
+                        mealDescription(mealType, plan: plan, recipe: recipe)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(AppTheme.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 .accessibilityLabel("View recipe for \(plan.name)")
             } else {
                 Button {
-                    editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: plan?.recipeID)
+                    editingMeal = EditingMeal(date: dateKey, mealType: mealType, name: plan?.name ?? "", recipeID: nil)
                 } label: {
-                    Image(systemName: planned ? "pencil" : "plus").frame(width: 44, height: 44)
-                }.buttonStyle(.borderless)
-                .accessibilityLabel(planned ? "Change \(mealType)" : "Plan \(mealType)")
+                    HStack(spacing: 8) {
+                        mealDescription(mealType, plan: plan, recipe: nil)
+                        Spacer(minLength: 0)
+                        Image(systemName: planned ? "pencil" : "plus")
+                            .foregroundStyle(AppTheme.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(planned ? "Edit \(mealType): \(plan!.name)" : "Add \(mealType)")
             }
         }
+        .id("\(dateKey)-\(mealType)")
         .navigationLinkIndicatorVisibility(.hidden)
+    }
+
+    private func mealDescription(_ mealType: String, plan: MealPlan?, recipe: Recipe?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(plan?.name.isEmpty == false ? plan!.name : mealType.capitalized)
+                .font(.body.weight(.medium))
+                .foregroundStyle(AppTheme.ink)
+            if plan?.name.isEmpty == false {
+                let cookingTime = recipe?.cookTime.map { " · " + $0 } ?? ""
+                Text(mealType.capitalized + cookingTime)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondary)
+            } else {
+                Text("Not planned")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondary)
+            }
+        }
+
     }
 
 }

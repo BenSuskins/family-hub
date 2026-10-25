@@ -8,23 +8,12 @@ final class MarketingScreenshotsUITests: XCTestCase {
     }
 
     @MainActor
-    func testCaptureMarketingScreensOnIPadLandscape() throws {
-        try captureIPadScreens(orientation: .landscapeLeft, suffix: "ipad-landscape")
-    }
-
-    @MainActor
     func testCaptureMarketingScreensOnIPadPortrait() throws {
-        try captureIPadScreens(orientation: .portrait, suffix: "ipad-portrait")
-    }
-
-    @MainActor
-    private func captureIPadScreens(orientation: UIDeviceOrientation, suffix: String) throws {
         guard UIDevice.current.userInterfaceIdiom == .pad else {
             throw XCTSkip("This capture pass is for iPad.")
         }
-        XCUIDevice.shared.orientation = orientation
-        defer { XCUIDevice.shared.orientation = .portrait }
-        captureMarketingScreens(suffix: suffix)
+        XCUIDevice.shared.orientation = .portrait
+        captureMarketingScreens(suffix: "ipad-portrait")
     }
 
     @MainActor

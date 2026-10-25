@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "bin-food-caddy.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

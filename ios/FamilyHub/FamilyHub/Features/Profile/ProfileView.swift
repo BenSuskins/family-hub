@@ -185,6 +185,12 @@ struct ProfileView: View {
             }.accessibilityIdentifier("Calendar feeds settings")
 
             NavigationLink {
+                BinCollectionsView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "Bin collections", subtitle: "Upload schedule and set reminders", systemImage: "trash")
+            }.accessibilityIdentifier("Bin Collections")
+
+            NavigationLink {
                 APITokensView(apiClient: apiClient)
             } label: {
                 FeatureEntryLabel(title: "API Tokens", subtitle: "Manage service access", systemImage: "key.horizontal")

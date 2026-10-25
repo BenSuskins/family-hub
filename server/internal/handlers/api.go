@@ -268,6 +268,25 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	now := time.Now()
+	binCollectionsTomorrow := []models.BinCollection{}
+	if handler.settingsRepo != nil {
+		location, err := services.HouseholdLocation(ctx, handler.settingsRepo)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to load household time zone")
+			return
+		}
+		schedule, err := services.LoadBinSchedule(ctx, handler.settingsRepo)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+			return
+		}
+		tomorrow := now.In(location).AddDate(0, 0, 1).Format(DateFormat)
+		for _, collection := range schedule.Collections {
+			if collection.Date == tomorrow {
+				binCollectionsTomorrow = append(binCollectionsTomorrow, collection)
+			}
+		}
+	}
 
 	choresDueToday, overdueChores, err := handler.choreService.DueTasks(ctx)
 	if err != nil {
@@ -299,12 +318,13 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	}
 
 	stats := map[string]interface{}{
-		"chores_due_today":      len(choresDueToday),
-		"chores_overdue":        len(overdueChores),
-		"chores_due_today_list": choresDueToday,
-		"chores_overdue_list":   overdueChores,
-		"meals_this_week":       len(mealsThisWeek),
-		"today_meals":           todayMeals,
+		"chores_due_today":         len(choresDueToday),
+		"chores_overdue":           len(overdueChores),
+		"chores_due_today_list":    choresDueToday,
+		"chores_overdue_list":      overdueChores,
+		"meals_this_week":          len(mealsThisWeek),
+		"today_meals":              todayMeals,
+		"bin_collections_tomorrow": binCollectionsTomorrow,
 	}
 	writeJSON(w, http.StatusOK, stats)
 }

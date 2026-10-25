@@ -240,6 +240,10 @@ public final class APIClient: APIClientProtocol {
         try await sendVoid(path: path, method: "PATCH", body: body)
     }
 
+    private func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        try await send(path: path, method: "PATCH", body: body)
+    }
+
     private func delete(_ path: String, queryItems: [URLQueryItem] = []) async throws {
         try await sendVoid(path: path, method: "DELETE", queryItems: queryItems)
     }
@@ -688,6 +692,20 @@ public final class APIClient: APIClientProtocol {
 
     public func restoreDatabaseBackup(from url: URL) async throws {
         try await uploadMultipartFile("api/admin/restore", field: "backup", fileURL: url, mimeType: "application/gzip")
+    }
+
+    public func fetchBinSchedule() async throws -> BinScheduleSettings {
+        try await get("api/bin-collections")
+    }
+
+    public func uploadBinSchedule(from url: URL) async throws -> BinScheduleSettings {
+        let body = try Data(contentsOf: url)
+        return try await uploadMultipart("api/bin-collections", field: "schedule", data: body, mimeType: "text/calendar")
+    }
+
+    public func updateBinReminders(enabled: Bool) async throws -> BinScheduleSettings {
+        struct Request: Encodable { let enabled: Bool }
+        return try await patch("api/bin-collections", body: Request(enabled: enabled))
     }
 
     public func fetchUsers() async throws -> [User] {

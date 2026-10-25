@@ -59,6 +59,9 @@ public protocol APIClientProtocol: AnyObject {
     func deleteCalendarSubscription(id: String) async throws
     func downloadDatabaseBackup() async throws -> URL
     func restoreDatabaseBackup(from url: URL) async throws
+    func fetchBinSchedule() async throws -> BinScheduleSettings
+    func uploadBinSchedule(from url: URL) async throws -> BinScheduleSettings
+    func updateBinReminders(enabled: Bool) async throws -> BinScheduleSettings
     func fetchUsers() async throws -> [User]
     func fetchUsers(forceRefresh: Bool) async throws -> [User]
     func saveMeal(date: String, mealType: String, name: String, recipeID: String?) async throws -> MealPlan
@@ -120,6 +123,27 @@ public protocol APIClientProtocol: AnyObject {
     func updateItem(id: String, _ request: ItemRequest) async throws -> InventoryItem
     func changeStock(id: String, change: InventoryStockChange) async throws -> InventoryItem
     func deleteItem(id: String) async throws
+}
+
+public struct BinScheduleSettings: Codable, Equatable {
+    public let enabled: Bool
+    public let uploadedAt: String
+    public let collectionCount: Int
+    public let pushAvailable: Bool
+
+    public init(enabled: Bool, uploadedAt: String, collectionCount: Int, pushAvailable: Bool) {
+        self.enabled = enabled
+        self.uploadedAt = uploadedAt
+        self.collectionCount = collectionCount
+        self.pushAvailable = pushAvailable
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case uploadedAt = "uploaded_at"
+        case collectionCount = "collection_count"
+        case pushAvailable = "push_available"
+    }
 }
 
 extension APIClientProtocol {

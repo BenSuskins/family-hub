@@ -58,6 +58,7 @@ struct HomeView: View {
                         CommuteCardsView(model: commuteViewModel)
                         if case .loaded(let stats) = viewModel.state {
                             agendaSection
+                            binsSection(stats)
                             choresSection(stats)
                         }
                     }
@@ -306,6 +307,35 @@ struct HomeView: View {
                 Label("No chores due", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(AppTheme.secondary)
                     .padding(.horizontal, 20)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func binsSection(_ stats: DashboardStats) -> some View {
+        if !stats.binCollectionsTomorrow.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HomeSectionHeader(title: "Bins due tomorrow") { EmptyView() }
+                VStack(spacing: 0) {
+                    ForEach(Array(stats.binCollectionsTomorrow.enumerated()), id: \.element.id) { index, collection in
+                        if index > 0 { Divider().padding(.leading, 68) }
+                        HStack(spacing: 12) {
+                            Image(collection.imageName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 48)
+                                .accessibilityHidden(true)
+                            Text(collection.name)
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(AppTheme.ink)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                    }
+                }
+                .groupedCard()
+                .padding(.horizontal, 20)
             }
         }
     }

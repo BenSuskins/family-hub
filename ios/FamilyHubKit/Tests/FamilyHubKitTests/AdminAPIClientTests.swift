@@ -44,6 +44,10 @@ private final class AdminHTTPFixture: @unchecked Sendable {
             return (200, Data(#"{"id":"school","name":"School","url":"https://example.com/school.ics","color":"rose","lastFetchedAt":null,"createdAt":"2026-10-22T12:00:00Z"}"#.utf8), [:])
         case ("POST", "/api/calendars/school/refresh"), ("DELETE", "/api/calendars/school"), ("POST", "/api/admin/restore"):
             return (204, Data(), [:])
+        case ("GET", "/api/bin-collections"), ("POST", "/api/bin-collections"):
+            return (200, Data(#"{"enabled":true,"uploaded_at":"2026-10-25T12:00:00Z","collection_count":12,"push_available":true}"#.utf8), [:])
+        case ("PATCH", "/api/bin-collections"):
+            return (200, Data(#"{"enabled":false,"uploaded_at":"2026-10-25T12:00:00Z","collection_count":12,"push_available":true}"#.utf8), [:])
         case ("GET", "/api/admin/backup"):
             return (200, Data("backup archive".utf8), ["Content-Type": "application/gzip", "Content-Disposition": "attachment; filename=family-hub-backup-2026-10-22.db.gz"])
         default:
@@ -122,6 +126,28 @@ final class AdminAPIClientTests: XCTestCase {
         XCTAssertEqual(request.url?.path, "/api/admin/restore")
         XCTAssertTrue(request.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/form-data; boundary=") == true)
         XCTAssertTrue(String(decoding: AdminURLProtocol.fixture.body(at: 1), as: UTF8.self).contains("name=\"backup\"; filename=\"" + sourceURL.lastPathComponent + "\""))
+    }
+
+    func testBinScheduleSettingsAndUploadUseAdminAPIContract() async throws {
+        AdminURLProtocol.fixture.reset()
+        let client = makeClient()
+        let loaded = try await client.fetchBinSchedule()
+        XCTAssertEqual(loaded.collectionCount, 12)
+        XCTAssertTrue(loaded.enabled)
+
+        let sourceURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ics")
+        try Data("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n".utf8).write(to: sourceURL)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        let uploaded = try await client.uploadBinSchedule(from: sourceURL)
+        XCTAssertEqual(uploaded.collectionCount, 12)
+        let updated = try await client.updateBinReminders(enabled: false)
+        XCTAssertFalse(updated.enabled)
+
+        let requests = AdminURLProtocol.fixture.requests
+        XCTAssertEqual(requests.map(\.httpMethod), ["GET", "POST", "PATCH"])
+        XCTAssertTrue(String(decoding: AdminURLProtocol.fixture.body(at: 1), as: UTF8.self).contains("name=\"schedule\""))
+        XCTAssertTrue(String(decoding: AdminURLProtocol.fixture.body(at: 1), as: UTF8.self).contains("BEGIN:VCALENDAR"))
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: Data(AdminURLProtocol.fixture.body(at: 2))) as? [String: Bool], ["enabled": false])
     }
 
     private func makeClient() -> APIClient {

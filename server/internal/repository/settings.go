@@ -7,6 +7,7 @@ import (
 )
 
 const SettingsKeyFamilyName = "family_name"
+const SettingsKeyMealWeekStart = "meal_week_start"
 
 type SettingsRepository interface {
 	Get(ctx context.Context, key string) (string, error)

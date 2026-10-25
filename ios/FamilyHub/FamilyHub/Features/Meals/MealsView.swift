@@ -28,9 +28,10 @@ struct MealsView: View {
                 }.listRowBackground(Color.clear)
                 Section {
                     NavigationLink(value: FoodDestination.mealPlan) {
-                        FeatureEntryLabel(title: "Meal plan", subtitle: "Friday–Thursday", systemImage: "calendar")
+                        FeatureEntryLabel(title: "Meal plan", subtitle: viewModel.mealWeekStart.rangeTitle, systemImage: "calendar")
                     }
                     .accessibilityLabel("Meal plan")
+                    .accessibilityValue(viewModel.mealWeekStart.rangeTitle)
                     recipesEntry
                 }.listRowBackground(AppTheme.surface)
             } else {

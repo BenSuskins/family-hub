@@ -545,8 +545,12 @@ final class DemoAPIClient: APIClientProtocol {
 
     func deleteAvatar() async throws {}
 
-    func fetchSettings() async throws -> AppSettings {
-        AppSettings(familyName: "The Demo Family")
+    private var settings = AppSettings(familyName: "The Demo Family")
+
+    func fetchSettings() async throws -> AppSettings { settings }
+
+    func updateMealWeekStart(_ weekday: MealWeekday) async throws {
+        settings = AppSettings(familyName: settings.familyName, mealWeekStart: weekday)
     }
 
     func updateFamilyName(_ name: String) async throws {}

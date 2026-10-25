@@ -190,14 +190,11 @@ public final class APIClient: APIClientProtocol {
         await removeSnapshot(key: "calendar-\(CalendarSchedule().monthKey(date))")
     }
 
-    private func mealWeekKey(_ dateString: String) -> String? {
-        guard let date = APIDate.parse("\(dateString)T00:00:00Z") else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let weekday = calendar.component(.weekday, from: date)
-        let daysSinceFriday = (weekday - 6 + 7) % 7
-        guard let week = calendar.date(byAdding: .day, value: -daysSinceFriday, to: calendar.startOfDay(for: date)) else { return nil }
-        return APIDate.dayString(week)
+    private func mealWeekKeys(_ dateString: String) -> [String] {
+        guard let date = APIDate.day.date(from: dateString) else { return [] }
+        return (0..<7).compactMap { offset in
+            Calendar(identifier: .gregorian).date(byAdding: .day, value: -offset, to: date).map(APIDate.dayString)
+        }
     }
 
     private func removeRecipeImages(id: String) async {
@@ -724,7 +721,7 @@ public final class APIClient: APIClientProtocol {
             let recipeID: String?
         }
         let meal: MealPlan = try await post("api/meals", body: SaveMealBody(date: date, mealType: mealType, name: name, recipeID: recipeID))
-        if let weekKey = mealWeekKey(date) {
+        for weekKey in mealWeekKeys(date) {
             await updateSnapshot(key: "meals-\(weekKey)", freshness: freshness.meals) { (meals: inout [MealPlan]) in
                 meals.removeAll { $0.date == date && $0.mealType == mealType }
                 meals.append(meal)
@@ -739,7 +736,7 @@ public final class APIClient: APIClientProtocol {
             URLQueryItem(name: "date", value: date),
             URLQueryItem(name: "mealType", value: mealType)
         ])
-        if let weekKey = mealWeekKey(date) {
+        for weekKey in mealWeekKeys(date) {
             await updateSnapshot(key: "meals-\(weekKey)", freshness: freshness.meals) { (meals: inout [MealPlan]) in
                 meals.removeAll { $0.date == date && $0.mealType == mealType }
             }
@@ -796,12 +793,25 @@ public final class APIClient: APIClientProtocol {
     // MARK: - Settings
 
     public func fetchSettings() async throws -> AppSettings {
-        try await get("api/settings")
+        try await cached(key: "settings", freshness: 0, forceRefresh: true) {
+            try await self.get("api/settings")
+        }
     }
 
     public func updateFamilyName(_ name: String) async throws {
         struct Body: Encodable { let family_name: String }
         try await patch("api/settings", body: Body(family_name: name))
+        await updateSnapshot(key: "settings", freshness: 0) { (settings: inout AppSettings) in
+            settings = AppSettings(familyName: name, mealWeekStart: settings.mealWeekStart)
+        }
+    }
+
+    public func updateMealWeekStart(_ weekday: MealWeekday) async throws {
+        struct Body: Encodable { let meal_week_start: MealWeekday }
+        try await patch("api/settings", body: Body(meal_week_start: weekday))
+        await updateSnapshot(key: "settings", freshness: 0) { (settings: inout AppSettings) in
+            settings = AppSettings(familyName: settings.familyName, mealWeekStart: weekday)
+        }
     }
 
     // MARK: - User management

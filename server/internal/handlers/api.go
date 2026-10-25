@@ -1075,30 +1075,53 @@ func (handler *APIHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		familyName = "Family"
 	}
+	mealWeekStart, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyMealWeekStart)
+	if err != nil || !validMealWeekStart(mealWeekStart) {
+		mealWeekStart = "friday"
+	}
 	writeJSON(w, http.StatusOK, map[string]string{
-		"family_name": familyName,
+		"meal_week_start": mealWeekStart,
+		"family_name":     familyName,
 	})
+}
+
+func validMealWeekStart(value string) bool {
+	switch value {
+	case "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday":
+		return true
+	default:
+		return false
+	}
 }
 
 func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var body struct {
-		FamilyName string `json:"family_name"`
-	}
+	var body map[string]json.RawMessage
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-
-	if body.FamilyName == "" {
-		writeJSONError(w, http.StatusBadRequest, "family_name is required")
+	updates := make(map[string]string)
+	for _, key := range []string{repository.SettingsKeyFamilyName, repository.SettingsKeyMealWeekStart} {
+		if raw, supplied := body[key]; supplied {
+			var value string
+			if err := json.Unmarshal(raw, &value); err != nil || value == "" || (key == repository.SettingsKeyMealWeekStart && !validMealWeekStart(value)) {
+				writeJSONError(w, http.StatusBadRequest, "invalid "+key)
+				return
+			}
+			updates[key] = value
+		}
+	}
+	if len(updates) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "at least one setting is required")
 		return
 	}
-
-	if err := handler.settingsRepo.Set(ctx, repository.SettingsKeyFamilyName, body.FamilyName); err != nil {
-		slog.Error("updating family name via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update settings")
-		return
+	for key, value := range updates {
+		if err := handler.settingsRepo.Set(ctx, key, value); err != nil {
+			slog.Error("updating settings via API", "error", err)
+			writeJSONError(w, http.StatusInternalServerError, "failed to update settings")
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)

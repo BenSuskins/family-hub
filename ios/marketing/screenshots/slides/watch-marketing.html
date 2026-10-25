@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Hub on Apple Watch</title>
+<style>
+  * { box-sizing: border-box; }
+  @font-face {
+    font-family: "Family Hub Rounded";
+    src: url("file:///System/Library/Fonts/SFNSRounded.ttf") format("truetype");
+    font-weight: 100 900;
+  }
+  html, body {
+    width: 416px;
+    height: 496px;
+    margin: 0;
+    overflow: hidden;
+    background: #f7f1e7;
+    color: #343c31;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 14px 20px 12px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 14px;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand-mark {
+    width: 6px;
+    height: 6px;
+    margin-left: 3px;
+    border-radius: 50%;
+    background: #3c654c;
+    box-shadow: 0 0 0 3px #e6eddd;
+  }
+  .intro { margin-top: 12px; }
+  .eyebrow {
+    margin: 0 0 4px;
+    color: #3c654c;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  h1 {
+    max-width: 376px;
+    margin: 0;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 24px;
+    font-weight: 650;
+    line-height: 1.03;
+    letter-spacing: -0.03em;
+  }
+  .dek {
+    max-width: 370px;
+    margin: 5px 0 0;
+    color: #646357;
+    font-size: 11px;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+  }
+  .stage {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 0 10px;
+  }
+  .watch {
+    position: relative;
+    height: 100%;
+    max-height: 280px;
+    aspect-ratio: 0.84;
+    isolation: isolate;
+  }
+  .band {
+    position: absolute;
+    z-index: -1;
+    left: 35%;
+    width: 30%;
+    height: 16%;
+    border: 1px solid #8c908a;
+    background: linear-gradient(90deg, #777c76, #b3b6af 48%, #747973);
+  }
+  .band-top {
+    top: -12%;
+    border-radius: 8px 8px 3px 3px;
+  }
+  .band-bottom {
+    bottom: -12%;
+    border-radius: 3px 3px 8px 8px;
+  }
+  .case {
+    position: absolute;
+    inset: 0;
+    padding: 8px;
+    border: 1px solid #9da19a;
+    border-radius: 24% / 20%;
+    background: linear-gradient(145deg, #575c57 0%, #252925 20%, #090a09 60%, #3b403b 100%);
+    box-shadow: 0 10px 20px rgba(52, 60, 49, 0.24), inset 0 0 0 2px #343834;
+  }
+  .screen {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 23% / 19%;
+    object-fit: fill;
+  }
+  .crown {
+    position: absolute;
+    z-index: 2;
+    top: 31%;
+    right: -5px;
+    width: 9px;
+    height: 25px;
+    border: 1px solid #9da19a;
+    border-radius: 0 5px 5px 0;
+    background: linear-gradient(90deg, #20231f, #777c76);
+  }
+  .side-button {
+    position: absolute;
+    z-index: 2;
+    top: 46%;
+    right: -3px;
+    width: 6px;
+    height: 13px;
+    border: 1px solid #9da19a;
+    border-radius: 0 3px 3px 0;
+    background: #454a45;
+  }
+  .benefits {
+    padding-top: 8px;
+    border-top: 1px solid #e6dfd2;
+    color: #646357;
+    font-size: 8px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <main>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Family Hub</span></div>
+    <section class="intro">
+      <p class="eyebrow">Cook mode</p>
+      <h1>__HEADLINE__</h1>
+      <p class="dek">__DEK__</p>
+    </section>
+    <div class="stage">
+      <div class="watch">
+        <div class="band band-top"></div>
+        <div class="band band-bottom"></div>
+        <div class="case"><img class="screen" src="__CAPTURE_URL__" alt="Family Hub on Apple Watch"></div>
+        <div class="crown" aria-hidden="true"></div>
+        <div class="side-button" aria-hidden="true"></div>
+      </div>
+    </div>
+    <div class="benefits">__BENEFITS__</div>
+  </main>
+</body>
+</html>

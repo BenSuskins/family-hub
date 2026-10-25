@@ -17,7 +17,8 @@ struct CookSessionView: View {
 
     init(recipe: Recipe) {
         self.recipe = recipe
-        _state = State(initialValue: CookState(recipe: recipe))
+        let initialPage = ProcessInfo.processInfo.arguments.contains("-watch-marketing-step") ? 2 : 0
+        _state = State(initialValue: CookState(recipe: recipe, currentPage: initialPage))
     }
 
     var body: some View {
@@ -37,7 +38,7 @@ struct CookSessionView: View {
             }
         }
         .tabViewStyle(.verticalPage)
-        .navigationTitle(recipe.title)
+        .navigationTitle(ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") ? "" : recipe.title)
         .navigationBarTitleDisplayMode(.inline)
         // A page change is a deliberate act; confirm it in the wrist.
         .sensoryFeedback(.selection, trigger: state.currentPage)
@@ -176,10 +177,12 @@ struct IngredientChecklistView: View {
                     }
                 }
 
-                Text("Scroll or turn the crown to start")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
+                if !ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") {
+                    Text("Scroll or turn the crown to start")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                }
             }
         }
     }

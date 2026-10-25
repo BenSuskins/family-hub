@@ -55,8 +55,28 @@ final class WatchSessionStore: NSObject, WCSessionDelegate {
         self.store = store
         super.init()
         self.credentials = store.load()
-        self.handoff = store.loadLastHandoff()
+        self.handoff = ProcessInfo.processInfo.arguments.contains("-marketing-screenshots")
+            ? CookHandoff(recipe: Self.marketingRecipe)
+            : store.loadLastHandoff()
     }
+
+    private static let marketingRecipe = Recipe(
+        id: "marketing-chicken-stir-fry",
+        title: "Stir Fry",
+        steps: [
+            "Heat a large pan over medium-high heat.",
+            "Add the chicken and cook for 6 minutes, stirring once.",
+            "Stir in the vegetables and cook until just tender.",
+            "Add the sauce, toss well, and serve with rice."
+        ],
+        ingredients: [
+            IngredientGroup(name: "", items: ["Chicken", "Red pepper"])
+        ],
+        servings: 4,
+        prepTime: "15 min",
+        cookTime: "20 min",
+        stepDurations: [nil, 360, nil, nil]
+    )
 
     func activate() {
         guard WCSession.isSupported() else {

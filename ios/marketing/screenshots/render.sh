@@ -5,8 +5,8 @@ cd "$(dirname "$0")"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 OUT="${OUT:-out}"
 RAW="raw/generated"
-WIDTH=1320
-HEIGHT=2868
+WIDTH=1206
+HEIGHT=2622
 
 if [[ ! -x "$CHROME" ]]; then
   echo "Chrome was not found at '$CHROME'. Set CHROME to the Chrome executable path." >&2
@@ -38,9 +38,10 @@ fi
 
 mkdir -p "$OUT"
 rm -f "$OUT"/*.png
-for slide in slides/*.html; do
-  name="$(basename "$slide" .html)"
-  output="$OUT/$name-iphone-6.9.png"
+for capture in "${captures[@]}"; do
+  name="${capture%.png}"
+  slide="slides/$name.html"
+  output="$OUT/$name-iphone-6.3.png"
   echo "Rendering $name -> $output (${WIDTH}x${HEIGHT})"
   "$CHROME" --headless --disable-gpu --hide-scrollbars \
     --run-all-compositor-stages-before-draw --virtual-time-budget=1200 \

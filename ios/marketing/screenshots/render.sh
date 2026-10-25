@@ -65,10 +65,9 @@ for capture in "${captures[@]}"; do
 
   ipad_html="$TEMP_OUTPUT/$capture-ipad.html"
   ipad_output="$TEMP_OUTPUT/$capture-ipad-13.png"
-  sed \
-    -e "s|__CAPTURE_URL__|file://$(pwd)/$RAW_IPAD/$capture.png|g" \
-    -e "s|__FRAME_URL__|file://$(pwd)/assets/ipad-frame.png|g" \
-    slides/ipad-frame.html > "$ipad_html"
+  python3 render-ipad-slide.py \
+    "$slide" slides/ipad-frame.html "$ipad_html" \
+    "$RAW_IPAD/$capture.png" assets/ipad-frame.png
   echo "Rendering $capture -> $VERSION_DIRECTORY/$(basename "$ipad_output") (${IPAD_WIDTH}x${IPAD_HEIGHT})"
   "$CHROME" --headless --disable-gpu --hide-scrollbars \
     --run-all-compositor-stages-before-draw --virtual-time-budget=1200 \

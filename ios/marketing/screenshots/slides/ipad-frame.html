@@ -3,44 +3,142 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Family Hub on iPad</title>
+<title>__EYEBROW__ — Family Hub on iPad</title>
 <style>
   * { box-sizing: border-box; }
+  @font-face {
+    font-family: "Family Hub Rounded";
+    src: url("file:///System/Library/Fonts/SFNSRounded.ttf") format("truetype");
+    font-weight: 100 900;
+  }
   html, body {
     width: 2064px;
     height: 2752px;
     margin: 0;
     overflow: hidden;
     background: #f7f1e7;
+    color: #343c31;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  .canvas {
-    position: relative;
+  main {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
-    background: #f7f1e7;
+    padding: 82px 108px 70px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 42px;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand-mark {
+    width: 17px;
+    height: 17px;
+    margin: 0 8px;
+    border-radius: 50%;
+    background: #3c654c;
+    box-shadow: 0 0 0 8px #e6eddd;
+  }
+  .intro { margin-top: 62px; }
+  .eyebrow {
+    margin: 0 0 18px;
+    color: #3c654c;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  h1 {
+    max-width: 1800px;
+    margin: 0;
+    font-family: "Family Hub Rounded", "SF Pro Rounded", ui-rounded, sans-serif;
+    font-size: 88px;
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+  }
+  h1 mark { color: #3c654c; background: transparent; }
+  .dek {
+    max-width: 1560px;
+    margin: 22px 0 0;
+    color: #646357;
+    font-size: 34px;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  .stage {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0 24px;
+  }
+  .tablet {
+    position: relative;
+    height: 100%;
+    max-height: 1900px;
+    aspect-ratio: 2300 / 2980;
+    filter: drop-shadow(0 28px 40px rgba(52, 60, 49, 0.19));
   }
   .screen, .frame {
     position: absolute;
     display: block;
-    object-fit: fill;
   }
   .screen {
     left: 5.47826087%;
     top: 4.16107383%;
     width: 89.04347826%;
     height: 91.67785235%;
+    object-fit: fill;
   }
-  .frame {
-    inset: 0;
-    width: 100%;
-    height: 100%;
+  .frame { inset: 0; width: 100%; height: 100%; }
+  .benefits {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-top: 22px;
+    border-top: 1px solid #e6dfd2;
+    color: #646357;
+    font-size: 28px;
+    font-weight: 600;
+  }
+  .benefit { white-space: nowrap; }
+  .benefit::before {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 16px;
+    border-radius: 50%;
+    background: #3c654c;
+    content: "";
   }
 </style>
 </head>
 <body>
-  <main class="canvas">
-    <img class="screen" src="__CAPTURE_URL__" alt="Family Hub iPad screen">
-    <img class="frame" src="__FRAME_URL__" alt="">
+  <main>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Family Hub</span></div>
+    <section class="intro">
+      <p class="eyebrow">__EYEBROW__</p>
+      <h1>__HEADLINE__</h1>
+      <p class="dek">__DEK__</p>
+    </section>
+    <div class="stage">
+      <div class="tablet">
+        <img class="screen" src="__CAPTURE_URL__" alt="Family Hub app screen">
+        <img class="frame" src="__FRAME_URL__" alt="">
+      </div>
+    </div>
+    <div class="benefits">__BENEFITS__</div>
   </main>
 </body>
 </html>

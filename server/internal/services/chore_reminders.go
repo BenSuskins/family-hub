@@ -147,13 +147,11 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 				// Chore due dates store calendar dates, rather than instants in the household timezone.
 				if chore.Status == models.ChoreStatusOverdue || chore.DueDate == nil || chore.DueDate.Format("2006-01-02") <= local.Format("2006-01-02") {
 					summary.Count++
-					if len(summary.Tasks) < 3 {
-						name := "Unassigned"
-						if chore.AssignedToUserID != nil && names[*chore.AssignedToUserID] != "" {
-							name = names[*chore.AssignedToUserID]
-						}
-						summary.Tasks = append(summary.Tasks, ChoreReminderTask{Assignee: name, Name: chore.Name})
+					name := "Unassigned"
+					if chore.AssignedToUserID != nil && names[*chore.AssignedToUserID] != "" {
+						name = names[*chore.AssignedToUserID]
 					}
+					summary.Tasks = append(summary.Tasks, ChoreReminderTask{Assignee: name, Name: chore.Name})
 				}
 			}
 			identifier, err := service.devices.Claim(ctx, device.ID, local.Format("2006-01-02"), slot, now)
@@ -198,23 +196,19 @@ type ChoreReminderSummary struct {
 }
 
 func (summary ChoreReminderSummary) Message() PushMessage {
-	parts := []string{}
-	shorten := func(value string, limit int) string {
-		characters := []rune(strings.Join(strings.Fields(value), " "))
-		if len(characters) > limit {
-			return string(characters[:limit]) + "…"
+	assignees := []string{}
+	tasksByAssignee := map[string][]string{}
+	for _, task := range summary.Tasks {
+		assignee := strings.Join(strings.Fields(task.Assignee), " ")
+		if _, exists := tasksByAssignee[assignee]; !exists {
+			assignees = append(assignees, assignee)
 		}
-		return string(characters)
+		tasksByAssignee[assignee] = append(tasksByAssignee[assignee], strings.Join(strings.Fields(task.Name), " "))
 	}
-	for index, task := range summary.Tasks {
-		if index == 3 {
-			break
-		}
-		parts = append(parts, shorten(task.Assignee, 32)+": "+shorten(task.Name, 80))
+	parts := make([]string, 0, len(assignees))
+	for _, assignee := range assignees {
+		parts = append(parts, assignee+": "+strings.Join(tasksByAssignee[assignee], ", "))
 	}
-	body := strings.Join(parts, "; ")
-	if remaining := summary.Count - len(parts); remaining > 0 {
-		body += fmt.Sprintf(" — and %d more", remaining)
-	}
+	body := strings.Join(parts, "\n")
 	return PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://today", ThreadID: "chore-reminders"}
 }

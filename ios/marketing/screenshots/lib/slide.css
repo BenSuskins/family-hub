@@ -22,7 +22,8 @@
 
 body.slide {
   width: 1320px;
-  height: 2868px;
+  height: 2870px;
+  zoom: 91.363636%;
   margin: 0;
   overflow: hidden;
   color: var(--ink);

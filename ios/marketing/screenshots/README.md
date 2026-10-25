@@ -24,12 +24,13 @@ From this directory, run:
 SIMULATOR_UDID=<simulator-udid> ./capture.sh
 ```
 
-For an iPad audit set, run `./capture-ipad.sh`. It selects an available iPad
-simulator, captures the same ten screens in landscape and portrait, and writes
-full-resolution PNGs to `raw/generated-ipad/{landscape,portrait}/`. Set
-`SIMULATOR_UDID` to choose a specific iPad. These are direct app captures for
-review; they do not use the iPhone App Store frames or slides.
-Open `raw/generated-ipad/index.html` to browse the two orientation sets.
+Run `./capture-ipad.sh` for an iPad audit. It selects an available 13-inch
+iPad Pro simulator and captures ten screens in both orientations. It checks
+the audit PNGs against App Store Connect's accepted 2752 × 2064 and 2064 ×
+2752 sizes. Set `SIMULATOR_UDID` to choose a specific 13-inch iPad Pro.
+`APP_STORE_ORIENTATION=landscape` selects landscape instead of the default
+portrait for the ten-image upload set. Open `raw/generated-ipad/index.html`
+to browse the ten-image App Store set and both audit orientations.
 
 The capture script runs only `MarketingScreenshotsUITests/testCaptureMarketingScreens` in the `FamilyHub` scheme.
 It launches the app in a screenshot-only demo fixture, sets the status bar to 9:41, and exports the UI test attachments.
@@ -37,7 +38,16 @@ It requires no Family Hub server or account.
 
 The iPad capture script runs the same marketing demo flow through the iPad UI
 in both orientations. It writes the test result bundle under `$TMPDIR` and
-exports the twenty named screenshots into `raw/generated-ipad/`.
+exports twenty orientation audit screenshots into `raw/generated-ipad/` and
+copies exactly ten into `raw/generated-ipad/app-store/` for App Store Connect.
+
+`render.sh` creates ten iPhone App Store screenshots at 1206 × 2622 px, an
+accepted size for 6.3-inch displays. The text-led self-hosting promo slide
+remains a marketing reference in `slides/`, but is excluded from the upload
+set. The iPad upload set contains ten 2064 × 2752 px portrait screenshots by
+default, or ten 2752 × 2064 px landscape screenshots when selected. The audit
+gallery keeps both orientations. The current landscape captures have a black
+band across the top, so use portrait until that display issue is resolved.
 
 Set `CHROME` to override the default Chrome executable path. Set `OUT` to change the rendered-image directory.
 Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
@@ -45,8 +55,9 @@ Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default
 ## Outputs
 
 - `raw/generated/`: named full-resolution simulator captures, created by `capture.sh`
-- `raw/generated-ipad/`: named full-resolution iPad captures, created by `capture-ipad.sh` (ignored by Git)
-- `out/`: temporary 1320×2868 PNG images, created by `render.sh` and ignored by Git
+- `raw/generated-ipad/app-store/`: ten iPad screenshots for App Store Connect (ignored by Git)
+- `raw/generated-ipad/{landscape,portrait}/`: twenty iPad audit captures (ignored by Git)
+- `out/`: ten temporary 1206×2622 iPhone App Store PNG images, created by `render.sh` and ignored by Git
 - `1.3/`: versioned App Store images and release copy committed for version 1.3
 
 Create a versioned image set with `OUT=1.3 ./render.sh` after capturing the current app screens. Keep `raw/generated/` and `out/` as working outputs; keep the reviewed release set in its numbered folder.
@@ -67,7 +78,6 @@ Existing JPEGs in `raw/` are retained as older reference captures; the current t
 | `08-household.png` | Household overview |
 | `09-shopping.png` | Shared shopping list |
 | `10-commute.png` | Sample Southend Central → London Liverpool Street train board |
-| `11-selfhosted-iphone-6.9.png` | Text-led self-hosted feature slide; no app capture |
 
 The simulator flow records deterministic demo content. It does not change the normal demo data unless the app is launched with `-marketing-screenshots`.
 

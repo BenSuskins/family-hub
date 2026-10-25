@@ -10,6 +10,11 @@ func selectFamilyTab(_ name: String, in app: XCUIApplication) {
     }
     let sidebar = app.buttons["ToggleSidebar"]
     if sidebar.exists && sidebar.isHittable { sidebar.tap() }
+    let accessibleItems = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title))
+    if let item = accessibleItems.allElementsBoundByIndex.first(where: { $0.isHittable }) {
+        item.tap()
+        return
+    }
     app.collectionViews.staticTexts[title].tap()
 }
 

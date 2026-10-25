@@ -6,6 +6,7 @@ REPOSITORY="$(cd "$ROOT/../../.." && pwd)"
 PROJECT="$REPOSITORY/ios/FamilyHub/FamilyHub.xcodeproj"
 SCHEME="${SCHEME:-FamilyHub}"
 OUTPUT="${RAW_IPAD:-$ROOT/raw/generated-ipad}"
+APP_STORE_ORIENTATION="${APP_STORE_ORIENTATION:-portrait}"
 TMP_ROOT="${TMPDIR:-/tmp}"
 RESULT_BUNDLE="${RESULT_BUNDLE:-$TMP_ROOT/family-hub-ipad-marketing-$(date +%Y%m%d-%H%M%S).xcresult}"
 DERIVED_DATA="${DERIVED_DATA:-$TMP_ROOT/family-hub-ipad-marketing-derived-data}"
@@ -22,13 +23,22 @@ try:
 except json.JSONDecodeError:
     raise SystemExit("Could not read simulator data. Check CoreSimulatorService.")
 devices = [device for group in simulator_data["devices"].values() for device in group if device["isAvailable"] and "iPad" in device.get("deviceTypeIdentifier", "")]
-preferred = [device for device in devices if "iPad-Pro" in device.get("deviceTypeIdentifier", "")]
-choices = preferred or devices
+choices = [device for device in devices if "iPad-Pro-13" in device.get("deviceTypeIdentifier", "") or "iPad-Pro-13" in device.get("name", "")]
 if not choices:
-    raise SystemExit("No available iPad simulator. Set SIMULATOR_UDID explicitly or install an iOS Simulator runtime.")
+    raise SystemExit("No available 13-inch iPad Pro simulator. Create one in Device Hub or install an iOS Simulator runtime.")
 print(choices[0]["udid"])
 ')"
 fi
+
+SIMULATOR_INFO="$(xcrun simctl list devices available -j | SIMULATOR_UDID="$SIMULATOR_UDID" python3 -c '
+import json, os, sys
+simulator_data = json.load(sys.stdin)
+devices = [device for group in simulator_data["devices"].values() for device in group]
+device = next((device for device in devices if device["udid"] == os.environ["SIMULATOR_UDID"]), None)
+if device is None or not ("iPad-Pro-13" in device.get("deviceTypeIdentifier", "") or "iPad-Pro-13" in device.get("name", "")):
+    raise SystemExit("SIMULATOR_UDID must identify an available 13-inch iPad Pro simulator.")
+print(device["name"])
+')"
 
 if [[ -e "$RESULT_BUNDLE" ]]; then
   echo "Result bundle already exists: $RESULT_BUNDLE" >&2
@@ -36,8 +46,13 @@ if [[ -e "$RESULT_BUNDLE" ]]; then
   exit 1
 fi
 
-mkdir -p "$OUTPUT/landscape" "$OUTPUT/portrait"
-echo "Capturing iPad marketing screens on simulator $SIMULATOR_UDID"
+if [[ "$APP_STORE_ORIENTATION" != "landscape" && "$APP_STORE_ORIENTATION" != "portrait" ]]; then
+  echo "APP_STORE_ORIENTATION must be landscape or portrait." >&2
+  exit 1
+fi
+
+mkdir -p "$OUTPUT/landscape" "$OUTPUT/portrait" "$OUTPUT/app-store"
+echo "Capturing iPad marketing screens on $SIMULATOR_INFO ($SIMULATOR_UDID)"
 xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 xcrun simctl status_bar "$SIMULATOR_UDID" override \
@@ -61,7 +76,7 @@ EXPORT_DIR="$(mktemp -d "$TMP_ROOT/family-hub-ipad-marketing-export.XXXXXX")"
 trap 'rm -rf "$EXPORT_DIR"' EXIT
 xcrun xcresulttool export attachments --path "$RESULT_BUNDLE" --output-path "$EXPORT_DIR"
 
-python3 - "$EXPORT_DIR" "$OUTPUT" <<'PY'
+python3 - "$EXPORT_DIR" "$OUTPUT" "$APP_STORE_ORIENTATION" <<'PY'
 import json
 import shutil
 import sys
@@ -69,6 +84,7 @@ from pathlib import Path
 
 export_dir = Path(sys.argv[1])
 output_dir = Path(sys.argv[2])
+app_store_orientation = sys.argv[3]
 expected_screens = {
     "01-home", "02-recipe-detail", "03-meals", "04-recipes-book",
     "05-inventory", "06-calendar", "07-chores", "08-household",
@@ -102,9 +118,30 @@ for name, source in found.items():
     screen, orientation = expected[name]
     destination = output_dir / orientation / f"{screen}.png"
     shutil.copyfile(source, destination)
+    import subprocess
+    dimensions = subprocess.check_output(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(destination)], text=True)
+    values = [int(line.split(": ")[1]) for line in dimensions.splitlines() if "pixelWidth:" in line or "pixelHeight:" in line]
+    expected_dimensions = (2752, 2064) if orientation == "landscape" else (2064, 2752)
+    if tuple(values) != expected_dimensions:
+        raise SystemExit(f"Unexpected {orientation} screenshot size for {destination}: {values}; expected {expected_dimensions}")
     print(f"Saved {destination}")
 
+for screen in sorted(expected_screens):
+    capture_name = f"{screen}-ipad-{app_store_orientation}"
+    source = found[capture_name]
+    destination = output_dir / "app-store" / f"{screen}.png"
+    shutil.copyfile(source, destination)
+    print(f"Saved App Store screenshot {destination}")
+
 cards = []
+cards.append(f"<h2>App Store upload set ({app_store_orientation.title()}, 10 images)</h2><section>")
+for screen in sorted(expected_screens):
+    filename = f"app-store/{screen}.png"
+    cards.append(
+        f'<a href="{filename}"><img loading="lazy" src="{filename}" alt="{screen}">'
+        f"<span>{screen}</span></a>"
+    )
+cards.append("</section>")
 for orientation in ("landscape", "portrait"):
     cards.append(f"<h2>{orientation.title()}</h2><section>")
     for screen in sorted(expected_screens):

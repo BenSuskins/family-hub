@@ -79,10 +79,24 @@ struct AvatarCropView: View {
     private func dragGesture(side: CGFloat, baseScale: CGFloat) -> some Gesture {
         DragGesture()
             .onChanged { value in
-                offset = boundedOffset(committedOffset + value.translation, side: side, scale: baseScale * zoom)
+                offset = boundedOffset(
+                    CGSize(
+                        width: committedOffset.width + value.translation.width,
+                        height: committedOffset.height + value.translation.height
+                    ),
+                    side: side,
+                    scale: baseScale * zoom
+                )
             }
             .onEnded { value in
-                committedOffset = boundedOffset(committedOffset + value.translation, side: side, scale: baseScale * zoom)
+                committedOffset = boundedOffset(
+                    CGSize(
+                        width: committedOffset.width + value.translation.width,
+                        height: committedOffset.height + value.translation.height
+                    ),
+                    side: side,
+                    scale: baseScale * zoom
+                )
                 offset = committedOffset
             }
     }

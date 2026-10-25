@@ -36,7 +36,8 @@ The gallery and PNGs are written to a timestamped folder under
 
 ## Current capture status
 
-No simulator captures are included yet. This machine's Xcode installation has
-no `Simulator.app` or iOS simulator runtime, and CoreSimulator currently refuses
-connections. The test and exporter are ready to run when an iPad simulator is
-available.
+No simulator captures are included yet. Xcode 27 manages simulated devices in
+Device Hub. The command-line CoreSimulator service currently returns a
+connection error, and the Mac is locked, so Device Hub could not be inspected in
+this session. Unlock the Mac, check the available iPad run destinations in
+Device Hub, then run the capture steps above.

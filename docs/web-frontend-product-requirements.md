@@ -62,11 +62,9 @@ surface when the card represents one action.
 - Keep OIDC credentials and user sessions distinct from a wall display's
   device credential. Never place a personal long-lived API token in a public
   display URL or QR code.
-- Preferred starting stack: React, TypeScript, and Vite, with client-side
-  routing and API state management. This fits the earlier web architecture
-  direction and keeps deployment separate. Check the user's other repositories
-  for reusable components and conventions before choosing libraries or copying
-  code.
+- Choose the web stack and implementation patterns by inspecting the user's
+  existing repositories. Reuse their conventions and components where they fit.
+  Do not introduce a stack or pattern without precedent in those repositories.
 
 ## Main experiences
 

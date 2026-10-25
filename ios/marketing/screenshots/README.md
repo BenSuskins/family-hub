@@ -11,11 +11,12 @@ The templates follow [`DESIGN.md`](../../../DESIGN.md) and the app's Warm Sage C
 
 ## Generate and render
 
-From this directory, run:
+From this directory, capture both devices and render a versioned set:
 
 ```bash
 ./capture.sh
-./render.sh
+./capture-ipad.sh
+./render.sh 1.3
 ```
 
 `capture.sh` selects an available iPhone Pro simulator when possible, which
@@ -38,24 +39,23 @@ The iPad capture script runs the same marketing demo flow through the iPad UI
 in portrait. It writes the test result bundle under `$TMPDIR` and exports
 exactly ten screenshots into `raw/generated-ipad/` for App Store Connect.
 
-`render.sh` creates ten iPhone App Store screenshots at 1206 × 2622 px, an
-accepted size for 6.3-inch displays. The text-led self-hosting promo slide
-remains a marketing reference in `slides/`, but is excluded from the upload
-set. The iPad upload set contains ten 2064 × 2752 px portrait screenshots.
-App Store Connect needs one orientation set for this listing, so the workflow
-does not create a duplicate landscape set.
+`render.sh <version>` writes ten iPhone App Store screenshots at 1206 × 2622
+px and ten framed iPad portrait screenshots at 2064 × 2752 px into the named
+version folder. The iPad frame uses `assets/ipad-frame.png`. The text-led
+self-hosting promo remains a marketing reference and is excluded from the
+ten-image upload sets. The iPad workflow creates portrait only because App
+Store Connect needs one orientation set for this listing.
 
-Set `CHROME` to override the default Chrome executable path. Set `OUT` to change the rendered-image directory.
+Set `CHROME` to override the default Chrome executable path.
 Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
 
 ## Outputs
 
 - `raw/generated/`: named full-resolution simulator captures, created by `capture.sh`
-- `raw/generated-ipad/`: ten 2064 × 2752 iPad portrait screenshots and an HTML gallery (ignored by Git)
-- `out/`: ten temporary 1206×2622 iPhone App Store PNG images, created by `render.sh` and ignored by Git
-- `1.3/`: versioned App Store images and release copy committed for version 1.3
+- `raw/generated-ipad/`: ten full-screen iPad portrait captures and an HTML gallery (ignored by Git)
+- `1.3/`: ten framed iPhone images, ten framed iPad images, and the version 1.3 release copy
 
-Create a versioned image set with `OUT=1.3 ./render.sh` after capturing the current app screens. Keep `raw/generated/` and `out/` as working outputs; keep the reviewed release set in its numbered folder.
+Create or refresh a versioned image set with `./render.sh 1.3` after capturing both devices. The renderer replaces only the ten generated app screenshots for each device and preserves the release copy and self-hosting promo.
 
 Existing JPEGs in `raw/` are retained as older reference captures; the current templates use only `raw/generated/`.
 
@@ -79,8 +79,8 @@ The simulator flow records deterministic demo content. It does not change the no
 ## Template design
 
 - `lib/slide.css` holds the shared cream, sage and clay palette, system typography, phone frame and benefit labels.
-- `assets/iphone-frame.png` supplies the transparent graphite iPhone bezel used by the screenshot slides.
-- `slides/*.html` holds per-screen headlines, copy and screenshot mappings.
-- `render.sh` checks for every required capture and fails before rendering if any are missing.
+- `assets/iphone-frame.png` and `assets/ipad-frame.png` supply the transparent device bezels.
+- `slides/*.html` holds the iPhone marketing layouts and the iPad frame layout.
+- `render.sh` checks every capture and output size before updating a version folder.
 
 Update `DESIGN.md` first when the app's visual direction changes, then align these templates with its tokens and product language.

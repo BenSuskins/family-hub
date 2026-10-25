@@ -1,0 +1,17 @@
+Family life has a lot of moving parts. Family Hub brings your household calendar, meals, chores, shopping and home supplies together in one shared app.
+
+See what is coming up today, plan the week ahead and share the work of keeping home running.
+
+Plan your family’s week
+Bring family events, meals and chores together in day, week, month and year views, with support for the calendars your household follows.
+
+Make meals easier
+Plan meals for the week, save family recipes, import recipes from other apps, and follow ingredients and cooking steps as you cook.
+
+Share the everyday jobs
+Assign chores and set recurring schedules. Keep one shared shopping list and track household supplies by quantity or level.
+
+Keep plans close
+Check scheduled journeys between your chosen home and work stations. Use Siri and Shortcuts for common household tasks, get chore reminders and family announcements, and see useful plans in widgets. Continue cooking with Apple Watch.
+
+Your household needs a Family Hub server. Your household can host its own server. Ask your household administrator for the server address and an account.

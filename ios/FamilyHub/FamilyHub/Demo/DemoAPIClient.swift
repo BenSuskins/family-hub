@@ -522,6 +522,15 @@ final class DemoAPIClient: APIClientProtocol {
     func restoreDatabaseBackup(from url: URL) async throws {
         guard url.lastPathComponent.hasSuffix(".db.gz") else { throw APIError.badRequest(serverMessage: "Select a .db.gz backup.") }
     }
+    func fetchBinSchedule() async throws -> BinScheduleSettings {
+        BinScheduleSettings(enabled: false, uploadedAt: "", collectionCount: 0, pushAvailable: false)
+    }
+    func uploadBinSchedule(from url: URL) async throws -> BinScheduleSettings {
+        throw APIError.badRequest(serverMessage: "Bin calendar upload needs a connected Family Hub server.")
+    }
+    func updateBinReminders(enabled: Bool) async throws -> BinScheduleSettings {
+        throw APIError.badRequest(serverMessage: "Bin reminders need a connected Family Hub server.")
+    }
 
     func fetchUsers() async throws -> [User] { users }
 

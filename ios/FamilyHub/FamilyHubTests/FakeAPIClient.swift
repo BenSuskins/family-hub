@@ -22,6 +22,16 @@ final class FakeAPIClient: APIClientProtocol {
     var registerNotificationDeviceError: Error?
 
     var choreReminders = ChoreReminders(pushAvailable: true)
+    var binSchedule = BinScheduleSettings(enabled: false, uploadedAt: "", collectionCount: 0, pushAvailable: true)
+    func fetchBinSchedule() async throws -> BinScheduleSettings { binSchedule }
+    func uploadBinSchedule(from url: URL) async throws -> BinScheduleSettings {
+        binSchedule = BinScheduleSettings(enabled: true, uploadedAt: "2026-10-25T12:00:00Z", collectionCount: 12, pushAvailable: true)
+        return binSchedule
+    }
+    func updateBinReminders(enabled: Bool) async throws -> BinScheduleSettings {
+        binSchedule = BinScheduleSettings(enabled: enabled, uploadedAt: binSchedule.uploadedAt, collectionCount: binSchedule.collectionCount, pushAvailable: binSchedule.pushAvailable)
+        return binSchedule
+    }
     var notificationDevices: [String: NotificationDevice] = [:]
 
     var weatherResult: Result<HouseholdWeather, Error> = .failure(APIError.offline)

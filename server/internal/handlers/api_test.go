@@ -772,6 +772,44 @@ func TestDashboardStats_EmptyListsAreNotNull(t *testing.T) {
 	}
 }
 
+func TestDashboardStatsIncludesCollectionsDueTomorrow(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	choreRepo := repository.NewChoreRepository(database)
+	assignmentRepo := repository.NewChoreAssignmentRepository(database)
+	seriesRepo := repository.NewChoreSeriesRepository(database)
+	userRepo := repository.NewUserRepository(database)
+	settings := repository.NewSettingsRepository(database)
+	location, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tomorrow := time.Now().In(location).AddDate(0, 0, 1).Format("2006-01-02")
+	if err := services.SaveBinSchedule(context.Background(), settings, []models.BinCollection{
+		{Date: tomorrow, Type: "food_caddy", Name: "Food caddy"},
+		{Date: "2099-01-01", Type: "grey", Name: "Non-recyclable waste"},
+	}, true, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewAPIHandler(choreRepo, userRepo, nil, assignmentRepo, nil, settings,
+		services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo), nil, nil, nil, nil, nil, "", "", "")
+	router := chi.NewRouter()
+	router.Get("/api/dashboard", handler.DashboardStats)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/dashboard", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Collections []models.BinCollection `json:"bin_collections_tomorrow"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Collections) != 1 || body.Collections[0].Name != "Food caddy" {
+		t.Fatalf("tomorrow collections = %+v", body.Collections)
+	}
+}
+
 func TestListRecipes_NilIngredientItemsAreEmptyArray(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)

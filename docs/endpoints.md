@@ -306,6 +306,57 @@ curl -s $BASE_URL/api/categories -H "Authorization: Bearer $API_TOKEN" | jq
 curl -s $BASE_URL/api/dashboard -H "Authorization: Bearer $API_TOKEN" | jq
 ```
 
+The response also includes `bin_collections_tomorrow`. It contains the uploaded
+bin schedule entries for the household's next calendar day, or an empty array.
+The iOS Home screen shows this list only when at least one bin is due tomorrow.
+
+### `GET /api/bin-collections`
+
+- **Usecase:** Read the bin schedule upload status and reminder settings.
+- **Callers:** iOS admin settings.
+- **Security:** Bearer API token.
+
+```sh
+curl -s $BASE_URL/api/bin-collections -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+The response includes `enabled`, `uploaded_at`, `collection_count`, and
+`push_available`. The server stores parsed dates and bin labels. It does not
+store the original file or the household address, and this response does not
+return the stored schedule.
+
+### `POST /api/bin-collections`
+
+- **Usecase:** Validate and replace the household bin schedule from an ICS file.
+- **Callers:** iOS admin settings.
+- **Security:** Admin bearer token.
+- **Body:** `multipart/form-data` with an ICS file in the `schedule` field. The
+  file must be under 1 MB and include upcoming bin collection events.
+
+```sh
+curl -s $BASE_URL/api/bin-collections -H "Authorization: Bearer $API_TOKEN" \
+  -F "schedule=@route-17.ics;type=text/calendar" | jq
+```
+
+An invalid upload leaves the last valid schedule in place. A valid upload
+replaces it and enables reminders when server push is configured.
+
+### `PATCH /api/bin-collections`
+
+- **Usecase:** Enable or disable household bin reminders.
+- **Callers:** iOS admin settings.
+- **Security:** Admin bearer token.
+- **Body:** `{"enabled":true}`. Enabling requires server push configuration.
+
+```sh
+curl -s -X PATCH $BASE_URL/api/bin-collections \
+  -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"enabled":true}' | jq
+```
+
+The server sends one reminder at 7pm household time to each registered device
+when one or more bins are due the next day.
+
 ### `GET /api/meals?week=YYYY-MM-DD`
 - **Usecase:** Meal plans for the seven days starting at `week`. The date is **not**
   snapped to a week boundary — the value you pass *is* the first day, and the range

@@ -57,12 +57,27 @@ func main() {
 	}
 	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
 	go runChoreReminders(reminderService)
+	binReminderService := services.NewBinReminderService(repository.NewSettingsRepository(db), repository.NewNotificationRepository(db), messageSender)
+	go runBinReminders(binReminderService)
 	go runOverdueChecker(choreService)
 
 	srv := server.New(db, cfg, messageSender)
 	if err := srv.Start(); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
+	}
+}
+
+func runBinReminders(service *services.BinReminderService) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		if err := service.Check(ctx, time.Now()); err != nil {
+			slog.Error("sending bin reminders", "error", err)
+		}
+		cancel()
+		<-ticker.C
 	}
 }
 

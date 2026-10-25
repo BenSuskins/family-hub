@@ -71,12 +71,6 @@ struct ContentView: View {
                 CalendarView(apiClient: apiClient)
                     .id(navigation.rootRefreshID(for: .calendar))
             }
-            Tab("Chores", systemImage: "checklist", value: AppTab.tasks) {
-                NavigationStack {
-                    ChoresListView(apiClient: apiClient)
-                }
-                .id(navigation.rootRefreshID(for: .tasks))
-            }
             Tab("Food", systemImage: "fork.knife", value: AppTab.food) {
                 NavigationStack(path: $navigation.foodPath) {
                     MealsView(apiClient: apiClient, isFoodHome: true)
@@ -100,6 +94,12 @@ struct ContentView: View {
                     }
                 }
                 .id(navigation.rootRefreshID(for: .household))
+            }
+            Tab("Chores", systemImage: "checklist", value: AppTab.tasks) {
+                NavigationStack {
+                    ChoresListView(apiClient: apiClient)
+                }
+                .id(navigation.rootRefreshID(for: .tasks))
             }
         }
         .modifier(AdaptiveTabStyle())

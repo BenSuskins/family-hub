@@ -2,21 +2,32 @@ import XCTest
 import UIKit
 
 final class DesignUITests: XCTestCase {
+    private var captureContext = "iphone"
+
     @MainActor
     func testScreensInDemo() {
-        inspectScreens(largeText: false)
+        inspectScreens(largeText: false, orientation: .landscapeLeft)
     }
 
     @MainActor
     func testScreensWithAccessibilityText() {
-        inspectScreens(largeText: true)
+        inspectScreens(largeText: true, orientation: .landscapeLeft)
     }
 
     @MainActor
-    private func inspectScreens(largeText: Bool) {
+    func testScreensInIPadPortrait() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            throw XCTSkip("This capture pass is for iPad.")
+        }
+        inspectScreens(largeText: false, orientation: .portrait)
+    }
+
+    @MainActor
+    private func inspectScreens(largeText: Bool, orientation: UIDeviceOrientation) {
         continueAfterFailure = false
         if UIDevice.current.userInterfaceIdiom == .pad {
-            XCUIDevice.shared.orientation = .landscapeLeft
+            XCUIDevice.shared.orientation = orientation
+            captureContext = "ipad-\(orientation == .portrait ? "portrait" : "landscape")"
         }
         defer { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
@@ -162,7 +173,7 @@ final class DesignUITests: XCTestCase {
         let settled = XCTNSPredicateExpectation(predicate: stableLayout, object: app)
         XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
         let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = name
+        attachment.name = "\(name)-\(captureContext)"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

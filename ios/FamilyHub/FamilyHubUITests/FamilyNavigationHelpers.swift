@@ -5,7 +5,7 @@ func selectFamilyTab(_ name: String, in app: XCUIApplication) {
     let title = name == "Tasks" ? "Chores" : name
     let native = app.tabBars.buttons[title]
     if native.exists && native.isHittable { native.tap(); return }
-    if let button = app.buttons.matching(identifier: title).allElementsBoundByIndex.first(where: { $0.isHittable }) {
+    if let button = app.buttons.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex.first(where: { $0.isHittable }) {
         button.tap(); return
     }
     let sidebar = app.buttons["ToggleSidebar"]

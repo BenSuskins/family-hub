@@ -22,6 +22,11 @@ state, the touch drawing pad, and the app launcher. The phone beside the wall
 display illustrates the iOS pairing flow. Mockup actions do not call the API
 or save real household data.
 
+The [Photo Frame Dashboard reference](https://github.com/wesbos/photo-frame-dashboard)
+is inspiration for the ambient, contextual wall-display use case. Reuse the
+product idea of a glanceable family display, not its implementation or visual
+design by default.
+
 Use the mockup to discuss layout and interaction. Use `DESIGN.md` as the visual
 source of truth. Extend it with web-specific guidance before implementation.
 Apply the UI UX Pro Max skill when designing or implementing web screens. Keep

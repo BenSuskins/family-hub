@@ -66,4 +66,5 @@ ios/**/Config.plist
 ios/marketing/screenshots/out/
 ios/marketing/screenshots/raw/*.png
 ios/marketing/screenshots/raw/generated-ipad/
+ios/marketing/screenshots/raw/generated-watch/
 plans/

@@ -14,7 +14,10 @@ struct FamilyHubWatchApp: App {
             CookRootView()
                 .environment(session)
                 .environment(timers)
-                .task { await timers.requestAuthorization() }
+                .task {
+                    guard !ProcessInfo.processInfo.arguments.contains("-marketing-screenshots") else { return }
+                    await timers.requestAuthorization()
+                }
         }
     }
 }

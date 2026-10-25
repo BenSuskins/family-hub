@@ -1,21 +1,23 @@
 # App Store screenshot pipeline
 
-Capture genuine Family Hub screens from an iPhone simulator, then place them in the App Store templates.
+Capture genuine Family Hub screens from iPhone, iPad, and Apple Watch simulators, then place them in the App Store templates.
 The templates follow [`DESIGN.md`](../../../DESIGN.md) and the app's Warm Sage Cosier palette.
 
 ## Requirements
 
 - macOS with Xcode and an available iPhone Simulator runtime
+- watchOS 27 Simulator runtime for Apple Watch Series 12
 - Python 3 (included with current macOS/Xcode installations)
 - Google Chrome
 
 ## Generate and render
 
-From this directory, capture both devices and render a versioned set:
+From this directory, capture each device and render a versioned set:
 
 ```bash
 ./capture.sh
 ./capture-ipad.sh
+./capture-watch.sh
 ./render.sh 1.3
 ```
 
@@ -39,13 +41,20 @@ The iPad capture script runs the same marketing demo flow through the iPad UI
 in portrait. It writes the test result bundle under `$TMPDIR` and exports
 exactly ten screenshots into `raw/generated-ipad/` for App Store Connect.
 
+`capture-watch.sh` creates or selects a 46mm Apple Watch Series 12 simulator
+on watchOS 27 and captures the ingredient checklist and a timed recipe step.
+It seeds a local marketing recipe through launch arguments; it does not need a
+paired phone, server, or account. The screenshots are rendered into two
+Series 12 marketing slides at 416 × 496 px.
+
 `render.sh <version>` writes ten iPhone App Store screenshots at 1206 × 2622
 px and ten portrait iPad marketing slides at 2064 × 2752 px into the named
 version folder. Each iPad slide reuses its matching iPhone headline, copy, and
-benefits, then places the iPad capture inside `assets/ipad-frame.png`. The
-self-hosting promo remains a marketing reference outside both ten-image
-upload sets. The iPad workflow creates portrait only because App Store
-Connect needs one orientation set for this listing.
+benefits, then places the iPad capture inside `assets/ipad-frame.png`. The two
+Apple Watch slides use the same warm palette and a compact watch case layout.
+The self-hosting promo remains a marketing reference outside the iPhone and
+iPad ten-image upload sets. The iPad workflow creates portrait only because
+App Store Connect needs one orientation set for this listing.
 
 Set `CHROME` to override the default Chrome executable path.
 Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
@@ -54,9 +63,10 @@ Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default
 
 - `raw/generated/`: named full-resolution simulator captures, created by `capture.sh`
 - `raw/generated-ipad/`: ten full-screen iPad portrait captures and an HTML gallery (ignored by Git)
-- `1.3/`: ten framed iPhone images, ten framed iPad images, and the version 1.3 release copy
+- `raw/generated-watch/`: two Apple Watch Series 12 captures (ignored by Git)
+- `1.3/`: ten framed iPhone images, ten framed iPad images, two Apple Watch marketing images, and the version 1.3 release copy
 
-Create or refresh a versioned image set with `./render.sh 1.3` after capturing both devices. The renderer replaces only the ten generated app screenshots for each device and preserves the release copy and self-hosting promo.
+Create or refresh a versioned image set with `./render.sh 1.3` after capturing all three devices. The renderer replaces the generated app screenshots for each device and preserves the release copy and self-hosting promo.
 
 Existing JPEGs in `raw/` are retained as older reference captures; the current templates use only `raw/generated/`.
 
@@ -81,7 +91,7 @@ The simulator flow records deterministic demo content. It does not change the no
 
 - `lib/slide.css` holds the shared cream, sage and clay palette, system typography, phone frame and benefit labels.
 - `assets/iphone-frame.png` and `assets/ipad-frame.png` supply the transparent device bezels.
-- `slides/*.html` holds the iPhone marketing copy; `slides/ipad-frame.html` uses it for the tablet layout.
-- `render.sh` and `render-ipad-slide.py` check every capture and output size before updating a version folder.
+- `slides/*.html` holds the iPhone marketing copy; the iPad and Watch templates provide device-specific layouts.
+- `render.sh`, `render-ipad-slide.py`, and `render-watch-slide.py` check each output size before updating a version folder.
 
 Update `DESIGN.md` first when the app's visual direction changes, then align these templates with its tokens and product language.

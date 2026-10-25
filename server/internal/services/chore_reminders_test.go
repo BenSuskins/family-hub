@@ -284,10 +284,18 @@ func (sender *partialReminderSender) Send(ctx context.Context, device models.Not
 	return nil
 }
 
-func TestReminderNamesOwnersAndLimitsSummary(t *testing.T) {
-	summary := ChoreReminderSummary{Count: 7, Tasks: []ChoreReminderTask{{Assignee: "Ben", Name: "Empty bins"}, {Assignee: "Alex", Name: "Dishwasher"}, {Assignee: "Ben", Name: "Vacuum"}}}
+func TestReminderGroupsAllChoresByAssignee(t *testing.T) {
+	summary := ChoreReminderSummary{Count: 7, Tasks: []ChoreReminderTask{
+		{Assignee: "Ben", Name: "Empty bins"},
+		{Assignee: "Alex", Name: "Dishwasher"},
+		{Assignee: "Ben", Name: "Vacuum"},
+		{Assignee: "Alex", Name: "Wipe counters"},
+		{Assignee: "Ben", Name: "Water plants"},
+		{Assignee: "Alex", Name: "Feed cat"},
+		{Assignee: "Ben", Name: "Take out rubbish"},
+	}}
 	message := summary.Message()
-	if message.Body != "Ben: Empty bins; Alex: Dishwasher; Ben: Vacuum — and 4 more" || message.URL != "familyhub://today" {
+	if message.Body != "Ben: Empty bins, Vacuum, Water plants, Take out rubbish\nAlex: Dishwasher, Wipe counters, Feed cat" || message.URL != "familyhub://today" {
 		t.Fatalf("unexpected reminder: %+v", message)
 	}
 }

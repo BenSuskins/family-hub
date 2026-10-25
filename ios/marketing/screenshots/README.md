@@ -40,11 +40,12 @@ in portrait. It writes the test result bundle under `$TMPDIR` and exports
 exactly ten screenshots into `raw/generated-ipad/` for App Store Connect.
 
 `render.sh <version>` writes ten iPhone App Store screenshots at 1206 × 2622
-px and ten framed iPad portrait screenshots at 2064 × 2752 px into the named
-version folder. The iPad frame uses `assets/ipad-frame.png`. The text-led
-self-hosting promo remains a marketing reference and is excluded from the
-ten-image upload sets. The iPad workflow creates portrait only because App
-Store Connect needs one orientation set for this listing.
+px and ten portrait iPad marketing slides at 2064 × 2752 px into the named
+version folder. Each iPad slide reuses its matching iPhone headline, copy, and
+benefits, then places the iPad capture inside `assets/ipad-frame.png`. The
+self-hosting promo remains a marketing reference outside both ten-image
+upload sets. The iPad workflow creates portrait only because App Store
+Connect needs one orientation set for this listing.
 
 Set `CHROME` to override the default Chrome executable path.
 Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
@@ -80,7 +81,7 @@ The simulator flow records deterministic demo content. It does not change the no
 
 - `lib/slide.css` holds the shared cream, sage and clay palette, system typography, phone frame and benefit labels.
 - `assets/iphone-frame.png` and `assets/ipad-frame.png` supply the transparent device bezels.
-- `slides/*.html` holds the iPhone marketing layouts and the iPad frame layout.
-- `render.sh` checks every capture and output size before updating a version folder.
+- `slides/*.html` holds the iPhone marketing copy; `slides/ipad-frame.html` uses it for the tablet layout.
+- `render.sh` and `render-ipad-slide.py` check every capture and output size before updating a version folder.
 
 Update `DESIGN.md` first when the app's visual direction changes, then align these templates with its tokens and product language.

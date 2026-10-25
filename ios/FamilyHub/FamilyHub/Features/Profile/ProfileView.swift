@@ -12,6 +12,8 @@ struct ProfileView: View {
 
     @State private var currentUser: User?
     @State private var photoPickerItem: PhotosPickerItem?
+    @State private var photoToCrop: UIImage?
+    @State private var isCropPresented = false
     @State private var isUploadingAvatar = false
     @State private var avatarError: APIError?
     @State private var confirmRemovePhoto = false
@@ -47,6 +49,13 @@ struct ProfileView: View {
             .errorAlert($avatarError)
             .confirmationDialog("Remove your photo?", isPresented: $confirmRemovePhoto, titleVisibility: .visible) {
                 Button("Remove Photo", role: .destructive) { Task { await removeAvatar() } }
+            }
+            .sheet(isPresented: $isCropPresented, onDismiss: { photoToCrop = nil }) {
+                if let photoToCrop {
+                    AvatarCropView(image: photoToCrop) { croppedImage in
+                        Task { await uploadCroppedPhoto(croppedImage) }
+                    }
+                }
             }
             .task { currentUser = try? await apiClient.fetchMe() }
             .onChange(of: photoPickerItem) { _, item in
@@ -224,31 +233,34 @@ struct ProfileView: View {
     }
 
     private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
-        isUploadingAvatar = true
-        defer {
-            isUploadingAvatar = false
-            photoPickerItem = nil
-        }
+        defer { photoPickerItem = nil }
         do {
             guard let rawData = try await item.loadTransferable(type: Data.self) else { return }
-            let (uploadData, mimeType) = normalizedImageData(rawData)
+            guard let image = UIImage(data: rawData) else {
+                avatarError = .from(ProfilePhotoError.invalidImage)
+                return
+            }
+            photoToCrop = image
+            isCropPresented = true
+        } catch {
+            avatarError = .from(error)
+        }
+    }
+
+    private func uploadCroppedPhoto(_ image: UIImage) async {
+        isUploadingAvatar = true
+        defer { isUploadingAvatar = false }
+        do {
+            guard let uploadData = AvatarPhotoProcessor.jpegData(for: image) else {
+                throw ProfilePhotoError.encodingFailed
+            }
+            let mimeType = "image/jpeg"
             let updated = try await apiClient.uploadAvatar(imageData: uploadData, mimeType: mimeType)
             currentUser = updated
             avatarRefreshID = UUID()
         } catch {
             avatarError = .from(error)
         }
-    }
-
-    private func normalizedImageData(_ data: Data) -> (Data, String) {
-        let serverCompatibleMagicBytes: [UInt8: String] = [0xFF: "image/jpeg", 0x89: "image/png", 0x47: "image/gif", 0x52: "image/webp"]
-        if let first = data.first, let mimeType = serverCompatibleMagicBytes[first] {
-            return (data, mimeType)
-        }
-        if let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.85) {
-            return (jpeg, "image/jpeg")
-        }
-        return (data, "image/jpeg")
     }
 
     private func removeAvatar() async {

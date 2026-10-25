@@ -10,13 +10,15 @@ final class MealsViewModel {
     var state: ViewState<[MealPlan]> = .idle
     private(set) var refreshError: APIError?
     private(set) var snapshotMetadata: SnapshotMetadata?
-    var currentWeek: Date = MealsViewModel.fridayStartOfWeek(for: Date())
+    private(set) var mealWeekStart: MealWeekday = .friday
+    var currentWeek: Date = MealWeekday.friday.weekStart(containing: Date())
     private(set) var selectedDay: Date = Date()
 
     var weekDays: [Date] {
         (0..<7).compactMap { Calendar.current.date(byAdding: .day, value: $0, to: currentWeek) }
     }
 
+    private var loadIdentifier = UUID()
     private let apiClient: any APIClientProtocol
 
     init(apiClient: any APIClientProtocol) {
@@ -24,17 +26,33 @@ final class MealsViewModel {
     }
 
     func load(forceRefresh: Bool = false) async {
+        let identifier = UUID()
+        loadIdentifier = identifier
+        do {
+            let settings = try await apiClient.fetchSettings()
+            guard !Task.isCancelled, loadIdentifier == identifier else { return }
+            if settings.mealWeekStart != mealWeekStart {
+                mealWeekStart = settings.mealWeekStart
+                currentWeek = mealWeekStart.weekStart(containing: selectedDay)
+                state = .idle
+                snapshotMetadata = nil
+            }
+        } catch {
+            guard !Task.isCancelled, loadIdentifier == identifier else { return }
+        }
         let week = currentWeek
         if case .loaded = state {} else { state = .loading }
         refreshError = nil
         do {
             let meals = try await apiClient.fetchMeals(week: week, forceRefresh: forceRefresh)
-            guard !Task.isCancelled, week == currentWeek else { return }
-            snapshotMetadata = await apiClient.snapshotMetadata(for: "meals-\(APIDate.dayString(week))")
+            guard !Task.isCancelled, loadIdentifier == identifier, week == currentWeek else { return }
+            let metadata = await apiClient.snapshotMetadata(for: "meals-\(APIDate.dayString(week))")
+            guard !Task.isCancelled, loadIdentifier == identifier, week == currentWeek else { return }
+            snapshotMetadata = metadata
             state = .loaded(meals)
         }
         catch {
-            guard !Task.isCancelled, week == currentWeek else { return }
+            guard !Task.isCancelled, loadIdentifier == identifier, week == currentWeek else { return }
             let apiError = APIError.from(error)
             refreshError = apiError
             if case .loading = state { state = .failed(apiError) }
@@ -43,7 +61,7 @@ final class MealsViewModel {
 
     func selectDay(_ date: Date) async {
         selectedDay = date
-        let week = Self.fridayStartOfWeek(for: date)
+        let week = mealWeekStart.weekStart(containing: date)
         guard !Calendar.current.isDate(week, inSameDayAs: currentWeek) else { return }
         currentWeek = week
         await load()
@@ -62,18 +80,9 @@ final class MealsViewModel {
     }
 
     func goToCurrentWeek() {
-        currentWeek = MealsViewModel.fridayStartOfWeek(for: Date())
+        currentWeek = mealWeekStart.weekStart(containing: Date())
         selectedDay = Date()
         Task { await load() }
-    }
-
-    private static func fridayStartOfWeek(for date: Date) -> Date {
-        let calendar = Calendar(identifier: .gregorian)
-        let weekday = calendar.component(.weekday, from: date)
-        // weekday: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
-        let daysSinceFriday = (weekday - 6 + 7) % 7
-        let startOfDay = calendar.startOfDay(for: date)
-        return calendar.date(byAdding: .day, value: -daysSinceFriday, to: startOfDay)!
     }
 
     func saveMeal(date: String, mealType: String, name: String, recipeID: String? = nil) async -> Bool {

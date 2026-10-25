@@ -158,7 +158,7 @@ curl -s $BASE_URL/avatar/<userID> \
 ```
 
 ### `GET /api/settings`
-- **Usecase:** App-wide settings readable by all users (currently: `family_name`).
+- **Usecase:** App-wide settings readable by all users: `family_name` and `meal_week_start`. The meal weekday is a lowercase weekday name and defaults to `friday`.
 - **Callers:** iOS app settings header.
 - **Security:** API token.
 
@@ -635,15 +635,15 @@ curl -s -X POST $BASE_URL/api/users/<userID>/demote -H "Authorization: Bearer $A
 ```
 
 ### `PATCH /api/settings`
-- **Usecase:** Update app-wide settings. Currently supports `family_name`.
-- **Callers:** iOS app admin settings — Family Name.
+- **Usecase:** Update `family_name`, `meal_week_start`, or both. Omitted fields stay unchanged. Supply at least one field. The name must be nonempty; the weekday must be one of `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, or `sunday`. Invalid requests return 400 before any field is saved.
+- **Callers:** iOS app admin settings — Family name and Meal planning.
 - **Security:** API token + admin role. Returns 204.
 
 ```bash
 curl -s -X PATCH $BASE_URL/api/settings \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"family_name":"The Smiths"}' -w "%{http_code}\n"
+  -d '{"family_name":"The Smiths","meal_week_start":"monday"}' -w "%{http_code}\n"
 ```
 
 ### `POST /api/categories`

@@ -95,6 +95,7 @@ final class FakeAPIClient: APIClientProtocol {
     var meResult: Result<User, Error> = .success(User(id: "1", name: "Test User", email: "test@example.com", avatarURL: "", role: "member"))
     var uploadAvatarResult: Result<User, Error> = .success(User(id: "1", name: "Test User", email: "test@example.com", avatarURL: "", role: "member"))
     var deleteAvatarResult: Result<Void, Error> = .success(())
+    var beforeFetchSettings: (() async -> Void)?
     var settingsResult: Result<AppSettings, Error> = .success(AppSettings(familyName: "Family"))
     var updateFamilyNameResult: Result<Void, Error> = .success(())
     var promoteUserResult: Result<User, Error> = .success(User(id: "2", name: "Other", email: "other@example.com", avatarURL: "", role: "admin"))
@@ -203,7 +204,16 @@ final class FakeAPIClient: APIClientProtocol {
     func fetchMe() async throws -> User { try meResult.get() }
     func uploadAvatar(imageData: Data, mimeType: String) async throws -> User { try uploadAvatarResult.get() }
     func deleteAvatar() async throws { try deleteAvatarResult.get() }
-    func fetchSettings() async throws -> AppSettings { try settingsResult.get() }
+    func fetchSettings() async throws -> AppSettings {
+        let result = settingsResult
+        await beforeFetchSettings?()
+        return try result.get()
+    }
+    func updateMealWeekStart(_ weekday: MealWeekday) async throws {
+        try updateFamilyNameResult.get()
+        let settings = try settingsResult.get()
+        settingsResult = .success(AppSettings(familyName: settings.familyName, mealWeekStart: weekday))
+    }
     func updateFamilyName(_ name: String) async throws { try updateFamilyNameResult.get() }
     func promoteUser(id: String) async throws -> User { try promoteUserResult.get() }
     func demoteUser(id: String) async throws -> User { try demoteUserResult.get() }

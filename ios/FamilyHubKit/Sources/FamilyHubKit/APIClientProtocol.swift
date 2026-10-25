@@ -83,6 +83,7 @@ public protocol APIClientProtocol: AnyObject {
 
     // Settings
     func fetchSettings() async throws -> AppSettings
+    func updateMealWeekStart(_ weekday: MealWeekday) async throws
     func updateFamilyName(_ name: String) async throws
 
     // User management (admin)

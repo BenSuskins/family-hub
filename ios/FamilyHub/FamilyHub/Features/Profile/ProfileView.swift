@@ -164,6 +164,12 @@ struct ProfileView: View {
             }.accessibilityIdentifier("Family Name")
 
             NavigationLink {
+                MealPlanningSettingsView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "Meal planning", subtitle: "Choose the first day of the week", systemImage: "calendar")
+            }.accessibilityIdentifier("Meal planning")
+
+            NavigationLink {
                 FamilyMembersView(apiClient: apiClient, currentUserID: currentUser?.id ?? "")
             } label: {
                 FeatureEntryLabel(title: "Family members", subtitle: "People and admin roles", systemImage: "person.2")

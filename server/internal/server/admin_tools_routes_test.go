@@ -47,6 +47,29 @@ func TestAdminToolsRoutesRequireAdminAndServeMobileBackupAPI(t *testing.T) {
 		return response
 	}
 
+	for _, token := range []string{"member-token", "admin-token"} {
+		if response := request(http.MethodGet, "/api/settings", token); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"meal_week_start":"friday"`) {
+			t.Fatalf("settings read: %d %s", response.Code, response.Body.String())
+		}
+	}
+	for _, check := range []struct {
+		token  string
+		status int
+	}{{"member-token", http.StatusForbidden}, {"admin-token", http.StatusNoContent}, {"", http.StatusUnauthorized}} {
+		req := httptest.NewRequest(http.MethodPatch, "/api/settings", strings.NewReader(`{"meal_week_start":"monday"}`))
+		if check.token != "" {
+			req.Header.Set("Authorization", "Bearer "+check.token)
+		}
+		response := httptest.NewRecorder()
+		application.router.ServeHTTP(response, req)
+		if response.Code != check.status {
+			t.Fatalf("settings write: got %d, want %d", response.Code, check.status)
+		}
+	}
+	if response := request(http.MethodGet, "/api/settings", "member-token"); !strings.Contains(response.Body.String(), `"meal_week_start":"monday"`) {
+		t.Fatalf("shared settings: %s", response.Body.String())
+	}
+
 	if response := request(http.MethodGet, "/api/calendars", "member-token"); response.Code != http.StatusForbidden {
 		t.Fatalf("member listed calendars: %d", response.Code)
 	}

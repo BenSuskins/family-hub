@@ -87,6 +87,51 @@ final class MealsViewModelTests: XCTestCase {
         XCTAssertEqual(meals.first?.name, "Soup")
     }
 
+    func testChangingWeekStartKeepsSelectedDateAndLoadsItsNewWeek() async {
+        let client = FakeAPIClient()
+        let model = MealsViewModel(apiClient: client)
+        await model.selectDay(APIDate.parse("2026-10-25T12:00:00Z")!)
+        client.settingsResult = .success(AppSettings(familyName: "Family", mealWeekStart: .monday))
+        client.mealsByWeek = ["2026-10-19": [makeMeal(date: "2026-10-25", mealType: "dinner", name: "Soup")]]
+
+        await model.load(forceRefresh: true)
+
+        XCTAssertEqual(APIDate.dayString(model.currentWeek), "2026-10-19")
+        XCTAssertEqual(APIDate.dayString(model.selectedDay), "2026-10-25")
+        XCTAssertEqual(model.mealWeekStart, .monday)
+        guard case .loaded(let meals) = model.state else { return XCTFail("New meal week must load") }
+        XCTAssertEqual(meals.first?.name, "Soup")
+        client.settingsResult = .failure(APIError.offline)
+        await model.load()
+        XCTAssertEqual(model.mealWeekStart, .monday)
+        model.nextWeek()
+        XCTAssertEqual(APIDate.dayString(model.currentWeek), "2026-10-26")
+        model.goToCurrentWeek()
+        XCTAssertEqual(Calendar.current.component(.weekday, from: model.currentWeek), 2)
+    }
+
+    func testEarlierSettingsResponseCannotRestoreTheOldWeekday() async {
+        let client = FakeAPIClient()
+        let started = expectation(description: "Earlier settings request starts")
+        var finishEarlierRequest: CheckedContinuation<Void, Never>?
+        client.beforeFetchSettings = {
+            await withCheckedContinuation { continuation in
+                finishEarlierRequest = continuation
+                started.fulfill()
+            }
+        }
+        let model = MealsViewModel(apiClient: client)
+        let earlier = Task { await model.load() }
+        await fulfillment(of: [started], timeout: 2)
+        client.beforeFetchSettings = nil
+        client.settingsResult = .success(AppSettings(familyName: "Family", mealWeekStart: .monday))
+        await model.load()
+        finishEarlierRequest?.resume()
+        await earlier.value
+        XCTAssertEqual(model.mealWeekStart, .monday)
+        XCTAssertEqual(Calendar.current.component(.weekday, from: model.currentWeek), 2)
+    }
+
     private func makeMeal(date: String, mealType: String, name: String) -> MealPlan {
         MealPlan(date: date, mealType: mealType, name: name, notes: "", recipeID: nil)
     }

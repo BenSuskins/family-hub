@@ -143,9 +143,20 @@ enum MarketingDemoData {
             (5, "dinner", "Roasted Vegetable Traybake", "A family favourite.", vegetablesRecipeID),
             (6, "dinner", "Tomato and Red Lentil Soup", "Cook a batch for lunches.", soupRecipeID),
         ]
-        return plans.map { offset, type, name, notes, recipeID in
+        var meals = plans.map { offset, type, name, notes, recipeID in
             MealPlan(date: weekDate(offset: offset), mealType: type, name: name, notes: notes, recipeID: recipeID)
         }
+        let today = APIDate.dayString(Date())
+        if !meals.contains(where: { $0.date == today && $0.mealType == "breakfast" }) {
+            meals.append(MealPlan(
+                date: today,
+                mealType: "breakfast",
+                name: "Blueberry Pancakes",
+                notes: "A slow start with berries.",
+                recipeID: pancakesRecipeID
+            ))
+        }
+        return meals
     }
 
     static var chores: [Chore] {

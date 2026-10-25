@@ -24,9 +24,20 @@ From this directory, run:
 SIMULATOR_UDID=<simulator-udid> ./capture.sh
 ```
 
+For an iPad audit set, run `./capture-ipad.sh`. It selects an available iPad
+simulator, captures the same ten screens in landscape and portrait, and writes
+full-resolution PNGs to `raw/generated-ipad/{landscape,portrait}/`. Set
+`SIMULATOR_UDID` to choose a specific iPad. These are direct app captures for
+review; they do not use the iPhone App Store frames or slides.
+Open `raw/generated-ipad/index.html` to browse the two orientation sets.
+
 The capture script runs only `MarketingScreenshotsUITests/testCaptureMarketingScreens` in the `FamilyHub` scheme.
 It launches the app in a screenshot-only demo fixture, sets the status bar to 9:41, and exports the UI test attachments.
 It requires no Family Hub server or account.
+
+The iPad capture script runs the same marketing demo flow through the iPad UI
+in both orientations. It writes the test result bundle under `$TMPDIR` and
+exports the twenty named screenshots into `raw/generated-ipad/`.
 
 Set `CHROME` to override the default Chrome executable path. Set `OUT` to change the rendered-image directory.
 Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default, the bundle and derived data live under `$TMPDIR`.
@@ -34,6 +45,7 @@ Set `RESULT_BUNDLE` to keep the Xcode result bundle at a chosen path. By default
 ## Outputs
 
 - `raw/generated/`: named full-resolution simulator captures, created by `capture.sh`
+- `raw/generated-ipad/`: named full-resolution iPad captures, created by `capture-ipad.sh` (ignored by Git)
 - `out/`: temporary 1320×2868 PNG images, created by `render.sh` and ignored by Git
 - `1.3/`: versioned App Store images and release copy committed for version 1.3
 

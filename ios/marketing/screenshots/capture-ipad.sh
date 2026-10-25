@@ -6,7 +6,6 @@ REPOSITORY="$(cd "$ROOT/../../.." && pwd)"
 PROJECT="$REPOSITORY/ios/FamilyHub/FamilyHub.xcodeproj"
 SCHEME="${SCHEME:-FamilyHub}"
 OUTPUT="${RAW_IPAD:-$ROOT/raw/generated-ipad}"
-APP_STORE_ORIENTATION="${APP_STORE_ORIENTATION:-portrait}"
 TMP_ROOT="${TMPDIR:-/tmp}"
 RESULT_BUNDLE="${RESULT_BUNDLE:-$TMP_ROOT/family-hub-ipad-marketing-$(date +%Y%m%d-%H%M%S).xcresult}"
 DERIVED_DATA="${DERIVED_DATA:-$TMP_ROOT/family-hub-ipad-marketing-derived-data}"
@@ -46,12 +45,9 @@ if [[ -e "$RESULT_BUNDLE" ]]; then
   exit 1
 fi
 
-if [[ "$APP_STORE_ORIENTATION" != "landscape" && "$APP_STORE_ORIENTATION" != "portrait" ]]; then
-  echo "APP_STORE_ORIENTATION must be landscape or portrait." >&2
-  exit 1
-fi
-
-mkdir -p "$OUTPUT/landscape" "$OUTPUT/portrait" "$OUTPUT/app-store"
+mkdir -p "$OUTPUT"
+rm -rf "$OUTPUT/landscape" "$OUTPUT/portrait" "$OUTPUT/app-store"
+find "$OUTPUT" -maxdepth 1 -type f -name '*-ipad-*.png' -delete
 echo "Capturing iPad marketing screens on $SIMULATOR_INFO ($SIMULATOR_UDID)"
 xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIMULATOR_UDID" -b
@@ -68,7 +64,6 @@ xcodebuild test \
   -derivedDataPath "$DERIVED_DATA" \
   -resultBundlePath "$RESULT_BUNDLE" \
   -parallel-testing-enabled NO \
-  -only-testing:FamilyHubUITests/MarketingScreenshotsUITests/testCaptureMarketingScreensOnIPadLandscape \
   -only-testing:FamilyHubUITests/MarketingScreenshotsUITests/testCaptureMarketingScreensOnIPadPortrait \
   CODE_SIGNING_ALLOWED=NO
 
@@ -76,7 +71,7 @@ EXPORT_DIR="$(mktemp -d "$TMP_ROOT/family-hub-ipad-marketing-export.XXXXXX")"
 trap 'rm -rf "$EXPORT_DIR"' EXIT
 xcrun xcresulttool export attachments --path "$RESULT_BUNDLE" --output-path "$EXPORT_DIR"
 
-python3 - "$EXPORT_DIR" "$OUTPUT" "$APP_STORE_ORIENTATION" <<'PY'
+python3 - "$EXPORT_DIR" "$OUTPUT" <<'PY'
 import json
 import shutil
 import sys
@@ -84,17 +79,13 @@ from pathlib import Path
 
 export_dir = Path(sys.argv[1])
 output_dir = Path(sys.argv[2])
-app_store_orientation = sys.argv[3]
+orientation = "portrait"
 expected_screens = {
     "01-home", "02-recipe-detail", "03-meals", "04-recipes-book",
     "05-inventory", "06-calendar", "07-chores", "08-household",
     "09-shopping", "10-commute",
 }
-expected = {
-    f"{screen}-ipad-{orientation}": (screen, orientation)
-    for screen in expected_screens
-    for orientation in ("landscape", "portrait")
-}
+expected = {f"{screen}-ipad-{orientation}": screen for screen in expected_screens}
 manifest = json.loads((export_dir / "manifest.json").read_text())
 found = {}
 
@@ -115,42 +106,26 @@ if missing:
 for name, source in found.items():
     if not source.is_file() or source.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
         raise SystemExit(f"Attachment is missing or is not a PNG: {name}")
-    screen, orientation = expected[name]
-    destination = output_dir / orientation / f"{screen}.png"
+    screen = expected[name]
+    destination = output_dir / f"{screen}.png"
     shutil.copyfile(source, destination)
     import subprocess
     dimensions = subprocess.check_output(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(destination)], text=True)
     values = [int(line.split(": ")[1]) for line in dimensions.splitlines() if "pixelWidth:" in line or "pixelHeight:" in line]
-    expected_dimensions = (2752, 2064) if orientation == "landscape" else (2064, 2752)
+    expected_dimensions = (2064, 2752)
     if tuple(values) != expected_dimensions:
-        raise SystemExit(f"Unexpected {orientation} screenshot size for {destination}: {values}; expected {expected_dimensions}")
+        raise SystemExit(f"Unexpected portrait screenshot size for {destination}: {values}; expected {expected_dimensions}")
     print(f"Saved {destination}")
 
-for screen in sorted(expected_screens):
-    capture_name = f"{screen}-ipad-{app_store_orientation}"
-    source = found[capture_name]
-    destination = output_dir / "app-store" / f"{screen}.png"
-    shutil.copyfile(source, destination)
-    print(f"Saved App Store screenshot {destination}")
-
 cards = []
-cards.append(f"<h2>App Store upload set ({app_store_orientation.title()}, 10 images)</h2><section>")
 for screen in sorted(expected_screens):
-    filename = f"app-store/{screen}.png"
+    filename = f"{screen}.png"
     cards.append(
         f'<a href="{filename}"><img loading="lazy" src="{filename}" alt="{screen}">'
         f"<span>{screen}</span></a>"
     )
+cards.insert(0, "<h2>App Store upload set (Portrait, 10 images)</h2><section>")
 cards.append("</section>")
-for orientation in ("landscape", "portrait"):
-    cards.append(f"<h2>{orientation.title()}</h2><section>")
-    for screen in sorted(expected_screens):
-        filename = f"{orientation}/{screen}.png"
-        cards.append(
-            f'<a href="{filename}"><img loading="lazy" src="{filename}" alt="{screen}">'
-            f"<span>{screen}</span></a>"
-        )
-    cards.append("</section>")
 
 page = """<!doctype html>
 <html lang="en">
@@ -169,7 +144,7 @@ page = """<!doctype html>
 </head>
 <body>
   <h1>Family Hub iPad screenshots</h1>
-  <p>Direct simulator captures from the marketing demo flow. Open an image for full resolution.</p>
+  <p>Ten direct portrait simulator captures for App Store Connect (2064 × 2752 px). Open an image for full resolution.</p>
   """ + "\n".join(cards) + """
 </body>
 </html>

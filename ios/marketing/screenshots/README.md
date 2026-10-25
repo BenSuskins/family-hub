@@ -18,7 +18,8 @@ From this directory, run:
 ./render.sh
 ```
 
-`capture.sh` selects an available iPhone Pro Max simulator when possible. To use a specific simulator, set its UDID:
+`capture.sh` selects an available iPhone Pro simulator when possible, which
+matches the 6.3-inch screenshot target. To use a specific simulator, set its UDID:
 
 ```bash
 SIMULATOR_UDID=<simulator-udid> ./capture.sh

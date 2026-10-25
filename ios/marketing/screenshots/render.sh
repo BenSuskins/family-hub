@@ -54,4 +54,4 @@ for capture in "${captures[@]}"; do
   fi
 done
 
-echo "Rendered ${#captures[@]} app screenshots and one self-hosted slide in $OUT/"
+echo "Rendered ${#captures[@]} App Store screenshots in $OUT/"

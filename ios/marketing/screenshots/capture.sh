@@ -22,7 +22,10 @@ try:
 except json.JSONDecodeError:
     raise SystemExit("Could not read simulator data. Check that CoreSimulatorService is running.")
 devices = [device for group in simulator_data["devices"].values() for device in group if device["isAvailable"] and "iPhone" in device.get("deviceTypeIdentifier", "")]
-preferred = [device for device in devices if "Pro-Max" in device.get("deviceTypeIdentifier", "")]
+preferred = [
+    device for device in devices
+    if "Pro" in device.get("deviceTypeIdentifier", "") and "Pro-Max" not in device.get("deviceTypeIdentifier", "")
+]
 choices = preferred or devices
 if not choices:
     raise SystemExit("No available iPhone simulator. Set SIMULATOR_UDID explicitly or install an iOS Simulator runtime.")

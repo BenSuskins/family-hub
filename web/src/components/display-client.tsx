@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, MouseEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, FormEvent, MouseEvent, useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { BookOpen, CalendarDays, CarFront, Check, CookingPot, Monitor, PackageCheck, ShoppingBag, Sun, TrainFront, X, type LucideIcon } from "lucide-react";
 import { KioskScratchpad } from "@/components/kiosk-scratchpad";
@@ -51,6 +51,7 @@ type Snapshot = {
 };
 type Pairing = { challengeId: string; pairingCode: string; expiresAt: string };
 type MealEditTarget = { date: string; mealType: MealType };
+type EventDetails = { title: string; startTime: string; endTime?: string | null; location?: string; leaveAt?: string; drivingSeconds?: number };
 
 const apiBase = getApiBaseUrl();
 const localMocksEnabled = process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_FAMILY_HUB_API_URL;
@@ -82,6 +83,18 @@ function writeStorage(key: string, value: string) {
 }
 function removeStorage(key: string) {
   try { window.localStorage.removeItem(key); } catch { /* Browser storage can be disabled. */ }
+}
+
+function weekStartAt(date: Date, timezone: string) {
+  const weekStart = new Date(`${dayKeyAt(date, timezone)}T12:00:00Z`);
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  return weekStart.toISOString().slice(0, 10);
+}
+
+function hourAt(value: string, timezone: string) {
+  const hour = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: timezone })
+    .formatToParts(new Date(value)).find(part => part.type === "hour")?.value;
+  return Number(hour ?? 0);
 }
 
 async function displayRequest<T>(path: string, token: string): Promise<T> {
@@ -175,7 +188,9 @@ export function DisplayClient() {
   const [householdName, setHouseholdName] = useState("Family");
   const snapshotRef = useRef<Snapshot | null>(null);
   const [clock, setClock] = useState<Date | null>(null);
+  const clockRef = useRef<Date | null>(null);
   const [selectedApp, setSelectedApp] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
   const [mealEditTarget, setMealEditTarget] = useState<MealEditTarget | null>(null);
   const [selectedChore, setSelectedChore] = useState<DisplayChore | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,6 +198,23 @@ export function DisplayClient() {
   const dialogRef = useRef<HTMLElement>(null);
   const refreshInFlight = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
+  const scratchpadSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const closeInFlightRef = useRef(false);
+
+  const registerScratchpadSave = useCallback((save: (() => Promise<void>) | null) => {
+    scratchpadSaveRef.current = save;
+  }, []);
+  const close = useCallback(async () => {
+    if (closeInFlightRef.current || dialogRef.current?.querySelector("canvas[data-drawing='true']")) return;
+    closeInFlightRef.current = true;
+    try {
+      if (selectedApp === "Notes") await scratchpadSaveRef.current?.();
+    } finally {
+      closeInFlightRef.current = false;
+      setSelectedApp(""); setSelectedEvent(null); setSelectedChore(null); setMealEditTarget(null);
+    }
+  }, [selectedApp]);
+  clockRef.current = clock;
 
   const accept = useCallback((value: string) => {
     if (!writeStorage(displayTokenKey, value)) setFailures(["This browser cannot save the pairing. Keep this tab open or enable site storage."]);
@@ -198,10 +230,37 @@ export function DisplayClient() {
         await startLocalMocks();
       }
       if (stopped) return;
-      setToken(readStorage(displayTokenKey) ?? "");
-      setClock(new Date());
+      const storedToken = readStorage(displayTokenKey) ?? "";
+      let initialClock = new Date();
+      if (localMocksEnabled) {
+        try {
+          const response = await fetch("/api/local-mocks/clock");
+          if (response.ok) initialClock = new Date((await response.json() as { now: string }).now);
+        } catch { /* Use the system clock if the local mock clock is unavailable. */ }
+      }
+      clockRef.current = initialClock;
+      setClock(initialClock);
+      setToken(storedToken);
       setMockReady(true);
-      timer = window.setInterval(() => setClock(new Date()), 30_000);
+      if (localMocksEnabled) {
+        let lastMockClock = initialClock;
+        let lastReadAt = Date.now();
+        timer = window.setInterval(() => {
+          void fetch("/api/local-mocks/clock").then(async response => {
+            if (!response.ok) return;
+            const nextClock = new Date((await response.json() as { now: string }).now);
+            const expected = lastMockClock.getTime() + (Date.now() - lastReadAt);
+            const jumped = Math.abs(nextClock.getTime() - expected) > 30_000;
+            lastMockClock = nextClock;
+            lastReadAt = Date.now();
+            clockRef.current = nextClock;
+            setClock(nextClock);
+            if (jumped) window.dispatchEvent(new Event("family-hub:mock-clock-changed"));
+          }).catch(() => undefined);
+        }, 5_000);
+      } else {
+        timer = window.setInterval(() => { const nextClock = new Date(); clockRef.current = nextClock; setClock(nextClock); }, 30_000);
+      }
     }
     void initialise();
     return () => { stopped = true; if (timer) window.clearInterval(timer); };
@@ -237,7 +296,7 @@ export function DisplayClient() {
       const nextHouseholdName = homeResult[0].status === "fulfilled" ? homeResult[0].value.familyName?.trim() || "Family" : previous?.householdName || "Family";
       setHouseholdName(nextHouseholdName);
       if (homeResult[0].status === "fulfilled") successfulResources.push("home");
-      const now = new Date();
+      const now = localMocksEnabled ? clockRef.current ?? new Date() : new Date();
       const mealWindow = mealWindowAt(now, timezone);
       const sections = new Set(displaySettings.enabledSections ?? []);
       const fetches: [string, Promise<unknown>][] = [];
@@ -326,6 +385,13 @@ export function DisplayClient() {
   }, [token]);
 
   useEffect(() => {
+    if (!localMocksEnabled || !token) return;
+    const refreshForMockClock = () => void refresh();
+    window.addEventListener("family-hub:mock-clock-changed", refreshForMockClock);
+    return () => window.removeEventListener("family-hub:mock-clock-changed", refreshForMockClock);
+  }, [token, refresh]);
+
+  useEffect(() => {
     if (!token) return;
     void refresh();
     const timer = window.setInterval(() => void refresh(), 60_000);
@@ -348,13 +414,11 @@ export function DisplayClient() {
     function closeForIdle() {
       const drawing = dialogRef.current?.querySelector("canvas[data-drawing='true']");
       if (drawing) { timer = window.setTimeout(closeForIdle, 30_000); return; }
-      setSelectedApp("");
-      setSelectedChore(null);
-      setMealEditTarget(null);
+      void close();
     }
     function keydown(event: KeyboardEvent) {
       resetIdle();
-      if (event.key === "Escape") { event.preventDefault(); setSelectedApp(""); setSelectedChore(null); setMealEditTarget(null); return; }
+      if (event.key === "Escape") { event.preventDefault(); void close(); return; }
       if (event.key !== "Tab" || !dialogRef.current) return;
       const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex='0']"));
       if (!controls.length) return;
@@ -372,13 +436,16 @@ export function DisplayClient() {
       window.removeEventListener("keydown", keydown);
       previousFocus?.focus();
     };
-  }, [selectedApp]);
+  }, [selectedApp, close]);
 
   const open = (app: string, event?: MouseEvent<HTMLElement>) => {
     openerRef.current = event?.currentTarget ?? document.activeElement as HTMLElement;
     setSelectedApp(app);
   };
-  const close = () => { setSelectedApp(""); setSelectedChore(null); setMealEditTarget(null); };
+  const openEvent = (details: EventDetails, event?: MouseEvent<HTMLElement>) => {
+    setSelectedEvent(details);
+    open("Family event", event);
+  };
   if (!mockReady) return <main className="pair-screen"><p role="status">Starting the local display…</p></main>;
   if (!token) return <PairDisplay onClaimed={accept} />;
   if (!clock) return <main className="wall-display-shell" aria-busy="true" />;
@@ -402,6 +469,14 @@ export function DisplayClient() {
   const trains = commute?.status === "available" || commute?.status === "partial" ? commute.boards.flatMap(board => board.trains.map(train => ({ board, train }))) : [];
   const departureMinutes = departureItems[0] ? Math.round((Date.parse(departureItems[0].leaveAt) - clock.getTime()) / 60_000) : Infinity;
   const localHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", hourCycle: "h23" }).format(clock));
+  const availableCards = new Set([
+    ...(sections.has("calendar") && events.length ? ["calendar"] : []),
+    ...(sections.has("meals") && meals.length ? ["meals"] : []),
+    ...(sections.has("chores") && chores.length ? ["chores"] : []),
+    ...(sections.has("departures") && departureItems.length ? ["departures"] : []),
+    ...(sections.has("bins") && collections.length ? ["bins"] : []),
+    ...(sections.has("trains") && trains.length ? ["trains"] : []),
+  ]);
   const rankedCards = rankDisplayCards({
     hour: localHour,
     departureSoon: departureMinutes <= 45,
@@ -412,33 +487,37 @@ export function DisplayClient() {
     binsTomorrow: collections.some(item => item.date !== dateKey),
     trainsAvailable: trains.length > 0,
     weatherAvailable: weatherReady && Boolean(weather?.current),
-  });
+  }).filter(key => availableCards.has(key)).slice(0, 5);
   const cardOrder = Object.fromEntries(rankedCards.map((key, index) => [key, index]));
+  const isCardVisible = (key: string) => sections.has(key) && cardOrder[key] !== undefined;
+  const cardStyle = (key: string) => ({ order: cardOrder[key] });
+  const cardLayoutClass = (key: string) => cardOrder[key] === 0 ? "primary-first" : cardOrder[key] === 1 ? "primary-second" : "secondary-card";
   const isDark = localHour >= 20 || localHour < 6;
   const formattedDate = clock.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone });
   const formattedTime = clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
 
   return <main className={`wall-display-shell${isDark ? " is-dark" : ""}`}>
     <section className={`wall-display${isDark ? " is-dark" : ""}`} aria-label="Family Hub wall display">
-      <header className="display-header"><div className="display-brand"><div><p>{formattedDate}</p><h1>{displayGreeting(localHour, departureMinutes <= 45)}</h1></div></div><div className="display-header-right">{sections.has("weather") && weatherReady && weather?.current && <button className="weather-summary" onClick={event => open("Weather", event)} aria-label="Open weather forecast"><Sun size={26} strokeWidth={1.7} aria-hidden="true"/><strong>{Math.round(weather.current.temperature)}°</strong><span>{weatherLabel(weather.current.code)}</span></button>}<time>{formattedTime}</time></div></header>
+      <header className="display-header"><div className="display-brand"><div><p>{formattedDate}</p><h1>{displayGreeting(localHour, departureMinutes <= 45)}</h1></div></div><div className="display-header-right">{sections.has("weather") && weatherReady && weather?.current && <button className="weather-summary" onClick={event => open("Weather", event)} aria-label="Open 7 day weather forecast"><Sun size={41} strokeWidth={1.7} aria-hidden="true"/><span><strong>{Math.round(weather.current.temperature)}°</strong><small>{weatherLabel(weather.current.code)} · H {Math.round(weather.high ?? weather.current.temperature)}° L {Math.round(weather.low ?? weather.current.temperature)}°</small></span></button>}<time>{formattedTime}</time></div></header>
       {failures.length > 0 && <div className="display-status" role="status">{failures.join(" and ")} {current ? "could not be updated. Showing saved information where available." : "are unavailable. The display will keep trying."}</div>}
       {loading && !current && <p className="display-loading" role="status">Loading household information…</p>}
-      <div className="display-grid">
-        {sections.has("departures") && departureItems.length > 0 && <section style={{ order: cardOrder.departures }} className="display-card departure-card"><div className="display-card-heading"><span><SectionIcon name="departures"/>Time to head out</span><small>Leave at {new Date(departureItems[0].leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</small></div><Freshness snapshot={current} resource="departures" timezone={timezone}/><button className="display-card-action" onClick={event => open("Journeys", event)}><time>{new Date(departureItems[0].leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><h2>{departureItems[0].title}</h2><p>{departureItems[0].destination}{departureItems[0].drivingSeconds ? ` · ${Math.round(departureItems[0].drivingSeconds / 60)} min drive` : ""}</p><small>Event starts {new Date(departureItems[0].startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</small></button></section>}
-        {sections.has("meals") && meals.length > 0 && <section style={{ order: cardOrder.meals }} className="display-card meal-card"><div className="display-card-heading"><span><SectionIcon name="meals"/>{mealWindow.label}’s meals</span><small>{mealWindow.nextMeal} is next</small></div><Freshness snapshot={current} resource="meals" timezone={timezone}/><div className="meal-slots">{meals.map(meal => <button key={`${meal.Date}-${meal.MealType}`} onClick={event => { setMealEditTarget({ date: meal.Date, mealType: meal.MealType }); open("Meal plan", event); }}><small>{meal.MealType}{meal.MealType === mealWindow.nextMeal ? " · Up next" : ""}</small><strong>{meal.Name}</strong></button>)}</div></section>}
-        {sections.has("calendar") && events.length > 0 && <section style={{ order: cardOrder.calendar }} className="display-card calendar-card"><div className="display-card-heading"><span><SectionIcon name="calendar"/>Coming up</span><button className="text-action" onClick={event => open("Calendar", event)}>Open calendar</button></div><Freshness snapshot={current} resource="events" timezone={timezone}/>{events.slice(0, 3).map(item => <button className="display-event" key={item.ID} onClick={event => open("Calendar", event)}><time>{item.AllDay ? "All day" : new Date(item.StartTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><span><strong>{item.Title}</strong>{item.Location && <small>{item.Location}</small>}</span></button>)}</section>}
-        {sections.has("chores") && chores.length > 0 && <section style={{ order: cardOrder.chores }} className="display-card chores-card"><div className="display-card-heading"><span><SectionIcon name="chores"/>Things to do</span><small>{chores.length} pending</small></div><Freshness snapshot={current} resource="chores" timezone={timezone}/>{chores.slice(0, 4).map(chore => <button className="display-chore" key={chore.ID} onClick={event => { setSelectedChore(chore); open("Chore completion", event); }}><span className="chore-ring" aria-hidden="true"/><span><strong>{chore.Name}</strong><small>{chore.AssignedToUserID ? current?.people.find(person => person.id === chore.AssignedToUserID)?.name ?? "Assigned" : "Choose who completed this"}</small></span></button>)}</section>}
-        {sections.has("bins") && collections.length > 0 && <section style={{ order: cardOrder.bins }} className="display-card bins-card"><div className="display-card-heading"><span><SectionIcon name="bins"/>{collections[0].date === dateKey ? "Bins collected today" : "Bins out tonight"}</span><button className="text-action" onClick={event => open("Bins", event)}>Details</button></div><Freshness snapshot={current} resource="bins" timezone={timezone}/>{collections.map(bin => <div className="bin-row" key={`${bin.date}-${bin.type}`}><strong>{bin.name || bin.type}</strong><span>{new Date(`${bin.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</span></div>)}</section>}
-        {sections.has("trains") && trains.length > 0 && <section style={{ order: cardOrder.trains }} className="display-card trains-card"><div className="display-card-heading"><span><SectionIcon name="trains"/>Next trains</span><button className="text-action" onClick={event => open("Trains", event)}>Details</button></div><Freshness snapshot={current} resource="trains" timezone={timezone}/><small className="route-caption">{commute?.boards[0]?.origin.code} to {commute?.boards[0]?.destination.code}</small>{trains.slice(0, 3).map(({ board, train }) => <div className="train-row" key={`${board.origin.code}-${train.serviceId}`}><time>{train.expectedDeparture || train.scheduledDeparture || "—"}</time><strong>{train.platform ? `Platform ${train.platform}` : train.operator || "Train"}</strong><small>{train.status.replaceAll("_", " ")}</small></div>)}</section>}
+      <div className="display-grid" data-card-count={Object.keys(cardOrder).length}>
+        {isCardVisible("departures") && departureItems.length > 0 && <section style={cardStyle("departures")} className={`display-card departure-card ${cardLayoutClass("departures")}`}><div className="display-card-heading"><span><SectionIcon name="departures"/>Time to head out</span><small className="leave-pill">{departureMinutes > 0 ? `Leave in ${departureMinutes} min` : "Time to leave"}</small></div><div className="departure-time">{new Date(departureItems[0].leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</div><h2>{departureItems[0].title}</h2><p>{departureItems[0].destination}{departureItems[0].drivingSeconds ? ` · ${Math.round(departureItems[0].drivingSeconds / 60)} min drive` : ""}</p><div className="departure-footer"><small>Starts at {new Date(departureItems[0].startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</small><button className="display-card-cta" onClick={event => { const item = current?.events.find(calendarEvent => calendarEvent.ID === departureItems[0].eventID); openEvent({ title: departureItems[0].title, startTime: departureItems[0].startTime, endTime: item?.EndTime, location: item?.Location ?? departureItems[0].destination, leaveAt: departureItems[0].leaveAt, drivingSeconds: departureItems[0].drivingSeconds }, event); }}>Event details <span aria-hidden="true">→</span></button></div></section>}
+        {isCardVisible("meals") && meals.length > 0 && <section style={cardStyle("meals")} className={`display-card meal-card ${cardLayoutClass("meals")}`}><div className="display-card-heading"><span><SectionIcon name="meals"/>{mealWindow.label}’s meals</span></div><div className="meal-agenda">{(["breakfast", "lunch", "dinner"] as const).map(type => { const meal = meals.find(item => item.MealType === type); return meal && <div className={`meal-agenda-row${type === mealWindow.nextMeal ? " meal-current" : ""}`} key={`${meal.Date}-${meal.MealType}`}><span>{type}</span><strong>{meal.Name}</strong>{type === mealWindow.nextMeal && <small>Up next</small>}</div>; })}</div><div className="meal-card-footer"><button className="display-card-cta" onClick={event => open("Meal plan", event)}>Edit meals <span aria-hidden="true">→</span></button></div></section>}
+        {isCardVisible("calendar") && events.length > 0 && <section style={cardStyle("calendar")} className={`display-card calendar-card ${cardLayoutClass("calendar")}`} aria-label="Upcoming calendar events" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="calendar"/>Coming up</span><small>{events.length} {events.length === 1 ? "event" : "events"}</small></div>{events.slice(0, 3).map(item => <button className="display-event" key={item.ID} onClick={event => openEvent({ title: item.Title, startTime: item.StartTime, endTime: item.EndTime, location: item.Location }, event)}><time>{item.AllDay ? "All day" : new Date(item.StartTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><span><strong>{item.Title}</strong>{item.Location && <small>{item.Location}</small>}</span></button>)}</section>}
+        {isCardVisible("chores") && chores.length > 0 && <section style={cardStyle("chores")} className={`display-card chores-card ${cardLayoutClass("chores")}`} aria-label="Household chores" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="chores"/>Things to do</span><small>{chores.length} pending</small></div>{chores.slice(0, 4).map(chore => <button className="display-chore" key={chore.ID} onClick={event => { setSelectedChore(chore); open("Chore completion", event); }}><span className="chore-ring" aria-hidden="true"/><span><strong>{chore.Name}</strong><small>{chore.AssignedToUserID ? current?.people.find(person => person.id === chore.AssignedToUserID)?.name ?? "Assigned" : "Choose who completed this"}</small></span></button>)}</section>}
+        {isCardVisible("bins") && collections.length > 0 && <section style={cardStyle("bins")} className={`display-card bins-card ${cardLayoutClass("bins")}`} aria-label="Bin collections" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="bins"/>{collections[0].date === dateKey ? "Bins collected today" : "Bins out tonight"}</span></div>{collections.map(bin => <div className="bin-row" key={`${bin.date}-${bin.type}`}><strong>{bin.name || bin.type}</strong><span>{new Date(`${bin.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</span></div>)}</section>}
+        {isCardVisible("trains") && trains.length > 0 && <section style={cardStyle("trains")} className={`display-card trains-card ${cardLayoutClass("trains")}`} aria-label="Next trains" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="trains"/>Next trains</span></div><small className="route-caption">{commute?.boards[0]?.origin.code} to {commute?.boards[0]?.destination.code}</small>{trains.slice(0, 3).map(({ board, train }) => <div className="train-row" key={`${board.origin.code}-${train.serviceId}`}><time>{train.expectedDeparture || train.scheduledDeparture || "—"}</time><strong>{train.platform ? `Platform ${train.platform}` : train.operator || "Train"}</strong><small>{train.status.replaceAll("_", " ")}</small></div>)}</section>}
       </div>
-      <nav className="display-launcher" aria-label="Family apps">{launcherApps.map(({ name, icon: Icon }) => <button key={name} onClick={event => open(name, event)}><Icon size={21} strokeWidth={1.7} aria-hidden="true" className="display-icon"/><span>{name}</span></button>)}</nav>
-      <footer className="display-footer"><span>{current ? `Last successful data refresh ${latestRefresh(current.resourceUpdatedAt, timezone)}` : "Family Hub"}</span><button onClick={() => void refresh()}>Refresh</button></footer>
+      <div className="display-controls"><nav className="display-launcher" aria-label="Family apps">{launcherApps.map(({ name, icon: Icon }) => <button key={name} onClick={event => open(name, event)}><Icon size={21} strokeWidth={1.7} aria-hidden="true" className="display-icon"/><span>{name}</span></button>)}</nav>
+        <footer className="display-footer"><button aria-label={`Refresh display data${current ? `; last successful refresh ${latestRefresh(current.resourceUpdatedAt, timezone)}` : ""}`} onClick={() => void refresh()}>Refresh{current && <small> ({latestRefresh(current.resourceUpdatedAt, timezone)})</small>}</button></footer>
+      </div>
     </section>
     {selectedApp && <div className="display-overlay" onClick={event => { if (event.target === event.currentTarget) close(); }}>
       <section ref={dialogRef} className="display-dialog" role="dialog" aria-modal="true" aria-labelledby="display-dialog-title" tabIndex={-1}>
         <header className="display-dialog-heading"><div><Image src="/family-hub-mark.png" alt="" width={36} height={36} /><h2 id="display-dialog-title">{selectedApp}</h2></div><button className="close-button" onClick={close} aria-label="Close"><X size={24} strokeWidth={1.7} aria-hidden="true"/></button></header>
         <div className="display-dialog-content">
-          {selectedApp === "Chore completion" && selectedChore ? <ChoreCompletionDialog chore={selectedChore} people={current?.people ?? []} token={token} onComplete={() => { close(); void refresh(); }} /> : selectedApp === "launcher" ? <div className="launcher-grid">{[["Shopping", "＋"], ["Scratchpad", "✎"], ["Calendar", "▦"], ["Recipes", "♧"], ["Meal plan", "♨"], ["Inventory", "▤"]].map(([app, symbol]) => <button className="launcher-tile" key={app} onClick={event => open(app, event)}><span aria-hidden="true">{symbol}</span>{app}</button>)}</div> : <KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget} />}
+          {selectedApp === "Chore completion" && selectedChore ? <ChoreCompletionDialog chore={selectedChore} people={current?.people ?? []} token={token} onComplete={() => { void close(); void refresh(); }} /> : selectedApp === "Family event" && selectedEvent ? <div className="event-detail"><p>{new Date(selectedEvent.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</p><h3>{selectedEvent.title}</h3><p>{new Date(selectedEvent.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.endTime ? `–${new Date(selectedEvent.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}` : ""}</p>{selectedEvent.location && <p>{selectedEvent.location}</p>}{selectedEvent.leaveAt && <p className="event-travel">Leave at {new Date(selectedEvent.leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.drivingSeconds ? ` · ${Math.round(selectedEvent.drivingSeconds / 60)} min drive` : ""}</p>}</div> : selectedApp === "launcher" ? <div className="launcher-grid">{[["Shopping", "＋"], ["Scratchpad", "✎"], ["Calendar", "▦"], ["Recipes", "♧"], ["Meal plan", "♨"], ["Inventory", "▤"]].map(([app, symbol]) => <button className="launcher-tile" key={app} onClick={event => open(app, event)}><span aria-hidden="true">{symbol}</span>{app}</button>)}</div> : <KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget} timezone={timezone} onScratchpadSaveReady={registerScratchpadSave} />}
         </div>
       </section>
     </div>}
@@ -449,14 +528,6 @@ function latestRefresh(resourceUpdatedAt: Record<string, string>, timezone: stri
   const timestamps = Object.values(resourceUpdatedAt).map(Date.parse).filter(Number.isFinite);
   if (!timestamps.length) return "saved information";
   return new Date(Math.max(...timestamps)).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
-}
-
-function Freshness({ snapshot, resource, timezone }: { snapshot: Snapshot | null; resource: string; timezone: string }) {
-  const status = snapshot?.availability[resource] ?? "unavailable";
-  const timestamp = snapshot?.resourceUpdatedAt[resource];
-  const updated = timestamp ? new Date(timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone }) : "";
-  const label = status === "available" && updated ? `Updated ${updated}` : status === "stale" && updated ? `Saved · ${updated}` : "Unavailable";
-  return <small className={`display-freshness is-${status}`} aria-label={`${resource}: ${label}`}>{label}</small>;
 }
 
 function resourceName(key: string) {
@@ -480,9 +551,9 @@ function ChoreCompletionDialog({ chore, people, token, onComplete }: { chore: Di
   return <section className="person-picker"><h3>Who completed {chore.Name}?</h3>{people.map(person => <button className="person-button" key={person.id} disabled={pending} onClick={() => void complete(person.id)}><span className="person-avatar">{person.name.slice(0, 1).toUpperCase()}</span>{person.name}</button>)}{error && <p role="alert">{error}</p>}</section>;
 }
 
-function KioskApp({app,token,initialMeal}:{app:string;token:string;initialMeal:MealEditTarget|null}){return app==="Notes"?<KioskScratchpad token={token}/>:<KioskDataApp app={app} token={token} initialMeal={initialMeal}/>}
-function KioskDataApp({app,token,initialMeal}:{app:string;token:string;initialMeal:MealEditTarget|null}){
-  const [data,setData]=useState<unknown>(null);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [week,setWeek]=useState(()=>dayKeyAt(new Date(),"Europe/London"));const [selected,setSelected]=useState("");const [mealName,setMealName]=useState("");const [recipeDetails,setRecipeDetails]=useState<Record<string,DisplayRecipe>>({});const [recipeErrors,setRecipeErrors]=useState<Record<string,string>>({});const [newMealDate,setNewMealDate]=useState(()=>dayKeyAt(new Date(),"Europe/London"));const [newMealType,setNewMealType]=useState<MealType>("dinner");const [newMealName,setNewMealName]=useState("");const [newShoppingName,setNewShoppingName]=useState("");const initialMealApplied=useRef(false);
+function KioskApp({app,token,initialMeal,timezone,onScratchpadSaveReady}:{app:string;token:string;initialMeal:MealEditTarget|null;timezone:string;onScratchpadSaveReady:(save:(()=>Promise<void>)|null)=>void}){return app==="Notes"?<KioskScratchpad token={token} onSaveReady={onScratchpadSaveReady}/>:<KioskDataApp app={app} token={token} initialMeal={initialMeal} timezone={timezone}/>}
+function KioskDataApp({app,token,initialMeal,timezone}:{app:string;token:string;initialMeal:MealEditTarget|null;timezone:string}){
+  const [data,setData]=useState<unknown>(null);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [week,setWeek]=useState(()=>weekStartAt(new Date(),timezone));const [selected,setSelected]=useState("");const [mealName,setMealName]=useState("");const [recipeDetails,setRecipeDetails]=useState<Record<string,DisplayRecipe>>({});const [recipeErrors,setRecipeErrors]=useState<Record<string,string>>({});const [newMealDate,setNewMealDate]=useState(()=>dayKeyAt(new Date(),timezone));const [newMealType,setNewMealType]=useState<MealType>("dinner");const [newMealName,setNewMealName]=useState("");const [newShoppingName,setNewShoppingName]=useState("");const initialMealApplied=useRef(false);
   const path=app==="Shopping"?"/api/display/shopping":app==="Calendar"?"/api/display/calendar?view=week&date="+week:app==="Recipes"?"/api/display/recipes":app==="Meal plan"?"/api/display/meals"+(initialMeal?"?week="+initialMeal.date:""):app==="Inventory"?"/api/display/inventory":app==="Journeys"?"/api/display/departures":app==="Trains"?"/api/display/trains":app==="Bins"?"/api/display/bin-collections":"/api/display/weather";
   const load=useCallback(async()=>{setError("");try{setData(await displayRequest<unknown>(path,token))}catch{setError("This family information is unavailable right now.")}},[path,token]);useEffect(()=>{void load()},[load]);
   useEffect(()=>{if(app!=="Meal plan"||!initialMeal||!Array.isArray(data)||initialMealApplied.current)return;initialMealApplied.current=true;setNewMealDate(initialMeal.date);setNewMealType(initialMeal.mealType);const meal=(data as DisplayMeal[]).find(item=>item.Date===initialMeal.date&&item.MealType===initialMeal.mealType);if(meal){setSelected(meal.Date+meal.MealType);setMealName(meal.Name)}},[app,data,initialMeal]);
@@ -499,7 +570,28 @@ function KioskDataApp({app,token,initialMeal}:{app:string;token:string;initialMe
   if(app==="Journeys"){const journeys=data as {status:string;items:DisplayDeparture[]};const items=relevantDepartures(journeys.items??[],new Date());return <div className="kiosk-list">{journeys.status!=="available"&&<p role="status">{journeys.status==="unavailable"?"Journey information is unavailable.":"No journeys are scheduled soon."}</p>}{items.map(item=><section key={item.eventID}><h3>{item.title}</h3><p>{item.destination}</p><p>Leave at {new Date(item.leaveAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p><small>Event starts {new Date(item.startTime).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}{item.drivingSeconds?` · ${Math.round(item.drivingSeconds/60)} min drive`:""}</small></section>)}</div>}
   if(app==="Bins"){const bins=data as BinSchedule;return <div className="kiosk-list">{(bins.collections??[]).length===0?<p>No upcoming bin collections are available.</p>:(bins.collections??[]).map(bin=><section key={`${bin.date}-${bin.type}`}><h3>{bin.name||bin.type}</h3><p>{new Date(`${bin.date}T12:00:00`).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</p></section>)}</div>}
   if(app==="Trains"){const commute=data as CommuteResult;return <div className="kiosk-list">{commute.status==="setup"?<p>Choose stations and a shared schedule in display settings.</p>:commute.status==="outside_schedule"?<p>No trains are shown outside the shared commute schedule.</p>:commute.status==="unavailable"?<p role="status">Train times are unavailable. The display will retry.</p>:commute.boards.map(board=><section key={board.origin.code+board.destination.code}><h3>{board.origin.code} to {board.destination.code}</h3>{board.trains.map(train=><div className="train-detail" key={train.serviceId}><strong>{train.expectedDeparture||train.scheduledDeparture||"Time unavailable"}</strong><span>{train.status.replaceAll("_"," ")}</span><small>{train.platform?`Platform ${train.platform}`:train.operator||""}</small></div>)}</section>)}</div>}
-  if(app==="Calendar"){const calendar=data as {events:DisplayEvent[];chores:DisplayChore[]};return <div className="kiosk-list"><div className="calendar-toolbar"><button className="icon-action" aria-label="Previous week" onClick={()=>setWeek(dayKeyAt(new Date(Date.parse(week+"T12:00:00Z")-7*86400000),"UTC"))}>←</button><strong>Week of {week}</strong><button className="icon-action" aria-label="Next week" onClick={()=>setWeek(dayKeyAt(new Date(Date.parse(week+"T12:00:00Z")+7*86400000),"UTC"))}>→</button><button className="text-action" onClick={()=>setWeek(dayKeyAt(new Date(),"Europe/London"))}>Today</button></div>{calendar.events.map(event=><details key={event.ID}><summary>{new Date(event.StartTime).toLocaleString()} · {event.Title}</summary>{event.Location&&<p>{event.Location}</p>}</details>)}{calendar.chores.map(chore=><p key={chore.ID}>Chore · {chore.Name}</p>)}</div>}
+  if(app==="Calendar"){
+    const calendar=data as {events:DisplayEvent[];chores:DisplayChore[]};
+    const dates=Array.from({length:7},(_,index)=>new Date(Date.parse(week+"T12:00:00Z")+index*86_400_000));
+    const range=new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long",timeZone:"UTC"});
+    const weekLabel=`${range.format(dates[0])} – ${range.format(dates[6])}`;
+    const timeSlots=[8,10,12,14,16,18];
+    const dayKey=(date:Date)=>date.toISOString().slice(0,10);
+    const eventsForSlot=(date:Date,hour:number)=>calendar.events.filter(event=>{
+      const eventDate=event.AllDay?event.StartTime.slice(0,10):dayKeyAt(new Date(event.StartTime),timezone);
+      if(eventDate!==dayKey(date))return false;
+      return event.AllDay?hour===8:hourAt(event.StartTime,timezone)>=hour&&hourAt(event.StartTime,timezone)<hour+2;
+    });
+    return <div>
+      <div className="calendar-toolbar"><button className="calendar-nav" aria-label="Previous week" onClick={()=>setWeek(weekStartAt(new Date(Date.parse(week+"T12:00:00Z")-7*86_400_000),"UTC"))}>‹</button><strong>{weekLabel}</strong><button className="calendar-nav" aria-label="Next week" onClick={()=>setWeek(weekStartAt(new Date(Date.parse(week+"T12:00:00Z")+7*86_400_000),"UTC"))}>›</button><button className="calendar-today" onClick={()=>setWeek(weekStartAt(new Date(),timezone))} disabled={week===weekStartAt(new Date(),timezone)}>Today</button></div>
+      {calendar.events.length===0&&<p className="calendar-empty">No events this week.</p>}
+      <div className="week-scroll"><div className="week-grid" aria-label={`Family calendar, ${weekLabel}`}>
+        <div className="week-corner"/>{dates.map(date=><div className="week-day" key={dayKey(date)}><strong>{new Intl.DateTimeFormat("en-GB",{weekday:"short",timeZone:"UTC"}).format(date)}</strong><span>{date.getUTCDate()}</span></div>)}
+        {timeSlots.map(hour=><Fragment key={hour}><div className="week-hour">{String(hour).padStart(2,"0")}:00</div>{dates.map(date=>{const slotEvents=eventsForSlot(date,hour);return <div className="week-cell" key={`${dayKey(date)}-${hour}`}>{slotEvents.map(event=><div className="week-event" key={event.ID}><small>{event.AllDay?"All day":new Date(event.StartTime).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:timezone})}</small>{event.Title}{event.Location&&<span>{event.Location}</span>}</div>)}</div>})}</Fragment>)}
+      </div></div>
+      {calendar.chores.length>0&&<section className="calendar-chores"><h3>Chores this week</h3>{calendar.chores.map(chore=><p key={chore.ID}>{chore.Name}</p>)}</section>}
+    </div>;
+  }
   if(app==="Weather"){const weather=data as Weather;return <div className="kiosk-list"><h2>{weather.current?.temperature}° at home</h2><div className="forecast-week">{weather.days?.map(day=><div key={day.date}><small>{new Date(day.date).toLocaleDateString([], {weekday:"long"})}</small><strong>{Math.round(day.high)}°</strong><span>{Math.round(day.low)}° · {weatherLabel(day.code)}{day.rainProbability===undefined?"":" · "+Math.round(day.rainProbability)+"% rain"}</span></div>)}</div></div>}
   return <div className="kiosk-list"><form className="inline-form" onSubmit={event=>void addMeal(event)}><label>Date<input aria-label="Meal date" type="date" value={newMealDate} onChange={event=>setNewMealDate(event.target.value)}/></label><label>Meal<select aria-label="Meal type" value={newMealType} onChange={event=>setNewMealType(event.target.value as MealType)}><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option></select></label><label>Meal idea<input aria-label="Meal idea" value={newMealName} onChange={event=>setNewMealName(event.target.value)} placeholder="Add a meal idea"/></label><button className="action-button" disabled={!newMealName.trim()||busy==="new-meal"}>{busy==="new-meal"?"Saving…":"Add meal"}</button></form>{error&&<p role="alert">{error}</p>}{(data as DisplayMeal[]).map(meal=><section key={meal.Date+meal.MealType}><p>{meal.Date} · {meal.MealType}</p>{selected===meal.Date+meal.MealType?<form className="inline-form" onSubmit={event=>void saveMeal(event,meal)}><input aria-label="Meal name" value={mealName} onChange={event=>setMealName(event.target.value)} /><button className="action-button" disabled={busy===selected}>Save</button><button type="button" className="text-action" onClick={()=>setSelected("")}>Cancel</button></form>:<><strong>{meal.Name}</strong><button className="text-action" onClick={()=>{setSelected(meal.Date+meal.MealType);setMealName(meal.Name)}}>Edit</button></>}</section>)}</div>
 }

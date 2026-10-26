@@ -74,7 +74,7 @@ export function mealWindowAt(date: Date, timezone: string): MealWindow {
   return {
     date: tomorrow ? nextDayKey(today) : today,
     label: tomorrow ? "Tomorrow" : "Today",
-    nextMeal: tomorrow || minutes < 11 * 60 ? "breakfast" : minutes < 16 * 60 ? "lunch" : "dinner",
+    nextMeal: tomorrow || minutes < 10 * 60 ? "breakfast" : minutes < 15 * 60 ? "lunch" : "dinner",
   };
 }
 

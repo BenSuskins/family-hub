@@ -35,15 +35,15 @@
       {
         "ID": "event-swimming",
         "Title": "Swimming lesson",
-        "StartTime": "{{in:60}}",
-        "EndTime": "{{in:120}}",
+        "StartTime": "{{todayAt:15:43}}",
+        "EndTime": "{{todayAt:16:43}}",
         "Location": "Riverside Pool"
       },
       {
         "ID": "event-dinner",
         "Title": "Dinner with grandparents",
-        "StartTime": "{{in:240}}",
-        "EndTime": "{{in:300}}",
+        "StartTime": "{{todayAt:18:43}}",
+        "EndTime": "{{todayAt:19:43}}",
         "Location": "Home"
       }
     ],
@@ -183,8 +183,8 @@
         "eventID": "event-swimming",
         "title": "Swimming lesson",
         "destination": "Riverside Pool",
-        "startTime": "{{in:60}}",
-        "leaveAt": "{{in:30}}",
+        "startTime": "{{todayAt:15:43}}",
+        "leaveAt": "{{todayAt:15:15}}",
         "drivingSeconds": 1080
       }
     ]

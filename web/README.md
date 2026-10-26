@@ -23,7 +23,19 @@ Open `http://localhost:3000`. Without `NEXT_PUBLIC_FAMILY_HUB_API_URL`, local de
 
 When the API URL is unset, the display starts an MSW service worker in the browser. MSW serves the fixture in `mocks/display.json` and keeps write changes in memory. The mock includes pairing, display data, and display write actions. Changes reset when the browser reloads. Edit the fixture to change the sample household.
 
-Use `http://localhost:3000/display?mock=paired` to skip the approval step in E2E tests. The regular `/display` route shows the pairing screen and waits for local approval.
+Use `http://localhost:3000/display?mock=paired` to skip the approval step in E2E tests. Add `&mockTime=08:00` to start at a chosen 24-hour time. The regular `/display` route shows the pairing screen and waits for local approval.
+
+The local mock clock can also change while the page is open. This refreshes the fixture data and reruns dashboard ranking. The sample event schedule stays at fixed local times so cards move in and out as the clock changes:
+
+```js
+await fetch("/api/local-mocks/clock", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ time: "17:30" }),
+})
+```
+
+Use `{ time: null }` to return to the system clock. Try `08:00`, `14:30`, `17:30`, and `21:00` to see the morning, afternoon, evening, and next-day cards.
 
 To approve a pairing in a browser, open the developer console after the pairing code appears and run:
 

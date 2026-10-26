@@ -24,6 +24,10 @@ test("meal preview uses the selected household timezone and switches at 20:30", 
   });
   assert.equal(mealWindowAt(new Date("2026-03-29T19:29:00Z"), "Europe/London").label, "Today");
   assert.equal(mealWindowAt(new Date("2026-03-29T19:30:00Z"), "Europe/London").label, "Tomorrow");
+  assert.equal(mealWindowAt(new Date("2026-10-26T09:59:00Z"), "Europe/London").nextMeal, "breakfast");
+  assert.equal(mealWindowAt(new Date("2026-10-26T10:00:00Z"), "Europe/London").nextMeal, "lunch");
+  assert.equal(mealWindowAt(new Date("2026-10-26T14:59:00Z"), "Europe/London").nextMeal, "lunch");
+  assert.equal(mealWindowAt(new Date("2026-10-26T15:00:00Z"), "Europe/London").nextMeal, "dinner");
 });
 
 test("overview prioritizes near departures, dinner, and evening bin reminders", () => {

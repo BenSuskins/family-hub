@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import fixture from "../../mocks/display.json";
 
 type Fixture = typeof fixture;
-type MockState = { data: Fixture; approved: boolean; autoApprove: boolean; challengeId: string; challengeNumber: number };
+type MockState = { data: Fixture; approved: boolean; autoApprove: boolean; challengeId: string; challengeNumber: number; clockTime: string | null };
 
 const state: MockState = {
   data: structuredClone(fixture),
@@ -10,11 +10,25 @@ const state: MockState = {
   autoApprove: false,
   challengeId: "",
   challengeNumber: 0,
+  clockTime: null,
 };
 const displayToken = "local-display-token";
 
 export function setMockAutoApproval(enabled: boolean) {
   state.autoApprove = enabled;
+}
+
+export function setMockClock(time: string | null) {
+  state.clockTime = time && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : null;
+}
+
+function mockNow() {
+  const now = new Date();
+  if (state.clockTime) {
+    const [hours, minutes] = state.clockTime.split(":").map(Number);
+    now.setHours(hours, minutes, 0, 0);
+  }
+  return now;
 }
 
 function dateKey(date: Date) {
@@ -24,7 +38,7 @@ function dateKey(date: Date) {
 }
 
 function dateAtOffset(offset: number) {
-  const [year, month, day] = dateKey(new Date()).split("-").map(Number);
+  const [year, month, day] = dateKey(mockNow()).split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + offset)).toISOString().slice(0, 10);
 }
 
@@ -32,11 +46,17 @@ function resolveFixture(value: unknown): unknown {
   if (typeof value === "string") {
     if (value === "{{today}}") return dateAtOffset(0);
     if (value === "{{tomorrow}}") return dateAtOffset(1);
-    if (value === "{{now}}") return new Date().toISOString();
+    if (value === "{{now}}") return mockNow().toISOString();
     const dateOffset = value.match(/^\{\{date:(-?\d+)\}\}$/);
     if (dateOffset) return dateAtOffset(Number(dateOffset[1]));
+    const timeOffset = value.match(/^\{\{(today|tomorrow)At:([01]\d|2[0-3]):([0-5]\d)\}\}$/);
+    if (timeOffset) {
+      const date = new Date(`${dateAtOffset(timeOffset[1] === "today" ? 0 : 1)}T12:00:00`);
+      date.setHours(Number(timeOffset[2]), Number(timeOffset[3]), 0, 0);
+      return date.toISOString();
+    }
     const minuteOffset = value.match(/^\{\{in:(\d+)\}\}$/);
-    if (minuteOffset) return new Date(Date.now() + Number(minuteOffset[1]) * 60_000).toISOString();
+    if (minuteOffset) return new Date(mockNow().getTime() + Number(minuteOffset[1]) * 60_000).toISOString();
     return value;
   }
   if (Array.isArray(value)) return value.map(resolveFixture);
@@ -68,12 +88,22 @@ function isDisplayRequest(request: Request) {
 }
 
 export const handlers = [
+  http.get("*/api/local-mocks/clock", () => json({ now: mockNow().toISOString(), time: state.clockTime })),
+  http.post("*/api/local-mocks/clock", async ({ request }) => {
+    const body = await request.json() as { time?: string | null };
+    if (body.time !== null && (typeof body.time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time))) {
+      return json({ error: "Use a 24-hour time such as 07:30." }, 400);
+    }
+    setMockClock(body.time ?? null);
+    return json({ now: mockNow().toISOString(), time: state.clockTime });
+  }),
   http.post("*/api/local-mocks/reset", () => {
     state.data = structuredClone(fixture);
     state.approved = false;
     state.autoApprove = false;
     state.challengeId = "";
     state.challengeNumber = 0;
+    state.clockTime = null;
     return json({ reset: true });
   }),
   http.post("*/api/local-mocks/pairing/approve", () => {

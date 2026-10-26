@@ -44,7 +44,7 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 		"timezone": {home.Timezone}, "timeformat": {"unixtime"}, "forecast_days": {"7"},
 		"current": {"temperature_2m,weather_code,wind_speed_10m"},
 		"hourly":  {"temperature_2m,weather_code,precipitation_probability,wind_speed_10m"},
-		"daily":   {"temperature_2m_max,temperature_2m_min,precipitation_probability_max"},
+		"daily":   {"temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max"},
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, provider.endpoint+"?"+parameters.Encode(), nil)
 	if err != nil {

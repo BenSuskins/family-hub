@@ -18,6 +18,9 @@ func TestWeatherForecastAdviceAndExpiry(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
+		if !strings.Contains(r.URL.Query().Get("daily"), "weather_code") {
+			t.Error("daily weather code must be requested")
+		}
 		if requests > 1 {
 			w.WriteHeader(503)
 			return

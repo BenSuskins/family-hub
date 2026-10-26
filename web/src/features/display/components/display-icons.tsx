@@ -1,4 +1,20 @@
-import { CalendarDays, CarFront, Cloud, CloudFog, CloudRain, CloudSnow, CloudSun, ListChecks, Monitor, ShoppingBag, Sun, TrainFront, Trash2, Utensils, type LucideIcon } from "lucide-react";
+import {
+  CalendarDays,
+  CarFront,
+  Cloud,
+  CloudFog,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
+  ListChecks,
+  Monitor,
+  ShoppingBag,
+  Sun,
+  TrainFront,
+  Trash2,
+  Utensils,
+  type LucideIcon,
+} from "lucide-react";
 
 const sectionIcons: Record<string, LucideIcon> = {
   calendar: CalendarDays,
@@ -11,12 +27,31 @@ const sectionIcons: Record<string, LucideIcon> = {
   shopping: ShoppingBag,
 };
 
-export function SectionIcon({ name, size = 21 }: { name: string; size?: number }) {
+export function SectionIcon({
+  name,
+  size = 21,
+}: {
+  name: string;
+  size?: number;
+}) {
   const Icon = sectionIcons[name] ?? Monitor;
-  return <Icon size={size} strokeWidth={1.7} aria-hidden="true" className="display-icon" />;
+  return (
+    <Icon
+      size={size}
+      strokeWidth={1.7}
+      aria-hidden="true"
+      className="display-icon"
+    />
+  );
 }
 
-export function WeatherIcon({ code, size = 21 }: { code: number; size?: number }) {
+export function WeatherIcon({
+  code,
+  size = 21,
+}: {
+  code: number;
+  size?: number;
+}) {
   let Icon: LucideIcon = CloudRain;
   if (code === 0) Icon = Sun;
   else if ([1, 2].includes(code)) Icon = CloudSun;

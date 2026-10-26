@@ -17,11 +17,11 @@ export function SectionIcon({ name, size = 21 }: { name: string; size?: number }
 }
 
 export function WeatherIcon({ code, size = 21 }: { code: number; size?: number }) {
-  const Icon = code === 0 ? Sun
-    : [1, 2].includes(code) ? CloudSun
-      : code === 3 ? Cloud
-        : [45, 48].includes(code) ? CloudFog
-          : [71, 73, 75, 77, 85, 86].includes(code) ? CloudSnow
-            : CloudRain;
+  let Icon: LucideIcon = CloudRain;
+  if (code === 0) Icon = Sun;
+  else if ([1, 2].includes(code)) Icon = CloudSun;
+  else if (code === 3) Icon = Cloud;
+  else if ([45, 48].includes(code)) Icon = CloudFog;
+  else if ([71, 73, 75, 77, 85, 86].includes(code)) Icon = CloudSnow;
   return <Icon size={size} strokeWidth={1.7} aria-hidden="true" />;
 }

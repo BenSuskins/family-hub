@@ -25,12 +25,14 @@ export type DisplayEvent = {
   EndTime?: string | null;
   AllDay?: boolean;
   Location?: string;
+  Color?: string;
 };
 
 export type DisplayDeparture = {
   eventID: string;
   title: string;
   destination: string;
+  subtitle?: string;
   startTime: string;
   leaveAt: string;
   drivingSeconds: number;
@@ -100,12 +102,18 @@ export function usefulCalendarEvents(events: DisplayEvent[], now: Date, timezone
     .sort((first, second) => first.StartTime.localeCompare(second.StartTime));
 }
 
-export function relevantDepartures(departures: DisplayDeparture[], now: Date, hoursAhead = 6) {
-  const latestRelevantLeave = now.getTime() + hoursAhead * 60 * 60 * 1000;
+export function relevantDepartures(departures: DisplayDeparture[], now: Date, minutesAhead = 45) {
+  const earliestRelevantLeave = now.getTime() - 10 * 60 * 1000;
+  const latestRelevantLeave = now.getTime() + minutesAhead * 60 * 1000;
   return departures
     .filter(item => {
       const leaveAt = Date.parse(item.leaveAt);
-      return Number.isFinite(leaveAt) && leaveAt >= now.getTime() && leaveAt <= latestRelevantLeave;
+      const startTime = Date.parse(item.startTime);
+      return Number.isFinite(leaveAt)
+        && Number.isFinite(startTime)
+        && leaveAt >= earliestRelevantLeave
+        && leaveAt <= latestRelevantLeave
+        && startTime > now.getTime();
     })
     .sort((first, second) => Date.parse(first.leaveAt) - Date.parse(second.leaveAt));
 }
@@ -134,12 +142,11 @@ export function displayGreeting(hour: number, departureSoon: boolean) {
 export function rankDisplayCards(context: DisplayCardContext) {
   const candidates = [
     { key: "calendar", score: context.hasCalendarEvents ? 80 : 0 },
-    { key: "meals", score: context.dinnerNext ? 90 : 65 },
+    { key: "meals", score: context.hour >= 16 ? 90 : 65 },
     { key: "chores", score: context.hasOpenChores ? context.hour >= 16 ? 74 : 48 : 0 },
-    { key: "departures", score: context.departureSoon ? 110 : 35 },
-    { key: "bins", score: context.binsRelevant ? context.binsTomorrow ? context.hour >= 17 ? 85 : 35 : 60 : 0 },
-    { key: "trains", score: context.trainsAvailable ? context.hour >= 7 && context.hour < 10 ? 88 : context.hour >= 16 && context.hour < 19 ? 45 : 40 : 0 },
-    { key: "weather", score: context.weatherAvailable ? 30 : 0 },
+    { key: "departures", score: context.departureSoon ? 110 : 0 },
+    { key: "bins", score: context.binsRelevant && context.hour >= 17 ? 85 : 0 },
+    { key: "trains", score: context.trainsAvailable ? context.hour >= 7 && context.hour < 10 ? 88 : context.hour >= 16 && context.hour < 19 ? 45 : 0 : 0 },
   ];
   return candidates.filter(candidate => candidate.score > 0)
     .sort((first, second) => second.score - first.score)

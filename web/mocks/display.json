@@ -33,17 +33,66 @@
   "calendar": {
     "events": [
       {
-        "ID": "event-swimming",
-        "Title": "Swimming lesson",
-        "StartTime": "{{todayAt:15:43}}",
-        "EndTime": "{{todayAt:16:43}}",
-        "Location": "Riverside Pool"
+        "ID": "event-school-dropoff",
+        "Title": "School drop-off",
+        "StartTime": "{{todayAt:08:30}}",
+        "EndTime": "{{todayAt:09:00}}",
+        "Location": "Oakwood Primary",
+        "Color": "#748a66"
       },
       {
-        "ID": "event-dinner",
+        "ID": "event-pickup",
+        "Title": "School pick-up",
+        "StartTime": "{{todayAt:15:20}}",
+        "EndTime": "{{todayAt:15:50}}",
+        "Location": "Oakwood Primary",
+        "Color": "#748a66"
+      },
+      {
+        "ID": "event-swimming",
+        "Title": "Swimming lesson",
+        "StartTime": "{{todayAt:18:30}}",
+        "EndTime": "{{todayAt:19:30}}",
+        "Location": "Riverside Pool",
+        "Color": "#718da6"
+      },
+      {
+        "ID": "event-library",
+        "Title": "Library",
+        "StartTime": "{{dateAt:1:15:30}}",
+        "EndTime": "{{dateAt:1:16:30}}",
+        "Location": "Kelvedon Library",
+        "Color": "#9b7754"
+      },
+      {
+        "ID": "event-football",
+        "Title": "Football",
+        "StartTime": "{{dateAt:2:16:00}}",
+        "EndTime": "{{dateAt:2:17:00}}",
+        "Location": "Recreation Ground",
+        "Color": "#718da6"
+      },
+      {
+        "ID": "event-thursday-swim",
+        "Title": "Swimming",
+        "StartTime": "{{dateAt:3:18:30}}",
+        "EndTime": "{{dateAt:3:19:30}}",
+        "Location": "Riverside Pool",
+        "Color": "#718da6"
+      },
+      {
+        "ID": "event-pizza",
+        "Title": "Pizza night",
+        "StartTime": "{{dateAt:4:17:00}}",
+        "EndTime": "{{dateAt:4:18:00}}",
+        "Location": "Home",
+        "Color": "#8b503c"
+      },
+      {
+        "ID": "event-family-dinner",
         "Title": "Dinner with grandparents",
-        "StartTime": "{{todayAt:18:43}}",
-        "EndTime": "{{todayAt:19:43}}",
+        "StartTime": "{{dateAt:5:18:43}}",
+        "EndTime": "{{dateAt:5:19:43}}",
         "Location": "Home"
       }
     ],
@@ -60,13 +109,13 @@
         "Name": "Set the table",
         "Status": "pending",
         "DueDate": "{{today}}",
-        "AssignedToUserID": null
+        "AssignedToUserID": "person-maya"
       },
       {
         "ID": "chore-laundry",
         "Name": "Fold the laundry",
         "Status": "pending",
-        "DueDate": "{{tomorrow}}",
+        "DueDate": "{{today}}",
         "AssignedToUserID": null
       }
     ],
@@ -89,12 +138,17 @@
       {
         "Date": "{{tomorrow}}",
         "MealType": "breakfast",
-        "Name": "Yoghurt and fruit"
+        "Name": "Overnight oats"
+      },
+      {
+        "Date": "{{tomorrow}}",
+        "MealType": "lunch",
+        "Name": "Tomato soup & toast"
       },
       {
         "Date": "{{tomorrow}}",
         "MealType": "dinner",
-        "Name": "Vegetable curry"
+        "Name": "Salmon and greens"
       }
     ],
     "availability": {
@@ -106,22 +160,49 @@
     "status": "available",
     "current": {
       "temperature": 14,
-      "code": 2
+      "code": 1,
+      "summary": "Mostly sunny"
     },
+    "location": "Kelvedon",
+    "advice": "Mostly dry through the week. A wetter spell may arrive on Friday.",
     "high": 16,
     "low": 9,
     "hours": [
       {
-        "time": "{{in:60}}",
-        "temperature": 13,
+        "time": "{{hour:0}}",
+        "temperature": 14,
         "code": 2,
-        "rainProbability": 10
+        "rainProbability": 0
       },
       {
-        "time": "{{in:120}}",
+        "time": "{{hour:1}}",
+        "temperature": 13,
+        "code": 0,
+        "rainProbability": 0
+      },
+      {
+        "time": "{{hour:2}}",
         "temperature": 12,
         "code": 3,
-        "rainProbability": 15
+        "rainProbability": 0
+      },
+      {
+        "time": "{{hour:3}}",
+        "temperature": 11,
+        "code": 3,
+        "rainProbability": 0
+      },
+      {
+        "time": "{{hour:4}}",
+        "temperature": 10,
+        "code": 3,
+        "rainProbability": 0
+      },
+      {
+        "time": "{{hour:5}}",
+        "temperature": 10,
+        "code": 3,
+        "rainProbability": 10
       }
     ],
     "days": [
@@ -134,45 +215,45 @@
       },
       {
         "date": "{{date:1}}",
-        "high": 15,
-        "low": 8,
-        "code": 3,
-        "rainProbability": 20
-      },
-      {
-        "date": "{{date:2}}",
-        "high": 14,
-        "low": 7,
-        "code": 61,
-        "rainProbability": 65
-      },
-      {
-        "date": "{{date:3}}",
         "high": 17,
-        "low": 10,
-        "code": 1,
+        "low": 8,
+        "code": 0,
         "rainProbability": 5
       },
       {
-        "date": "{{date:4}}",
-        "high": 18,
-        "low": 11,
+        "date": "{{date:2}}",
+        "high": 15,
+        "low": 9,
         "code": 0,
-        "rainProbability": 0
+        "rainProbability": 20
+      },
+      {
+        "date": "{{date:3}}",
+        "high": 13,
+        "low": 7,
+        "code": 3,
+        "rainProbability": 45
+      },
+      {
+        "date": "{{date:4}}",
+        "high": 12,
+        "low": 8,
+        "code": 3,
+        "rainProbability": 60
       },
       {
         "date": "{{date:5}}",
-        "high": 16,
-        "low": 9,
-        "code": 3,
-        "rainProbability": 25
+        "high": 14,
+        "low": 7,
+        "code": 0,
+        "rainProbability": 10
       },
       {
         "date": "{{date:6}}",
-        "high": 15,
+        "high": 13,
         "low": 8,
-        "code": 2,
-        "rainProbability": 15
+        "code": 3,
+        "rainProbability": 30
       }
     ]
   },
@@ -183,8 +264,9 @@
         "eventID": "event-swimming",
         "title": "Swimming lesson",
         "destination": "Riverside Pool",
-        "startTime": "{{todayAt:15:43}}",
-        "leaveAt": "{{todayAt:15:15}}",
+        "subtitle": "Leo · Sam taking",
+        "startTime": "{{todayAt:18:30}}",
+        "leaveAt": "{{todayAt:18:05}}",
         "drivingSeconds": 1080
       }
     ]
@@ -214,17 +296,17 @@
         "trains": [
           {
             "serviceId": "train-1",
-            "status": "on_time",
-            "scheduledDeparture": "18:12",
-            "expectedDeparture": "18:12",
+            "status": "delayed",
+          "scheduledDeparture": "17:49",
+          "expectedDeparture": "17:51",
             "platform": "2",
             "operator": "Greater Anglia"
           },
           {
             "serviceId": "train-2",
-            "status": "delayed",
-            "scheduledDeparture": "18:27",
-            "expectedDeparture": "18:31",
+            "status": "on_time",
+          "scheduledDeparture": "18:07",
+          "expectedDeparture": "18:07",
             "platform": null,
             "operator": "Greater Anglia"
           }

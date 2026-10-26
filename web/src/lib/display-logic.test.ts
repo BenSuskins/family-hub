@@ -67,11 +67,12 @@ test("calendar selection keeps ongoing events and excludes ended events", () => 
 
 test("departure cards exclude past and distant journeys and sort by leave time", () => {
   const result = relevantDepartures([
-    { eventID: "late", title: "Later", destination: "", startTime: "", leaveAt: "2026-10-26T15:00:00Z", drivingSeconds: 0 },
-    { eventID: "past", title: "Past", destination: "", startTime: "", leaveAt: "2026-10-26T09:00:00Z", drivingSeconds: 0 },
-    { eventID: "soon", title: "Soon", destination: "", startTime: "", leaveAt: "2026-10-26T12:30:00Z", drivingSeconds: 0 },
+    { eventID: "late", title: "Later", destination: "", startTime: "2026-10-26T15:40:00Z", leaveAt: "2026-10-26T15:00:00Z", drivingSeconds: 0 },
+    { eventID: "past", title: "Past", destination: "", startTime: "2026-10-26T09:30:00Z", leaveAt: "2026-10-26T09:00:00Z", drivingSeconds: 0 },
+    { eventID: "just-passed", title: "Just passed", destination: "", startTime: "2026-10-26T12:25:00Z", leaveAt: "2026-10-26T11:55:00Z", drivingSeconds: 0 },
+    { eventID: "soon", title: "Soon", destination: "", startTime: "2026-10-26T13:00:00Z", leaveAt: "2026-10-26T12:30:00Z", drivingSeconds: 0 },
   ], new Date("2026-10-26T12:00:00Z"));
-  assert.deepEqual(result.map(item => item.eventID), ["soon", "late"]);
+  assert.deepEqual(result.map(item => item.eventID), ["just-passed", "soon"]);
 });
 
 test("bin relevance includes today and tomorrow only", () => {

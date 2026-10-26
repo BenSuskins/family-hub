@@ -47,8 +47,20 @@ function resolveFixture(value: unknown): unknown {
     if (value === "{{today}}") return dateAtOffset(0);
     if (value === "{{tomorrow}}") return dateAtOffset(1);
     if (value === "{{now}}") return mockNow().toISOString();
+    const hourOffset = value.match(/^\{\{hour:(\d+)\}\}$/);
+    if (hourOffset) {
+      const date = mockNow();
+      date.setHours(date.getHours() + Number(hourOffset[1]), 0, 0, 0);
+      return date.toISOString();
+    }
     const dateOffset = value.match(/^\{\{date:(-?\d+)\}\}$/);
     if (dateOffset) return dateAtOffset(Number(dateOffset[1]));
+    const dateTime = value.match(/^\{\{dateAt:(-?\d+):([01]\d|2[0-3]):([0-5]\d)\}\}$/);
+    if (dateTime) {
+      const date = new Date(`${dateAtOffset(Number(dateTime[1]))}T12:00:00`);
+      date.setHours(Number(dateTime[2]), Number(dateTime[3]), 0, 0);
+      return date.toISOString();
+    }
     const timeOffset = value.match(/^\{\{(today|tomorrow)At:([01]\d|2[0-3]):([0-5]\d)\}\}$/);
     if (timeOffset) {
       const date = new Date(`${dateAtOffset(timeOffset[1] === "today" ? 0 : 1)}T12:00:00`);

@@ -69,6 +69,11 @@ function resolveFixture(value: unknown): unknown {
     }
     const minuteOffset = value.match(/^\{\{in:(\d+)\}\}$/);
     if (minuteOffset) return new Date(mockNow().getTime() + Number(minuteOffset[1]) * 60_000).toISOString();
+    const clockOffset = value.match(/^\{\{clock:(\d+)\}\}$/);
+    if (clockOffset) {
+      return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+        .format(new Date(mockNow().getTime() + Number(clockOffset[1]) * 60_000));
+    }
     return value;
   }
   if (Array.isArray(value)) return value.map(resolveFixture);
@@ -140,7 +145,15 @@ export const handlers = [
     const data = state.data;
     const resource = String(params.resource ?? "");
     const calendar = resolveFixture(data.calendar) as Fixture["calendar"];
-    const date = new URL(request.url).searchParams.get("date") ?? dateAtOffset(0);
+    const query = new URL(request.url).searchParams;
+    const date = query.get("date") ?? dateAtOffset(0);
+    if (resource === "calendar" && query.get("view") === "week") {
+      const prototypeEventIds = new Set(["event-school-dropoff", "event-library", "event-football", "event-thursday-swim", "event-pizza"]);
+      calendar.events = calendar.events.filter(event => prototypeEventIds.has(event.ID));
+      calendar.chores = [];
+    } else if (resource === "calendar") {
+      calendar.events = calendar.events.filter(event => event.StartTime.slice(0, 10) === dateAtOffset(0));
+    }
     const week = calendarWeek(date);
     if (!week) return json({ error: "Invalid date format, use YYYY-MM-DD." }, 400);
     const inWeek = (value: string) => value >= week.start && value < week.end;

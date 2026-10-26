@@ -87,13 +87,6 @@
         "EndTime": "{{dateAt:4:18:00}}",
         "Location": "Home",
         "Color": "#8b503c"
-      },
-      {
-        "ID": "event-family-dinner",
-        "Title": "Dinner with grandparents",
-        "StartTime": "{{dateAt:5:18:43}}",
-        "EndTime": "{{dateAt:5:19:43}}",
-        "Location": "Home"
       }
     ],
     "chores": [
@@ -175,33 +168,33 @@
         "rainProbability": 0
       },
       {
-        "time": "{{hour:1}}",
+        "time": "{{todayAt:18:00}}",
         "temperature": 13,
         "code": 0,
         "rainProbability": 0
       },
       {
-        "time": "{{hour:2}}",
+        "time": "{{todayAt:19:00}}",
         "temperature": 12,
-        "code": 3,
+        "code": 0,
         "rainProbability": 0
       },
       {
-        "time": "{{hour:3}}",
+        "time": "{{todayAt:20:00}}",
         "temperature": 11,
         "code": 3,
         "rainProbability": 0
       },
       {
-        "time": "{{hour:4}}",
+        "time": "{{todayAt:21:00}}",
         "temperature": 10,
         "code": 3,
         "rainProbability": 0
       },
       {
-        "time": "{{hour:5}}",
+        "time": "{{todayAt:22:00}}",
         "temperature": 10,
-        "code": 3,
+        "code": 0,
         "rainProbability": 10
       }
     ],
@@ -297,16 +290,16 @@
           {
             "serviceId": "train-1",
             "status": "delayed",
-          "scheduledDeparture": "17:49",
-          "expectedDeparture": "17:51",
+            "scheduledDeparture": "{{clock:9}}",
+            "expectedDeparture": "{{clock:11}}",
             "platform": "2",
             "operator": "Greater Anglia"
           },
           {
             "serviceId": "train-2",
             "status": "on_time",
-          "scheduledDeparture": "18:07",
-          "expectedDeparture": "18:07",
+            "scheduledDeparture": "{{clock:27}}",
+            "expectedDeparture": "{{clock:27}}",
             "platform": null,
             "operator": "Greater Anglia"
           }

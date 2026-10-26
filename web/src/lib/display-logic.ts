@@ -72,7 +72,7 @@ export function mealWindowAt(date: Date, timezone: string): MealWindow {
   const minute = Number(parts.find(part => part.type === "minute")?.value ?? "0");
   const minutes = hour * 60 + minute;
   const today = dayKeyAt(date, timezone);
-  const tomorrow = minutes >= 20 * 60 + 30;
+  const tomorrow = minutes >= 20 * 60;
   return {
     date: tomorrow ? nextDayKey(today) : today,
     label: tomorrow ? "Tomorrow" : "Today",

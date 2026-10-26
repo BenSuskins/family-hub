@@ -294,11 +294,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .week-cell { position: relative; display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding: 3px; }
 .week-event { --event-color: #7895a7; flex: 1; height: auto; min-height: 0; overflow: hidden; border-left: 3px solid var(--event-color); border-radius: 6px; padding: 4px; background: color-mix(in srgb, var(--event-color) 14%, var(--surface)); font-size: 11px; line-height: 1.2; }
 .week-event > small { display: block; margin-bottom: 3px; color: var(--secondary); font-size: 10px; }
-.week-event > span { display: block; margin-top: 3px; color: var(--secondary); font-size: 10px; }
 .calendar-empty { margin: 0 0 10px; color: var(--secondary); }
-.calendar-chores { display: grid; gap: 8px; margin-top: 18px; }
-.calendar-chores h3 { color: var(--accent); font-size: 16px; }
-.calendar-chores p { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .event-detail { display: grid; gap: 12px; padding: 8px; }
 .event-detail > p:first-child { color: var(--secondary); }
 .event-detail h3 { font-size: 26px; }

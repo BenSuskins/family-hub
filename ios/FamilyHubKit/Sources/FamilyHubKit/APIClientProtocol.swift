@@ -103,6 +103,9 @@ public protocol APIClientProtocol: AnyObject {
     func deleteToken(id: String) async throws
     func fetchPairedDisplays() async throws -> [PairedDisplay]
     func updatePairedDisplaySections(id: String, enabledSections: [String]) async throws
+    func updatePairedDisplayName(id: String, name: String) async throws
+    func fetchPairedDisplayCommute(id: String) async throws -> CommutePreferences
+    func updatePairedDisplayCommute(id: String, preferences: CommutePreferences) async throws
     func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws
     func deletePairedDisplay(id: String) async throws
 

@@ -110,7 +110,7 @@ color is never the only status cue. Keep text contrast at WCAG AA levels.
 
 - Show breakfast as the next meal before 11:00, lunch from 11:00, and dinner
   from 16:00 to 18:00 in the household's local time.
-- From 18:00, preview tomorrow's plan and mark breakfast as next.
+- From 20:30, preview tomorrow's plan and mark breakfast as next.
 - Label the next slot in text, even when it has no planned meal. Open the meal
   editor at the selected date and meal type when a slot is tapped.
 

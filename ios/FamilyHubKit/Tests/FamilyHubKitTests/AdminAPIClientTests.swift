@@ -49,7 +49,11 @@ private final class AdminHTTPFixture: @unchecked Sendable {
         case ("PATCH", "/api/bin-collections"):
             return (200, Data(#"{"enabled":false,"uploaded_at":"2026-10-25T12:00:00Z","collection_count":12,"push_available":true}"#.utf8), [:])
         case ("GET", "/api/displays"):
-            return (200, Data(#"[{"id":"display-1","name":"Kitchen","pairedByUserId":"user-1","createdAt":"2026-10-25T12:00:00Z"}]"#.utf8), [:])
+            return (200, Data(#"[{"id":"display-1","name":"Kitchen","pairedByUserId":null,"createdAt":"2026-10-25T12:00:00Z","enabledSections":["calendar"],"commutePreferences":{"toWork":{"enabled":true,"weekdays":[2,3,4,5,6],"start":"06:30","end":"09:30"},"toHome":{"enabled":false,"weekdays":[2,3,4,5,6],"start":"16:00","end":"19:30"},"homeStationCode":"KGX","workStationCode":"CBG","trainCount":4}}]"#.utf8), [:])
+        case ("PATCH", "/api/displays/display-1/name"):
+            return (200, Data(#"{"name":"Hall"}"#.utf8), [:])
+        case ("GET", "/api/displays/display-1/commute"), ("PUT", "/api/displays/display-1/commute"):
+            return (200, Data(#"{"toWork":{"enabled":true,"weekdays":[2,3,4,5,6],"start":"06:30","end":"09:30"},"toHome":{"enabled":false,"weekdays":[2,3,4,5,6],"start":"16:00","end":"19:30"},"homeStationCode":"KGX","workStationCode":"CBG","trainCount":4}"#.utf8), [:])
         case ("POST", "/api/display-pairing/challenges/challenge-1/approve"):
             return (200, Data(#"{"status":"approved"}"#.utf8), [:])
         case ("DELETE", "/api/displays/display-1"):
@@ -161,14 +165,21 @@ final class AdminAPIClientTests: XCTestCase {
         let client = makeClient()
         let displays = try await client.fetchPairedDisplays()
         XCTAssertEqual(displays.map(\.name), ["Kitchen"])
+        XCTAssertEqual(displays[0].pairedByUserID, "")
+        XCTAssertEqual(displays[0].commutePreferences.trainCount, 4)
         try await client.approveDisplayPairing(id: "challenge-1", pairingCode: String(repeating: "a", count: 64), name: "Hall")
+        try await client.updatePairedDisplayName(id: "display-1", name: "Hall")
+        let commute = try await client.fetchPairedDisplayCommute(id: "display-1")
+        XCTAssertEqual(commute.homeStationCode, "KGX")
+        try await client.updatePairedDisplayCommute(id: "display-1", preferences: commute)
         try await client.deletePairedDisplay(id: "display-1")
 
         let requests = AdminURLProtocol.fixture.requests
-        XCTAssertEqual(requests.map(\.httpMethod), ["GET", "POST", "DELETE"])
+        XCTAssertEqual(requests.map(\.httpMethod), ["GET", "POST", "PATCH", "GET", "PUT", "DELETE"])
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(AdminURLProtocol.fixture.body(at: 1))) as? [String: String])
         XCTAssertEqual(body, ["pairingCode": String(repeating: "a", count: 64), "name": "Hall"])
-        XCTAssertEqual(requests[2].url?.path, "/api/displays/display-1")
+        XCTAssertEqual(requests[2].url?.path, "/api/displays/display-1/name")
+        XCTAssertEqual(requests[4].url?.path, "/api/displays/display-1/commute")
     }
 
     private func makeClient() -> APIClient {

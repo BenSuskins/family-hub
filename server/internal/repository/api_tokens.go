@@ -52,13 +52,15 @@ func (repository *SQLiteAPITokenRepository) Create(ctx context.Context, token mo
 
 func (repository *SQLiteAPITokenRepository) FindByTokenHash(ctx context.Context, tokenHash string) (models.APIToken, error) {
 	var token models.APIToken
+	var createdBy sql.NullString
 	err := repository.database.QueryRowContext(ctx,
 		`SELECT id, name, token_hash, scope, created_by_user_id, expires_at, created_at
 		FROM api_tokens WHERE token_hash = ?`, tokenHash,
-	).Scan(&token.ID, &token.Name, &token.TokenHash, &token.Scope, &token.CreatedByUserID, &token.ExpiresAt, &token.CreatedAt)
+	).Scan(&token.ID, &token.Name, &token.TokenHash, &token.Scope, &createdBy, &token.ExpiresAt, &token.CreatedAt)
 	if err != nil {
 		return models.APIToken{}, fmt.Errorf("finding token by hash: %w", err)
 	}
+	token.CreatedByUserID = createdBy.String
 	return token, nil
 }
 
@@ -101,12 +103,14 @@ func scanAPITokens(rows *sql.Rows) ([]models.APIToken, error) {
 	var tokens []models.APIToken
 	for rows.Next() {
 		var token models.APIToken
+		var createdBy sql.NullString
 		if err := rows.Scan(
 			&token.ID, &token.Name, &token.TokenHash, &token.Scope,
-			&token.CreatedByUserID, &token.ExpiresAt, &token.CreatedAt,
+			&createdBy, &token.ExpiresAt, &token.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning token: %w", err)
 		}
+		token.CreatedByUserID = createdBy.String
 		tokens = append(tokens, token)
 	}
 	return tokens, rows.Err()

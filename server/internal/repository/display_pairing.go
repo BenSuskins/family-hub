@@ -15,11 +15,12 @@ import (
 var ErrPairingUnavailable = errors.New("pairing challenge is invalid, expired, or already used")
 
 type PairedDisplay struct {
-	ID              string    `json:"id"`
-	Name            string    `json:"name"`
-	PairedByUserID  string    `json:"pairedByUserId"`
-	CreatedAt       time.Time `json:"createdAt"`
-	EnabledSections []string  `json:"enabledSections"`
+	ID                 string                           `json:"id"`
+	Name               string                           `json:"name"`
+	PairedByUserID     string                           `json:"pairedByUserId"`
+	CreatedAt          time.Time                        `json:"createdAt"`
+	EnabledSections    []string                         `json:"enabledSections"`
+	CommutePreferences models.DisplayCommutePreferences `json:"commutePreferences"`
 }
 
 type DisplayPairingRepository interface {
@@ -28,7 +29,10 @@ type DisplayPairingRepository interface {
 	ClaimChallenge(context.Context, string, string, models.APIToken) error
 	List(context.Context) ([]PairedDisplay, error)
 	UpdateSections(context.Context, string, []string) error
+	UpdateDetails(context.Context, string, string) error
+	UpdateCommutePreferences(context.Context, string, models.DisplayCommutePreferences) error
 	FindByTokenID(context.Context, string) (PairedDisplay, error)
+	FindByID(context.Context, string) (PairedDisplay, error)
 	Revoke(context.Context, string) error
 }
 
@@ -79,10 +83,12 @@ func (repository *SQLiteDisplayPairingRepository) ClaimChallenge(ctx context.Con
 		token.ID = uuid.NewString()
 	}
 	now := time.Now()
-	if _, err = transaction.ExecContext(ctx, `INSERT INTO api_tokens (id,name,token_hash,scope,created_by_user_id,expires_at,created_at) VALUES (?,?,?,?,?,?,?)`, token.ID, "Wall display: "+name, token.TokenHash, models.TokenScopeDisplay, userID, nil, now); err != nil {
+	if _, err = transaction.ExecContext(ctx, `INSERT INTO api_tokens (id,name,token_hash,scope,created_by_user_id,expires_at,created_at) VALUES (?,?,?,?,NULL,NULL,?)`, token.ID, "Wall display: "+name, token.TokenHash, models.TokenScopeDisplay, now); err != nil {
 		return fmt.Errorf("creating display token: %w", err)
 	}
-	if _, err = transaction.ExecContext(ctx, `INSERT INTO paired_displays (id,name,api_token_id,paired_by_user_id,created_at) VALUES (?,?,?,?,?)`, id, name, token.ID, userID, now); err != nil {
+	sections, _ := json.Marshal(models.DisplayDefaultSections)
+	commute, _ := json.Marshal(models.DefaultDisplayCommutePreferences())
+	if _, err = transaction.ExecContext(ctx, `INSERT INTO paired_displays (id,name,api_token_id,paired_by_user_id,created_at,enabled_sections,commute_preferences) VALUES (?,?,?,?,?,?,?)`, id, name, token.ID, userID, now, string(sections), string(commute)); err != nil {
 		return fmt.Errorf("saving paired display: %w", err)
 	}
 	if _, err = transaction.ExecContext(ctx, `UPDATE display_pairing_challenges SET status='claimed',claimed_at=? WHERE id=? AND status='approved'`, now, id); err != nil {
@@ -95,7 +101,7 @@ func (repository *SQLiteDisplayPairingRepository) ClaimChallenge(ctx context.Con
 }
 
 func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]PairedDisplay, error) {
-	rows, err := repository.database.QueryContext(ctx, `SELECT id,name,paired_by_user_id,created_at,enabled_sections FROM paired_displays ORDER BY created_at DESC`)
+	rows, err := repository.database.QueryContext(ctx, `SELECT id,name,COALESCE(paired_by_user_id,''),created_at,enabled_sections,commute_preferences FROM paired_displays ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing paired displays: %w", err)
 	}
@@ -103,12 +109,15 @@ func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]P
 	var displays []PairedDisplay
 	for rows.Next() {
 		var display PairedDisplay
-		var sections string
-		if err := rows.Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections); err != nil {
+		var sections, commute string
+		if err := rows.Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections, &commute); err != nil {
 			return nil, fmt.Errorf("scanning paired display: %w", err)
 		}
 		if err := json.Unmarshal([]byte(sections), &display.EnabledSections); err != nil {
 			return nil, fmt.Errorf("decoding paired display sections: %w", err)
+		}
+		if err := json.Unmarshal([]byte(commute), &display.CommutePreferences); err != nil {
+			return nil, fmt.Errorf("decoding paired display commute settings: %w", err)
 		}
 		displays = append(displays, display)
 	}
@@ -119,6 +128,40 @@ func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]P
 		displays = []PairedDisplay{}
 	}
 	return displays, nil
+}
+
+func (repository *SQLiteDisplayPairingRepository) UpdateDetails(ctx context.Context, id, name string) error {
+	result, err := repository.database.ExecContext(ctx, `UPDATE paired_displays SET name=? WHERE id=?`, name, id)
+	if err != nil {
+		return fmt.Errorf("updating display name: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking display name update: %w", err)
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (repository *SQLiteDisplayPairingRepository) UpdateCommutePreferences(ctx context.Context, id string, preferences models.DisplayCommutePreferences) error {
+	encoded, err := json.Marshal(preferences)
+	if err != nil {
+		return fmt.Errorf("encoding display commute settings: %w", err)
+	}
+	result, err := repository.database.ExecContext(ctx, `UPDATE paired_displays SET commute_preferences=? WHERE id=?`, string(encoded), id)
+	if err != nil {
+		return fmt.Errorf("updating display commute settings: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking display commute update: %w", err)
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (repository *SQLiteDisplayPairingRepository) UpdateSections(ctx context.Context, id string, sections []string) error {
@@ -141,14 +184,26 @@ func (repository *SQLiteDisplayPairingRepository) UpdateSections(ctx context.Con
 }
 
 func (repository *SQLiteDisplayPairingRepository) FindByTokenID(ctx context.Context, tokenID string) (PairedDisplay, error) {
+	return repository.find(ctx, `WHERE api_token_id=?`, tokenID)
+}
+
+func (repository *SQLiteDisplayPairingRepository) FindByID(ctx context.Context, id string) (PairedDisplay, error) {
+	return repository.find(ctx, `WHERE id=?`, id)
+}
+
+func (repository *SQLiteDisplayPairingRepository) find(ctx context.Context, where string, value string) (PairedDisplay, error) {
 	var display PairedDisplay
 	var sections string
-	err := repository.database.QueryRowContext(ctx, `SELECT id,name,paired_by_user_id,created_at,enabled_sections FROM paired_displays WHERE api_token_id=?`, tokenID).Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections)
+	var commute string
+	err := repository.database.QueryRowContext(ctx, `SELECT id,name,COALESCE(paired_by_user_id,''),created_at,enabled_sections,commute_preferences FROM paired_displays `+where, value).Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections, &commute)
 	if err != nil {
 		return PairedDisplay{}, err
 	}
 	if err := json.Unmarshal([]byte(sections), &display.EnabledSections); err != nil {
 		return PairedDisplay{}, fmt.Errorf("decoding paired display sections: %w", err)
+	}
+	if err := json.Unmarshal([]byte(commute), &display.CommutePreferences); err != nil {
+		return PairedDisplay{}, fmt.Errorf("decoding paired display commute settings: %w", err)
 	}
 	return display, nil
 }

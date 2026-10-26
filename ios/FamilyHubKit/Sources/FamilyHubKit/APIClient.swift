@@ -893,6 +893,20 @@ public final class APIClient: APIClientProtocol {
         let _: Response = try await patch("api/displays/\(id)", body: Request(enabledSections: enabledSections))
     }
 
+    public func updatePairedDisplayName(id: String, name: String) async throws {
+        struct Request: Encodable { let name: String }
+        struct Response: Decodable { let name: String }
+        let _: Response = try await patch("api/displays/\(id)/name", body: Request(name: name))
+    }
+
+    public func fetchPairedDisplayCommute(id: String) async throws -> CommutePreferences {
+        try await get("api/displays/\(id)/commute")
+    }
+
+    public func updatePairedDisplayCommute(id: String, preferences: CommutePreferences) async throws {
+        let _: CommutePreferences = try await put("api/displays/\(id)/commute", body: preferences)
+    }
+
     public func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {
         struct Request: Encodable { let pairingCode: String; let name: String }
         struct Response: Decodable { let status: String }

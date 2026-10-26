@@ -608,7 +608,24 @@ final class DemoAPIClient: APIClientProtocol {
     func updatePairedDisplaySections(id: String, enabledSections: [String]) async throws {
         guard let index = pairedDisplays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
         let display = pairedDisplays[index]
-        pairedDisplays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections)
+        pairedDisplays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections, commutePreferences: display.commutePreferences)
+    }
+
+    func updatePairedDisplayName(id: String, name: String) async throws {
+        guard let index = pairedDisplays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = pairedDisplays[index]
+        pairedDisplays[index] = PairedDisplay(id: display.id, name: name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: display.enabledSections, commutePreferences: display.commutePreferences)
+    }
+
+    func fetchPairedDisplayCommute(id: String) async throws -> CommutePreferences {
+        guard let display = pairedDisplays.first(where: { $0.id == id }) else { throw APIError.notFound }
+        return display.commutePreferences
+    }
+
+    func updatePairedDisplayCommute(id: String, preferences: CommutePreferences) async throws {
+        guard let index = pairedDisplays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = pairedDisplays[index]
+        pairedDisplays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: display.enabledSections, commutePreferences: preferences)
     }
 
     func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {

@@ -232,7 +232,25 @@ final class FakeAPIClient: APIClientProtocol {
         var displays = try pairedDisplaysResult.get()
         guard let index = displays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
         let display = displays[index]
-        displays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections)
+        displays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections, commutePreferences: display.commutePreferences)
+        pairedDisplaysResult = .success(displays)
+    }
+    func updatePairedDisplayName(id: String, name: String) async throws {
+        var displays = try pairedDisplaysResult.get()
+        guard let index = displays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = displays[index]
+        displays[index] = PairedDisplay(id: display.id, name: name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: display.enabledSections, commutePreferences: display.commutePreferences)
+        pairedDisplaysResult = .success(displays)
+    }
+    func fetchPairedDisplayCommute(id: String) async throws -> CommutePreferences {
+        guard let display = try pairedDisplaysResult.get().first(where: { $0.id == id }) else { throw APIError.notFound }
+        return display.commutePreferences
+    }
+    func updatePairedDisplayCommute(id: String, preferences: CommutePreferences) async throws {
+        var displays = try pairedDisplaysResult.get()
+        guard let index = displays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = displays[index]
+        displays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: display.enabledSections, commutePreferences: preferences)
         pairedDisplaysResult = .success(displays)
     }
     func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws { try approveDisplayPairingResult.get() }

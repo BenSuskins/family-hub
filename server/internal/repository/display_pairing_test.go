@@ -41,12 +41,19 @@ func TestDisplayPairingRequiresApprovalAndAllowsOneClaim(t *testing.T) {
 		t.Fatalf("second claim error = %v", err)
 	}
 	token, err := tokens.FindByTokenHash(ctx, repository.HashToken("display-token"))
-	if err != nil || token.Scope != models.TokenScopeDisplay || token.CreatedByUserID != user.ID {
+	if err != nil || token.Scope != models.TokenScopeDisplay || token.CreatedByUserID != "" {
 		t.Fatalf("display token = %#v, %v", token, err)
 	}
 	displays, err := pairings.List(ctx)
 	if err != nil || len(displays) != 1 || displays[0].Name != "Kitchen" {
 		t.Fatalf("paired displays = %#v, %v", displays, err)
+	}
+	if _, err := database.ExecContext(ctx, `DELETE FROM users WHERE id=?`, user.ID); err != nil {
+		t.Fatalf("deleting pairing admin: %v", err)
+	}
+	displays, err = pairings.List(ctx)
+	if err != nil || len(displays) != 1 || displays[0].Name != "Kitchen" {
+		t.Fatalf("admin deletion removed paired display: %#v, %v", displays, err)
 	}
 	if err := pairings.Revoke(ctx, "challenge-1"); err != nil {
 		t.Fatalf("revoking display: %v", err)

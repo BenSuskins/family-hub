@@ -34,7 +34,7 @@ func NewMealPlanRepository(database *sql.DB) *SQLiteMealPlanRepository {
 func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Context, date string, mealType models.MealType) (models.MealPlan, error) {
 	var meal models.MealPlan
 	err := repository.database.QueryRowContext(ctx,
-		`SELECT date, meal_type, recipe_id, name, notes, created_by_user_id, created_at, updated_at
+		`SELECT date, meal_type, recipe_id, name, notes, COALESCE(created_by_user_id,''), created_at, updated_at
 		FROM meal_plans WHERE date = ? AND meal_type = ?`, date, mealType,
 	).Scan(
 		&meal.Date, &meal.MealType, &meal.RecipeID, &meal.Name,
@@ -47,7 +47,7 @@ func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Contex
 }
 
 func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter MealPlanFilter) ([]models.MealPlan, error) {
-	query := `SELECT date, meal_type, recipe_id, name, notes, created_by_user_id, created_at, updated_at
+	query := `SELECT date, meal_type, recipe_id, name, notes, COALESCE(created_by_user_id,''), created_at, updated_at
 	FROM meal_plans WHERE 1=1`
 
 	var args []any
@@ -80,7 +80,7 @@ func (repository *SQLiteMealPlanRepository) Upsert(ctx context.Context, meal mod
 	now := time.Now()
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO meal_plans (date, meal_type, recipe_id, name, notes, created_by_user_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?)
 		ON CONFLICT (date, meal_type) DO UPDATE SET
 			recipe_id = excluded.recipe_id,
 			name = excluded.name,

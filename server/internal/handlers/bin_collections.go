@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"io"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -25,8 +24,7 @@ func NewBinCollectionsHandler(settings repository.SettingsRepository, pushAvaila
 func (handler *BinCollectionsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
 	if err != nil {
-		slog.Error("loading bin schedule", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
@@ -35,7 +33,7 @@ func (handler *BinCollectionsHandler) Get(w http.ResponseWriter, r *http.Request
 func (handler *BinCollectionsHandler) GetForDisplay(w http.ResponseWriter, r *http.Request) {
 	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"collections": schedule.Collections})
@@ -69,13 +67,12 @@ func (handler *BinCollectionsHandler) Upload(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err := services.SaveBinSchedule(r.Context(), handler.settings, collections, handler.pushAvailable, time.Now()); err != nil {
-		slog.Error("saving bin schedule", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to save bin schedule")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to save bin schedule", err)
 		return
 	}
 	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load saved bin schedule")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load saved bin schedule", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
@@ -95,7 +92,7 @@ func (handler *BinCollectionsHandler) Update(w http.ResponseWriter, r *http.Requ
 	if body.Enabled {
 		existing, err := services.LoadBinSchedule(r.Context(), handler.settings)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 			return
 		}
 		if len(existing.Collections) == 0 {
@@ -105,8 +102,7 @@ func (handler *BinCollectionsHandler) Update(w http.ResponseWriter, r *http.Requ
 	}
 	schedule, err := services.UpdateBinScheduleEnabled(r.Context(), handler.settings, body.Enabled)
 	if err != nil {
-		slog.Error("updating bin reminder settings", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update bin reminders")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update bin reminders", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))

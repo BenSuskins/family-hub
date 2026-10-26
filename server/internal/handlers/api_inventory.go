@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -35,7 +34,7 @@ func (handler *APIHandler) ListInventory(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	areas, err := handler.inventoryRepo.FindAllAreas(ctx)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load inventory")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load inventory", err)
 		return
 	}
 	if areas == nil {
@@ -64,8 +63,7 @@ func (handler *APIHandler) CreateInventoryArea(w http.ResponseWriter, r *http.Re
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
-		slog.Error("creating inventory area via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create area")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create area", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
@@ -80,7 +78,7 @@ func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Re
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load area")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
 		}
 		return
 	}
@@ -103,8 +101,7 @@ func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := handler.inventoryRepo.UpdateArea(ctx, area); err != nil {
-		slog.Error("updating inventory area via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update area")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update area", err)
 		return
 	}
 
@@ -124,14 +121,13 @@ func (handler *APIHandler) DeleteInventoryArea(w http.ResponseWriter, r *http.Re
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load area")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
 		}
 		return
 	}
 
 	if err := handler.inventoryRepo.DeleteArea(ctx, areaID); err != nil {
-		slog.Error("deleting inventory area via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete area")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete area", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -146,7 +142,7 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load area")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
 		}
 		return
 	}
@@ -171,8 +167,7 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
-		slog.Error("creating inventory item via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create item")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create item", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
@@ -187,7 +182,7 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "item not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load item")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load item", err)
 		}
 		return
 	}
@@ -209,8 +204,7 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 	item.LowAt = body.LowAt
 
 	if err := handler.inventoryRepo.UpdateItem(ctx, item); err != nil {
-		slog.Error("updating inventory item via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update item")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update item", err)
 		return
 	}
 
@@ -230,14 +224,13 @@ func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Re
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "item not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load item")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load item", err)
 		}
 		return
 	}
 
 	if err := handler.inventoryRepo.DeleteItem(ctx, itemID); err != nil {
-		slog.Error("deleting inventory item via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete item")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete item", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -256,8 +249,7 @@ func (handler *APIHandler) UpdateInventoryStock(w http.ResponseWriter, r *http.R
 		case errors.Is(err, repository.ErrInvalidStockChange):
 			writeJSONError(w, http.StatusBadRequest, "supply one valid stock value for the item's tracking mode")
 		default:
-			slog.Error("updating inventory stock via API", "error", err)
-			writeJSONError(w, http.StatusInternalServerError, "failed to update stock")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to update stock", err)
 		}
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -29,7 +28,7 @@ func NewChoreReminderHandler(settings repository.SettingsRepository, devices rep
 func (handler *ChoreReminderHandler) Settings(w http.ResponseWriter, r *http.Request) {
 	settings, err := services.LoadChoreReminders(r.Context(), handler.settings)
 	if err != nil {
-		writeJSONError(w, 500, "failed to load chore reminders")
+		writeAPIError(w, r, 500, "failed to load chore reminders", err)
 		return
 	}
 	settings.PushAvailable = handler.pushAvailable
@@ -61,11 +60,11 @@ func (handler *ChoreReminderHandler) Update(w http.ResponseWriter, r *http.Reque
 	}
 	value, err := json.Marshal(body)
 	if err != nil {
-		writeJSONError(w, 500, "failed to encode chore reminders")
+		writeAPIError(w, r, 500, "failed to encode chore reminders", err)
 		return
 	}
 	if err := handler.settings.Set(r.Context(), "chore_reminders", string(value)); err != nil {
-		writeJSONError(w, 500, "failed to save chore reminders")
+		writeAPIError(w, r, 500, "failed to save chore reminders", err)
 		return
 	}
 	handler.Settings(w, r)
@@ -94,8 +93,7 @@ func (handler *ChoreReminderHandler) Register(w http.ResponseWriter, r *http.Req
 			return
 		}
 		// Do not log database errors here: constraint messages can contain device tokens.
-		slog.Error("registering notification device failed")
-		writeJSONError(w, 500, "failed to register notification device")
+		writeAPIError(w, r, 500, "failed to register notification device", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -103,7 +101,7 @@ func (handler *ChoreReminderHandler) Register(w http.ResponseWriter, r *http.Req
 
 func (handler *ChoreReminderHandler) Remove(w http.ResponseWriter, r *http.Request) {
 	if err := handler.devices.Remove(r.Context(), chi.URLParam(r, "id"), middleware.GetUser(r.Context()).ID); err != nil {
-		writeJSONError(w, 500, "failed to remove notification device")
+		writeAPIError(w, r, 500, "failed to remove notification device", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

@@ -19,7 +19,7 @@ type displayPerson struct {
 func (handler *APIHandler) ListDisplayPeople(writer http.ResponseWriter, request *http.Request) {
 	users, err := handler.userRepo.FindAll(request.Context())
 	if err != nil {
-		writeJSONError(writer, http.StatusInternalServerError, "could not load household members")
+		writeAPIError(writer, request, http.StatusInternalServerError, "could not load household members", err)
 		return
 	}
 	people := make([]displayPerson, 0, len(users))
@@ -44,7 +44,7 @@ func (handler *APIHandler) CompleteDisplayChore(writer http.ResponseWriter, requ
 		writeJSONError(writer, http.StatusBadRequest, "choose a current household member")
 		return
 	} else if err != nil {
-		writeJSONError(writer, http.StatusInternalServerError, "could not verify household member")
+		writeAPIError(writer, request, http.StatusInternalServerError, "could not verify household member", err)
 		return
 	}
 	err := handler.choreService.CompleteChore(request.Context(), chi.URLParam(request, "id"), body.UserID)
@@ -56,7 +56,7 @@ func (handler *APIHandler) CompleteDisplayChore(writer http.ResponseWriter, requ
 	case errors.Is(err, sql.ErrNoRows):
 		writeJSONError(writer, http.StatusNotFound, "chore not found")
 	default:
-		writeJSONError(writer, http.StatusInternalServerError, "failed to complete chore")
+		writeAPIError(writer, request, http.StatusInternalServerError, "failed to complete chore", err)
 	}
 }
 
@@ -83,12 +83,12 @@ func (handler *APIHandler) SaveDisplayMeal(writer http.ResponseWriter, request *
 		return
 	}
 	if err := handler.mealPlanRepo.Upsert(request.Context(), meal); err != nil {
-		writeJSONError(writer, http.StatusInternalServerError, "failed to save meal")
+		writeAPIError(writer, request, http.StatusInternalServerError, "failed to save meal", err)
 		return
 	}
 	saved, err := handler.mealPlanRepo.FindByDateAndType(request.Context(), meal.Date, meal.MealType)
 	if err != nil {
-		writeJSONError(writer, http.StatusInternalServerError, "failed to retrieve saved meal")
+		writeAPIError(writer, request, http.StatusInternalServerError, "failed to retrieve saved meal", err)
 		return
 	}
 	writeJSON(writer, http.StatusOK, saved)

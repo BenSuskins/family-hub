@@ -5,7 +5,7 @@ import { BookOpen, CalendarDays, Check, CookingPot, ShoppingBag, Trash2, X, type
 import { ChoreCompletionDialog } from "@/features/display/components/chore-completion-dialog";
 import { KioskApp } from "@/features/display/apps/kiosk-app";
 import { WeatherIcon, SectionIcon } from "@/features/display/components/display-icons";
-import { latestRefresh, displayDialogTitle, stationName, stationShortName, trainStatusLabel } from "@/features/display/model/display-formatters";
+import { refreshAge, displayDialogTitle, stationName, stationShortName, trainStatusLabel } from "@/features/display/model/display-formatters";
 import type { DisplayChore, EventDetails, MealEditTarget, Snapshot } from "@/features/display/model/display-types";
 import { dayKeyAt, displayGreeting, mealWindowAt, rankDisplayCards, relevantBinDate, relevantDepartures, usefulCalendarEvents, weatherLabel } from "@/lib/display-logic";
 
@@ -14,6 +14,14 @@ const launcherApps: { name: string; icon: LucideIcon }[] = [
   { name: "Shopping", icon: ShoppingBag }, { name: "Notes", icon: BookOpen },
   { name: "Calendar", icon: CalendarDays }, { name: "Recipes", icon: CookingPot },
   { name: "Meal plan", icon: CookingPot }, { name: "Inventory", icon: Check },
+];
+const launcherTiles = [
+  { app: "Shopping", symbol: "＋" },
+  { app: "Notes", symbol: "✎" },
+  { app: "Calendar", symbol: "▦" },
+  { app: "Recipes", symbol: "♧" },
+  { app: "Meal plan", symbol: "♨" },
+  { app: "Inventory", symbol: "▤" },
 ];
 
 type DisplayScreenProps = {
@@ -90,7 +98,35 @@ export function DisplayScreen(props: DisplayScreenProps) {
   const isDark = localHour >= 20 || localHour < 6;
   const formattedDate = clock.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone });
   const formattedTime = clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
+  const refreshAgeLabel = current ? refreshAge(current.resourceUpdatedAt, clock) : null;
 
+  let dialogContent: React.ReactNode;
+  if (selectedApp === "Chore completion" && selectedChore) {
+    dialogContent = <ChoreCompletionDialog
+      chore={selectedChore}
+      people={current?.people ?? []}
+      token={token}
+      onComplete={() => { void onClose(); void onRefresh(); }}
+    />;
+  } else if (selectedApp === "Family event" && selectedEvent) {
+    dialogContent = <FamilyEventDetails event={selectedEvent} timezone={timezone} />;
+  } else if (selectedApp === "launcher") {
+    dialogContent = <div className="launcher-grid">
+      {launcherTiles.map(({ app, symbol }) => <button className="launcher-tile" key={app} onClick={event => onOpenApp(app, event)}>
+        <span aria-hidden="true">{symbol}</span>{app}
+      </button>)}
+    </div>;
+  } else {
+    dialogContent = <KioskApp
+      app={selectedApp}
+      token={token}
+      initialMeal={mealEditTarget}
+      timezone={timezone}
+      clock={clock}
+      onDialogTitleChange={setAppDialogTitle}
+      onScratchpadSaveReady={onScratchpadSaveReady}
+    />;
+  }
 
   return <main className={`wall-display-shell${isDark ? " is-dark" : ""}`}>
     <section className={`wall-display${isDark ? " is-dark" : ""}`} aria-label="Family Hub wall display">
@@ -107,7 +143,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
         {isCardVisible("trains") && trains.length > 0 && <section style={cardStyle("trains")} className={`display-card trains-card ${cardLayoutClass("trains")}`} aria-label="Next trains" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="trains"/>Next trains</span></div><small className="route-caption">{stationName(firstBoard!.origin.code)} → {stationName(firstBoard!.destination.code)}</small>{trains.slice(0, 3).map(({ board, train }) => <div className="train-row" key={`${board.origin.code}-${train.serviceId}`}><time>{train.expectedDeparture || train.scheduledDeparture || "—"}</time><strong>{stationShortName(board.destination.code)}</strong><small>{trainStatusLabel(train)}</small></div>)}<div className="train-card-footer">{current?.availability.trains === "available" ? "Updated just now" : "Saved train times"}</div></section>}
       </div>
       <div className="display-controls"><nav className="display-launcher" aria-label="Family apps">{launcherApps.map(({ name, icon: Icon }) => <button key={name} onClick={event => onOpenApp(name, event)}><Icon size={21} strokeWidth={1.7} aria-hidden="true" className="display-icon"/><span>{name}</span></button>)}</nav>
-        <footer className="display-footer"><button aria-label={`Refresh display data${current ? `; last successful refresh ${latestRefresh(current.resourceUpdatedAt, timezone)}` : ""}`} onClick={onRefresh}>Refresh{current && <small> ({latestRefresh(current.resourceUpdatedAt, timezone)})</small>}</button></footer>
+        <footer className="display-footer"><button aria-label={`Refresh display data${refreshAgeLabel ? `; last successful refresh ${refreshAgeLabel}` : ""}`} onClick={onRefresh}>Refresh{refreshAgeLabel && <small> ({refreshAgeLabel})</small>}</button></footer>
       </div>
     </section>
     {choreFeedback && <div className="display-toast" role="status">{choreFeedback}</div>}
@@ -116,10 +152,24 @@ export function DisplayScreen(props: DisplayScreenProps) {
       <section ref={dialogRef} className={`display-dialog${selectedApp === "Weather" ? " weather-dialog" : ""}`} role="dialog" aria-modal="true" aria-labelledby="display-dialog-title" tabIndex={-1}>
         <header className="display-dialog-heading"><div><h2 id="display-dialog-title">{appDialogTitle ?? displayDialogTitle(selectedApp, mealWindow.label)}</h2></div><button className="close-button" onClick={onClose} aria-label="Back to the household overview"><X size={24} strokeWidth={1.7} aria-hidden="true"/></button></header>
         <div className="display-dialog-content">
-          {selectedApp === "Chore completion" && selectedChore ? <ChoreCompletionDialog chore={selectedChore} people={current?.people ?? []} token={token} onComplete={() => { void onClose(); void onRefresh(); }} /> : selectedApp === "Family event" && selectedEvent ? <div className="event-detail"><p>{new Date(selectedEvent.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</p><h3>{selectedEvent.title}</h3><p>{new Date(selectedEvent.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.endTime ? `–${new Date(selectedEvent.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}` : ""}</p>{selectedEvent.location && <p>{selectedEvent.location}</p>}{selectedEvent.leaveAt && <p className="event-travel">Leave at {new Date(selectedEvent.leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.drivingSeconds ? ` · ${Math.round(selectedEvent.drivingSeconds / 60)} min drive` : ""}</p>}</div> : selectedApp === "launcher" ? <div className="launcher-grid">{[["Shopping", "＋"], ["Notes", "✎"], ["Calendar", "▦"], ["Recipes", "♧"], ["Meal plan", "♨"], ["Inventory", "▤"]].map(([app, symbol]) => <button className="launcher-tile" key={app} onClick={event => onOpenApp(app, event)}><span aria-hidden="true">{symbol}</span>{app}</button>)}</div> : <KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget} timezone={timezone} clock={clock} onDialogTitleChange={setAppDialogTitle} onScratchpadSaveReady={onScratchpadSaveReady} />}
+          {dialogContent}
           <button className="display-dialog-back" onClick={() => void onClose()}>Back to the overview</button>
         </div>
       </section>
     </div>}
   </main>;
+}
+
+function FamilyEventDetails({ event, timezone }: { event: EventDetails; timezone: string }) {
+  const startTime = new Date(event.startTime);
+  const endTime = event.endTime ? new Date(event.endTime) : null;
+  const leaveAt = event.leaveAt ? new Date(event.leaveAt) : null;
+
+  return <div className="event-detail">
+    <p>{startTime.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</p>
+    <h3>{event.title}</h3>
+    <p>{startTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{endTime ? `–${endTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}` : ""}</p>
+    {event.location && <p>{event.location}</p>}
+    {leaveAt && <p className="event-travel">Leave at {leaveAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{event.drivingSeconds ? ` · ${Math.round(event.drivingSeconds / 60)} min drive` : ""}</p>}
+  </div>;
 }

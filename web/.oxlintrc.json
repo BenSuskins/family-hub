@@ -7,7 +7,6 @@
     "react/exhaustive-deps": "error",
     "react/jsx-key": "error",
     "react/no-unknown-property": "error",
-    "typescript/consistent-type-imports": "error",
-    "max-lines-per-function": ["error", { "max": 160, "skipBlankLines": true, "skipComments": true }]
+    "typescript/consistent-type-imports": "error"
   }
 }

@@ -150,8 +150,7 @@ export const handlers = [
     if (resource === "calendar" && query.get("view") === "week") {
       const prototypeEventIds = new Set(["event-school-dropoff", "event-library", "event-football", "event-thursday-swim", "event-pizza"]);
       calendar.events = calendar.events.filter(event => prototypeEventIds.has(event.ID));
-      calendar.chores = [];
-    } else if (resource === "calendar") {
+    } else if (resource === "calendar" && query.get("view") === "dashboard") {
       calendar.events = calendar.events.filter(event => event.StartTime.slice(0, 10) === dateAtOffset(0));
     }
     const week = calendarWeek(date);

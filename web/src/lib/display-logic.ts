@@ -132,8 +132,7 @@ export function householdDocumentTitle(name: string | undefined) {
   return `${name?.trim() || "Family"} household`;
 }
 
-export function displayGreeting(hour: number, departureSoon: boolean) {
-  if (departureSoon) return "Time to head out soon.";
+export function displayGreeting(hour: number) {
   if (hour < 12) return "Good morning, everyone.";
   if (hour < 17) return "A little room in the day.";
   return "Home for the evening.";

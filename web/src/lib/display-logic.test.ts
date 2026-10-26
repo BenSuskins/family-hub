@@ -31,10 +31,9 @@ test("meal preview uses the selected household timezone and switches at 20:00", 
 });
 
 test("overview prioritizes near departures, dinner, and evening bin reminders", () => {
-  assert.equal(displayGreeting(8, true), "Time to head out soon.");
-  assert.equal(displayGreeting(8, false), "Good morning, everyone.");
-  assert.equal(displayGreeting(14, false), "A little room in the day.");
-  assert.equal(displayGreeting(19, false), "Home for the evening.");
+  assert.equal(displayGreeting(8), "Good morning, everyone.");
+  assert.equal(displayGreeting(14), "A little room in the day.");
+  assert.equal(displayGreeting(17), "Home for the evening.");
   const ranked = rankDisplayCards({
     hour: 18,
     departureSoon: true,

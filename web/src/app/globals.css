@@ -260,9 +260,9 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-card::-webkit-scrollbar { width: 8px; height: 8px; }
 .display-card::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 99px; background: var(--border); background-clip: padding-box; }
 .display-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.display-card-heading { flex: none; margin-bottom: 15px; }
+.display-card-heading { flex: none; margin-bottom: 15px; color: var(--ink); }
+.display-card-heading .display-icon { color: var(--accent); }
 .departure-card { background: var(--departure); }
-.departure-card .display-card-heading > span { color: var(--accent); }
 .departure-card .leave-pill { margin-left: auto; padding: 7px 12px; border: 1px solid var(--clay); border-radius: 999px; color: var(--clay); white-space: nowrap; }
 .departure-time { margin: 4px 0 8px; font-size: clamp(46px, 5.4vw, 72px); font-weight: 550; line-height: 1.1; letter-spacing: -.055em; font-variant-numeric: tabular-nums; }
 .departure-card > h2 { margin: 0 0 4px; font-size: clamp(21px, 1.9vw, 29px); letter-spacing: -.035em; }
@@ -278,6 +278,9 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .meal-agenda-row.meal-current { border-top-color: transparent; border-radius: 12px; background: var(--surface); }
 .meal-card-footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 10px; }
 .meal-card-footer .display-card-cta { min-height: 40px; }
+.calendar-card-footer { margin-top: auto; padding-top: 12px; color: var(--secondary); font-size: clamp(10px, .72vw, 13px); }
+.display-chore { min-height: 49px; border-top: 0; }
+.chore-avatar { width: 25px; height: 25px; display: grid; place-items: center; margin-left: auto; border-radius: 50%; background: var(--departure); color: var(--clay); font-size: 11px; font-weight: 650; }
 .display-event, .display-chore { flex: none; }
 .display-dialog-content .calendar-toolbar { gap: 12px; margin-bottom: 14px; }
 .display-dialog-content .calendar-toolbar > strong { flex: 1; text-align: center; font-size: 16px; }
@@ -308,7 +311,6 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 /* Wall preview parity: card surfaces and weather forecast detail. */
 .display-card { border: 0; border-radius: 22px; }
 .display-card { padding: clamp(16px, 1.5vw, 23px) clamp(18px, 1.7vw, 25px); }
-.chores-card .display-card-heading { color: var(--accent); }
 .chores-card { padding-block: 17px; }
 .display-chore { min-height: 40px; padding: 2px 0; }
 .display-event { border-top: 0; }
@@ -343,6 +345,16 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .departure-time { margin: 0 0 4px; font-size: clamp(46px, 5vw, 64px); }
 .departure-card .display-card-heading { margin-bottom: 7px; }
 .departure-footer { padding-top: 2px; }
+.display-card .display-card-heading > span { color: var(--ink); }
+.display-card .display-card-heading .display-icon { color: var(--accent); }
+.display-card.chores-card .display-card-heading > span { color: var(--ink); }
+.display-card .display-chore { min-height: 49px; border: 0; padding: 2px 0; }
+.display-card .chore-avatar { width: 25px; height: 25px; display: grid; place-items: center; margin-left: auto; border-radius: 50%; background: var(--departure); color: var(--clay); font-size: 11px; font-weight: 650; }
+.display-card .bin-content { display: flex; align-items: center; gap: 20px; margin-top: 7px; }
+.display-card .bin-content > svg { width: 45px; height: 60px; flex: none; color: var(--accent); }
+.display-card .bin-content strong { display: block; font-size: clamp(16px, 1.4vw, 24px); line-height: 1.2; }
+.display-card .bin-content p { margin-top: 8px; color: var(--secondary); font-size: clamp(12px, .9vw, 17px); line-height: 1.5; }
+.bin-card-footer { margin-top: auto; padding-top: 12px; color: var(--secondary); font-size: clamp(10px, .72vw, 13px); }
 @media (max-width: 620px) {
   .hourly-forecast { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .weather-days { grid-template-columns: 1fr; }

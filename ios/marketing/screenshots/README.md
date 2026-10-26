@@ -1,7 +1,8 @@
 # App Store screenshot pipeline
 
 Capture genuine Family Hub screens from iPhone, iPad, and Apple Watch simulators, then place them in the App Store templates.
-The templates follow [`DESIGN.md`](../../../DESIGN.md) and the app's Warm Sage Cosier palette.
+The templates follow the shared [design guide](../../../docs/DESIGN.md) and
+the app's Warm Sage palette.
 
 ## Requirements
 
@@ -94,4 +95,5 @@ The simulator flow records deterministic demo content. It does not change the no
 - `slides/*.html` holds the iPhone marketing copy; the iPad and Watch templates provide device-specific layouts.
 - `render.sh`, `render-ipad-slide.py`, and `render-watch-slide.py` check each output size before updating a version folder.
 
-Update `DESIGN.md` first when the app's visual direction changes, then align these templates with its tokens and product language.
+Update the shared design guide first when the visual direction changes, then
+align these templates with its tokens and product language.

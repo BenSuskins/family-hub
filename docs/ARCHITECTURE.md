@@ -1,105 +1,119 @@
 # Architecture
 
-> System design, components, and request flow for Family Hub.
+> System design, components, and request flows for Family Hub.
 
 ## Overview
 
-Family Hub uses a Go API server and a SwiftUI iOS client. The iOS app handles
-OIDC PKCE sign-in, exchanges the OIDC bearer token for a Family Hub API token,
-and sends that token with authenticated requests. SQLite is the system of
-record. iOS caches data in SwiftData and does not support offline writes.
+Family Hub has a Go JSON and media API backed by SQLite, a native SwiftUI app,
+and a separately deployed Next.js web client. Both clients use the shared API
+and household data. A paired wall display uses a revocable, limited credential
+instead of a member account token.
 
 ## Diagram
 
 ```mermaid
 flowchart LR
-    iOS[iOS App and extensions] -->|JSON, media, Bearer token| Server
-    iOS -.->|PKCE| OIDC[OIDC Provider]
-    Server --> DB[(SQLite)]
-    Server -->|chore alerts and family messages| APNs[Apple Push Notification service]
+    iOS[iOS app and extensions] -->|JSON and media, member token| API[Go API]
+    Web[Web client] -->|JSON, web token| API
+    Display[Paired wall display] -->|Limited display token| API
+    iOS -.->|PKCE sign-in| OIDC[OIDC provider]
+    Web -.->|PKCE sign-in| OIDC
+    API --> DB[(SQLite)]
+    API -->|Push notifications| APNs[Apple Push Notification service]
     APNs --> iOS
-    Server -.->|fetch| External[External iCal and recipe URLs]
+    API -.->|Fetch| External[External iCal and recipe URLs]
+    API -.->|Weather, commute, and departure data| Providers[External providers]
 ```
 
 ## Components
 
 | Component | Responsibility | Location |
 |-----------|---------------|----------|
-| HTTP server | Chi router, middleware, JSON and media handlers | `server/internal/server/`, `server/internal/handlers/` |
-| Services | Business logic (recurrence, chore assignment, iCal fetch, recipe extraction, SSRF guard) | `server/internal/services/` |
-| Repositories | Data access (interfaces and SQLite implementations) | `server/internal/repository/` |
-| Migrations | Auto-run on startup | `server/internal/database/migrations/` |
-| iOS app | SwiftUI client, extensions, shared API models | `ios/` |
+| Go API | Chi router, authentication, JSON and media routes | `server/internal/server/`, `server/internal/handlers/` |
+| Services | Business rules, recurrence, assignments, external URL guards, provider clients | `server/internal/services/` |
+| Repositories | Interfaces and SQLite data access | `server/internal/repository/` |
+| Database | SQLite connection and startup migrations | `server/internal/database/` |
+| iOS app and extensions | Native household client, widgets, Watch app, and shared models | `ios/` |
+| Web client | Responsive member app and paired wall display | `web/` |
 
-## Request Flow
+## Member request flow
 
 ```mermaid
 sequenceDiagram
-    participant C as iOS Client
-    participant R as Chi Router
-    participant M as Middleware
+    participant C as iOS or web client
+    participant O as OIDC provider
+    participant X as API token exchange
+    participant R as Chi router and middleware
     participant H as Handler
     participant S as Service
-    participant Repo as Repository
-    participant DB as SQLite
-    C->>R: HTTP request
-    R->>M: dispatch
-    M->>M: Bearer token to UserContextKey
-    M->>H: authenticated request
-    H->>S: domain operation
-    S->>Repo: read or write
-    Repo->>DB: SQL
-    DB-->>Repo: rows
-    Repo-->>S: domain model
-    S-->>H: result
-    H-->>C: JSON or binary media
+    participant D as SQLite repository
+    C->>O: Public client PKCE sign-in
+    O-->>C: OIDC bearer token
+    C->>X: POST /api/auth/exchange
+    X-->>C: Client-scoped Family Hub API token
+    C->>R: Authenticated API request with Bearer token
+    R->>H: Resolve user and authorization
+    H->>S: Run domain operation
+    S->>D: Read or write household data
+    D-->>S: Result
+    S-->>H: Operation result
+    H-->>C: JSON or media response
 ```
 
-## Auth Flow
+The iOS app and web client each run their own public OIDC PKCE flow. The web
+client exchanges its OIDC bearer at `POST /api/auth/exchange?client=web`. The iOS
+app mirrors its server URL and long-lived API token into the shared app group
+for extensions. The web client uses a web-scoped API token. Admin routes also
+require the admin role. The API does not serve HTML or create browser sessions.
 
-The iOS app uses the public OIDC client with PKCE. The server does not perform
-browser login or store web sessions.
+Wall displays are paired by an authenticated admin through the iOS app. The
+server issues a separate display credential for each display. Display routes
+restrict access to household data and supported display actions; revoking the
+display does not revoke the pairing user's account.
 
-```mermaid
-flowchart TB
-    iOS[ iOS app ] -->|PKCE| OIDC[OIDC provider]
-    OIDC -->|OIDC bearer| Exchange[POST /api/auth/exchange]
-    Exchange --> APIToken[Family Hub API token]
-    APIToken -->|Authorization: Bearer| RequireUser[RequireUser middleware]
-    RequireUser --> Context[UserContextKey]
-    Context --> Handlers[API handlers]
-    Handlers -. + RequireAdmin .-> AdminHandlers[Admin API handlers]
-```
+Public API routes are `/health`, `/api/client-config`, and the OIDC token
+exchange. Other member routes require a Family Hub Bearer token. See the
+[endpoint reference](endpoints.md) for the full route list and caller access.
 
-Public routes are `/health` and `/api/client-config`. The iOS app obtains an
-API token through `POST /api/auth/exchange`. All other application routes
-require a Bearer token, with admin authorization on management routes.
+## External URL guard
 
-## SSRF Guard
-
-Any handler that fetches an external URL on a user's behalf (iCal
-subscriptions or recipe URL import) uses `services.ValidateExternalURL` and
+Handlers that fetch user-provided URLs, including iCal subscriptions and recipe
+imports, use `services.ValidateExternalURL` and
 `services.NewSafeHTTPClient` in `services/safenet.go`. This blocks private IP
 ranges and non-HTTP(S) schemes.
 
-## Data Model
+## Data and client state
 
-See `server/internal/models/` for the full domain. SQLite migrations run during
-server startup.
+SQLite is the system of record for household data. Database migrations run
+during server startup. The iOS app uses SwiftData as a cache and does not
+support offline writes. The web client stores its web token in browser local
+storage. Display credentials have a separate scope from member tokens.
 
-## External Dependencies
+## External dependencies
 
 | Service | Purpose | Failure mode |
 |---------|---------|--------------|
-| OIDC provider | Sign-in for iOS clients | New sign-in and token exchange fail |
-| External iCal feeds | Calendar subscriptions | Subscription becomes stale; existing events remain |
+| OIDC provider | Sign-in for iOS and web clients | Sign-in and token exchange fail |
+| External iCal feeds | Calendar subscriptions | Feed refresh fails; previously stored events remain |
 | Recipe URLs | Recipe import | Import returns an API error |
+| Open-Meteo | Weather data | Weather becomes unavailable |
+| National Rail provider | Commute departures | Train results become unavailable |
+| Google Maps APIs | Home departure estimates | Departure estimates become unavailable |
+| Apple Push Notification service | Chore reminders and family broadcasts | Push delivery fails or remains pending |
 
-## Key Decisions
+## Key decisions
 
-- **API server, native client.** The Go service exposes JSON and required media/file routes. iOS owns the user interface and OIDC browser handoff.
-- **Public PKCE OIDC client.** No client secret is stored on the server.
-- **Pure-Go SQLite.** `modernc.org/sqlite` removes the CGO toolchain dependency; tests use in-memory databases.
-- **No offline writes on iOS.** SwiftData is a cache; mutations require connectivity.
-- **Repository → Service → Handler.** Handlers avoid direct repository access when business logic belongs in a service.
-- **Migrations run on startup.** Deployment does not require a separate migration step.
+- **Separate clients, shared API.** The web app is deployed separately from the
+  Go API; both clients use the same server installation and shared data.
+- **Scoped credentials.** Member, web, and display credentials have distinct
+  access. A display credential cannot call member or admin routes.
+- **Public PKCE OIDC clients.** No client secret is stored in the server or
+  browser build.
+- **Pure-Go SQLite.** `modernc.org/sqlite` removes the CGO toolchain dependency;
+  tests use in-memory databases.
+- **No offline writes on iOS.** SwiftData is a cache; mutations require
+  connectivity.
+- **Repository → Service → Handler.** Handlers avoid direct repository access
+  when business logic belongs in a service.
+- **Migrations run on startup.** Deployment does not require a separate
+  migration step.

@@ -12,8 +12,8 @@
 
 Family Hub is a self-hosted household service for chores, meals, recipes,
 calendars, shopping, and inventory. The Go server provides a JSON and media API
-for the SwiftUI iOS app and its extensions. The iOS app handles OIDC PKCE sign-in
-and exchanges the OIDC access token for a long-lived API token.
+for the SwiftUI iOS app, its extensions, and a separately deployed web client.
+The web client also supports a paired wall display with a limited device token.
 
 ## Features
 
@@ -24,22 +24,25 @@ and exchanges the OIDC access token for a long-lived API token.
 - **iCal subscriptions** — admin-managed feeds (school, sports, etc.)
 - **Meal planning** — weekly planner (breakfast/lunch/dinner) linked to the recipe library
 - **Recipes** — ingredient groups, cooking times, import from URL (JSON-LD + HTML fallback)
-- **REST API** — Bearer token authentication for the iOS app. See [`endpoints.md`](endpoints.md)
+- **Web app and wall display** — browser access to household data and a configurable shared display; see the [web guide](../web/README.md)
+- **REST API** — scoped Bearer tokens for iOS, web, and paired displays. See [`endpoints.md`](endpoints.md)
 - **Admin operations** — user/role management, chore categories, API tokens, and database backup/restore through the API
 
 ## Tech Stack
 
 - **Backend:** Go, [Chi](https://github.com/go-chi/chi) router, JSON REST API
 - **Database:** SQLite (`modernc.org/sqlite` — pure Go, no CGO)
-- **Auth:** OIDC via Authelia (single public PKCE client, no client secret)
+- **Auth:** Public OIDC PKCE clients for iOS and web; scoped Family Hub API tokens
 - **iOS:** SwiftUI, MVVM
+- **Web:** Next.js, React, TypeScript, Bun
 
 ## Project Structure
 
 ```
 family-hub/
 ├── server/                  # Go API server
-├── ios/                     # SwiftUI iOS app
+├── ios/                     # SwiftUI iOS app and extensions
+├── web/                     # Next.js household client and paired display
 ├── data/                    # Runtime data (SQLite, gitignored)
 └── docs/                    # README, ARCHITECTURE, TROUBLESHOOTING, OIDC setup, endpoints
 ```
@@ -73,15 +76,18 @@ make run
 
 For hot reload, run `make dev`.
 
+### Web client
+
+Run the browser client separately from the Go API. See the [web setup guide](../web/README.md)
+for Bun commands, the API origin, OIDC callback, and deployment details.
+
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_PATH` | no | `./data/family-hub.db` | SQLite file path |
-| `OIDC_ISSUER` | yes | — | OpenID Connect issuer URL |
-| `OIDC_CLIENT_ID` | yes | — | OAuth2 client ID (single public PKCE client) |
-| `LOG_LEVEL` | no | `info` | `debug`/`info`/`warn`/`error` |
-| `PORT` | no | `8080` | Server port |
+The server environment is documented in [`server/.env.example`](../server/.env.example).
+It includes optional Google Maps departure estimates, National Rail commute
+data, APNs notifications, and database and logging settings. The web client
+also needs `NEXT_PUBLIC_FAMILY_HUB_API_URL`; set the server's `WEB_ORIGIN` to
+the exact browser origin. See [OIDC setup](oidc-setup.md).
 
 For provider-specific OIDC client configuration (Authelia, Keycloak, Auth0), see [oidc-setup.md](oidc-setup.md).
 
@@ -110,21 +116,25 @@ fakes live alongside the interface.
 
 ## Deployment
 
-The production stack is Docker Compose:
+The Go API production stack uses Docker Compose:
 
 ```bash
 cd server && docker compose -f docker-compose.prod.yml up -d
 ```
 
-Migrations run automatically on startup from `server/internal/database/migrations/`. The image is pure Go (no CGO required).
+Migrations run automatically on startup from `server/internal/database/migrations/`.
+The image is pure Go (no CGO required). Deploy the web client as a separate
+service; see the [web deployment notes](../web/README.md#deployment).
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the system diagram, request flow, OIDC auth flow, and key design decisions.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the system diagram, request flow,
+OIDC and display-token flows, and key design decisions. See [DESIGN.md](DESIGN.md)
+for shared iOS, web, and wall-display guidance, including palette and typography.
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common server and iOS connectivity issues.
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common server, iOS, and web connectivity issues.
 
 ## Security
 
@@ -149,9 +159,8 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
   the Add to shopping list action. Purchase offers a separate restock action.
   Cached shopping lists remain readable without a server connection.
 
-The API additions preserve older client contracts. The new iOS features show an
-unavailable state when connected to an older server. Install the server before
-the new app. No production rollout is included in this change.
+The iOS app and web client depend on API capabilities provided by the matching
+server version. Install server updates before clients that require new routes.
 
 Run the optional provider check with public London locations:
 

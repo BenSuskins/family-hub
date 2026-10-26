@@ -4,10 +4,9 @@ import { CloudRain } from "lucide-react";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 import type { Weather } from "@/features/display/model/display-types";
 import { WeatherIcon } from "@/features/display/components/display-icons";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 import { dayKeyAt } from "@/lib/display-logic";
 
-export function WeatherApp({ token, timezone, clock }: KioskAppProps) {
+export function WeatherApp({ token, timezone, clock }: { token: string; timezone: string; clock: Date }) {
   const { data, error } = useKioskResource<Weather>("/api/display/weather", token);
   if (error && !data) return <p role="alert">{error}</p>;
   if (!data) return <p role="status">Loading…</p>;

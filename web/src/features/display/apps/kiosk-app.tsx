@@ -1,44 +1,41 @@
 "use client";
 
-import type { ComponentType } from "react";
+import dynamic from "next/dynamic";
 import { KioskScratchpad } from "@/components/kiosk-scratchpad";
-import type { KioskAppName, MealEditTarget } from "@/features/display/model/display-types";
-import { CalendarApp } from "@/features/display/apps/calendar-app";
-import { InventoryApp } from "@/features/display/apps/inventory-app";
-import { MealPlanApp } from "@/features/display/apps/meal-plan-app";
-import { ShoppingApp } from "@/features/display/apps/shopping-app";
-import { RecipesApp } from "@/features/display/apps/recipes-app";
-import { WeatherApp } from "@/features/display/apps/weather-app";
+import type { MealEditTarget } from "@/features/display/model/display-types";
 
-export type KioskAppProps = {
-  token: string;
-  timezone: string;
-  clock: Date;
-  initialMeal: MealEditTarget | null;
-  onDialogTitleChange?: (title: string | null) => void;
-};
-type DataKioskAppName = Exclude<KioskAppName, "Notes">;
+type SharedAppProps = { token: string };
+type CalendarAppProps = SharedAppProps & { timezone: string; clock: Date };
+type WeatherAppProps = CalendarAppProps;
+type RecipeAppProps = SharedAppProps & { onDialogTitleChange?: (title: string | null) => void };
+type MealPlanAppProps = WeatherAppProps & { initialMeal: MealEditTarget | null; onDialogTitleChange?: (title: string | null) => void };
 
-const dataApps: Record<DataKioskAppName, ComponentType<KioskAppProps>> = {
-  Shopping: ShoppingApp,
-  Calendar: CalendarApp,
-  Recipes: RecipesApp,
-  "Meal plan": MealPlanApp,
-  Inventory: InventoryApp,
-  Weather: WeatherApp,
-};
-const dataAppNames = Object.keys(dataApps) as DataKioskAppName[];
+const Shopping = dynamic<SharedAppProps>(() => import("@/features/display/apps/shopping-app").then(module => module.ShoppingApp), { loading: LoadingApp });
+const Calendar = dynamic<CalendarAppProps>(() => import("@/features/display/apps/calendar-app").then(module => module.CalendarApp), { loading: LoadingApp });
+const Recipes = dynamic<RecipeAppProps>(() => import("@/features/display/apps/recipes-app").then(module => module.RecipesApp), { loading: LoadingApp });
+const MealPlan = dynamic<MealPlanAppProps>(() => import("@/features/display/apps/meal-plan-app").then(module => module.MealPlanApp), { loading: LoadingApp });
+const Inventory = dynamic<SharedAppProps>(() => import("@/features/display/apps/inventory-app").then(module => module.InventoryApp), { loading: LoadingApp });
+const Weather = dynamic<WeatherAppProps>(() => import("@/features/display/apps/weather-app").then(module => module.WeatherApp), { loading: LoadingApp });
 
-function isDataKioskAppName(app: string): app is DataKioskAppName {
-  return dataAppNames.includes(app as DataKioskAppName);
+type KioskAppProps =
+  | ({ app: "Notes"; onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void } & SharedAppProps)
+  | ({ app: "Shopping" | "Inventory" } & SharedAppProps)
+  | ({ app: "Calendar" } & CalendarAppProps)
+  | ({ app: "Recipes" } & RecipeAppProps)
+  | ({ app: "Meal plan" } & MealPlanAppProps)
+  | ({ app: "Weather" } & WeatherAppProps);
+
+export function KioskApp(props: KioskAppProps) {
+  if (props.app === "Notes") return <KioskScratchpad token={props.token} onSaveReady={props.onScratchpadSaveReady} />;
+  if (props.app === "Shopping") return <Shopping token={props.token} />;
+  if (props.app === "Calendar") return <Calendar token={props.token} timezone={props.timezone} clock={props.clock} />;
+  if (props.app === "Recipes") return <Recipes token={props.token} onDialogTitleChange={props.onDialogTitleChange} />;
+  if (props.app === "Meal plan") return <MealPlan token={props.token} timezone={props.timezone} clock={props.clock} initialMeal={props.initialMeal} onDialogTitleChange={props.onDialogTitleChange} />;
+  if (props.app === "Inventory") return <Inventory token={props.token} />;
+  if (props.app === "Weather") return <Weather token={props.token} timezone={props.timezone} clock={props.clock} />;
+  return null;
 }
 
-export function KioskApp({ app, token, initialMeal, timezone, clock, onDialogTitleChange, onScratchpadSaveReady }: KioskAppProps & {
-  app: string;
-  onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void;
-}) {
-  if (app === "Notes") return <KioskScratchpad token={token} onSaveReady={onScratchpadSaveReady} />;
-  if (!isDataKioskAppName(app)) return null;
-  const App = dataApps[app];
-  return <App token={token} initialMeal={initialMeal} timezone={timezone} clock={clock} onDialogTitleChange={onDialogTitleChange} />;
+function LoadingApp() {
+  return <p className="display-loading" role="status">Loading app…</p>;
 }

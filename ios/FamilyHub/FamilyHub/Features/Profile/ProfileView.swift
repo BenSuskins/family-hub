@@ -200,6 +200,12 @@ struct ProfileView: View {
             }.accessibilityIdentifier("Calendar feeds settings")
 
             NavigationLink {
+                DisplayManagementView(apiClient: apiClient)
+            } label: {
+                FeatureEntryLabel(title: "Wall displays", subtitle: "Pair or remove a shared screen", systemImage: "display")
+            }.accessibilityIdentifier("Wall display management")
+
+            NavigationLink {
                 BinCollectionsView(apiClient: apiClient)
             } label: {
                 FeatureEntryLabel(title: "Bin collections", subtitle: "Upload schedule and set reminders", systemImage: "trash")

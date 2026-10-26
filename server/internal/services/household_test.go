@@ -33,7 +33,7 @@ func TestWeatherForecastAdviceAndExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if forecast.Current.Temperature != 9 || len(forecast.Hours) != 24 || len(forecast.Advice) != 3 {
+	if forecast.Current.Temperature != 9 || len(forecast.Hours) != 24 || len(forecast.Advice) != 3 || forecast.Days[0].RainProbability == nil || *forecast.Days[0].RainProbability != 40 {
 		t.Fatalf("unexpected forecast: %+v", forecast)
 	}
 	if _, err := provider.Forecast(context.Background(), home); err != nil || requests != 1 {
@@ -175,7 +175,15 @@ func weatherFixture(now time.Time, count int) string {
 		rain = append(rain, 80)
 		wind = append(wind, 42)
 	}
-	data, _ := json.Marshal(map[string]any{"current": map[string]any{"time": now.Unix(), "temperature_2m": 9, "weather_code": 3, "wind_speed_10m": 12}, "hourly": map[string]any{"time": times, "temperature_2m": temperatures, "weather_code": codes, "precipitation_probability": rain, "wind_speed_10m": wind}, "daily": map[string]any{"temperature_2m_max": []int{17}, "temperature_2m_min": []int{8}}})
+	dailyTimes, dailyHigh, dailyLow, dailyCodes, dailyRain := []int64{}, []int{}, []int{}, []int{}, []int{}
+	for index := 0; index < 7; index++ {
+		dailyTimes = append(dailyTimes, now.AddDate(0, 0, index).Unix())
+		dailyHigh = append(dailyHigh, 17)
+		dailyLow = append(dailyLow, 8)
+		dailyCodes = append(dailyCodes, 3)
+		dailyRain = append(dailyRain, 40)
+	}
+	data, _ := json.Marshal(map[string]any{"current": map[string]any{"time": now.Unix(), "temperature_2m": 9, "weather_code": 3, "wind_speed_10m": 12}, "hourly": map[string]any{"time": times, "temperature_2m": temperatures, "weather_code": codes, "precipitation_probability": rain, "wind_speed_10m": wind}, "daily": map[string]any{"time": dailyTimes, "temperature_2m_max": dailyHigh, "temperature_2m_min": dailyLow, "weather_code": dailyCodes, "precipitation_probability_max": dailyRain}})
 	return string(data)
 }
 func TestWeatherRejectsShortAndOldForecasts(t *testing.T) {
@@ -203,8 +211,8 @@ func TestHouseholdProvidersLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(forecast.Hours) != 24 {
-		t.Fatal("live weather must contain 24 hours")
+	if len(forecast.Hours) != 24 || len(forecast.Days) != 7 {
+		t.Fatalf("live weather must contain 24 hours and 7 days, got %d and %d", len(forecast.Hours), len(forecast.Days))
 	}
 	if key := os.Getenv("GOOGLE_MAPS_API_KEY"); key != "" {
 		provider := NewGoogleDriving(client, key, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")

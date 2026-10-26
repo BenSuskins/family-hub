@@ -1,0 +1,26 @@
+name: Web CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run build --webpack

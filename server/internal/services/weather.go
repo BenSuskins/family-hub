@@ -41,10 +41,10 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 	}
 	parameters := url.Values{
 		"latitude": {fmt.Sprint(*home.Latitude)}, "longitude": {fmt.Sprint(*home.Longitude)},
-		"timezone": {home.Timezone}, "timeformat": {"unixtime"}, "forecast_days": {"2"},
+		"timezone": {home.Timezone}, "timeformat": {"unixtime"}, "forecast_days": {"7"},
 		"current": {"temperature_2m,weather_code,wind_speed_10m"},
 		"hourly":  {"temperature_2m,weather_code,precipitation_probability,wind_speed_10m"},
-		"daily":   {"temperature_2m_max,temperature_2m_min"},
+		"daily":   {"temperature_2m_max,temperature_2m_min,precipitation_probability_max"},
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, provider.endpoint+"?"+parameters.Encode(), nil)
 	if err != nil {
@@ -65,21 +65,35 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 			Wind        []*float64 `json:"wind_speed_10m"`
 		} `json:"hourly"`
 		Daily struct {
+			Time []int64    `json:"time"`
 			High []*float64 `json:"temperature_2m_max"`
 			Low  []*float64 `json:"temperature_2m_min"`
+			Code []*int     `json:"weather_code"`
+			Rain []*float64 `json:"precipitation_probability_max"`
 		} `json:"daily"`
 	}
 	if err := readProviderJSON(provider.client, request, &data); err != nil {
 		return models.Weather{}, err
 	}
-	if data.Current.Temperature == nil || data.Current.Code == nil || data.Current.Wind == nil || data.Current.Time == 0 || len(data.Daily.High) == 0 || len(data.Daily.Low) == 0 || data.Daily.High[0] == nil || data.Daily.Low[0] == nil {
+	if data.Current.Temperature == nil || data.Current.Code == nil || data.Current.Wind == nil || data.Current.Time == 0 || len(data.Daily.Time) != 7 || len(data.Daily.High) != 7 || len(data.Daily.Low) != 7 || len(data.Daily.Code) != 7 {
 		return models.Weather{}, errors.New("incomplete forecast")
+	}
+	forecastDays := make([]models.WeatherDay, 0, 7)
+	for index, timestamp := range data.Daily.Time {
+		if data.Daily.High[index] == nil || data.Daily.Low[index] == nil || data.Daily.Code[index] == nil {
+			return models.Weather{}, errors.New("incomplete daily forecast")
+		}
+		var rainProbability *float64
+		if index < len(data.Daily.Rain) {
+			rainProbability = data.Daily.Rain[index]
+		}
+		forecastDays = append(forecastDays, models.WeatherDay{Date: time.Unix(timestamp, 0), High: *data.Daily.High[index], Low: *data.Daily.Low[index], Code: *data.Daily.Code[index], RainProbability: rainProbability})
 	}
 	count := len(data.Hourly.Time)
 	if count == 0 || len(data.Hourly.Temperature) != count || len(data.Hourly.Code) != count || len(data.Hourly.Rain) != count || len(data.Hourly.Wind) != count {
 		return models.Weather{}, errors.New("incomplete hourly forecast")
 	}
-	forecast := models.Weather{Status: "ok", FetchedAt: now, Current: models.WeatherHour{Time: time.Unix(data.Current.Time, 0), Temperature: *data.Current.Temperature, Code: *data.Current.Code, WindSpeed: *data.Current.Wind}, High: *data.Daily.High[0], Low: *data.Daily.Low[0], Hours: []models.WeatherHour{}, Advice: []string{}}
+	forecast := models.Weather{Status: "ok", FetchedAt: now, Current: models.WeatherHour{Time: time.Unix(data.Current.Time, 0), Temperature: *data.Current.Temperature, Code: *data.Current.Code, WindSpeed: *data.Current.Wind}, High: *data.Daily.High[0], Low: *data.Daily.Low[0], Hours: []models.WeatherHour{}, Days: forecastDays, Advice: []string{}}
 	rain, cold, heat, wind := false, false, false, false
 	location, err := time.LoadLocation(home.Timezone)
 	if err != nil {

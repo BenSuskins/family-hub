@@ -1308,3 +1308,41 @@ func TestCreateChore_API_FullOptions(t *testing.T) {
 		t.Errorf("expected recurrenceUntil set on series")
 	}
 }
+
+func TestExchangeTokenForWebDoesNotRevokeIOSToken(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	userRepo := repository.NewUserRepository(database)
+	tokenRepo := repository.NewAPITokenRepository(database)
+	user, err := userRepo.Create(context.Background(), models.User{OIDCSubject: "web-login-subject", Email: "web@example.com", Name: "Web User", Role: models.RoleAdmin})
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+	existing, err := tokenRepo.Create(context.Background(), models.APIToken{Name: "iOS App", TokenHash: repository.HashToken("ios-token"), Scope: models.TokenScopeAPI, CreatedByUserID: user.ID})
+	if err != nil {
+		t.Fatalf("creating iOS token: %v", err)
+	}
+	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer oidc-token" {
+			t.Errorf("unexpected userinfo authorization: %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"sub":"web-login-subject","email":"web@example.com","name":"Web User"}`))
+	}))
+	defer identity.Close()
+	handler := NewAPIHandler(nil, userRepo, nil, nil, tokenRepo, nil, nil, nil, nil, nil, nil, nil, identity.URL, "web-client", "https://identity.example")
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/exchange?client=web", nil)
+	request.Header.Set("Authorization", "Bearer oidc-token")
+	response := httptest.NewRecorder()
+	handler.ExchangeToken(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+	}
+	stillThere, err := tokenRepo.FindByTokenHash(context.Background(), repository.HashToken("ios-token"))
+	if err != nil || stillThere.ID != existing.ID {
+		t.Fatalf("web login revoked iOS token: %#v, %v", stillThere, err)
+	}
+	webTokens, err := tokenRepo.FindByUserIDAndName(context.Background(), user.ID, "Web App")
+	if err != nil || len(webTokens) != 1 {
+		t.Fatalf("expected one web token, got %d, %v", len(webTokens), err)
+	}
+}

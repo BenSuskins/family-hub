@@ -4,6 +4,8 @@
 <dict>
 	<key>APNsEnvironment</key>
 	<string>$(APNS_ENVIRONMENT)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a wall display code to pair it with this Family Hub server.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Use your device location to set the household location for weather and departure estimates.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

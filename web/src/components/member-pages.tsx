@@ -1,0 +1,182 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { api, getToken } from "@/lib/api";
+
+type Chore = { ID: string; Name: string; Status: string; DueDate?: string | null };
+type Meal = { Date: string; MealType: string; Name: string };
+type EventItem = { ID: string; Title: string; StartTime: string; Location: string };
+type Calendar = { chores: Chore[]; events: EventItem[]; meals: Meal[] };
+type Recipe = { ID: string; Title: string; Steps?: string[]; Ingredients?: { name: string; items: string[] }[]; Instructions?: string };
+type ShoppingItem = { id: string; name: string; purchased: boolean; version: number };
+type InventoryArea = { ID: string; Name: string; Items: { ID: string; Name: string; Quantity: number; Level: number; Unit: string }[] };
+type Point = { x: number; y: number };
+type Stroke = { color: string; points: Point[] };
+type Scratchpad = { strokes: Stroke[]; updatedAt: string };
+type Forecast = { status: string; fetchedAt: string; current: { time: string; temperature: number; code: number; rainProbability?: number; windSpeed?: number }; high: number; low: number; hours: { time: string; temperature: number; code: number; rainProbability: number; windSpeed: number }[]; days: { date: string; high: number; low: number; code: number; rainProbability?: number }[]; advice: string[] };
+
+function weatherLabel(code:number){if(code===0)return "Clear";if([1,2].includes(code))return "Partly cloudy";if(code===3)return "Cloudy";if([45,48].includes(code))return "Fog";if([51,53,55,56,57].includes(code))return "Drizzle";if([61,63,65,66,67,80,81,82].includes(code))return "Rain";if([71,73,75,77,85,86].includes(code))return "Snow";if([95,96,99].includes(code))return "Thunderstorms";return "Forecast";}
+
+function Title({ label, title, subtitle }: { label: string; title: string; subtitle: string }) {
+  return <div className="content-title"><div><p className="kicker">{label}</p><h1>{title}</h1><p className="subheading">{subtitle}</p></div></div>;
+}
+
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const shortWeekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const longWeekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function formatMonthDay(date: Date) { return date.getDate() + " " + monthNames[date.getMonth()]; }
+function useSignedIn() {
+  return useSyncExternalStore(
+    (notify) => {
+      window.addEventListener("storage", notify);
+      window.addEventListener("family-hub-auth-changed", notify);
+      return () => {
+        window.removeEventListener("storage", notify);
+        window.removeEventListener("family-hub-auth-changed", notify);
+      };
+    },
+    () => Boolean(getToken()),
+    () => false,
+  );
+}
+
+function SignInPrompt() {
+  return <section className="state-box"><h2>Sign in to see your home</h2><p>Your family’s shared information will appear here after you sign in.</p><Link className="action-button" href="/login">Sign in</Link></section>;
+}
+
+function useApiData<T>(path: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const reload = async () => {
+    setLoading(true); setError("");
+    try { setData(await api<T>(path)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "We could not load this just now."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { if (getToken()) void reload(); }, [path]);
+  return { data, setData, loading, error, reload };
+}
+
+function State({ loading, error, retry }: { loading: boolean; error: string; retry: () => void }) {
+  if (loading) return <p className="state-line" role="status">Loading your shared home…</p>;
+  if (error) return <div className="state-box error-state" role="alert"><p>We couldn’t load this part of Family Hub just now.</p><button className="action-button" onClick={retry}>Try again</button></div>;
+  return null;
+}
+
+export function TodayPage() {
+  const signedIn = useSignedIn();
+  const today = new Date();
+  const [greeting, setGreeting] = useState("Welcome home");
+  const [dateLabel, setDateLabel] = useState("");
+  useEffect(() => { const current = new Date(); setGreeting(current.getHours() < 12 ? "Good morning" : current.getHours() < 18 ? "Good afternoon" : "Good evening"); setDateLabel(current.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" }).toUpperCase()); }, []);
+  const key = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  const calendar = useApiData<Calendar>("/api/calendar?view=week&date=" + key);
+  const weather = useApiData<Forecast>("/api/weather");
+  const chores = (calendar.data?.chores ?? []).filter(item => item.Status === "pending" || item.Status === "overdue").slice(0, 4);
+  const dinner = (calendar.data?.meals ?? []).find(item => item.Date === key && item.MealType === "dinner");
+  const [completeBusy,setCompleteBusy]=useState("");const [mutationError,setMutationError]=useState("");
+  async function complete(id: string) { setCompleteBusy(id);setMutationError("");try { await api<void>("/api/chores/" + id + "/complete", { method: "POST" }); await calendar.reload(); } catch { setMutationError("We couldn’t update that chore. Please try again."); } finally { setCompleteBusy(""); } }
+  return <div className="page-wrap">
+    <section className="welcome-row"><div><p className="kicker">A FRESH START</p><h1>{greeting} <span aria-hidden="true">☀</span></h1><p className="subheading">Here’s what’s happening around home today.</p></div><Link className="display-button" href="/display">▣ <span>Open wall display</span><span>↗</span></Link></section>
+    <section className="hero-card"><div className="hero-copy"><span className="date-pill">{dateLabel}</span><h2>A little room<br />for a good day.</h2><p>Here’s the family plan for today.</p><a className="hero-link" href="#today-data">See today’s plan →</a></div><div className="hero-art" aria-hidden="true"><div className="sun-disc" /><div className="hill hill-back" /><div className="hill hill-front" /></div></section>
+    {!signedIn ? <SignInPrompt /> : <>
+      <div className="section-heading"><div><p className="kicker">YOUR HOME, AT A GLANCE</p><h2>Today at home</h2></div></div>
+      <State loading={calendar.loading} error={calendar.error} retry={() => void calendar.reload()} />{mutationError&&<p role="alert" className="error-message">{mutationError}</p>}
+      <section id="today-data" className="overview-grid">
+        <article className="panel"><div className="panel-heading"><div><span className="panel-icon sage-icon">✓</span><div><h3>Chores</h3><p>Small things, shared</p></div></div><Link href="/chores">View all →</Link></div><ul className="task-list">{chores.map(chore => <li key={chore.ID}><button className="check-button" aria-label={"Mark " + chore.Name + " complete"} aria-busy={completeBusy===chore.ID} disabled={completeBusy===chore.ID} onClick={() => void complete(chore.ID)} /><span className="task-title">{chore.Name}<small>{chore.Status === "overdue" ? "Overdue" : chore.DueDate ? new Date(chore.DueDate).toLocaleDateString() : "Coming up"}</small></span></li>)}</ul>{!calendar.loading && chores.length === 0 && <p className="inline-empty">No outstanding chores today.</p>}</article>
+        <article className="panel"><div className="panel-heading"><div><span className="panel-icon clay-icon">♨</span><div><h3>Tonight’s dinner</h3><p>Around the table</p></div></div><Link href="/meals">This week →</Link></div><div className="meal-illustration"><span className="meal-plate">◌</span></div><div className="meal-info"><span className="meal-label">TODAY’S PLAN</span><h4>{dinner?.Name ?? "No dinner planned yet"}</h4><p>{dinner ? "See the weekly meal plan" : "Add an idea for tonight"}</p></div></article>
+        <article className="panel"><div className="panel-heading"><div><span className="panel-icon gold-icon">▦</span><div><h3>Coming up</h3><p>{longWeekdayNames[today.getDay()]}, {formatMonthDay(today)}</p></div></div><Link href="/calendar">Calendar →</Link></div>{(calendar.data?.events ?? []).slice(0, 3).map(event => <div className="event-row" key={event.ID}><div className="event-time">{new Date(event.StartTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div><div className="event-marker" /><div className="event-details"><strong>{event.Title}</strong><span>{event.Location || "Family calendar"}</span></div></div>)}{!calendar.loading && calendar.data?.events.length === 0 && <p className="inline-empty">No calendar events today.</p>}</article>
+        <article className="panel"><div className="panel-heading"><div><span className="panel-icon gold-icon">☼</span><div><h3>Local weather</h3><p>At home today</p></div></div><button className="text-action" onClick={() => void weather.reload()}>Refresh</button></div><State loading={weather.loading} error={weather.error} retry={() => void weather.reload()} />{weather.data && <div className="weather-summary"><strong>{weather.data.status === "setup_required" ? "—" : Math.round(weather.data.current.temperature) + "°"}</strong><span>{weather.data.status === "setup_required" ? "Add your home location in settings" : "Today’s forecast"}</span></div>}<Link className="panel-bottom-link" href={weather.data?.status === "setup_required" ? "/household" : "/weather"}>{weather.data?.status === "setup_required" ? "Household settings →" : "See hourly and 7-day forecast →"}</Link></article>
+      </section>
+    </>}
+  </div>;
+}
+
+export function ChoresPage() {
+  const state = useApiData<Chore[]>("/api/chores");
+  const signedIn = useSignedIn();
+  const [busy, setBusy] = useState(""); const [mutationError,setMutationError]=useState("");
+  async function complete(id: string) { setBusy(id); setMutationError(""); try { await api<void>("/api/chores/" + id + "/complete", { method: "POST" }); await state.reload(); } catch { setMutationError("We couldn’t update that chore. Please try again."); } finally { setBusy(""); } }
+  const items = (state.data ?? []).filter(item => item.Status === "pending" || item.Status === "overdue");
+  return <div className="page-wrap"><Title label="SHARED ROUTINES" title="Chores" subtitle="Small things, shared fairly." />{!signedIn ? <SignInPrompt /> : <><State loading={state.loading} error={state.error} retry={() => void state.reload()} />{mutationError&&<p role="alert" className="error-message">{mutationError}</p>}<section className="panel data-panel"><h2>To do</h2>{items.map(item => <div className="data-row" key={item.ID}><div><strong>{item.Name}</strong><small>{item.Status === "overdue" ? "Overdue" : item.DueDate ? "Due " + new Date(item.DueDate).toLocaleDateString() : "No due date"}</small></div><button className="action-button" disabled={busy === item.ID} onClick={() => void complete(item.ID)}>{busy === item.ID ? "Saving…" : "Complete"}</button></div>)}{!state.loading && !items.length && <p className="inline-empty">You’re all caught up.</p>}</section></>}</div>;
+}
+
+function fridayOf(date: Date) { const result = new Date(date); result.setDate(result.getDate() - (result.getDay() - 5 + 7) % 7); result.setHours(0, 0, 0, 0); return result; }
+function mondayOf(date: Date) { const result = new Date(date); result.setDate(result.getDate() - (result.getDay() + 6) % 7); result.setHours(0, 0, 0, 0); return result; }
+function dateString(date: Date) { return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); }
+function shiftDays(date: Date, days: number) { const result = new Date(date); result.setDate(result.getDate() + days); return result; }
+
+export function CalendarPage() {
+  const signedIn = useSignedIn();
+  const [week, setWeek] = useState(() => mondayOf(new Date()));
+  const key = dateString(week);
+  const state = useApiData<Calendar>("/api/calendar?view=week&date=" + key);
+  const days = Array.from({ length: 7 }, (_, index) => shiftDays(week, index));
+  return <div className="page-wrap"><Title label="THE FAMILY WEEK" title="Calendar" subtitle="Everything the family has coming up." /><div className="calendar-toolbar"><button className="icon-action" aria-label="Previous week" onClick={() => setWeek(shiftDays(week, -7))}>←</button><strong>{formatMonthDay(week)} – {formatMonthDay(shiftDays(week, 6))}</strong><button className="icon-action" aria-label="Next week" onClick={() => setWeek(shiftDays(week, 7))}>→</button><button className="text-action" onClick={() => setWeek(mondayOf(new Date()))}>Today</button></div>{!signedIn ? <SignInPrompt /> : <><State loading={state.loading} error={state.error} retry={() => void state.reload()} /><section className="week-grid">{days.map(day => { const key = dateString(day); return <article className="day-column" key={key}><h2>{shortWeekdayNames[day.getDay()]}<small>{day.getDate()}</small></h2>{(state.data?.events ?? []).filter(event => event.StartTime.slice(0, 10) === key).map(event => <details className="calendar-item event-item" key={event.ID}><summary>{event.Title}</summary><p>{new Date(event.StartTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{event.Location ? " · " + event.Location : ""}</p></details>)}{(state.data?.meals ?? []).filter(meal => meal.Date === key).map(meal => <details className="calendar-item meal-item" key={meal.MealType}><summary>{meal.MealType}: {meal.Name}</summary><Link href="/meals">Edit meal →</Link></details>)}{(state.data?.chores ?? []).filter(chore => chore.DueDate?.slice(0, 10) === key).map(chore => <details className="calendar-item chore-item" key={chore.ID}><summary>{chore.Name}</summary><p>{chore.Status === "overdue" ? "Overdue" : "Due " + (chore.DueDate ? new Date(chore.DueDate).toLocaleDateString() : "date not set")}</p><Link href="/chores">View chores →</Link></details>)}</article>; })}</section></>}</div>;
+}
+
+export function MealsPage() {
+  const signedIn = useSignedIn();
+  const [week, setWeek] = useState(() => fridayOf(new Date()));
+  const key = dateString(week);
+  const state = useApiData<Meal[]>("/api/meals?week=" + key);
+  const [editing, setEditing] = useState("");
+  const [name, setName] = useState(""); const [mutationError,setMutationError]=useState("");
+  const days = Array.from({ length: 7 }, (_, index) => shiftDays(week, index));
+  async function save(event: FormEvent, date: string, mealType: string) { event.preventDefault(); const value = name.trim(); if (!value) return; setMutationError(""); try { await api("/api/meals", { method: "POST", body: JSON.stringify({ date, mealType, name: value }) }); setName(""); setEditing(""); await state.reload(); } catch { setMutationError("We couldn’t save that meal. Please try again."); } }
+  async function remove(date: string, mealType: string) { setMutationError(""); try { await api("/api/meals?date=" + date + "&mealType=" + mealType, { method: "DELETE" }); await state.reload(); } catch { setMutationError("We couldn’t remove that meal. Please try again."); } }
+  return <div className="page-wrap"><Title label="MEAL PLAN · FRIDAY TO THURSDAY" title="Meals" subtitle="A few good ideas for the family table."/><div className="calendar-toolbar"><button className="icon-action" aria-label="Previous week" onClick={() => setWeek(shiftDays(week, -7))}>←</button><strong>Week of {formatMonthDay(week)}</strong><button className="icon-action" aria-label="Next week" onClick={() => setWeek(shiftDays(week, 7))}>→</button><button className="text-action" onClick={() => setWeek(fridayOf(new Date()))}>This week</button></div>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={() => void state.reload()}/>{mutationError&&<p role="alert" className="error-message">{mutationError}</p>}<section className="meal-week">{days.map(day => { const date=dateString(day); return <article className="meal-day" key={date}><h2>{longWeekdayNames[day.getDay()] + ", " + formatMonthDay(day)}</h2>{["breakfast","lunch","dinner"].map(type=>{const meal=state.data?.find(item=>item.Date===date&&item.MealType===type);const editKey=date+type;return <div className="meal-slot" key={type}><span>{type}</span>{editing===editKey?<form className="inline-form" onSubmit={event=>void save(event,date,type)}><input autoFocus aria-label={type + " meal"} value={name} onChange={event=>setName(event.target.value)} placeholder="Add a meal idea"/><button className="action-button">Save</button><button className="text-action" type="button" onClick={()=>setEditing("")}>Cancel</button></form>:meal?<div className="meal-value"><button className="meal-edit" onClick={()=>{setName(meal.Name);setEditing(editKey)}}>{meal.Name}</button><button className="text-action" aria-label={"Remove " + type + " meal"} onClick={()=>void remove(date,type)}>Remove</button></div>:<button className="add-meal" onClick={()=>{setName("");setEditing(editKey)}}>＋ Add {type}</button>}</div>})}</article>})}</section></>}</div>;
+}
+
+export function RecipesPage() {
+  const signedIn = useSignedIn();
+  const state=useApiData<Recipe[]>("/api/recipes");const [query,setQuery]=useState("");const [selected,setSelected]=useState("");const [detail,setDetail]=useState<Recipe|null>(null);const [detailError,setDetailError]=useState("");
+  const recipes=(state.data??[]).filter(item=>item.Title.toLowerCase().includes(query.toLowerCase()));
+  async function openRecipe(id:string){setSelected(id);setDetail(null);setDetailError("");try{setDetail(await api<Recipe>("/api/recipes/"+id))}catch{setDetailError("We couldn’t open that recipe. Please try again.")}}
+  return <div className="page-wrap"><Title label="FROM THE FAMILY KITCHEN" title="Recipes" subtitle="The recipes you love, all together."/><label className="search-field">Find a recipe<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search recipes"/></label>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={() => void state.reload()}/><section className="recipe-grid">{recipes.map(item=><article className="panel recipe-card" key={item.ID}><div className="recipe-art" aria-hidden="true">♧</div><h2>{item.Title}</h2><button className="panel-bottom-link" aria-expanded={selected===item.ID} onClick={()=>void openRecipe(item.ID)}>Open recipe →</button>{selected===item.ID&&(detailError?<p role="alert">{detailError}</p>:!detail?<p role="status">Loading recipe…</p>:<div className="recipe-detail"><h3>Ingredients</h3>{(detail.Ingredients??[]).flatMap(group=>group.items).map((ingredient,index)=><p key={index}>{ingredient}</p>)}<h3>Method</h3>{(detail.Steps??(detail.Instructions?[detail.Instructions]:[])).map((step,index)=><p key={index}>{index+1}. {step}</p>)}</div>)}</article>)}</section></>}</div>;
+}
+
+export function ShoppingPage() {
+  const signedIn = useSignedIn();
+  const state=useApiData<ShoppingItem[]>("/api/shopping");const [name,setName]=useState("");const [busy,setBusy]=useState("");const [mutationError,setMutationError]=useState("");
+  async function add(event:FormEvent){event.preventDefault();if(!name.trim())return;setMutationError("");try{await api("/api/shopping/items",{method:"POST",body:JSON.stringify({name:name.trim()})});setName("");await state.reload()}catch{setMutationError("We couldn’t add that item. Please try again.")}}
+  async function toggle(item:ShoppingItem){setBusy(item.id);setMutationError("");try{await api<void>("/api/shopping/items/"+item.id,{method:"PATCH",body:JSON.stringify({purchased:!item.purchased,version:item.version})});await state.reload()}catch{setMutationError("We couldn’t update the shopping list. Please try again.")}finally{setBusy("")}}
+  return <div className="page-wrap"><Title label="THE SHARED LIST" title="Shopping" subtitle="Add what you need. Tick it off as you go."/>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={() => void state.reload()}/>{mutationError&&<p role="alert" className="error-message">{mutationError}</p>}<section className="panel data-panel"><form className="add-row" onSubmit={event=>void add(event)}><label className="visually-hidden" htmlFor="shopping-name">Add an item</label><input id="shopping-name" value={name} onChange={event=>setName(event.target.value)} placeholder="Add something to the list"/><button className="action-button" disabled={!name.trim()}>Add item</button></form><h2>To pick up</h2>{(state.data??[]).filter(item=>!item.purchased).map(item=><div className="data-row" key={item.id}><label className="shopping-check"><input type="checkbox" checked={item.purchased} disabled={busy===item.id} onChange={()=>void toggle(item)}/><span>{item.name}</span></label></div>)}{!state.loading&&!state.data?.some(item=>!item.purchased)&&<p className="inline-empty">Your list is clear for now.</p>}<h2>Picked up</h2>{(state.data??[]).filter(item=>item.purchased).map(item=><div className="data-row bought-row" key={item.id}><label className="shopping-check"><input type="checkbox" checked={item.purchased} disabled={busy===item.id} onChange={()=>void toggle(item)}/><span>{item.name}</span></label></div>)}</section></>}</div>;
+}
+
+export function InventoryPage() {
+  const signedIn = useSignedIn(); const state=useApiData<InventoryArea[]>("/api/inventory");return <div className="page-wrap"><Title label="WHAT’S AT HOME" title="Inventory" subtitle="Keep track of what you have in each place."/>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={()=>void state.reload()}/><section className="inventory-grid">{(state.data??[]).map(area=><article className="panel data-panel" key={area.ID}><h2>{area.Name}</h2>{(area.Items??[]).map(item=><div className="data-row" key={item.ID}><strong>{item.Name}</strong><span>{item.Quantity} {item.Unit}</span></div>)}</article>)}{!state.loading&&!state.data?.length&&<p className="inline-empty">Your inventory areas will appear here.</p>}</section></>}</div>}
+
+export function WeatherPage() {
+  const signedIn = useSignedIn(); const state=useApiData<Forecast>("/api/weather");return <div className="page-wrap"><Title label="AT HOME" title="Weather" subtitle="A useful look at the day and the week ahead."/>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={()=>void state.reload()}/>{state.data?.status==="setup_required"?<section className="state-box"><h2>Set your home location</h2><p>Family Hub needs your home location to show a local forecast.</p><Link className="action-button" href="/household">Open household settings</Link></section>:state.data&&<><section className="panel forecast-current"><p className="kicker">RIGHT NOW</p><div><strong>{Math.round(state.data.current.temperature)}°</strong><span>High {Math.round(state.data.high)}° · Low {Math.round(state.data.low)}°</span></div><p>{state.data.advice.join(" ")}</p></section><section className="panel forecast-detail"><h2>Hourly forecast</h2><div className="forecast-strip">{state.data.hours.map(hour=><div key={hour.time}><small>{new Date(hour.time).toLocaleTimeString([], {hour:"numeric"})}</small><strong>{Math.round(hour.temperature)}°</strong><span>{Math.round(hour.rainProbability)}% rain</span></div>)}</div></section><section className="panel forecast-detail"><h2>Next seven days</h2><div className="forecast-week">{state.data.days.map(day=><div key={day.date}><small>{new Date(day.date).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"})}</small><strong>{Math.round(day.high)}°</strong><span>Low {Math.round(day.low)}° · {weatherLabel(day.code)}{day.rainProbability===undefined?"":" · "+Math.round(day.rainProbability)+"% rain"}</span></div>)}</div></section></>}</>}</div>}
+
+export function MorePage() { const destinations=[{title:"Meals",href:"/meals",detail:"Plan breakfast, lunch, and dinner"},{title:"Recipes",href:"/recipes",detail:"Find something good to cook"},{title:"Shopping",href:"/shopping",detail:"Shared list for your next shop"},{title:"Inventory",href:"/inventory",detail:"See what you have at home"},{title:"Scratchpad",href:"/scratchpad",detail:"Leave a drawing for the family"},{title:"Household",href:"/household",detail:"Manage shared home details"}];return <div className="page-wrap"><Title label="FAMILY HUB" title="More at home" subtitle="Everything your family uses to keep home running."/><section className="more-grid">{destinations.map(item=><Link className="more-card" key={item.href} href={item.href}><strong>{item.title}</strong><span>{item.detail}</span><i>→</i></Link>)}</section></div>}
+
+export function HouseholdPage() {
+  const signedIn = useSignedIn();
+  const [displays,setDisplays]=useState<{id:string;name:string;createdAt:string}[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [busy,setBusy]=useState("");const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
+  async function reload(){setLoading(true);setError("");try{const user=await api<{Role:string}>("/api/me");const admin=user.Role==="admin";setIsAdmin(admin);setDisplays(admin?await api("/api/displays"):[])}catch(reason){setError(reason instanceof Error?reason.message:"We could not load paired displays.")}finally{setLoading(false)}}
+  useEffect(()=>{if(getToken())void reload();else setLoading(false)},[]);
+  async function revoke(id:string){setBusy(id);setError("");try{await api("/api/displays/"+id,{method:"DELETE"});await reload()}catch(reason){setError(reason instanceof Error?reason.message:"We could not remove that display.")}finally{setBusy("")}}
+  return <div className="page-wrap"><Title label="YOUR HOME" title="Household" subtitle="Shared details and devices connected to this home."/><section className="panel data-panel"><h2>Paired displays</h2>{!signedIn?<SignInPrompt/>:<>{loading&&<p role="status">Loading paired devices…</p>}{error&&<p role="alert" className="error-message">{error}</p>}{!loading&&!error&&isAdmin===false&&<p className="inline-empty">An admin can pair or remove wall displays in the Family Hub app.</p>}{displays.map(display=><div className="data-row" key={display.id}><div><strong>{display.name}</strong><small>Paired {new Date(display.createdAt).toLocaleDateString()}</small></div><button className="text-action destructive-action" disabled={busy===display.id} onClick={()=>void revoke(display.id)}>{busy===display.id?"Removing…":"Remove"}</button></div>)}{!loading&&!error&&isAdmin&&!displays.length&&<p className="inline-empty">No wall displays are paired yet.</p>}{isAdmin&&<p className="subheading">To pair a display, open its setup screen and scan its code with the Family Hub iOS app.</p>}</>}</section><section className="quick-links"><Link href="/shopping">Shopping →</Link><Link href="/inventory">Inventory →</Link><Link href="/scratchpad">Family scratchpad →</Link></section></div>;
+}
+
+const colors=["#3c654c","#8b503c","#b88642","#343c31","#5d7ea2","#9d3c34"];
+export function ScratchpadPage() {
+  const signedIn = useSignedIn();
+  const state=useApiData<Scratchpad>("/api/scratchpad");const [strokes,setStrokes]=useState<Stroke[]>([]);const [color,setColor]=useState(colors[0]);const [saving,setSaving]=useState(false);const [saveError,setSaveError]=useState("");const canvas=useRef<HTMLCanvasElement>(null);const drawing=useRef(false);const strokesRef=useRef<Stroke[]>([]);
+  useEffect(()=>{if(state.data){setStrokes(state.data.strokes);strokesRef.current=state.data.strokes}else if(state.error){try{const draft=JSON.parse(localStorage.getItem("family-hub-scratchpad-draft")??"[]") as Stroke[];setStrokes(draft);strokesRef.current=draft}catch{localStorage.removeItem("family-hub-scratchpad-draft")}}},[state.data,state.error]);
+  const render=useCallback(()=>{const element=canvas.current;if(!element)return;const bounds=element.getBoundingClientRect();const ratio=window.devicePixelRatio||1;element.width=Math.round(bounds.width*ratio);element.height=Math.round(bounds.height*ratio);const context=element.getContext("2d");if(!context)return;context.scale(ratio,ratio);context.lineCap="round";context.lineJoin="round";for(const stroke of strokesRef.current){if(!stroke.points.length)continue;context.strokeStyle=stroke.color;context.lineWidth=4;context.beginPath();context.moveTo(stroke.points[0].x*bounds.width,stroke.points[0].y*bounds.height);for(const point of stroke.points.slice(1))context.lineTo(point.x*bounds.width,point.y*bounds.height);context.stroke()}},[]);
+  useEffect(()=>{render();window.addEventListener("resize",render);return()=>window.removeEventListener("resize",render)},[render,strokes]);
+  function point(event:PointerEvent<HTMLCanvasElement>){const bounds=event.currentTarget.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(event.clientX-bounds.left)/bounds.width)),y:Math.max(0,Math.min(1,(event.clientY-bounds.top)/bounds.height))}}
+  function start(event:PointerEvent<HTMLCanvasElement>){drawing.current=true;event.currentTarget.setPointerCapture(event.pointerId);const next=[...strokesRef.current,{color,points:[point(event)]}];strokesRef.current=next;setStrokes(next)}
+  function move(event:PointerEvent<HTMLCanvasElement>){if(!drawing.current)return;const next=strokesRef.current.slice();const last=next[next.length-1];next[next.length-1]={...last,points:[...last.points,point(event)]};strokesRef.current=next;setStrokes(next)}
+  function end(){drawing.current=false}
+  async function save(){if(!signedIn)return;setSaving(true);setSaveError("");try{await api("/api/scratchpad",{method:"PUT",body:JSON.stringify({strokes:strokesRef.current})});localStorage.removeItem("family-hub-scratchpad-draft");state.setData({strokes:strokesRef.current,updatedAt:new Date().toISOString()})}catch{localStorage.setItem("family-hub-scratchpad-draft",JSON.stringify(strokesRef.current));setSaveError("We couldn’t save that drawing. Your draft is still here. Please try again.")}finally{setSaving(false)}}
+  function undo(){const next=strokesRef.current.slice(0,-1);strokesRef.current=next;setStrokes(next)}
+  function clear(){strokesRef.current=[];setStrokes([])}
+  return <div className="page-wrap"><Title label="DRAWING BOARD" title="Family scratchpad" subtitle="Leave a little picture for everyone. This board is for drawings, not text notes."/>{!signedIn?<SignInPrompt/>:<><State loading={state.loading} error={state.error} retry={()=>void state.reload()}/><section className="panel scratchpad-panel"><div className="scratchpad-toolbar"><div role="group" aria-label="Pen color">{colors.map(value=><button key={value} className={color===value?"color-choice selected":"color-choice"} aria-label={"Choose pen color " + value} aria-pressed={color===value} style={{backgroundColor:value}} onClick={()=>setColor(value)}/>)}</div><button className="text-action" disabled={!strokes.length} onClick={undo}>Undo</button><button className="text-action" disabled={!strokes.length} onClick={clear}>Clear</button><button className="action-button" disabled={saving} onClick={()=>void save()}>{saving?"Saving…":"Save drawing"}</button></div><canvas ref={canvas} aria-label="Shared family drawing board" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}/>{saveError&&<p role="alert" className="error-message">{saveError}</p>}{!saveError&&<p role="status" className="save-state">{saving?"Saving your drawing…":state.data?.updatedAt?"Saved for everyone":"Ready to draw"}</p>}</section></>}</div>
+}

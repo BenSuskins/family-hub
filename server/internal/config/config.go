@@ -15,6 +15,7 @@ type Config struct {
 	OIDCIssuer        string
 	OIDCClientID      string
 	OIDCUserInfoURL   string
+	WebOrigin         string
 	HuxleyBaseURL     string
 	HuxleyAccessToken string
 
@@ -33,6 +34,7 @@ func Load() (Config, error) {
 		OIDCIssuer:        os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:      os.Getenv("OIDC_CLIENT_ID"),
 		OIDCUserInfoURL:   envOrDefault("OIDC_USERINFO_URL", os.Getenv("OIDC_ISSUER")+"/api/oidc/userinfo"),
+		WebOrigin:         os.Getenv("WEB_ORIGIN"),
 		HuxleyBaseURL:     envOrDefault("HUXLEY_BASE_URL", "https://huxley2.azurewebsites.net"),
 		HuxleyAccessToken: os.Getenv("HUXLEY_ACCESS_TOKEN"),
 

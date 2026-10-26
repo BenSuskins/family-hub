@@ -162,8 +162,15 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Replace any existing iOS tokens for this user
-	existing, _ := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, "iOS App")
+	client := r.URL.Query().Get("client")
+	tokenName := "iOS App"
+	if client == "web" {
+		tokenName = "Web App"
+	}
+
+	// Each client replaces only its own token so signing in on the web does not
+	// invalidate the native app session.
+	existing, _ := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, tokenName)
 	for _, t := range existing {
 		_ = handler.tokenRepo.Delete(ctx, t.ID)
 	}
@@ -176,12 +183,12 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 	plainToken := hex.EncodeToString(tokenBytes)
 
 	if _, err := handler.tokenRepo.Create(ctx, models.APIToken{
-		Name:            "iOS App",
+		Name:            tokenName,
 		TokenHash:       repository.HashToken(plainToken),
 		Scope:           models.TokenScopeAPI,
 		CreatedByUserID: user.ID,
 	}); err != nil {
-		slog.Error("creating iOS API token", "error", err)
+		slog.Error("creating client API token", "client", tokenName, "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to create token")
 		return
 	}

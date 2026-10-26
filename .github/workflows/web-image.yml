@@ -1,0 +1,39 @@
+name: Web image
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web-image.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web-image.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build web image
+        env:
+          IMAGE: ghcr.io/bensuskins/family-hub-web
+          IMAGE_TAG: ${{ github.sha }}
+          PUSH_IMAGE: ${{ github.event_name == 'push' }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_FAMILY_HUB_API_URL=https://hub.suskins.co.uk \
+            --file web/Dockerfile \
+            --tag "$IMAGE:$IMAGE_TAG" \
+            --tag "$IMAGE:latest" \
+            web
+
+          if [ "$PUSH_IMAGE" = "true" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+            docker push "$IMAGE:$IMAGE_TAG"
+            docker push "$IMAGE:latest"
+          fi

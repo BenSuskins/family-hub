@@ -24,7 +24,16 @@ type Weather struct {
 	High      float64       `json:"high"`
 	Low       float64       `json:"low"`
 	Hours     []WeatherHour `json:"hours"`
+	Days      []WeatherDay  `json:"days"`
 	Advice    []string      `json:"advice"`
+}
+
+type WeatherDay struct {
+	Date            time.Time `json:"date"`
+	High            float64   `json:"high"`
+	Low             float64   `json:"low"`
+	Code            int       `json:"code"`
+	RainProbability *float64  `json:"rainProbability,omitempty"`
 }
 
 type Departure struct {

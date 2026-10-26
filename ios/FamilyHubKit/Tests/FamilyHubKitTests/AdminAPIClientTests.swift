@@ -48,6 +48,12 @@ private final class AdminHTTPFixture: @unchecked Sendable {
             return (200, Data(#"{"enabled":true,"uploaded_at":"2026-10-25T12:00:00Z","collection_count":12,"push_available":true}"#.utf8), [:])
         case ("PATCH", "/api/bin-collections"):
             return (200, Data(#"{"enabled":false,"uploaded_at":"2026-10-25T12:00:00Z","collection_count":12,"push_available":true}"#.utf8), [:])
+        case ("GET", "/api/displays"):
+            return (200, Data(#"[{"id":"display-1","name":"Kitchen","pairedByUserId":"user-1","createdAt":"2026-10-25T12:00:00Z"}]"#.utf8), [:])
+        case ("POST", "/api/display-pairing/challenges/challenge-1/approve"):
+            return (200, Data(#"{"status":"approved"}"#.utf8), [:])
+        case ("DELETE", "/api/displays/display-1"):
+            return (204, Data(), [:])
         case ("GET", "/api/admin/backup"):
             return (200, Data("backup archive".utf8), ["Content-Type": "application/gzip", "Content-Disposition": "attachment; filename=family-hub-backup-2026-10-22.db.gz"])
         default:
@@ -148,6 +154,21 @@ final class AdminAPIClientTests: XCTestCase {
         XCTAssertTrue(String(decoding: AdminURLProtocol.fixture.body(at: 1), as: UTF8.self).contains("name=\"schedule\""))
         XCTAssertTrue(String(decoding: AdminURLProtocol.fixture.body(at: 1), as: UTF8.self).contains("BEGIN:VCALENDAR"))
         XCTAssertEqual(try JSONSerialization.jsonObject(with: Data(AdminURLProtocol.fixture.body(at: 2))) as? [String: Bool], ["enabled": false])
+    }
+
+    func testDisplayPairingAndRevocationUseServerContracts() async throws {
+        AdminURLProtocol.fixture.reset()
+        let client = makeClient()
+        let displays = try await client.fetchPairedDisplays()
+        XCTAssertEqual(displays.map(\.name), ["Kitchen"])
+        try await client.approveDisplayPairing(id: "challenge-1", pairingCode: String(repeating: "a", count: 64), name: "Hall")
+        try await client.deletePairedDisplay(id: "display-1")
+
+        let requests = AdminURLProtocol.fixture.requests
+        XCTAssertEqual(requests.map(\.httpMethod), ["GET", "POST", "DELETE"])
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(AdminURLProtocol.fixture.body(at: 1))) as? [String: String])
+        XCTAssertEqual(body, ["pairingCode": String(repeating: "a", count: 64), "name": "Hall"])
+        XCTAssertEqual(requests[2].url?.path, "/api/displays/display-1")
     }
 
     private func makeClient() -> APIClient {

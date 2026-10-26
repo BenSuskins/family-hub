@@ -101,6 +101,9 @@ public protocol APIClientProtocol: AnyObject {
     func fetchTokens() async throws -> [APIToken]
     func createToken(name: String) async throws -> CreatedToken
     func deleteToken(id: String) async throws
+    func fetchPairedDisplays() async throws -> [PairedDisplay]
+    func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws
+    func deletePairedDisplay(id: String) async throws
 
     var serverIdentifier: String? { get }
     func snapshotMetadata(for key: String) async -> SnapshotMetadata?

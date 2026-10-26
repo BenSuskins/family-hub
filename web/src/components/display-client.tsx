@@ -53,6 +53,7 @@ type Pairing = { challengeId: string; pairingCode: string; expiresAt: string };
 type MealEditTarget = { date: string; mealType: MealType };
 
 const apiBase = getApiBaseUrl();
+const localMocksEnabled = process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_FAMILY_HUB_API_URL;
 const storagePrefix = displayStoragePrefix(apiBase);
 const displayTokenKey = `${storagePrefix}.token`;
 const snapshotKey = (id: string) => `${storagePrefix}.snapshot.${encodeURIComponent(id)}`;
@@ -106,8 +107,8 @@ function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void }) {
       const response = await fetch(apiBase + "/api/display-pairing/challenges", { method: "POST" });
       if (!response.ok) throw new Error("We could not start pairing. Check the connection and try again.");
       setPairing(await response.json() as Pairing);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "We could not start pairing. Check the connection and try again.");
+    } catch {
+      setError("We couldn’t connect to Family Hub. Check the connection, then try again.");
     } finally { setRenewing(false); }
   }, []);
   useEffect(() => {
@@ -157,17 +158,18 @@ function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void }) {
     <section className="pair-card" aria-label="Family Hub display pairing">
       <Image className="brand-mark-image" src="/family-hub-mark.png" alt="Family Hub" width={80} height={80} priority />
       <h1>{error.includes("expired") ? "Let’s try that again." : "One screen for everyone."}</h1>
-      <p>Open Family Hub on your iPhone or iPad. Go to <strong>Settings → Wall displays → Scan a display code</strong>, then approve this screen.</p>
-      {pairing ? <div className="qr-wrap"><QRCodeSVG value={qrValue} size={228} level="M" includeMargin /></div> : <div className="qr-empty" role="status">{renewing ? "Preparing a new code…" : "Pairing code is unavailable"}</div>}
+      <p className="pair-instructions">On your iPhone or iPad, open Family Hub → Settings → Wall displays → Scan a display code. Then approve this screen.</p>
+      {pairing ? <div className="qr-wrap"><QRCodeSVG value={qrValue} size={200} level="M" includeMargin /></div> : !error && <div className="qr-empty" role="status">{renewing ? "Preparing a pairing code…" : "Pairing code unavailable"}</div>}
       {error && <p className="error-message" role="alert">{error}</p>}
-      <small>Each code expires after five minutes and can be used once.</small>
-      {(!pairing || error) && <button className="action-button" disabled={renewing} onClick={() => void create()}>{renewing ? "Preparing…" : "Create a new pairing code"}</button>}
-      <p className="pair-note">A shared household screen. No personal sign-in is stored here.</p>
+      {pairing && <small>Code expires in five minutes and can be used once.</small>}
+      {(!pairing || error) && <button className="action-button" disabled={renewing} onClick={() => void create()}>{renewing ? "Preparing…" : error ? "Try again" : "Create pairing code"}</button>}
+      <p className="pair-note">Shared screen. No personal sign-in is stored here.</p>
     </section>
   </main>;
 }
 
 export function DisplayClient() {
+  const [mockReady, setMockReady] = useState(!localMocksEnabled);
   const [token, setToken] = useState("");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [householdName, setHouseholdName] = useState("Family");
@@ -188,10 +190,21 @@ export function DisplayClient() {
   }, []);
 
   useEffect(() => {
-    setToken(readStorage(displayTokenKey) ?? "");
-    setClock(new Date());
-    const timer = window.setInterval(() => setClock(new Date()), 30_000);
-    return () => window.clearInterval(timer);
+    let stopped = false;
+    let timer: number | undefined;
+    async function initialise() {
+      if (localMocksEnabled) {
+        const { startLocalMocks } = await import("@/mocks/browser");
+        await startLocalMocks();
+      }
+      if (stopped) return;
+      setToken(readStorage(displayTokenKey) ?? "");
+      setClock(new Date());
+      setMockReady(true);
+      timer = window.setInterval(() => setClock(new Date()), 30_000);
+    }
+    void initialise();
+    return () => { stopped = true; if (timer) window.clearInterval(timer); };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -333,16 +346,15 @@ export function DisplayClient() {
     let timer = window.setTimeout(closeForIdle, 5 * 60_000);
     const resetIdle = () => { window.clearTimeout(timer); timer = window.setTimeout(closeForIdle, 5 * 60_000); };
     function closeForIdle() {
-      const hasPendingAction = dialogRef.current?.querySelector("button:disabled, [aria-busy='true']");
       const drawing = dialogRef.current?.querySelector("canvas[data-drawing='true']");
-      if (hasPendingAction || drawing) { timer = window.setTimeout(closeForIdle, 30_000); return; }
+      if (drawing) { timer = window.setTimeout(closeForIdle, 30_000); return; }
       setSelectedApp("");
       setSelectedChore(null);
       setMealEditTarget(null);
     }
     function keydown(event: KeyboardEvent) {
       resetIdle();
-      if (event.key === "Escape") { event.preventDefault(); closeForIdle(); return; }
+      if (event.key === "Escape") { event.preventDefault(); setSelectedApp(""); setSelectedChore(null); setMealEditTarget(null); return; }
       if (event.key !== "Tab" || !dialogRef.current) return;
       const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex='0']"));
       if (!controls.length) return;
@@ -367,6 +379,7 @@ export function DisplayClient() {
     setSelectedApp(app);
   };
   const close = () => { setSelectedApp(""); setSelectedChore(null); setMealEditTarget(null); };
+  if (!mockReady) return <main className="pair-screen"><p role="status">Starting the local display…</p></main>;
   if (!token) return <PairDisplay onClaimed={accept} />;
   if (!clock) return <main className="wall-display-shell" aria-busy="true" />;
 
@@ -415,7 +428,6 @@ export function DisplayClient() {
         {sections.has("meals") && meals.length > 0 && <section style={{ order: cardOrder.meals }} className="display-card meal-card"><div className="display-card-heading"><span><SectionIcon name="meals"/>{mealWindow.label}’s meals</span><small>{mealWindow.nextMeal} is next</small></div><Freshness snapshot={current} resource="meals" timezone={timezone}/><div className="meal-slots">{meals.map(meal => <button key={`${meal.Date}-${meal.MealType}`} onClick={event => { setMealEditTarget({ date: meal.Date, mealType: meal.MealType }); open("Meal plan", event); }}><small>{meal.MealType}{meal.MealType === mealWindow.nextMeal ? " · Up next" : ""}</small><strong>{meal.Name}</strong></button>)}</div></section>}
         {sections.has("calendar") && events.length > 0 && <section style={{ order: cardOrder.calendar }} className="display-card calendar-card"><div className="display-card-heading"><span><SectionIcon name="calendar"/>Coming up</span><button className="text-action" onClick={event => open("Calendar", event)}>Open calendar</button></div><Freshness snapshot={current} resource="events" timezone={timezone}/>{events.slice(0, 3).map(item => <button className="display-event" key={item.ID} onClick={event => open("Calendar", event)}><time>{item.AllDay ? "All day" : new Date(item.StartTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><span><strong>{item.Title}</strong>{item.Location && <small>{item.Location}</small>}</span></button>)}</section>}
         {sections.has("chores") && chores.length > 0 && <section style={{ order: cardOrder.chores }} className="display-card chores-card"><div className="display-card-heading"><span><SectionIcon name="chores"/>Things to do</span><small>{chores.length} pending</small></div><Freshness snapshot={current} resource="chores" timezone={timezone}/>{chores.slice(0, 4).map(chore => <button className="display-chore" key={chore.ID} onClick={event => { setSelectedChore(chore); open("Chore completion", event); }}><span className="chore-ring" aria-hidden="true"/><span><strong>{chore.Name}</strong><small>{chore.AssignedToUserID ? current?.people.find(person => person.id === chore.AssignedToUserID)?.name ?? "Assigned" : "Choose who completed this"}</small></span></button>)}</section>}
-        {sections.has("weather") && weatherReady && weather?.current && <section style={{ order: cardOrder.weather }} className="display-card weather-card"><div className="display-card-heading"><span><SectionIcon name="weather"/>At home</span><small>{weatherLabel(weather.current.code)}</small></div><Freshness snapshot={current} resource="weather" timezone={timezone}/><button className="weather-overview" onClick={event => open("Weather", event)}><strong>{Math.round(weather.current.temperature)}°</strong><span>{weatherLabel(weather.current.code)}{weather.high !== undefined ? ` · H ${Math.round(weather.high)}° L ${Math.round(weather.low ?? 0)}°` : ""}</span></button></section>}
         {sections.has("bins") && collections.length > 0 && <section style={{ order: cardOrder.bins }} className="display-card bins-card"><div className="display-card-heading"><span><SectionIcon name="bins"/>{collections[0].date === dateKey ? "Bins collected today" : "Bins out tonight"}</span><button className="text-action" onClick={event => open("Bins", event)}>Details</button></div><Freshness snapshot={current} resource="bins" timezone={timezone}/>{collections.map(bin => <div className="bin-row" key={`${bin.date}-${bin.type}`}><strong>{bin.name || bin.type}</strong><span>{new Date(`${bin.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</span></div>)}</section>}
         {sections.has("trains") && trains.length > 0 && <section style={{ order: cardOrder.trains }} className="display-card trains-card"><div className="display-card-heading"><span><SectionIcon name="trains"/>Next trains</span><button className="text-action" onClick={event => open("Trains", event)}>Details</button></div><Freshness snapshot={current} resource="trains" timezone={timezone}/><small className="route-caption">{commute?.boards[0]?.origin.code} to {commute?.boards[0]?.destination.code}</small>{trains.slice(0, 3).map(({ board, train }) => <div className="train-row" key={`${board.origin.code}-${train.serviceId}`}><time>{train.expectedDeparture || train.scheduledDeparture || "—"}</time><strong>{train.platform ? `Platform ${train.platform}` : train.operator || "Train"}</strong><small>{train.status.replaceAll("_", " ")}</small></div>)}</section>}
       </div>

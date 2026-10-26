@@ -1,0 +1,344 @@
+{
+  "settings": {
+    "id": "local-kitchen-display",
+    "name": "Kitchen display",
+    "enabledSections": [
+      "calendar",
+      "meals",
+      "chores",
+      "weather",
+      "departures",
+      "trains",
+      "bins"
+    ]
+  },
+  "home": {
+    "timezone": "Europe/London",
+    "familyName": "Willow"
+  },
+  "people": [
+    {
+      "id": "person-alex",
+      "name": "Alex"
+    },
+    {
+      "id": "person-sam",
+      "name": "Sam"
+    },
+    {
+      "id": "person-maya",
+      "name": "Maya"
+    }
+  ],
+  "calendar": {
+    "events": [
+      {
+        "ID": "event-swimming",
+        "Title": "Swimming lesson",
+        "StartTime": "{{in:60}}",
+        "EndTime": "{{in:120}}",
+        "Location": "Riverside Pool"
+      },
+      {
+        "ID": "event-dinner",
+        "Title": "Dinner with grandparents",
+        "StartTime": "{{in:240}}",
+        "EndTime": "{{in:300}}",
+        "Location": "Home"
+      }
+    ],
+    "chores": [
+      {
+        "ID": "chore-plants",
+        "Name": "Water the plants",
+        "Status": "pending",
+        "DueDate": "{{today}}",
+        "AssignedToUserID": "person-sam"
+      },
+      {
+        "ID": "chore-table",
+        "Name": "Set the table",
+        "Status": "pending",
+        "DueDate": "{{today}}",
+        "AssignedToUserID": null
+      },
+      {
+        "ID": "chore-laundry",
+        "Name": "Fold the laundry",
+        "Status": "pending",
+        "DueDate": "{{tomorrow}}",
+        "AssignedToUserID": null
+      }
+    ],
+    "meals": [
+      {
+        "Date": "{{today}}",
+        "MealType": "breakfast",
+        "Name": "Berry porridge"
+      },
+      {
+        "Date": "{{today}}",
+        "MealType": "lunch",
+        "Name": "Roasted vegetable wraps"
+      },
+      {
+        "Date": "{{today}}",
+        "MealType": "dinner",
+        "Name": "Lemon chicken traybake"
+      },
+      {
+        "Date": "{{tomorrow}}",
+        "MealType": "breakfast",
+        "Name": "Yoghurt and fruit"
+      },
+      {
+        "Date": "{{tomorrow}}",
+        "MealType": "dinner",
+        "Name": "Vegetable curry"
+      }
+    ],
+    "availability": {
+      "events": "available",
+      "meals": "available"
+    }
+  },
+  "weather": {
+    "status": "available",
+    "current": {
+      "temperature": 14,
+      "code": 2
+    },
+    "high": 16,
+    "low": 9,
+    "hours": [
+      {
+        "time": "{{in:60}}",
+        "temperature": 13,
+        "code": 2,
+        "rainProbability": 10
+      },
+      {
+        "time": "{{in:120}}",
+        "temperature": 12,
+        "code": 3,
+        "rainProbability": 15
+      }
+    ],
+    "days": [
+      {
+        "date": "{{today}}",
+        "high": 16,
+        "low": 9,
+        "code": 2,
+        "rainProbability": 10
+      },
+      {
+        "date": "{{date:1}}",
+        "high": 15,
+        "low": 8,
+        "code": 3,
+        "rainProbability": 20
+      },
+      {
+        "date": "{{date:2}}",
+        "high": 14,
+        "low": 7,
+        "code": 61,
+        "rainProbability": 65
+      },
+      {
+        "date": "{{date:3}}",
+        "high": 17,
+        "low": 10,
+        "code": 1,
+        "rainProbability": 5
+      },
+      {
+        "date": "{{date:4}}",
+        "high": 18,
+        "low": 11,
+        "code": 0,
+        "rainProbability": 0
+      },
+      {
+        "date": "{{date:5}}",
+        "high": 16,
+        "low": 9,
+        "code": 3,
+        "rainProbability": 25
+      },
+      {
+        "date": "{{date:6}}",
+        "high": 15,
+        "low": 8,
+        "code": 2,
+        "rainProbability": 15
+      }
+    ]
+  },
+  "departures": {
+    "status": "available",
+    "items": [
+      {
+        "eventID": "event-swimming",
+        "title": "Swimming lesson",
+        "destination": "Riverside Pool",
+        "startTime": "{{in:60}}",
+        "leaveAt": "{{in:30}}",
+        "drivingSeconds": 1080
+      }
+    ]
+  },
+  "bins": {
+    "enabled": true,
+    "collections": [
+      {
+        "date": "{{tomorrow}}",
+        "type": "food",
+        "name": "Food & recycling"
+      }
+    ]
+  },
+  "commute": {
+    "status": "available",
+    "timezone": "Europe/London",
+    "boards": [
+      {
+        "origin": {
+          "code": "KEL"
+        },
+        "destination": {
+          "code": "LST"
+        },
+        "fetchedAt": "{{now}}",
+        "trains": [
+          {
+            "serviceId": "train-1",
+            "status": "on_time",
+            "scheduledDeparture": "18:12",
+            "expectedDeparture": "18:12",
+            "platform": "2",
+            "operator": "Greater Anglia"
+          },
+          {
+            "serviceId": "train-2",
+            "status": "delayed",
+            "scheduledDeparture": "18:27",
+            "expectedDeparture": "18:31",
+            "platform": null,
+            "operator": "Greater Anglia"
+          }
+        ]
+      }
+    ]
+  },
+  "shopping": [
+    {
+      "id": "shopping-apples",
+      "name": "Apples",
+      "purchased": false,
+      "version": 1
+    },
+    {
+      "id": "shopping-oats",
+      "name": "Oats",
+      "purchased": false,
+      "version": 1
+    },
+    {
+      "id": "shopping-milk",
+      "name": "Milk",
+      "purchased": true,
+      "version": 1
+    }
+  ],
+  "inventory": [
+    {
+      "ID": "area-pantry",
+      "Name": "Pantry",
+      "Items": [
+        {
+          "ID": "item-rice",
+          "Name": "Rice",
+          "TrackingMode": "quantity",
+          "Quantity": 2,
+          "Level": 0,
+          "Unit": "bags"
+        },
+        {
+          "ID": "item-coffee",
+          "Name": "Coffee",
+          "TrackingMode": "level",
+          "Quantity": 0,
+          "Level": 50,
+          "Unit": ""
+        }
+      ]
+    },
+    {
+      "ID": "area-fridge",
+      "Name": "Fridge",
+      "Items": [
+        {
+          "ID": "item-eggs",
+          "Name": "Eggs",
+          "TrackingMode": "quantity",
+          "Quantity": 6,
+          "Level": 0,
+          "Unit": ""
+        }
+      ]
+    }
+  ],
+  "recipes": [
+    {
+      "ID": "recipe-ratatouille",
+      "Title": "Ratatouille"
+    },
+    {
+      "ID": "recipe-pancakes",
+      "Title": "Weekend pancakes"
+    }
+  ],
+  "recipeDetails": {
+    "recipe-ratatouille": {
+      "ID": "recipe-ratatouille",
+      "Title": "Ratatouille",
+      "Ingredients": [
+        {
+          "name": "Vegetables",
+          "items": [
+            "Aubergine",
+            "Courgette",
+            "Tomatoes"
+          ]
+        }
+      ],
+      "Steps": [
+        "Slice the vegetables.",
+        "Layer in a dish and bake until tender."
+      ]
+    },
+    "recipe-pancakes": {
+      "ID": "recipe-pancakes",
+      "Title": "Weekend pancakes",
+      "Ingredients": [
+        {
+          "name": "Batter",
+          "items": [
+            "Flour",
+            "Milk",
+            "Egg"
+          ]
+        }
+      ],
+      "Steps": [
+        "Whisk the ingredients.",
+        "Cook each pancake until golden."
+      ]
+    }
+  },
+  "scratchpad": {
+    "strokes": []
+  }
+}

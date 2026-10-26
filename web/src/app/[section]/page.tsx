@@ -1,7 +1,8 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { CalendarPage, ChoresPage, HouseholdPage, InventoryPage, MealsPage, MorePage, RecipesPage, ScratchpadPage, ShoppingPage, WeatherPage } from "@/components/member-pages";
 
-export default async function SectionPage({ params }: PageProps<"/[section]">) {
+async function SectionContent({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   if (section === "calendar") return <CalendarPage />;
   if (section === "chores") return <ChoresPage />;
@@ -14,4 +15,8 @@ export default async function SectionPage({ params }: PageProps<"/[section]">) {
   if (section === "more") return <MorePage />;
   if (section === "household") return <HouseholdPage />;
   notFound();
+}
+
+export default function SectionPage({ params }: PageProps<"/[section]">) {
+  return <Suspense fallback={<main className="page-wrap"><p role="status">Loading your shared home…</p></main>}><SectionContent params={params} /></Suspense>;
 }

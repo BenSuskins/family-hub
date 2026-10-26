@@ -7,7 +7,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "test": "bun test",
-    "lint": "eslint . && oxlint"
+    "lint": "eslint . && oxlint",
+    "format": "prettier --write src/features/display/components",
+    "format:check": "prettier --check src/features/display/components"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",
@@ -27,6 +29,7 @@
     "happy-dom": "^21.0.4",
     "msw": "^3.0.3",
     "oxlint": "^1.89.0",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4",
     "typescript": "^6.0.2"
   },

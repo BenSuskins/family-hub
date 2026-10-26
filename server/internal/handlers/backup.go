@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/database"
+	"github.com/bensuskins/family-hub/internal/observability"
 )
 
 type BackupHandler struct {
@@ -40,8 +41,7 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 
 	tempFile, err := os.CreateTemp("", "family-hub-backup-*.db")
 	if err != nil {
-		slog.Error("creating temp backup file", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "backup failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "backup failed", err)
 		return
 	}
 	tempPath := tempFile.Name()
@@ -50,15 +50,13 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 	defer os.Remove(tempPath)
 
 	if _, err := handler.db.ExecContext(ctx, "VACUUM INTO ?", tempPath); err != nil {
-		slog.Error("vacuuming database to backup", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "backup failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "backup failed", err)
 		return
 	}
 
 	source, err := os.Open(tempPath)
 	if err != nil {
-		slog.Error("opening backup file", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "backup failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "backup failed", err)
 		return
 	}
 	defer source.Close()
@@ -70,13 +68,13 @@ func (handler *BackupHandler) Backup(w http.ResponseWriter, r *http.Request) {
 	gzWriter := gzip.NewWriter(w)
 	defer func() {
 		if err := gzWriter.Close(); err != nil {
-			slog.Error("closing gzip writer for backup", "error", err)
+			slog.Error("closing gzip writer for backup", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 		}
 	}()
 
 	if _, err := io.Copy(gzWriter, source); err != nil {
 		// Headers already sent; cannot change status code. Client will receive a truncated archive.
-		slog.Error("streaming backup", "error", err)
+		slog.Error("streaming backup", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 	}
 }
 
@@ -115,8 +113,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 
 	tempFile, err := os.CreateTemp("", "family-hub-restore-*.db")
 	if err != nil {
-		slog.Error("creating temp restore file", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "restore failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "restore failed", err)
 		return
 	}
 	tempPath := tempFile.Name()
@@ -145,8 +142,7 @@ func (handler *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 
 	if err := replaceFile(tempPath, handler.databasePath); err != nil {
 		os.Remove(tempPath)
-		slog.Error("replacing database file", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "restore failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "restore failed", err)
 		return
 	}
 

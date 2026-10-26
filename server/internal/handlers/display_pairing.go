@@ -63,14 +63,14 @@ func NewDisplayPairingHandler(pairings repository.DisplayPairingRepository, toke
 func (handler *DisplayPairingHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
 	secretBytes := make([]byte, 32)
 	if _, err := rand.Read(secretBytes); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not create pairing code")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing code", err)
 		return
 	}
 	secret := hex.EncodeToString(secretBytes)
 	id := uuid.NewString()
 	expiresAt := time.Now().UTC().Add(pairingChallengeLifetime)
 	if err := handler.repository.CreateChallenge(r.Context(), id, repository.HashToken(secret), expiresAt); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not create pairing request")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing request", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"challengeId": id, "pairingCode": secret, "expiresAt": expiresAt})
@@ -97,7 +97,7 @@ func (handler *DisplayPairingHandler) Approve(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not approve pairing request")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not approve pairing request", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "approved"})
@@ -113,7 +113,7 @@ func (handler *DisplayPairingHandler) Claim(w http.ResponseWriter, r *http.Reque
 	}
 	rawTokenBytes := make([]byte, 32)
 	if _, err := rand.Read(rawTokenBytes); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not create display credential")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not create display credential", err)
 		return
 	}
 	plainToken := hex.EncodeToString(rawTokenBytes)
@@ -124,7 +124,7 @@ func (handler *DisplayPairingHandler) Claim(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not complete display pairing")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not complete display pairing", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"token": plainToken})
@@ -133,7 +133,7 @@ func (handler *DisplayPairingHandler) Claim(w http.ResponseWriter, r *http.Reque
 func (handler *DisplayPairingHandler) List(w http.ResponseWriter, r *http.Request) {
 	displays, err := handler.repository.List(r.Context())
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not load paired displays")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not load paired displays", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, displays)
@@ -144,7 +144,7 @@ func (handler *DisplayPairingHandler) Revoke(w http.ResponseWriter, r *http.Requ
 		writeJSONError(w, http.StatusNotFound, "display not found")
 		return
 	} else if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not revoke display")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not revoke display", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -170,7 +170,7 @@ func (handler *DisplayPairingHandler) UpdateSections(w http.ResponseWriter, r *h
 	if err := handler.repository.UpdateSections(r.Context(), chi.URLParam(r, "id"), body.EnabledSections); errors.Is(err, sql.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not update display settings")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not update display settings", err)
 	} else {
 		writeJSON(w, http.StatusOK, map[string][]string{"enabledSections": body.EnabledSections})
 	}
@@ -191,7 +191,7 @@ func (handler *DisplayPairingHandler) UpdateName(w http.ResponseWriter, r *http.
 	if err := handler.repository.UpdateDetails(r.Context(), chi.URLParam(r, "id"), name); errors.Is(err, sql.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not update display name")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not update display name", err)
 	} else {
 		writeJSON(w, http.StatusOK, map[string]string{"name": name})
 	}
@@ -211,7 +211,7 @@ func (handler *DisplayPairingHandler) UpdateCommutePreferences(w http.ResponseWr
 	if err := handler.repository.UpdateCommutePreferences(r.Context(), chi.URLParam(r, "id"), preferences); errors.Is(err, sql.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not update display commute settings")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not update display commute settings", err)
 	} else {
 		writeJSON(w, http.StatusOK, preferences)
 	}
@@ -220,7 +220,7 @@ func (handler *DisplayPairingHandler) UpdateCommutePreferences(w http.ResponseWr
 func (handler *DisplayPairingHandler) CommutePreferences(w http.ResponseWriter, r *http.Request) {
 	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not load display commute settings")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not load display commute settings", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, display.CommutePreferences)
@@ -233,7 +233,7 @@ func (handler *DisplayPairingHandler) AdminCommutePreferences(w http.ResponseWri
 		return
 	}
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not load display commute settings")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not load display commute settings", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, display.CommutePreferences)
@@ -242,7 +242,7 @@ func (handler *DisplayPairingHandler) AdminCommutePreferences(w http.ResponseWri
 func (handler *DisplayPairingHandler) Settings(w http.ResponseWriter, r *http.Request) {
 	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not load display settings")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not load display settings", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, display)

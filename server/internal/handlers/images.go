@@ -62,7 +62,7 @@ func readUploadedImage(w http.ResponseWriter, r *http.Request, field string, max
 
 	imageBytes, err = io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to read file")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to read file", err)
 		return nil, "", false
 	}
 	if len(imageBytes) > maxBytes {

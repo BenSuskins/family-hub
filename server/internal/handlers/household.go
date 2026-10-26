@@ -13,6 +13,7 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
 
@@ -50,7 +51,7 @@ func (handler *HouseholdHandler) loadHome(ctx context.Context) (models.HomeInfo,
 func (handler *HouseholdHandler) HomeInfo(w http.ResponseWriter, r *http.Request) {
 	home, err := handler.loadHome(r.Context())
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load home information", err)
 		return
 	}
 	familyName, nameErr := handler.settings.Get(r.Context(), repository.SettingsKeyFamilyName)
@@ -73,7 +74,7 @@ func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.R
 	}
 	home, err := handler.loadHome(r.Context())
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load home information", err)
 		return
 	}
 	if !decodeJSONBody(w, r, &home) {
@@ -89,7 +90,7 @@ func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.R
 	}
 	value, _ := json.Marshal(home)
 	if err := handler.settings.Set(r.Context(), "home_info", string(value)); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to save home information")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to save home information", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, home)
@@ -98,7 +99,7 @@ func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.R
 func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request) {
 	home, err := handler.loadHome(r.Context())
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load home information", err)
 		return
 	}
 	if home.Latitude == nil || home.Longitude == nil {
@@ -106,12 +107,14 @@ func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if handler.weather == nil {
+		slog.Error("weather service unavailable", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusServiceUnavailable, "reason", "weather_provider_not_configured")
 		writeJSONError(w, http.StatusServiceUnavailable, "weather unavailable")
 		return
 	}
 	weather, err := handler.weather.Forecast(r.Context(), home)
 	if err != nil {
-		writeJSONError(w, http.StatusBadGateway, "weather unavailable")
+		observability.RecordDependencyFailure(r, "weather")
+		writeAPIError(w, r, http.StatusBadGateway, "weather unavailable", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, weather)
@@ -121,8 +124,7 @@ func (handler *HouseholdHandler) Departures(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Cache-Control", "no-store")
 	home, err := handler.loadHome(r.Context())
 	if err != nil {
-		slog.Error("loading home information for departure estimates", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load home information", err)
 		return
 	}
 	if home.Latitude == nil || home.Longitude == nil {
@@ -131,14 +133,14 @@ func (handler *HouseholdHandler) Departures(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if handler.departures == nil {
-		slog.Error("departure estimates unavailable", "reason", "departure_service_not_configured")
+		slog.Error("departure estimates unavailable", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusServiceUnavailable, "reason", "departure_service_not_configured")
 		writeJSONError(w, http.StatusServiceUnavailable, "departures unavailable")
 		return
 	}
 	departures, err := handler.departures.Departures(r.Context(), home)
 	if err != nil {
-		slog.Error("departure estimate calculation failed", "error", err)
-		writeJSONError(w, http.StatusBadGateway, "departures unavailable")
+		observability.RecordDependencyFailure(r, "departures")
+		writeAPIError(w, r, http.StatusBadGateway, "departures unavailable", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, departures)

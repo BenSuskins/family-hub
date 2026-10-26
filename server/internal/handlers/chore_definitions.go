@@ -16,7 +16,7 @@ import (
 func (handler *APIHandler) ListChoreDefinitions(w http.ResponseWriter, r *http.Request) {
 	result, err := handler.choreService.Definitions(r.Context(), r.URL.Query().Get("include_inactive") == "true")
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load chore definitions")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore definitions", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -25,17 +25,17 @@ func (handler *APIHandler) ListChoreDefinitions(w http.ResponseWriter, r *http.R
 func (handler *APIHandler) GetChoreDefinition(w http.ResponseWriter, r *http.Request) {
 	detail, err := handler.choreService.Definition(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
 }
 
-func choreDefinitionError(w http.ResponseWriter, err error) {
+func choreDefinitionError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "chore definition not found")
 	} else {
-		writeJSONError(w, http.StatusInternalServerError, "failed to change chore definition")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to change chore definition", err)
 	}
 }
 
@@ -52,12 +52,12 @@ func (handler *APIHandler) CreateChoreDefinition(w http.ResponseWriter, r *http.
 	body.applyTo(&task)
 	created, err := handler.choreService.CreateChore(r.Context(), task, body.Assignees)
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	detail, err := handler.choreService.Definition(r.Context(), *created.SeriesID)
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, detail)
@@ -66,7 +66,7 @@ func (handler *APIHandler) CreateChoreDefinition(w http.ResponseWriter, r *http.
 func (handler *APIHandler) UpdateChoreDefinition(w http.ResponseWriter, r *http.Request) {
 	detail, err := handler.choreService.Definition(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	if detail.DeletedAt != nil {
@@ -90,12 +90,12 @@ func (handler *APIHandler) UpdateChoreDefinition(w http.ResponseWriter, r *http.
 		eligible = detail.Chore.EligibleAssignees
 	}
 	if err := handler.choreService.UpdateDefinition(r.Context(), task, eligible); err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	updated, err := handler.choreService.Definition(r.Context(), detail.ID)
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -104,11 +104,11 @@ func (handler *APIHandler) UpdateChoreDefinition(w http.ResponseWriter, r *http.
 func (handler *APIHandler) DeleteChoreDefinition(w http.ResponseWriter, r *http.Request) {
 	detail, err := handler.choreService.Definition(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	if err := handler.choreService.DeleteSeriesDefinition(r.Context(), detail.ID); err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -121,7 +121,7 @@ func (handler *APIHandler) SkipChore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -144,7 +144,7 @@ func (handler *APIHandler) ChoreHistory(w http.ResponseWriter, r *http.Request) 
 	filter.Limit = limit + 1
 	items, err := handler.choreRepo.FindAll(r.Context(), filter)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load chore history")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore history", err)
 		return
 	}
 	if items == nil {

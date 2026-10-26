@@ -20,7 +20,7 @@ func (handler *HouseholdHandler) RegisterShopping(router chi.Router) {
 func (handler *HouseholdHandler) ListShopping(w http.ResponseWriter, r *http.Request) {
 	items, err := handler.shopping.FindAll(r.Context())
 	if err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
@@ -35,7 +35,7 @@ func (handler *HouseholdHandler) CreateShopping(w http.ResponseWriter, r *http.R
 	}
 	item, err := handler.shopping.Create(r.Context(), body.Name, body.InventoryItemID)
 	if err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, item)
@@ -47,21 +47,21 @@ func (handler *HouseholdHandler) UpdateShopping(w http.ResponseWriter, r *http.R
 	}
 	item, err := handler.shopping.Update(r.Context(), chi.URLParam(r, "id"), body)
 	if err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
 }
 func (handler *HouseholdHandler) DeleteShopping(w http.ResponseWriter, r *http.Request) {
 	if err := handler.shopping.Delete(r.Context(), chi.URLParam(r, "id")); err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 func (handler *HouseholdHandler) ClearShopping(w http.ResponseWriter, r *http.Request) {
 	if err := handler.shopping.ClearPurchased(r.Context()); err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -73,12 +73,12 @@ func (handler *HouseholdHandler) RestockShopping(w http.ResponseWriter, r *http.
 	}
 	item, err := handler.shopping.Restock(r.Context(), chi.URLParam(r, "id"), body)
 	if err != nil {
-		shoppingFailure(w, err)
+		shoppingFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
 }
-func shoppingFailure(w http.ResponseWriter, err error) {
+func shoppingFailure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeJSONError(w, http.StatusNotFound, "item not found")
@@ -87,6 +87,6 @@ func shoppingFailure(w http.ResponseWriter, err error) {
 	case errors.Is(err, repository.ErrShoppingInvalid):
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 	default:
-		writeJSONError(w, http.StatusInternalServerError, "shopping change failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "shopping change failed", err)
 	}
 }

@@ -48,7 +48,7 @@ func (handler *BroadcastHandler) Send(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, 409, "request identifier already used for another broadcast")
 			return
 		}
-		writeJSONError(w, 500, "failed to send family broadcast")
+		writeAPIError(w, r, 500, "failed to send family broadcast", err)
 		return
 	}
 	writeJSON(w, 200, result)

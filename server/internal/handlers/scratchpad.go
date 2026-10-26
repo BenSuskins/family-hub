@@ -25,7 +25,7 @@ func NewScratchpadHandler(repository repository.ScratchpadRepository) *Scratchpa
 func (handler *ScratchpadHandler) Get(w http.ResponseWriter, r *http.Request) {
 	scratchpad, err := handler.repository.Get(r.Context())
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not load scratchpad")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not load scratchpad", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, scratchpad)
@@ -58,7 +58,7 @@ func (handler *ScratchpadHandler) Save(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r.Context())
 	scratchpad, err := handler.repository.Save(r.Context(), body.Strokes, user.ID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not save scratchpad")
+		writeAPIError(w, r, http.StatusInternalServerError, "could not save scratchpad", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, scratchpad)

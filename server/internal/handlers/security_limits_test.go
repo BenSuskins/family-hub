@@ -68,8 +68,8 @@ func TestExchangeTokenUsesBoundedHTTPTimeout(t *testing.T) {
 
 	handler.ExchangeToken(response, request)
 
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("expected timeout to reject exchange with 401, got %d: %s", response.Code, response.Body.String())
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("expected timeout to reject exchange with 502, got %d: %s", response.Code, response.Body.String())
 	}
 }
 

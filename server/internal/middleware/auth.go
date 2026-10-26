@@ -2,12 +2,17 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/httpresponse"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
 
@@ -15,6 +20,8 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 const DisplayTokenIDContextKey contextKey = "display_token_id"
+
+var errInvalidBearerToken = errors.New("invalid bearer token")
 
 func GetDisplayTokenID(ctx context.Context) string {
 	id, _ := ctx.Value(DisplayTokenIDContextKey).(string)
@@ -35,9 +42,14 @@ func RequireUser(
 				return
 			}
 
-			user, ok := authenticateBearer(r.Context(), authHeader, tokenRepo, userRepo)
-			if !ok {
+			user, err := authenticateBearer(r.Context(), authHeader, tokenRepo, userRepo)
+			if errors.Is(err, errInvalidBearerToken) {
 				httpresponse.Error(w, http.StatusUnauthorized, "invalid bearer token")
+				return
+			}
+			if err != nil {
+				slog.Error("API authentication lookup failed", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusInternalServerError, "error", err)
+				httpresponse.Error(w, http.StatusInternalServerError, "authentication unavailable")
 				return
 			}
 
@@ -52,26 +64,32 @@ func authenticateBearer(
 	authHeader string,
 	tokenRepo repository.APITokenRepository,
 	userRepo repository.UserRepository,
-) (models.User, bool) {
+) (models.User, error) {
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 	tokenHash := repository.HashToken(tokenString)
 
 	token, err := tokenRepo.FindByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return models.User{}, false
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errInvalidBearerToken
+		}
+		return models.User{}, fmt.Errorf("looking up API token: %w", err)
 	}
 	if token.Scope != models.TokenScopeAPI {
-		return models.User{}, false
+		return models.User{}, errInvalidBearerToken
 	}
 	if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
-		return models.User{}, false
+		return models.User{}, errInvalidBearerToken
 	}
 
 	user, err := userRepo.FindByID(ctx, token.CreatedByUserID)
 	if err != nil {
-		return models.User{}, false
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errInvalidBearerToken
+		}
+		return models.User{}, fmt.Errorf("looking up API token owner: %w", err)
 	}
-	return user, true
+	return user, nil
 }
 
 func RequireAdmin(next http.Handler) http.Handler {

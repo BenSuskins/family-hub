@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
 )
@@ -26,7 +27,7 @@ func (handler *DisplayCommuteHandler) Trains(writer http.ResponseWriter, request
 	writer.Header().Set("Cache-Control", "no-store")
 	display, err := handler.pairings.FindByTokenID(request.Context(), middleware.GetDisplayTokenID(request.Context()))
 	if err != nil {
-		writeJSONError(writer, http.StatusInternalServerError, "could not load display settings")
+		writeAPIError(writer, request, http.StatusInternalServerError, "could not load display settings", err)
 		return
 	}
 	preferences := display.CommutePreferences
@@ -34,7 +35,7 @@ func (handler *DisplayCommuteHandler) Trains(writer http.ResponseWriter, request
 		writeJSON(writer, http.StatusOK, map[string]any{"status": "setup_required", "boards": []models.CommuteBoard{}})
 		return
 	}
-	location := displayTimezone(request.Context(), handler.settings)
+	location := displayTimezone(request, handler.settings)
 	now := time.Now().In(location)
 	type directionRoute struct {
 		schedule            models.DisplayCommuteSchedule
@@ -52,6 +53,8 @@ func (handler *DisplayCommuteHandler) Trains(writer http.ResponseWriter, request
 		}
 		board, err := handler.service.FetchTrains(request.Context(), route.origin, route.destination, preferences.TrainCount)
 		if err != nil {
+			observability.RecordDependencyFailure(request, "rail")
+			slog.Error("fetching trains for display commute failed", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
 			failures++
 			continue
 		}
@@ -104,16 +107,20 @@ func activeCommuteWindow(schedule models.DisplayCommuteSchedule, now time.Time) 
 	return minute < endMinute && selected(previous)
 }
 
-func displayTimezone(ctx context.Context, settings repository.SettingsRepository) *time.Location {
+func displayTimezone(request *http.Request, settings repository.SettingsRepository) *time.Location {
 	var home models.HomeInfo
-	if value, err := settings.Get(ctx, "home_info"); err == nil {
-		_ = json.Unmarshal([]byte(value), &home)
+	value, err := settings.Get(request.Context(), "home_info")
+	if err != nil {
+		slog.Error("loading household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
+	} else if err := json.Unmarshal([]byte(value), &home); err != nil {
+		slog.Error("decoding household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
 	}
 	if home.Timezone == "" {
 		home.Timezone = "Europe/London"
 	}
 	location, err := time.LoadLocation(home.Timezone)
 	if err != nil {
+		slog.Error("loading household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
 		return time.UTC
 	}
 	return location

@@ -11,6 +11,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/handlers"
 	"github.com/bensuskins/family-hub/internal/httpresponse"
 	"github.com/bensuskins/family-hub/internal/middleware"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
@@ -64,6 +65,8 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.Logger)
+	httpMetrics := observability.NewHTTPMetrics()
+	router.Use(httpMetrics.Middleware)
 	router.Use(chimiddleware.Recoverer)
 	router.Use(middleware.BrowserCORS(cfg.WebOrigin))
 	router.Use(chimiddleware.Compress(5))
@@ -80,6 +83,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	router.Get("/metrics", httpMetrics.ServeHTTP)
 	router.Get("/api/client-config", apiHandler.ClientConfig)
 	router.With(httprate.LimitByIP(10, time.Minute)).Post("/api/auth/exchange", apiHandler.ExchangeToken)
 

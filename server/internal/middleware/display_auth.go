@@ -2,12 +2,17 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/httpresponse"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
 
@@ -21,7 +26,16 @@ func RequireDisplay(tokenRepo repository.APITokenRepository) func(http.Handler) 
 				return
 			}
 			token, err := tokenRepo.FindByTokenHash(r.Context(), repository.HashToken(strings.TrimPrefix(authorization, "Bearer ")))
-			if err != nil || token.Scope != models.TokenScopeDisplay || (token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now())) {
+			if err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					slog.Error("display authentication lookup failed", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusInternalServerError, "error", fmt.Errorf("looking up display credential: %w", err))
+					httpresponse.Error(w, http.StatusInternalServerError, "authentication unavailable")
+					return
+				}
+				httpresponse.Error(w, http.StatusUnauthorized, "invalid display credential")
+				return
+			}
+			if token.Scope != models.TokenScopeDisplay || (token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now())) {
 				httpresponse.Error(w, http.StatusUnauthorized, "invalid display credential")
 				return
 			}

@@ -2,8 +2,7 @@
 
 All routes wired in `server/internal/server/server.go`.
 
-**Global middleware** (all routes): logger, recoverer, gzip compression, security headers,
-and per-IP rate limit (100 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer token scoped for that route.
+**Global middleware** (all routes): request logger, bounded-cardinality Prometheus request metrics, panic recovery, browser CORS, gzip compression, security headers, and per-IP rate limiting (100 req/min). Request metrics cover every route. Server failures log the method, route, status, and underlying error without logging credentials or request bodies. Authenticated routes require a Bearer token scoped for that route.
 
 **Conventions used below:**
 
@@ -15,6 +14,18 @@ export API_TOKEN="<token from /api/auth/exchange or POST /api/tokens>"
 ---
 
 ## Public routes (no auth)
+
+### `GET /metrics`
+- **Usecase:** Expose Prometheus request counts and latency histograms.
+- **Callers:** Homelab Prometheus scraper on the private network.
+- **Security:** No authentication. The endpoint exposes aggregate request counts and route templates only; keep the scrape target on the private network.
+- **Metrics:** `familyhub_http_requests_total` counts by method, route, and status. `familyhub_http_request_duration_seconds` provides cumulative histogram buckets, sum, and count using the same labels.
+- **Dependency metrics:** `familyhub_dependency_failures_total` counts failed calls to optional upstream services by dependency and route. Dependencies currently include weather, departures, rail, and calendar feeds.
+- **Cardinality:** Uses Chi route patterns rather than concrete path values; unsupported methods are grouped as `OTHER`.
+
+```bash
+curl -s "$BASE_URL/metrics"
+```
 
 ### `GET /health`
 - **Usecase:** Liveness probe. Returns `200 ok`.

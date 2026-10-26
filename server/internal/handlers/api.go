@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
@@ -108,25 +110,29 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", handler.oidcUserInfoURL, nil)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "internal error")
+		writeAPIError(w, r, http.StatusInternalServerError, "internal error", err)
 		return
 	}
 	req.Header.Set("Authorization", "Bearer "+oidcToken)
 
 	resp, err := handler.oidcUserInfoClient.Do(req)
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, "invalid token")
+		writeAPIError(w, r, http.StatusBadGateway, "identity provider unavailable", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		writeJSONError(w, http.StatusUnauthorized, "invalid token")
+		if resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests {
+			writeAPIError(w, r, http.StatusBadGateway, "identity provider unavailable", fmt.Errorf("identity provider returned HTTP %d", resp.StatusCode))
+		} else {
+			writeJSONError(w, http.StatusUnauthorized, "invalid token")
+		}
 		return
 	}
 
 	userInfo, err := decodeOIDCUserInfo(resp.Body)
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, "invalid userinfo response")
+		writeAPIError(w, r, http.StatusBadGateway, "invalid identity provider response", err)
 		return
 	}
 
@@ -140,7 +146,11 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 			name = userInfo.Email
 		}
 
-		count, _ := handler.userRepo.Count(ctx)
+		count, err := handler.userRepo.Count(ctx)
+		if err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to determine user role", err)
+			return
+		}
 		role := models.RoleMember
 		if count == 0 {
 			role = models.RoleAdmin
@@ -154,11 +164,11 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 			Role:        role,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to create user")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to create user", err)
 			return
 		}
 	} else if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, "user lookup failed")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to look up user", err)
 		return
 	}
 
@@ -170,14 +180,21 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 
 	// Each client replaces only its own token so signing in on the web does not
 	// invalidate the native app session.
-	existing, _ := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, tokenName)
+	existing, err := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, tokenName)
+	if err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to replace client token", err)
+		return
+	}
 	for _, t := range existing {
-		_ = handler.tokenRepo.Delete(ctx, t.ID)
+		if err := handler.tokenRepo.Delete(ctx, t.ID); err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to replace client token", err)
+			return
+		}
 	}
 
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to generate token")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to generate token", err)
 		return
 	}
 	plainToken := hex.EncodeToString(tokenBytes)
@@ -188,8 +205,7 @@ func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request)
 		Scope:           models.TokenScopeAPI,
 		CreatedByUserID: user.ID,
 	}); err != nil {
-		slog.Error("creating client API token", "client", tokenName, "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create token")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create token", err)
 		return
 	}
 
@@ -219,7 +235,7 @@ func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {
 
 	chores, err := handler.choreRepo.FindAll(ctx, filter)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load chores")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chores", err)
 		return
 	}
 	if chores == nil {
@@ -246,7 +262,7 @@ func (handler *APIHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	users, err := handler.userRepo.FindAll(ctx)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load users")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load users", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, users)
@@ -266,7 +282,7 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	categories, err := handler.categoryRepo.FindAll(ctx)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load categories")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load categories", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, categories)
@@ -279,12 +295,12 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	if handler.settingsRepo != nil {
 		location, err := services.HouseholdLocation(ctx, handler.settingsRepo)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load household time zone")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load household time zone", err)
 			return
 		}
 		schedule, err := services.LoadBinSchedule(ctx, handler.settingsRepo)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 			return
 		}
 		tomorrow := now.In(location).AddDate(0, 0, 1).Format(DateFormat)
@@ -297,7 +313,7 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 
 	choresDueToday, overdueChores, err := handler.choreService.DueTasks(ctx)
 	if err != nil {
-		writeJSONError(w, 500, "failed to load due chores")
+		writeAPIError(w, r, 500, "failed to load due chores", err)
 		return
 	}
 
@@ -313,14 +329,24 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 	if handler.mealPlanRepo != nil {
 		startOfToday := now.Truncate(24 * time.Hour)
 		sevenDaysOut := startOfToday.AddDate(0, 0, 7)
-		if meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
 			DateFrom: startOfToday.Format(DateFormat),
 			DateTo:   sevenDaysOut.Format(DateFormat),
-		}); err == nil && meals != nil {
+		})
+		if err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load weekly meals", err)
+			return
+		}
+		if meals != nil {
 			mealsThisWeek = meals
 		}
-		if meals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format(DateFormat)); err == nil && meals != nil {
-			todayMeals = meals
+		loadedTodayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format(DateFormat))
+		if err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load today's meals", err)
+			return
+		}
+		if loadedTodayMeals != nil {
+			todayMeals = loadedTodayMeals
 		}
 	}
 
@@ -359,7 +385,7 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 
 	rawToken, err := generateToken()
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to generate token")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to generate token", err)
 		return
 	}
 	token := models.APIToken{
@@ -371,8 +397,7 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 
 	created, err := handler.tokenRepo.Create(ctx, token)
 	if err != nil {
-		slog.Error("creating token", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create token")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create token", err)
 		return
 	}
 
@@ -388,8 +413,7 @@ func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	if err := handler.tokenRepo.Delete(ctx, id); err != nil {
-		slog.Error("deleting token", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete token")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete token", err)
 		return
 	}
 
@@ -408,7 +432,7 @@ func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request)
 		case errors.Is(err, sql.ErrNoRows):
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		default:
-			writeJSONError(w, http.StatusInternalServerError, "failed to complete chore")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to complete chore", err)
 		}
 		return
 	}
@@ -437,7 +461,7 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 		DateTo:   weekEnd.Format(DateFormat),
 	})
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load meals")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load meals", err)
 		return
 	}
 	if meals == nil {
@@ -451,11 +475,19 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	location := time.UTC
 	if handler.settingsRepo != nil {
-		if value, err := handler.settingsRepo.Get(ctx, "home_info"); err == nil {
+		value, err := handler.settingsRepo.Get(ctx, "home_info")
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			slog.Error("loading household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
+		}
+		if err == nil {
 			var home models.HomeInfo
-			if json.Unmarshal([]byte(value), &home) == nil && home.Timezone != "" {
+			if err := json.Unmarshal([]byte(value), &home); err != nil {
+				slog.Error("decoding household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
+			} else if home.Timezone != "" {
 				if configured, err := time.LoadLocation(home.Timezone); err == nil {
 					location = configured
+				} else {
+					slog.Error("loading household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 				}
 			}
 		}
@@ -516,12 +548,12 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		DueBefore: &lastInstant,
 	})
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load chores")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chores", err)
 		return
 	}
 	forecasts, err := handler.choreService.Forecast(ctx, start, end)
 	if err != nil {
-		writeJSONError(w, 500, "failed to load chore forecast")
+		writeAPIError(w, r, 500, "failed to load chore forecast", err)
 		return
 	}
 	chores = append(chores, forecasts...)
@@ -534,7 +566,8 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	if handler.icalFetcher != nil {
 		fetchedEvents, err := handler.icalFetcher.FetchForRange(ctx, start, end)
 		if err != nil {
-			slog.Error("fetching ical events for calendar API", "error", err)
+			observability.RecordDependencyFailure(r, "calendar_feed")
+			slog.Error("fetching calendar events for API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 			eventsAvailable = false
 		} else {
 			events = fetchedEvents
@@ -552,7 +585,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 			DateTo:   end.AddDate(0, 0, -1).Format(DateFormat),
 		})
 		if err != nil {
-			slog.Error("fetching meals for calendar API", "error", err)
+			slog.Error("fetching meals for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 			mealsAvailable = false
 		} else {
 			meals = fetchedMeals
@@ -584,7 +617,7 @@ func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recipes, err := handler.recipeRepo.FindAll(ctx)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load recipes")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipes", err)
 		return
 	}
 	if recipes == nil {
@@ -600,7 +633,7 @@ func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
 		}
 		return
 	}
@@ -643,15 +676,13 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := handler.mealPlanRepo.Upsert(ctx, meal); err != nil {
-		slog.Error("saving meal via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to save meal")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to save meal", err)
 		return
 	}
 
 	saved, err := handler.mealPlanRepo.FindByDateAndType(ctx, body.Date, models.MealType(body.MealType))
 	if err != nil {
-		slog.Error("finding saved meal via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to retrieve saved meal")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to retrieve saved meal", err)
 		return
 	}
 
@@ -670,8 +701,7 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := handler.mealPlanRepo.Delete(ctx, date, models.MealType(mealType)); err != nil {
-		slog.Error("deleting meal via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete meal")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete meal", err)
 		return
 	}
 
@@ -768,7 +798,7 @@ func (handler *APIHandler) CreateChore(w http.ResponseWriter, r *http.Request) {
 
 	created, err := handler.choreService.CreateChore(ctx, chore, body.Assignees)
 	if err != nil {
-		writeJSONError(w, 500, "failed to create chore")
+		writeAPIError(w, r, 500, "failed to create chore", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
@@ -783,7 +813,7 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load chore")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore", err)
 		}
 		return
 	}
@@ -811,18 +841,18 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	if eligible == nil {
 		definition, err := handler.choreService.Definition(ctx, *chore.SeriesID)
 		if err != nil {
-			choreDefinitionError(w, err)
+			choreDefinitionError(w, r, err)
 			return
 		}
 		eligible = definition.Chore.EligibleAssignees
 	}
 	if err := handler.choreService.UpdateDefinition(ctx, chore, eligible); err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	updated, err := handler.choreRepo.FindByID(ctx, choreID)
 	if err != nil {
-		choreDefinitionError(w, err)
+		choreDefinitionError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, updated)
@@ -837,14 +867,14 @@ func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load chore")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore", err)
 		}
 		return
 	}
 
 	if chore.SeriesID != nil {
 		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
-			choreDefinitionError(w, err)
+			choreDefinitionError(w, r, err)
 			return
 		}
 	}
@@ -892,14 +922,13 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 
 	created, err := handler.recipeRepo.Create(ctx, recipe)
 	if err != nil {
-		slog.Error("creating recipe via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create recipe")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create recipe", err)
 		return
 	}
 
 	if body.ImageData != nil && *body.ImageData != "" {
 		if err := handler.recipeRepo.UpdateImage(ctx, created.ID, *body.ImageData); err != nil {
-			slog.Error("saving recipe image via API", "error", err)
+			slog.Error("saving recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusCreated, "error", err)
 		} else {
 			created.HasImage = true
 		}
@@ -922,7 +951,7 @@ func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request)
 
 	recipe, err := handler.recipeExtractor.Extract(r.Context(), body.URL)
 	if err != nil {
-		slog.Error("extracting recipe", "url", body.URL, "error", err)
+		slog.Error("extracting recipe", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusUnprocessableEntity, "error_type", fmt.Sprintf("%T", err))
 		writeJSONError(w, http.StatusUnprocessableEntity, "failed to extract recipe from URL")
 		return
 	}
@@ -939,7 +968,7 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
 		}
 		return
 	}
@@ -979,19 +1008,18 @@ func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := handler.recipeRepo.Update(ctx, existing); err != nil {
-		slog.Error("updating recipe via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update recipe")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update recipe", err)
 		return
 	}
 
 	if body.ImageData != nil {
 		if *body.ImageData == "" {
 			if err := handler.recipeRepo.ClearImage(ctx, recipeID); err != nil {
-				slog.Error("clearing recipe image via API", "recipeID", recipeID, "error", err)
+				slog.Error("clearing recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 			}
 		} else {
 			if err := handler.recipeRepo.UpdateImage(ctx, recipeID, *body.ImageData); err != nil {
-				slog.Error("updating recipe image via API", "recipeID", recipeID, "error", err)
+				slog.Error("updating recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
 			}
 		}
 	}
@@ -1012,18 +1040,17 @@ func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) 
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
-			writeJSONError(w, http.StatusInternalServerError, "failed to load recipe")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
 		}
 		return
 	}
 
 	if err := handler.mealPlanRepo.ClearRecipeID(ctx, recipeID); err != nil {
-		slog.Error("clearing recipe from meal plans via API", "error", err)
+		slog.Error("clearing recipe from meal plans via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusNoContent, "error", err)
 	}
 
 	if err := handler.recipeRepo.Delete(ctx, recipeID); err != nil {
-		slog.Error("deleting recipe via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete recipe")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete recipe", err)
 		return
 	}
 
@@ -1046,14 +1073,13 @@ func (handler *APIHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) 
 
 	dataURI := encodeDataURI(contentType, imageBytes)
 	if err := handler.userRepo.UpdateAvatar(ctx, user.ID, dataURI); err != nil {
-		slog.Error("updating avatar via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to save avatar")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to save avatar", err)
 		return
 	}
 
 	updated, err := handler.userRepo.FindByID(ctx, user.ID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -1064,8 +1090,7 @@ func (handler *APIHandler) DeleteAvatar(w http.ResponseWriter, r *http.Request) 
 	user := middleware.GetUser(ctx)
 
 	if err := handler.userRepo.ClearAvatar(ctx, user.ID); err != nil {
-		slog.Error("clearing avatar via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to remove avatar")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to remove avatar", err)
 		return
 	}
 
@@ -1077,14 +1102,13 @@ func (handler *APIHandler) PromoteUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 
 	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleAdmin); err != nil {
-		slog.Error("promoting user via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to promote user")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to promote user", err)
 		return
 	}
 
 	updated, err := handler.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -1095,14 +1119,13 @@ func (handler *APIHandler) DemoteUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 
 	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleMember); err != nil {
-		slog.Error("demoting user via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to demote user")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to demote user", err)
 		return
 	}
 
 	updated, err := handler.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to reload user")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -1111,11 +1134,19 @@ func (handler *APIHandler) DemoteUser(w http.ResponseWriter, r *http.Request) {
 func (handler *APIHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	familyName, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyFamilyName)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load family name setting", err)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
 		familyName = "Family"
 	}
 	mealWeekStart, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyMealWeekStart)
-	if err != nil || !validMealWeekStart(mealWeekStart) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load meal week setting", err)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) || !validMealWeekStart(mealWeekStart) {
 		mealWeekStart = "friday"
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
@@ -1157,8 +1188,7 @@ func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request)
 	}
 	for key, value := range updates {
 		if err := handler.settingsRepo.Set(ctx, key, value); err != nil {
-			slog.Error("updating settings via API", "error", err)
-			writeJSONError(w, http.StatusInternalServerError, "failed to update settings")
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to update settings", err)
 			return
 		}
 	}
@@ -1186,8 +1216,7 @@ func (handler *APIHandler) CreateCategory(w http.ResponseWriter, r *http.Request
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
-		slog.Error("creating category via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to create category")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to create category", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
@@ -1209,14 +1238,13 @@ func (handler *APIHandler) UpdateCategory(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := handler.categoryRepo.Update(ctx, categoryID, body.Name); err != nil {
-		slog.Error("updating category via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to update category")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update category", err)
 		return
 	}
 
 	category, err := handler.categoryRepo.FindByID(ctx, categoryID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to reload category")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload category", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, category)
@@ -1227,8 +1255,7 @@ func (handler *APIHandler) DeleteCategory(w http.ResponseWriter, r *http.Request
 	categoryID := chi.URLParam(r, "id")
 
 	if err := handler.categoryRepo.Delete(ctx, categoryID); err != nil {
-		slog.Error("deleting category via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to delete category")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete category", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1238,8 +1265,7 @@ func (handler *APIHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tokens, err := handler.tokenRepo.FindAll(ctx)
 	if err != nil {
-		slog.Error("listing tokens via API", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to load tokens")
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to load tokens", err)
 		return
 	}
 	if tokens == nil {
@@ -1264,6 +1290,11 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func writeAPIError(w http.ResponseWriter, r *http.Request, status int, message string, err error) {
+	slog.Error("API request failed", "method", r.Method, "route", observability.RoutePattern(r), "status", status, "error", err)
+	writeJSONError(w, status, message)
 }
 
 // decodeJSONBody decodes a size-limited JSON body into dest.

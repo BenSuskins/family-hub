@@ -17,13 +17,39 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-Open `http://localhost:3000`. Set `NEXT_PUBLIC_FAMILY_HUB_API_URL` to the Family Hub Go API origin. Configure `WEB_ORIGIN` on the Go server to the exact web origin so CORS allows the display to call the API.
+Open `http://localhost:3000`. Without `NEXT_PUBLIC_FAMILY_HUB_API_URL`, local development uses the JSON-backed display mock. To use a real API, set `NEXT_PUBLIC_FAMILY_HUB_API_URL` to its origin and configure `WEB_ORIGIN` on the Go server to allow the web origin.
+
+### Local display mock
+
+When the API URL is unset, the display starts an MSW service worker in the browser. MSW serves the fixture in `mocks/display.json` and keeps write changes in memory. The mock includes pairing, display data, and display write actions. Changes reset when the browser reloads. Edit the fixture to change the sample household.
+
+Use `http://localhost:3000/display?mock=paired` to skip the approval step in E2E tests. The regular `/display` route shows the pairing screen and waits for local approval.
+
+To approve a pairing in a browser, open the developer console after the pairing code appears and run:
+
+```js
+await fetch("/api/local-mocks/pairing/approve", { method: "POST" })
+```
+
+E2E tests can call the same endpoint through the page context after waiting for the pairing code:
+
+```ts
+await page.evaluate(() => fetch("/api/local-mocks/pairing/approve", { method: "POST" }));
+```
+
+Reset mock data and pairing approval from the browser console with:
+
+```js
+await fetch("/api/local-mocks/reset", { method: "POST" })
+```
+
+Clear the display's local storage to return to the pairing screen. MSW is enabled only in local development with no API URL configured. Do not use the mock token or fixtures in a deployed environment.
 
 ## Environment variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_FAMILY_HUB_API_URL` | yes | — | Base URL of the Go API, for example `https://family.example.com`. |
+| `NEXT_PUBLIC_FAMILY_HUB_API_URL` | production | — | Base URL of the Go API, for example `https://family.example.com`. Leave unset to use the local development mock. |
 
 ## Commands
 

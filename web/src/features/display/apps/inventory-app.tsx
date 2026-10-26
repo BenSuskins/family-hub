@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { apiBase } from "@/features/display/api/display-api";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 
 type InventoryItem = { ID: string; Name: string; TrackingMode: string; Quantity: number; Level: number; Unit: string };
 type InventoryArea = { ID: string; Name: string; Items: InventoryItem[] };
 
-export function InventoryApp({ token }: KioskAppProps) {
+export function InventoryApp({ token }: { token: string }) {
   const { data: areas, error, setError, reload } = useKioskResource<InventoryArea[]>("/api/display/inventory", token);
   const [busy, setBusy] = useState("");
 

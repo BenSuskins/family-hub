@@ -67,7 +67,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	router.Use(middleware.BrowserCORS(cfg.WebOrigin))
 	router.Use(chimiddleware.Compress(5))
 	router.Use(middleware.SecurityHeaders)
-	router.Use(httprate.LimitByIP(600, time.Minute))
+	router.Use(httprate.LimitByIP(100, time.Minute))
 	router.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		httpresponse.Error(w, http.StatusNotFound, "route not found")
 	})

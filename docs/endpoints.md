@@ -3,7 +3,7 @@
 All routes wired in `server/internal/server/server.go`.
 
 **Global middleware** (all routes): logger, recoverer, gzip compression, security headers,
-and per-IP rate limit (600 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer API token.
+and per-IP rate limit (100 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer API token.
 
 **Conventions used below:**
 

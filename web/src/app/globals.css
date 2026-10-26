@@ -350,7 +350,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-card.chores-card .display-card-heading > span { color: var(--ink); }
 .display-card .display-chore { min-height: 49px; border: 0; padding: 2px 0; }
 .display-card .chore-avatar { width: 25px; height: 25px; display: grid; place-items: center; margin-left: auto; border-radius: 50%; background: var(--departure); color: var(--clay); font-size: 11px; font-weight: 650; }
-.display-card .bin-content { display: flex; align-items: center; gap: 20px; margin-top: 7px; }
+.display-grid .display-card .bin-content { width: 100%; display: flex; flex-direction: row; align-items: center; gap: 20px; margin-top: 7px; }
 .display-card .bin-content > svg { width: 45px; height: 60px; flex: none; color: var(--accent); }
 .display-card .bin-content strong { display: block; font-size: clamp(16px, 1.4vw, 24px); line-height: 1.2; }
 .display-card .bin-content p { margin-top: 8px; color: var(--secondary); font-size: clamp(12px, .9vw, 17px); line-height: 1.5; }

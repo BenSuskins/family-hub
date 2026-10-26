@@ -42,3 +42,9 @@ the app launcher available when a section is hidden. Save this preference on
 the display so one screen's layout does not change another screen. Provide a
 clear settings control, visible focus, and a useful empty state when all
 sections are hidden.
+
+Show breakfast as the next meal before 11:00, lunch from 11:00, and dinner
+from 16:00 to 18:00 in the household's local time. From 18:00, preview
+tomorrow's plan and mark breakfast as the next meal. Label the next slot in
+text, including when it has no meal planned. Tapping a meal slot opens its
+date and meal type in the editor.

@@ -65,7 +65,6 @@ const launcherApps: { name: string; icon: LucideIcon }[] = [
   { name: "Shopping", icon: ShoppingBag }, { name: "Notes", icon: BookOpen },
   { name: "Calendar", icon: CalendarDays }, { name: "Recipes", icon: CookingPot },
   { name: "Meal plan", icon: CookingPot }, { name: "Inventory", icon: PackageCheck },
-  { name: "Journeys", icon: CarFront }, { name: "Trains", icon: TrainFront }, { name: "Bins", icon: PackageCheck },
 ];
 class DisplayAccessRevoked extends Error {}
 
@@ -408,7 +407,7 @@ export function DisplayClient() {
 
   return <main className={`wall-display-shell${isDark ? " is-dark" : ""}`}>
     <section className={`wall-display${isDark ? " is-dark" : ""}`} aria-label="Family Hub wall display">
-      <header className="display-header"><div className="display-brand"><Image src="/family-hub-mark.png" alt="Family Hub" width={48} height={48} priority /><div><p>{formattedDate}</p><h1>{displayGreeting(localHour, departureMinutes <= 45)}</h1></div></div><div className="display-header-right"><time>{formattedTime}</time>{sections.has("weather") && weatherReady && weather?.current && <button className="weather-summary" onClick={event => open("Weather", event)} aria-label="Open weather forecast"><Sun size={26} strokeWidth={1.7} aria-hidden="true"/><strong>{Math.round(weather.current.temperature)}°</strong><span>{weatherLabel(weather.current.code)}</span></button>}</div></header>
+      <header className="display-header"><div className="display-brand"><div><p>{formattedDate}</p><h1>{displayGreeting(localHour, departureMinutes <= 45)}</h1></div></div><div className="display-header-right">{sections.has("weather") && weatherReady && weather?.current && <button className="weather-summary" onClick={event => open("Weather", event)} aria-label="Open weather forecast"><Sun size={26} strokeWidth={1.7} aria-hidden="true"/><strong>{Math.round(weather.current.temperature)}°</strong><span>{weatherLabel(weather.current.code)}</span></button>}<time>{formattedTime}</time></div></header>
       {failures.length > 0 && <div className="display-status" role="status">{failures.join(" and ")} {current ? "could not be updated. Showing saved information where available." : "are unavailable. The display will keep trying."}</div>}
       {loading && !current && <p className="display-loading" role="status">Loading household information…</p>}
       <div className="display-grid">

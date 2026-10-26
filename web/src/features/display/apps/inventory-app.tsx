@@ -76,7 +76,7 @@ export function InventoryApp({ token }: { token: string }) {
       )}
       {areas.map((area) => (
         <section className="inventory-area" key={area.ID}>
-          <Typography as="h3" variant="cardTitle" className="area-heading">
+          <Typography as="h3" variant="areaHeading" className="area-heading">
             {area.Name}
           </Typography>
           {area.Items.map((item) => {
@@ -90,7 +90,7 @@ export function InventoryApp({ token }: { token: string }) {
             return (
               <div className="inventory-row" key={item.ID}>
                 <span>
-                  <Typography as="span" variant="body">
+                  <Typography as="span" variant="inventoryItem">
                     {item.Name}
                   </Typography>
                   <Typography as="small" variant="cardHint">
@@ -110,7 +110,7 @@ export function InventoryApp({ token }: { token: string }) {
                   >
                     −
                   </button>
-                  <Typography as="strong" variant="caption">
+                  <Typography as="strong" variant="inventoryQuantity">
                     {quantity}
                   </Typography>
                   <button
@@ -128,7 +128,7 @@ export function InventoryApp({ token }: { token: string }) {
                 </span>
                 <Typography
                   as="small"
-                  variant="caption"
+                  variant="inventoryUnit"
                   className="inventory-unit"
                 >
                   {item.TrackingMode === "level" ? "level" : item.Unit}

@@ -144,6 +144,28 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .typography--dialog-label { font-size: 14px; }
 .typography--detail-title { font-size: 34px; line-height: 1.2; letter-spacing: -1px; }
 .typography--detail-body { font-size: 18px; line-height: 1.6; }
+.typography--detail-body { color: var(--secondary); }
+.typography--shopping-item { font-size: 20px; }
+.typography--meal-choice { font-size: 17px; }
+.typography--meal-choice-status { color: var(--accent); font-size: 13px; }
+.typography--meal-plan-value { font-size: 18px; font-weight: 550; }
+.typography--meal-plan-label { color: var(--secondary); font-size: 14px; }
+.typography--meal-choice-hint { color: var(--secondary); font-size: 17px; }
+.typography--custom-meal-choice { color: var(--secondary); font-size: 15px; }
+.typography--inventory-item { font-size: 18px; }
+.typography--inventory-quantity { font-size: 18px; }
+.typography--inventory-unit { color: var(--secondary); font-size: 13px; }
+.typography--area-heading { color: var(--accent); font-size: 16px; }
+.typography--weather-hour { color: var(--secondary); font-size: 13px; }
+.typography--weather-temperature { font-size: 19px; font-weight: 700; }
+.typography--forecast-label { font-size: 15px; }
+.typography--forecast-temperature { font-size: 16px; font-weight: 600; }
+.typography--forecast-rain { color: var(--secondary); font-size: 12px; }
+.typography--calendar-weekday { font-size: 12px; }
+.typography--calendar-date { font-size: 16px; font-weight: 650; }
+.typography--calendar-hour { color: var(--secondary); font-size: 11px; }
+.typography--calendar-event { font-size: 11px; line-height: 1.2; }
+.typography--calendar-event-time { color: var(--secondary); font-size: 10px; }
 
 /* Paired display: content fills the browser viewport rather than simulating a device. */
 .wall-display-shell { min-height: 100svh; display: block; padding: 0; background: var(--paper); }
@@ -317,11 +339,11 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .week-hour { padding-top: 7px; color: var(--secondary); text-align: center; font-size: 11px; }
 .week-cell { position: relative; display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding: 3px; }
 .week-event { --event-color: #7895a7; flex: 1; height: auto; min-height: 0; overflow: hidden; border-left: 3px solid var(--event-color); border-radius: 6px; padding: 4px; background: color-mix(in srgb, var(--event-color) 14%, var(--surface)); font-size: 11px; line-height: 1.2; }
-.week-event > small { display: block; margin-bottom: 3px; color: var(--secondary); font-size: 10px; }
+.week-event > small { display: block; margin-bottom: 3px; }
 .calendar-empty { margin: 0 0 10px; color: var(--secondary); }
 .event-detail { display: grid; gap: 12px; padding: 8px; }
 .event-detail > p:first-child { color: var(--secondary); }
-.event-detail h3 { font-size: 26px; }
+.event-detail h3 { margin: 12px 0 18px; }
 .event-travel { margin-top: 10px; padding: 16px; border-radius: 14px; background: var(--sage); color: var(--accent); }
 .wall-display.is-dark .weather-summary { background: transparent; color: var(--ink); }
 .wall-display.is-dark .departure-card { background: var(--departure); }
@@ -388,7 +410,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .inventory-step button { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--sage); color: var(--accent); font-size: 22px; }
 .inventory-step button:disabled { opacity: .5; }
 .inventory-unit { min-width: 48px; color: var(--secondary); font-size: 13px; }
-.area-heading { margin: 18px 0 3px; color: var(--accent); font-size: 15px; font-weight: 650; }
+.area-heading { margin: 18px 0 3px; }
 .recipe-row { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 11px; padding: 12px 3px !important; border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
 .recipe-row-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--sage); color: var(--accent); }
 .recipe-row-title { flex: 1; }
@@ -424,10 +446,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .weather-cloud-icon, .weather-rain-icon { font-size: 20px; line-height: 21px; }
 .forecast-days-label { margin: 22px 0 9px; }
 .weather-days { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 18px; }
-.forecast-row { min-height: 48px; display: grid; grid-template-columns: minmax(54px, 1fr) 24px 58px 46px; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.forecast-row { min-height: 48px; display: grid; grid-template-columns: minmax(54px, 1fr) 24px 58px 46px; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); font-size: 15px; }
 .forecast-row > svg, .forecast-row > span:nth-child(2) { color: var(--clay); }
 .forecast-row > strong { font-size: 16px; white-space: nowrap; }
-.forecast-rain { display: flex; align-items: center; gap: 5px; color: var(--secondary); font-size: 12px; }
+.forecast-rain { display: flex; align-items: center; gap: 5px; }
 .forecast-advice { margin: 16px 0 12px; padding: 12px 15px; border-radius: 12px; background: var(--departure); color: var(--clay); font-size: 14px; line-height: 1.5; }
 .forecast-legend { font-size: 13px; }
 .departure-card { padding-block: 17px; }

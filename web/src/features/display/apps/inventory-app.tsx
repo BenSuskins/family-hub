@@ -33,18 +33,25 @@ export function InventoryApp({ token }: KioskAppProps) {
 
   if (error && !areas) return <p role="alert">{error}</p>;
   if (!areas) return <p role="status">Loading…</p>;
-  return <div className="kiosk-list">
+  return <div className="kiosk-list inventory-list">
     <p className="dialog-label">Browse by area.</p>
     {error && <p role="alert">{error}</p>}
-    {areas.map(area => <section key={area.ID}>
-      <h2>{area.Name}</h2>
-      {area.Items.map(item => <div className="stock-row" key={item.ID}>
-        <span><strong>{item.Name}</strong><small>{item.TrackingMode === "level" ? `${item.Level}%` : `${item.Quantity} ${item.Unit}`}</small></span>
-        <div>
-          <button aria-label={`Decrease ${item.Name}`} disabled={busy === item.ID || (item.TrackingMode === "level" ? item.Level <= 0 : item.Quantity <= 0)} onClick={() => void changeStock(item, -1)}>−</button>
-          <button aria-label={`Increase ${item.Name}`} disabled={busy === item.ID || (item.TrackingMode === "level" ? item.Level >= 100 : false)} onClick={() => void changeStock(item, 1)}>＋</button>
-        </div>
-      </div>)}
+    {areas.map(area => <section className="inventory-area" key={area.ID}>
+      <h3 className="area-heading">{area.Name}</h3>
+      {area.Items.map(item => {
+        const isLow = item.TrackingMode === "level" ? item.Level <= 25 : item.Quantity <= 1;
+        const quantity = item.TrackingMode === "level" ? `${item.Level}%` : item.Quantity;
+        const unitLabel = item.Unit ? `${item.Unit} of ` : "";
+        return <div className="inventory-row" key={item.ID}>
+          <span>{item.Name}<small>{isLow ? "Getting low" : "In the cupboard"}</small></span>
+          <span className="inventory-step">
+            <button aria-label={`Use one ${unitLabel}${item.Name}`} disabled={busy === item.ID || (item.TrackingMode === "level" ? item.Level <= 0 : item.Quantity <= 0)} onClick={() => void changeStock(item, -1)}>−</button>
+            <strong>{quantity}</strong>
+            <button aria-label={`Add one ${unitLabel}${item.Name}`} disabled={busy === item.ID || (item.TrackingMode === "level" ? item.Level >= 100 : false)} onClick={() => void changeStock(item, 1)}>+</button>
+          </span>
+          <small className="inventory-unit">{item.TrackingMode === "level" ? "level" : item.Unit}</small>
+        </div>;
+      })}
     </section>)}
   </div>;
 }

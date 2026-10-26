@@ -60,16 +60,23 @@ export function ShoppingApp({ token }: KioskAppProps) {
 
   if (error && !items) return <p role="alert">{error}</p>;
   if (!items) return <p role="status">Loading…</p>;
-  return <div className="kiosk-list">
+  return <div className="kiosk-list shopping-app">
     <p className="dialog-label">{items.filter(item => !item.purchased).length} items to pick up</p>
     <form className="inline-form" onSubmit={event => void add(event)}>
-      <label>Item<input aria-label="Shopping item" value={newName} onChange={event => setNewName(event.target.value)} placeholder="Add to shopping" /></label>
+      <label><span className="visually-hidden">Item</span><input aria-label="Shopping item" value={newName} onChange={event => setNewName(event.target.value)} placeholder="Add an item" /></label>
       <button className="action-button" disabled={!newName.trim() || busy === "new-shopping"}>{busy === "new-shopping" ? "Adding…" : "Add item"}</button>
     </form>
     {error && <p role="alert">{error}</p>}
-    {items.filter(item => !item.purchased || item.id === undoItem?.id).map(item => <label className="shopping-check" key={item.id}>
-      <input type="checkbox" checked={item.purchased} disabled={busy === item.id} onChange={() => void update(item)} /><span>{item.name}</span>
-    </label>)}
+    {items.filter(item => !item.purchased || item.id === undoItem?.id).map(item => <button
+      className={`shopping-row${item.purchased ? " purchased" : ""}`}
+      key={item.id}
+      disabled={busy === item.id}
+      aria-label={`${item.purchased ? "Undo purchased:" : "Mark purchased:"} ${item.name}`}
+      onClick={() => void update(item)}>
+      <span className="check-ring" aria-hidden="true">{item.purchased ? "✓" : ""}</span>
+      <span>{item.name}</span>
+      {busy === item.id && <small className="pending-label">Saving…</small>}
+    </button>)}
     {undoItem && <p className="shopping-undo" role="status">{undoItem.name} purchased <button onClick={() => void update(undoItem)}>Undo</button></p>}
     <p className="dialog-label">Tap an item when it goes in the basket. Purchased items leave the list after five seconds.</p>
   </div>;

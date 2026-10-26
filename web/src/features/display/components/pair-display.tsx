@@ -6,25 +6,28 @@ import { Home } from "lucide-react";
 import { apiBase } from "@/features/display/api/display-api";
 import type { Pairing } from "@/features/display/model/display-types";
 
+async function requestPairing(): Promise<Pairing> {
+  const response = await fetch(apiBase + "/api/display-pairing/challenges", { method: "POST" });
+  if (!response.ok) throw new Error("Pairing is unavailable.");
+  return response.json() as Promise<Pairing>;
+}
+
 export function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void }) {
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const [error, setError] = useState("");
   const [renewing, setRenewing] = useState(false);
-  const [clock, setClock] = useState<Date | null>(null);
+  const [clock, setClock] = useState(() => new Date());
   const create = useCallback(async () => {
     setRenewing(true);
     setError("");
     try {
-      const response = await fetch(apiBase + "/api/display-pairing/challenges", { method: "POST" });
-      if (!response.ok) throw new Error("We could not start pairing. Check the connection and try again.");
-      setPairing(await response.json() as Pairing);
+      setPairing(await requestPairing());
     } catch {
       setError("We couldn’t connect to Family Hub. Check the connection, then try again.");
     } finally { setRenewing(false); }
   }, []);
   useEffect(() => {
-    setClock(new Date());
-    void create();
+    void requestPairing().then(setPairing).catch(() => setError("We couldn’t connect to Family Hub. Check the connection, then try again."));
     const timer = window.setInterval(() => setClock(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, [create]);
@@ -73,9 +76,16 @@ export function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void 
       {pairing ? <div className="wall-qr"><QRCodeSVG value={qrValue} size={180} level="M" includeMargin /></div> : !error && <div className="wall-qr-empty" role="status">{renewing ? "Preparing a pairing code…" : "Pairing code unavailable"}</div>}
       {error && <p className="wall-pair-error" role="alert">{error}</p>}
       {pairing && <small>Single-use code · Expires in five minutes</small>}
-      {(!pairing || error) && <button className="action-button" disabled={renewing} onClick={() => void create()}>{renewing ? "Preparing…" : error.includes("expired") ? "Generate new code" : error ? "Try again" : "Create pairing code"}</button>}
+      {(!pairing || error) && <button className="action-button" disabled={renewing} onClick={() => void create()}>{pairingActionLabel(renewing, error)}</button>}
       <p className="wall-pair-owner">A shared household screen. No personal login needed here.</p>
     </section>
   </main>;
+}
+
+function pairingActionLabel(renewing: boolean, error: string) {
+  if (renewing) return "Preparing…";
+  if (error.includes("expired")) return "Generate new code";
+  if (error) return "Try again";
+  return "Create pairing code";
 }
 

@@ -373,3 +373,44 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
   .display-controls { align-items: flex-start; gap: 4px; }
   .display-launcher { gap: 10px; }
 }
+
+/* Keep the production pairing screen and commute card on the prototype layout. */
+.pair-screen { min-height: 100svh; display: grid; place-items: center; overflow-y: auto; padding: clamp(20px, 4vw, 48px); background: var(--paper); color: var(--ink); }
+.pair-screen.is-dark { --paper: #201f1a; --surface: #2d3028; --ink: #f7f0e2; --secondary: #c3beaf; --accent: #bad0ab; --sage: #3e4a37; --clay: #e0baa0; --border: #494a3e; background: var(--paper); color: var(--ink); }
+.pair-screen .wall-pairing { width: min(100%, 630px); margin: auto; text-align: center; }
+.wall-pair-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 22px; border-radius: 19px; background: var(--accent); color: white; }
+.pair-screen.is-dark .wall-pair-mark { color: #201f1a; }
+.pair-screen .wall-pairing h1 { margin: 0 0 15px; font-size: clamp(28px, 3.5vw, 44px); font-weight: 650; letter-spacing: -.04em; }
+.pair-screen .wall-pairing > p { color: var(--secondary); font-size: clamp(16px, 1.6vw, 20px); line-height: 1.5; }
+.pair-screen .wall-qr, .pair-screen .wall-qr-empty { width: 200px; height: 200px; display: grid; place-items: center; margin: 27px auto 20px; padding: 18px; border-radius: 18px; background: #fff; }
+.pair-screen .wall-qr svg { width: 164px; height: 164px; }
+.pair-screen .wall-qr-empty { padding: 16px; color: var(--secondary); font-size: 14px; }
+.pair-screen .wall-pairing > small { color: var(--secondary); font-size: 14px; }
+.pair-screen .wall-pair-owner { margin-top: 25px; color: var(--secondary); font-size: 15px; }
+.pair-screen .wall-pair-error { margin-top: 13px; color: #9d3c34; font-size: 14px; }
+.pair-screen .action-button { min-height: 44px; margin-top: 20px; border-radius: 12px; background: var(--sage); color: var(--accent); font-size: 15px; }
+.empty-wall { grid-column: 1 / -1 !important; display: flex; align-items: center; justify-content: center; min-height: 210px; text-align: center; }
+.empty-wall h2 { margin: 0; font-size: clamp(18px, 1.4vw, 24px); font-weight: 600; }
+.empty-wall p { margin-top: 10px; color: var(--secondary); font-size: clamp(14px, 1vw, 17px); }
+.train-card-footer { margin-top: auto; padding-top: 12px; color: var(--secondary); font-size: clamp(11px, .8vw, 14px); }
+.route-caption { display: block; margin: -4px 0 6px; color: var(--secondary); font-size: clamp(13px, 1vw, 17px); }
+.trains-card .train-row { grid-template-columns: minmax(58px, .55fr) minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); border-top: 0; font-size: clamp(13px, .95vw, 16px); }
+.trains-card .train-row time { font-size: clamp(17px, 1.2vw, 21px); font-variant-numeric: tabular-nums; }
+.trains-card .train-row strong { font-size: clamp(15px, 1.1vw, 19px); font-weight: 550; }
+.trains-card .train-row small { color: var(--accent); font-size: clamp(11px, .82vw, 14px); white-space: nowrap; }
+.meal-card { cursor: pointer; }
+.meal-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.display-dialog-back { min-height: 44px; display: block; margin: 22px 0 0 auto; padding: 10px 16px; border: 0; border-radius: 12px; background: var(--sage); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.shopping-undo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 12px 0; padding: 12px 15px; border-radius: 12px; background: var(--ink); color: var(--paper); }
+.shopping-undo button { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
+.display-toast { position: fixed; z-index: 30; left: 50%; bottom: 28px; transform: translateX(-50%); max-width: min(90vw, 650px); padding: 14px 22px; border-radius: 16px; background: var(--ink); color: var(--paper); box-shadow: 0 8px 25px #0002; font-size: clamp(14px, 1vw, 17px); white-space: nowrap; }
+.display-overlay.is-dark .display-dialog { --paper: #201f1a; --surface: #2d3028; --ink: #f7f0e2; --secondary: #c3beaf; --accent: #bad0ab; --sage: #3e4a37; --clay: #e0baa0; --border: #494a3e; background: var(--paper); color: var(--ink); }
+.display-overlay.is-dark .display-dialog .display-dialog-heading { color: var(--ink); }
+.display-overlay.is-dark .display-dialog .shopping-check { background: var(--surface); color: var(--ink); }
+.display-overlay.is-dark .display-dialog .shopping-undo { background: var(--ink); color: var(--paper); }
+.wall-display-shell.is-dark .display-status { background: #3c3428; color: #e0baa0; }
+.wall-display-shell.is-dark .display-toast { background: #f7f0e2; color: #201f1a; }
+@media (max-width: 560px) {
+  .trains-card .train-row { grid-template-columns: 55px minmax(0, 1fr); }
+  .trains-card .train-row small { grid-column: 2; }
+}

@@ -12,11 +12,15 @@ permissions:
 
 jobs:
   verify:
-    uses: BenSuskins/repo-templates/.github/workflows/verify-js.yml@main
-    with:
-      bun-version: "1.4.4"
-      working-directory: web
-      install-command: bun install --frozen-lockfile
-      scripts: |
-        bun run lint
-        bun run build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run build --webpack

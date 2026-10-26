@@ -5,7 +5,7 @@ import { BookOpen, CalendarDays, Check, CookingPot, ShoppingBag, Trash2, X, type
 import { ChoreCompletionDialog } from "@/features/display/components/chore-completion-dialog";
 import { KioskApp } from "@/features/display/apps/kiosk-app";
 import { WeatherIcon, SectionIcon } from "@/features/display/components/display-icons";
-import { latestRefresh, displayDialogTitle, stationName, stationShortName, trainStatusLabel } from "@/features/display/model/display-formatters";
+import { refreshAge, displayDialogTitle, stationName, stationShortName, trainStatusLabel } from "@/features/display/model/display-formatters";
 import type { DisplayChore, EventDetails, MealEditTarget, Snapshot } from "@/features/display/model/display-types";
 import { dayKeyAt, displayGreeting, mealWindowAt, rankDisplayCards, relevantBinDate, relevantDepartures, usefulCalendarEvents, weatherLabel } from "@/lib/display-logic";
 
@@ -98,6 +98,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
   const isDark = localHour >= 20 || localHour < 6;
   const formattedDate = clock.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone });
   const formattedTime = clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
+  const refreshAgeLabel = current ? refreshAge(current.resourceUpdatedAt, clock) : null;
 
   let dialogContent: React.ReactNode;
   if (selectedApp === "Chore completion" && selectedChore) {
@@ -142,7 +143,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
         {isCardVisible("trains") && trains.length > 0 && <section style={cardStyle("trains")} className={`display-card trains-card ${cardLayoutClass("trains")}`} aria-label="Next trains" tabIndex={0}><div className="display-card-heading"><span><SectionIcon name="trains"/>Next trains</span></div><small className="route-caption">{stationName(firstBoard!.origin.code)} → {stationName(firstBoard!.destination.code)}</small>{trains.slice(0, 3).map(({ board, train }) => <div className="train-row" key={`${board.origin.code}-${train.serviceId}`}><time>{train.expectedDeparture || train.scheduledDeparture || "—"}</time><strong>{stationShortName(board.destination.code)}</strong><small>{trainStatusLabel(train)}</small></div>)}<div className="train-card-footer">{current?.availability.trains === "available" ? "Updated just now" : "Saved train times"}</div></section>}
       </div>
       <div className="display-controls"><nav className="display-launcher" aria-label="Family apps">{launcherApps.map(({ name, icon: Icon }) => <button key={name} onClick={event => onOpenApp(name, event)}><Icon size={21} strokeWidth={1.7} aria-hidden="true" className="display-icon"/><span>{name}</span></button>)}</nav>
-        <footer className="display-footer"><button aria-label={`Refresh display data${current ? `; last successful refresh ${latestRefresh(current.resourceUpdatedAt, timezone)}` : ""}`} onClick={onRefresh}>Refresh{current && <small> ({latestRefresh(current.resourceUpdatedAt, timezone)})</small>}</button></footer>
+        <footer className="display-footer"><button aria-label={`Refresh display data${refreshAgeLabel ? `; last successful refresh ${refreshAgeLabel}` : ""}`} onClick={onRefresh}>Refresh{refreshAgeLabel && <small> ({refreshAgeLabel})</small>}</button></footer>
       </div>
     </section>
     {choreFeedback && <div className="display-toast" role="status">{choreFeedback}</div>}

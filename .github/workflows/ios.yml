@@ -107,14 +107,25 @@ jobs:
             -project ios/FamilyHub/FamilyHub.xcodeproj \
             -scheme FamilyHub \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -parallel-testing-worker-count 1 \
             -resultBundlePath ios-test-results \
             CODE_SIGNING_ALLOWED=NO
 
-      # The result bundle was already being written and then thrown away, so a
-      # red check could not be inspected without reproducing it locally.
-      # `always()` is the point: the bundle matters most when the step above
-      # failed. Both paths because xcodebuild is inconsistent about the
-      # extension.
+      - name: Summarize test results
+        if: always()
+        run: |
+          result_bundle=ios-test-results
+          if [ ! -d "$result_bundle" ] && [ -d "$result_bundle.xcresult" ]; then
+            result_bundle="$result_bundle.xcresult"
+          fi
+          if [ -d "$result_bundle" ]; then
+            xcrun xcresulttool get test-results summary --path "$result_bundle"
+          else
+            echo "No Xcode result bundle was produced."
+          fi
+
+      # Keep the detailed Xcode result bundle as well as the compact summary
+      # above, so a failed check can be inspected without reproducing it.
       - name: Upload result bundle
         if: always()
         uses: actions/upload-artifact@v7

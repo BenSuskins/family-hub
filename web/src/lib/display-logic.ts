@@ -73,10 +73,14 @@ export function mealWindowAt(date: Date, timezone: string): MealWindow {
   const minutes = hour * 60 + minute;
   const today = dayKeyAt(date, timezone);
   const tomorrow = minutes >= 20 * 60;
+  let nextMeal: MealType;
+  if (tomorrow || minutes < 10 * 60) nextMeal = "breakfast";
+  else if (minutes < 15 * 60) nextMeal = "lunch";
+  else nextMeal = "dinner";
   return {
     date: tomorrow ? nextDayKey(today) : today,
     label: tomorrow ? "Tomorrow" : "Today",
-    nextMeal: tomorrow || minutes < 10 * 60 ? "breakfast" : minutes < 15 * 60 ? "lunch" : "dinner",
+    nextMeal,
   };
 }
 
@@ -139,13 +143,18 @@ export function displayGreeting(hour: number) {
 }
 
 export function rankDisplayCards(context: DisplayCardContext) {
+  let choreScore = 0;
+  if (context.hasOpenChores) choreScore = context.hour >= 16 ? 74 : 48;
+  let trainScore = 0;
+  if (context.hour >= 7 && context.hour < 10) trainScore = 88;
+  else if (context.hour >= 16 && context.hour < 19) trainScore = 45;
   const candidates = [
     { key: "calendar", score: context.hasCalendarEvents ? 80 : 0 },
     { key: "meals", score: context.hour >= 16 ? 90 : 65 },
-    { key: "chores", score: context.hasOpenChores ? context.hour >= 16 ? 74 : 48 : 0 },
+    { key: "chores", score: choreScore },
     { key: "departures", score: context.departureSoon ? 110 : 0 },
     { key: "bins", score: context.binsRelevant && context.hour >= 17 ? 85 : 0 },
-    { key: "trains", score: context.trainsAvailable ? context.hour >= 7 && context.hour < 10 ? 88 : context.hour >= 16 && context.hour < 19 ? 45 : 0 : 0 },
+    { key: "trains", score: context.trainsAvailable ? trainScore : 0 },
   ];
   return candidates.filter(candidate => candidate.score > 0)
     .sort((first, second) => second.score - first.score)

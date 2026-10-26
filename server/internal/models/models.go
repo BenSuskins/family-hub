@@ -147,6 +147,8 @@ type ChoreAssignment struct {
 
 type TokenScope string
 
+var DisplayDefaultSections = []string{"calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping"}
+
 const (
 	TokenScopeAPI     TokenScope = "api"
 	TokenScopeDisplay TokenScope = "display"

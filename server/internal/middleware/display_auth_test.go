@@ -24,7 +24,10 @@ func TestDisplayTokenCannotUseMemberRoutes(t *testing.T) {
 	if _, err := tokens.Create(ctx, models.APIToken{Name: "display", TokenHash: repository.HashToken("display-token"), Scope: models.TokenScopeDisplay, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating display token: %v", err)
 	}
-	displayHandler := middleware.RequireDisplay(tokens, users)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	if _, err := database.ExecContext(ctx, `DELETE FROM users WHERE id=?`, user.ID); err != nil {
+		t.Fatalf("deleting pairing admin: %v", err)
+	}
+	displayHandler := middleware.RequireDisplay(tokens)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 	memberHandler := middleware.RequireUser(tokens, users)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 	for _, test := range []struct {
 		name    string

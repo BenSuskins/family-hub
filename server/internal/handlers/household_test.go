@@ -18,7 +18,8 @@ import (
 )
 
 func TestHomeInfoAdminAndValidation(t *testing.T) {
-	handler := NewHouseholdHandler(repository.NewSettingsRepository(testutil.NewTestDatabase(t)), nil, nil, nil)
+	settings := repository.NewSettingsRepository(testutil.NewTestDatabase(t))
+	handler := NewHouseholdHandler(settings, nil, nil, nil)
 	for _, example := range []struct {
 		role   models.Role
 		body   string
@@ -39,7 +40,19 @@ func TestHomeInfoAdminAndValidation(t *testing.T) {
 		}
 	}
 	response := httptest.NewRecorder()
+	if err := settings.Set(context.Background(), repository.SettingsKeyFamilyName, "Willow"); err != nil {
+		t.Fatal(err)
+	}
 	handler.HomeInfo(response, httptest.NewRequest(http.MethodGet, "/api/home-info", nil))
+	var displaySettings struct {
+		FamilyName string `json:"familyName"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &displaySettings); err != nil {
+		t.Fatal(err)
+	}
+	if displaySettings.FamilyName != "Willow" {
+		t.Fatalf("household name = %q", displaySettings.FamilyName)
+	}
 	var home models.HomeInfo
 	if err := json.Unmarshal(response.Body.Bytes(), &home); err != nil {
 		t.Fatal(err)

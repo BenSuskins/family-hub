@@ -449,7 +449,18 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 
 func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	now := time.Now()
+	location := time.UTC
+	if handler.settingsRepo != nil {
+		if value, err := handler.settingsRepo.Get(ctx, "home_info"); err == nil {
+			var home models.HomeInfo
+			if json.Unmarshal([]byte(value), &home) == nil && home.Timezone != "" {
+				if configured, err := time.LoadLocation(home.Timezone); err == nil {
+					location = configured
+				}
+			}
+		}
+	}
+	now := time.Now().In(location)
 
 	view := r.URL.Query().Get("view")
 	if view == "" {
@@ -461,22 +472,28 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	case "week":
 		date := now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse(DateFormat, dateStr); err == nil {
-				date = d
+			d, err := time.ParseInLocation(DateFormat, dateStr, location)
+			if err != nil {
+				writeJSONError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+				return
 			}
+			date = d
 		}
 		offset := (int(date.Weekday()) + 6) % 7
-		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, time.UTC)
+		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, location)
 		end = start.AddDate(0, 0, 7)
 
 	case "day":
 		date := now
 		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			if d, err := time.Parse(DateFormat, dateStr); err == nil {
-				date = d
+			d, err := time.ParseInLocation(DateFormat, dateStr, location)
+			if err != nil {
+				writeJSONError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+				return
 			}
+			date = d
 		}
-		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, location)
 		end = start.AddDate(0, 0, 1)
 
 	default: // "month"
@@ -484,7 +501,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		if monthParam == "" {
 			monthParam = now.Format("2006-01")
 		}
-		monthStart, err := time.Parse("2006-01", monthParam)
+		monthStart, err := time.ParseInLocation("2006-01", monthParam, location)
 		if err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid month format, use YYYY-MM")
 			return
@@ -513,10 +530,12 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var events []models.Event
+	eventsAvailable := true
 	if handler.icalFetcher != nil {
 		fetchedEvents, err := handler.icalFetcher.FetchForRange(ctx, start, end)
 		if err != nil {
 			slog.Error("fetching ical events for calendar API", "error", err)
+			eventsAvailable = false
 		} else {
 			events = fetchedEvents
 		}
@@ -526,6 +545,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var meals []models.MealPlan
+	mealsAvailable := true
 	if handler.mealPlanRepo != nil {
 		fetchedMeals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
 			DateFrom: start.Format(DateFormat),
@@ -533,6 +553,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		})
 		if err != nil {
 			slog.Error("fetching meals for calendar API", "error", err)
+			mealsAvailable = false
 		} else {
 			meals = fetchedMeals
 		}
@@ -545,7 +566,18 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 		"chores": chores,
 		"events": events,
 		"meals":  meals,
+		"availability": map[string]string{
+			"events": availabilityStatus(eventsAvailable),
+			"meals":  availabilityStatus(mealsAvailable),
+		},
 	})
+}
+
+func availabilityStatus(available bool) string {
+	if !available {
+		return "unavailable"
+	}
+	return "available"
 }
 
 func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {

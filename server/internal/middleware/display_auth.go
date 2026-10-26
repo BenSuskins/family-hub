@@ -12,7 +12,7 @@ import (
 )
 
 // RequireDisplay accepts only revocable display-scoped bearer credentials.
-func RequireDisplay(tokenRepo repository.APITokenRepository, userRepo repository.UserRepository) func(http.Handler) http.Handler {
+func RequireDisplay(tokenRepo repository.APITokenRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authorization := r.Header.Get("Authorization")
@@ -25,13 +25,9 @@ func RequireDisplay(tokenRepo repository.APITokenRepository, userRepo repository
 				httpresponse.Error(w, http.StatusUnauthorized, "invalid display credential")
 				return
 			}
-			user, err := userRepo.FindByID(r.Context(), token.CreatedByUserID)
-			if err != nil {
-				httpresponse.Error(w, http.StatusUnauthorized, "invalid display credential")
-				return
-			}
-			ctx := context.WithValue(r.Context(), UserContextKey, user)
-			ctx = context.WithValue(ctx, DisplayTokenIDContextKey, token.ID)
+			// Display credentials belong to the paired household device. They must
+			// remain valid when the member who approved pairing leaves the household.
+			ctx := context.WithValue(r.Context(), DisplayTokenIDContextKey, token.ID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

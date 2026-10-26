@@ -139,7 +139,7 @@ curl -s -X POST "$BASE_URL/api/display-pairing/challenges" | jq
 ### `POST /api/display-pairing/challenges/{id}/approve`
 - **Use case:** Approve a display pairing and assign its name.
 - **Callers:** Authenticated iOS admin after scanning the QR code.
-- **Security:** Bearer API token. Requires the challenge secret; a challenge can be approved once before it expires.
+- **Security:** Bearer API token and admin role. Requires the challenge secret; a challenge can be approved once before it expires.
 
 ```bash
 curl -s -X POST "$BASE_URL/api/display-pairing/challenges/<id>/approve" \
@@ -168,30 +168,56 @@ curl -s -X PATCH "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TO
 curl -s -X DELETE "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
 
+### `PATCH /api/displays/{id}/name` / `GET /api/displays/{id}/commute` / `PUT /api/displays/{id}/commute`
+- **Use case:** Rename a paired display or read and update its shared commute schedule.
+- **Callers:** iOS admin settings.
+- **Security:** Bearer API token and admin role. Commute schedules belong to the display, not its pairing admin.
+
+```bash
+curl -s -X PATCH "$BASE_URL/api/displays/<id>/name" -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" -d '{"name":"Kitchen display"}' | jq
+curl -s "$BASE_URL/api/displays/<id>/commute" -H "Authorization: Bearer $API_TOKEN" | jq
+curl -s -X PUT "$BASE_URL/api/displays/<id>/commute" -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" -d '{"toWork":{"enabled":true,"weekdays":[2,3,4,5,6],"start":"06:30","end":"09:30"},"toHome":{"enabled":false,"weekdays":[2,3,4,5,6],"start":"16:00","end":"19:30"},"homeStationCode":"KGX","workStationCode":"CBG","trainCount":3}' | jq
+```
+
 ### Display API
 
-These routes accept only a display-scoped Bearer token. The token cannot authenticate to member or admin routes. The display can update shopping purchase state, meal names, and the shared scratchpad.
+These routes accept only a display-scoped Bearer token. The token cannot authenticate to member or admin routes. Pairing creates a token with no expiry; an admin disconnect revokes it. The web display stores it in browser `localStorage`, scoped to the API origin and path. Closing and reopening the same browser profile preserves pairing. Clearing browser site data removes the local token, but an admin must disconnect the old server-side pairing to revoke that credential.
 
 | Route | Use case | Caller | Access |
 |---|---|---|---|
-| `GET /api/display/home-info` | Read the display's home settings. | Wall display | Display token |
+| `GET /api/display/home-info` | Read the display's home settings, household timezone, and household name. | Wall display | Display token |
 | `GET /api/display/settings` | Read this display's enabled sections. | Wall display | Display token |
+| `GET /api/display/people` | Read household member ids and names for chore attribution. | Wall display | Display token |
 | `GET /api/display/weather` | Read current, hourly, and seven-day weather. | Wall display | Display token |
 | `GET /api/display/departures` | Read today's departure context. | Wall display | Display token |
 | `GET /api/display/bin-collections` | Read the household bin collection schedule. | Wall display | Display token |
 | `GET /api/display/chores` | Read household chores. | Wall display | Display token |
+| `POST /api/display/chores/{id}/complete` | Complete a chore and attribute it to a selected household member. | Wall display | Display token |
 | `GET /api/display/meals` | Read the current meal week. | Wall display | Display token |
 | `POST /api/display/meals` | Add or replace a meal for its date and meal type. | Wall display | Display token |
 | `GET /api/display/calendar` | Read calendar events, chores, and meals for the requested range. | Wall display | Display token |
 | `GET /api/display/shopping` | Read the shared shopping list. | Wall display | Display token |
 | `PATCH /api/display/shopping/items/{id}` | Mark a shopping item picked up or return it to the list. | Wall display | Display token |
+| `POST /api/display/shopping/items` | Add an item to the shared shopping list. | Wall display | Display token |
 | `GET /api/display/inventory` | Read inventory grouped by area. | Wall display | Display token |
+| `PUT /api/display/inventory/items/{id}/stock` | Change an inventory item's quantity. | Wall display | Display token |
+| `GET /api/display/commute` | Read this display's shared commute schedule. | Wall display | Display token |
+| `GET /api/display/trains` | Read train boards for active shared commute schedules. | Wall display | Display token |
 | `GET /api/display/recipes` | Read family recipes. | Wall display | Display token |
 | `GET /api/display/recipes/{id}` | Read a recipe with ingredients and steps. | Wall display | Display token |
 | `GET /api/display/scratchpad` | Read the shared drawing. | Wall display | Display token |
 | `PUT /api/display/scratchpad` | Save a shared drawing with the fixed palette and normalized points. | Wall display | Display token |
 
 All routes use the same JSON shapes as their member API equivalents. Calendar accepts `view=week|day|month` and the corresponding `date` or `month` query parameters. Scratchpad saves have a 1 MiB request limit.
+
+```bash
+curl -s "$BASE_URL/api/display/people" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq
+curl -s -X POST "$BASE_URL/api/display/chores/<chore-id>/complete" -H "Authorization: Bearer $DISPLAY_TOKEN" -H "Content-Type: application/json" -d '{"userID":"<household-user-id>"}' -w "%{http_code}\n"
+curl -s -X POST "$BASE_URL/api/display/shopping/items" -H "Authorization: Bearer $DISPLAY_TOKEN" -H "Content-Type: application/json" -d '{"name":"Apples"}' | jq
+curl -s -X PUT "$BASE_URL/api/display/inventory/items/<item-id>/stock" -H "Authorization: Bearer $DISPLAY_TOKEN" -H "Content-Type: application/json" -d '{"quantityDelta":1}' | jq
+curl -s "$BASE_URL/api/display/commute" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq
+curl -s "$BASE_URL/api/display/trains" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq
+```
 
 ### `GET /api/me`
 - **Usecase:** Current user profile for the token holder.

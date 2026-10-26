@@ -19,6 +19,38 @@ import (
 
 const pairingChallengeLifetime = 5 * time.Minute
 
+func validateDisplayCommutePreferences(preferences models.DisplayCommutePreferences) string {
+	if preferences.TrainCount < 1 || preferences.TrainCount > 10 {
+		return "train count must be from 1 to 10"
+	}
+	for _, schedule := range []models.DisplayCommuteSchedule{preferences.ToWork, preferences.ToHome} {
+		if len(schedule.Weekdays) == 0 || len(schedule.Weekdays) > 7 {
+			return "choose at least one commute day"
+		}
+		seen := map[int]bool{}
+		for _, weekday := range schedule.Weekdays {
+			if weekday < 1 || weekday > 7 || seen[weekday] {
+				return "commute days are invalid"
+			}
+			seen[weekday] = true
+		}
+		_, startErr := time.Parse("15:04", schedule.Start)
+		_, endErr := time.Parse("15:04", schedule.End)
+		if startErr != nil || endErr != nil || schedule.Start == schedule.End {
+			return "commute start and end times are invalid"
+		}
+	}
+	for _, station := range []string{preferences.HomeStationCode, preferences.WorkStationCode} {
+		if station != "" && !models.IsDisplayStationCode(station) {
+			return "station codes must use three letters"
+		}
+	}
+	if (preferences.ToWork.Enabled || preferences.ToHome.Enabled) && (!models.IsDisplayStationCode(preferences.HomeStationCode) || !models.IsDisplayStationCode(preferences.WorkStationCode)) {
+		return "valid home and work station codes are required to enable commute trains"
+	}
+	return ""
+}
+
 type DisplayPairingHandler struct {
 	repository repository.DisplayPairingRepository
 	tokens     repository.APITokenRepository
@@ -144,11 +176,74 @@ func (handler *DisplayPairingHandler) UpdateSections(w http.ResponseWriter, r *h
 	}
 }
 
+func (handler *DisplayPairingHandler) UpdateName(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if len(name) == 0 || len(name) > 60 {
+		writeJSONError(w, http.StatusBadRequest, "display name must be between 1 and 60 bytes")
+		return
+	}
+	if err := handler.repository.UpdateDetails(r.Context(), chi.URLParam(r, "id"), name); errors.Is(err, sql.ErrNoRows) {
+		writeJSONError(w, http.StatusNotFound, "display not found")
+	} else if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not update display name")
+	} else {
+		writeJSON(w, http.StatusOK, map[string]string{"name": name})
+	}
+}
+
+func (handler *DisplayPairingHandler) UpdateCommutePreferences(w http.ResponseWriter, r *http.Request) {
+	var preferences models.DisplayCommutePreferences
+	if !decodeJSONBody(w, r, &preferences) {
+		return
+	}
+	if message := validateDisplayCommutePreferences(preferences); message != "" {
+		writeJSONError(w, http.StatusBadRequest, message)
+		return
+	}
+	preferences.HomeStationCode = models.NormalizeDisplayStationCode(preferences.HomeStationCode)
+	preferences.WorkStationCode = models.NormalizeDisplayStationCode(preferences.WorkStationCode)
+	if err := handler.repository.UpdateCommutePreferences(r.Context(), chi.URLParam(r, "id"), preferences); errors.Is(err, sql.ErrNoRows) {
+		writeJSONError(w, http.StatusNotFound, "display not found")
+	} else if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not update display commute settings")
+	} else {
+		writeJSON(w, http.StatusOK, preferences)
+	}
+}
+
+func (handler *DisplayPairingHandler) CommutePreferences(w http.ResponseWriter, r *http.Request) {
+	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not load display commute settings")
+		return
+	}
+	writeJSON(w, http.StatusOK, display.CommutePreferences)
+}
+
+func (handler *DisplayPairingHandler) AdminCommutePreferences(w http.ResponseWriter, r *http.Request) {
+	display, err := handler.repository.FindByID(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSONError(w, http.StatusNotFound, "display not found")
+		return
+	}
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not load display commute settings")
+		return
+	}
+	writeJSON(w, http.StatusOK, display.CommutePreferences)
+}
+
 func (handler *DisplayPairingHandler) Settings(w http.ResponseWriter, r *http.Request) {
 	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "could not load display settings")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string][]string{"enabledSections": display.EnabledSections})
+	writeJSON(w, http.StatusOK, display)
 }

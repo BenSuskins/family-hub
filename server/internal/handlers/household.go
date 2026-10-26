@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -52,7 +53,17 @@ func (handler *HouseholdHandler) HomeInfo(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusInternalServerError, "failed to load home information")
 		return
 	}
-	writeJSON(w, http.StatusOK, home)
+	familyName, nameErr := handler.settings.Get(r.Context(), repository.SettingsKeyFamilyName)
+	if nameErr != nil || strings.TrimSpace(familyName) == "" {
+		familyName = "Family"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"latitude":             home.Latitude,
+		"longitude":            home.Longitude,
+		"timezone":             home.Timezone,
+		"arrivalMarginMinutes": home.ArrivalMarginMinutes,
+		"familyName":           familyName,
+	})
 }
 
 func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.Request) {

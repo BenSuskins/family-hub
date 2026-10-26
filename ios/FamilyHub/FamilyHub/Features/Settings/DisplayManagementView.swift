@@ -32,17 +32,27 @@ private final class DisplayManagementModel {
         } catch { message = "This pairing code expired or could not be approved. Create a new code on the display." }
     }
 
-    func remove(_ display: PairedDisplay) async {
+    func remove(_ display: PairedDisplay) async -> Bool {
         do {
             try await apiClient.deletePairedDisplay(id: display.id)
             displays.removeAll { $0.id == display.id }
             message = "\(display.name) has been removed."
-        } catch { message = "\(display.name) could not be removed. Try again." }
+            return true
+        } catch {
+            message = "\(display.name) could not be removed. Try again."
+            return false
+        }
     }
 
     func updateSections(_ sections: [String], for display: PairedDisplay) {
         guard let index = displays.firstIndex(where: { $0.id == display.id }) else { return }
-        displays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: sections)
+        let current = displays[index]
+        displays[index] = PairedDisplay(id: current.id, name: current.name, pairedByUserID: current.pairedByUserID, createdAt: current.createdAt, enabledSections: sections, commutePreferences: current.commutePreferences)
+    }
+
+    func updateDisplay(_ display: PairedDisplay) {
+        guard let index = displays.firstIndex(where: { $0.id == display.id }) else { return }
+        displays[index] = display
     }
 }
 
@@ -78,7 +88,7 @@ struct DisplayManagementView: View {
                     ForEach(model.displays) { display in
                         HStack(spacing: 12) {
                             NavigationLink {
-                                PairedDisplaySettingsView(display: display, apiClient: model.apiClient, onSectionsSaved: { model.updateSections($0, for: display) }) {
+                                PairedDisplaySettingsView(display: display, apiClient: model.apiClient, onSectionsSaved: { model.updateSections($0, for: display) }, onDisplaySaved: model.updateDisplay) {
                                     await model.remove(display)
                                 }
                             } label: {
@@ -146,8 +156,12 @@ struct DisplayManagementView: View {
             TextField("Display name", text: $displayName)
                 .textInputAutocapitalization(.words)
             Button("Pair display") {
-                guard let pairingCode, !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                Task { await model.approve(pairingCode, name: displayName.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let pairingCode, !name.isEmpty, name.utf8.count <= 60 else {
+                    model.message = "Enter a display name from 1 to 60 bytes."
+                    return
+                }
+                Task { await model.approve(pairingCode, name: name) }
             }
             Button("Cancel", role: .cancel) { pairingCode = nil }
         } message: {
@@ -164,10 +178,23 @@ struct DisplayManagementView: View {
     }
 
     private func receive(_ value: String) {
+        guard !value.isEmpty else {
+            model.message = "The camera could not read that code. Scan again or create a new code on the display."
+            return
+        }
         guard let data = value.data(using: .utf8),
-              let code = try? JSONDecoder().decode(DisplayPairingCode.self, from: data),
-              sameServer(code.apiBaseURL, configuredServer) else {
-            model.message = "This code is for a different Family Hub server. Switch servers in settings, then scan again."
+              let code = try? JSONDecoder().decode(DisplayPairingCode.self, from: data) else {
+            model.message = "This QR code is not a Family Hub display code. Scan the code shown on the display."
+            return
+        }
+        guard UUID(uuidString: code.challengeID) != nil,
+              code.pairingCode.count == 64,
+              code.pairingCode.allSatisfy(\.isHexDigit) else {
+            model.message = "This Family Hub display code is invalid. Create a new code on the display and scan again."
+            return
+        }
+        guard sameServer(code.apiBaseURL, configuredServer) else {
+            model.message = "This code belongs to a different Family Hub server. Switch servers in settings, then scan again."
             return
         }
         pairingCode = code
@@ -208,23 +235,51 @@ private struct PairedDisplaySettingsView: View {
     let display: PairedDisplay
     let apiClient: any APIClientProtocol
     let onSectionsSaved: ([String]) -> Void
-    let onRemove: () async -> Void
+    let onDisplaySaved: (PairedDisplay) -> Void
+    let onRemove: () async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var enabledSections: Set<String>
     @State private var isSaving = false
-    @State private var message = "Settings saved to this display"
+    @State private var message = "Choose what appears on this display."
     @State private var showingRemovalConfirmation = false
+    @State private var removalMessage: String?
+    @State private var displayName: String
+    @State private var savedDisplayName: String
+    @State private var isSavingName = false
+    @State private var displayNameMessage: String?
 
-    init(display: PairedDisplay, apiClient: any APIClientProtocol, onSectionsSaved: @escaping ([String]) -> Void, onRemove: @escaping () async -> Void) {
+    init(display: PairedDisplay, apiClient: any APIClientProtocol, onSectionsSaved: @escaping ([String]) -> Void, onDisplaySaved: @escaping (PairedDisplay) -> Void, onRemove: @escaping () async -> Bool) {
         self.display = display
         self.apiClient = apiClient
         self.onSectionsSaved = onSectionsSaved
+        self.onDisplaySaved = onDisplaySaved
         self.onRemove = onRemove
         _enabledSections = State(initialValue: Set(display.enabledSections))
+        _displayName = State(initialValue: display.name)
+        _savedDisplayName = State(initialValue: display.name)
     }
 
     var body: some View {
         List {
+            Section("Display name") {
+                TextField("Display name", text: $displayName)
+                    .textInputAutocapitalization(.words)
+                    .frame(minHeight: 44)
+                if displayName.trimmingCharacters(in: .whitespacesAndNewlines).utf8.count > 60 {
+                    Text("Use 60 bytes or fewer.").font(.footnote).foregroundStyle(AppTheme.destructive)
+                }
+                if let displayNameMessage { Text(displayNameMessage).font(.footnote).foregroundStyle(AppTheme.secondary) }
+                Button(isSavingName ? "Saving…" : "Save name") { Task { await saveName() } }
+                    .disabled(isSavingName || !isValidDisplayName || displayName == savedDisplayName)
+                    .frame(minHeight: 44)
+            }
+            .listRowBackground(AppTheme.surface)
+
+            if let removalMessage {
+                Section { Text(removalMessage).font(.footnote).foregroundStyle(AppTheme.destructive) }
+                    .listRowBackground(AppTheme.surface)
+            }
+
             Section {
                 HStack(spacing: 7) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.accent)
@@ -254,12 +309,12 @@ private struct PairedDisplaySettingsView: View {
 
             Section {
                 NavigationLink {
-                    CommuteSettingsView(apiClient: apiClient)
+                    CommuteSettingsView(apiClient: apiClient, displayID: display.id)
                 } label: {
                     HStack {
                         Label("Commute route", systemImage: "tram")
                         Spacer()
-                        Text(commuteRouteLabel)
+                        Text(display.commutePreferences.hasValidStations ? "Shared schedule" : "Choose stations")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.secondary)
                     }
@@ -280,7 +335,12 @@ private struct PairedDisplaySettingsView: View {
         .navigationTitle(display.name)
         .navigationBarTitleDisplayMode(.large)
         .confirmationDialog("Disconnect this display?", isPresented: $showingRemovalConfirmation, titleVisibility: .visible) {
-            Button("Disconnect display", role: .destructive) { Task { await onRemove(); dismiss() } }
+            Button("Disconnect display", role: .destructive) {
+                Task {
+                    if await onRemove() { dismiss() }
+                    else { removalMessage = "The display is still connected. Try again." }
+                }
+            }
         } message: {
             Text("It will lose access to this Family Hub server right away.")
         }
@@ -295,7 +355,7 @@ private struct PairedDisplaySettingsView: View {
             do {
                 try await apiClient.updatePairedDisplaySections(id: display.id, enabledSections: Self.sections.map(\.id).filter(enabledSections.contains))
                 onSectionsSaved(Self.sections.map(\.id).filter(enabledSections.contains))
-                message = "Settings saved to this display"
+                message = "Settings saved to the server."
             } catch {
                 enabledSections = previous
                 message = "Settings could not be saved. Try again."
@@ -304,10 +364,24 @@ private struct PairedDisplaySettingsView: View {
         }
     }
 
-    private var commuteRouteLabel: String {
-        let preferences = CommutePreferencesStore().load(server: apiClient.serverIdentifier ?? "demo", userID: display.pairedByUserID)
-        guard preferences.hasValidStations else { return "Choose stations" }
-        return "\(preferences.homeStationCode) → \(preferences.workStationCode)"
+    private func saveName() async {
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.utf8.count <= 60 else { return }
+        isSavingName = true
+        defer { isSavingName = false }
+        do {
+            try await apiClient.updatePairedDisplayName(id: display.id, name: name)
+            savedDisplayName = name
+            displayNameMessage = "Name saved to this display."
+            onDisplaySaved(PairedDisplay(id: display.id, name: name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: display.enabledSections, commutePreferences: display.commutePreferences))
+        } catch {
+            displayNameMessage = "Name could not be saved. Try again."
+        }
+    }
+
+    private var isValidDisplayName: Bool {
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !name.isEmpty && name.utf8.count <= 60
     }
 }
 

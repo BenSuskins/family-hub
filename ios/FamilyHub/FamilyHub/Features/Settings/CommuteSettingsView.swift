@@ -3,25 +3,36 @@ import FamilyHubKit
 
 struct CommuteSettingsView: View {
     let apiClient: any APIClientProtocol
+    let displayID: String?
     private let store = CommutePreferencesStore()
     @State private var state: ViewState<String> = .idle
     @State private var preferences = CommutePreferences()
     @State private var savedPreferences = CommutePreferences()
     @State private var isSaving = false
+    @State private var saveMessage: String?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    init(apiClient: any APIClientProtocol, displayID: String? = nil) {
+        self.apiClient = apiClient
+        self.displayID = displayID
+    }
 
     var body: some View {
         StateContentView(state: state, retry: load) { _ in
             Form {
                 stationSection
                 countSection
+                if let saveMessage {
+                    Section { Text(saveMessage).font(.footnote).foregroundStyle(AppTheme.secondary) }
+                        .listRowBackground(AppTheme.sage)
+                }
                 ForEach(CommuteDirection.allCases, id: \.self) { direction in
                     scheduleSection(direction)
                 }
                 Section {
-                    Text("Times use Europe/London. Your settings apply to your account on this device only.")
+                    Text(displayID == nil ? "Times use Europe/London. These settings apply to your account." : "Times use the household's local time. These settings are shared by this display.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondary)
                 }.listRowBackground(Color.clear)
@@ -61,7 +72,7 @@ struct CommuteSettingsView: View {
         } header: {
             Text("Stations")
         } footer: {
-            Text("Enter National Rail station codes. These settings are saved on this device for your account.")
+            Text(displayID == nil ? "Enter National Rail station codes. These settings are saved on this device for your account." : "Enter National Rail station codes. These settings are shared by this household display.")
         }
         .listRowBackground(AppTheme.surface)
     }
@@ -182,22 +193,38 @@ struct CommuteSettingsView: View {
     }
 
     private func save() async {
-        guard case .loaded(let userID) = state, canSave, hasChanges else { return }
+        guard case .loaded(let ownerID) = state, canSave, hasChanges else { return }
         isSaving = true
+        saveMessage = "Saving settings…"
         defer { isSaving = false }
-        let saved = store.save(preferences, server: apiClient.serverIdentifier ?? "demo", userID: userID)
-        guard saved else { return }
-        savedPreferences = preferences
+        do {
+            if let displayID {
+                try await apiClient.updatePairedDisplayCommute(id: displayID, preferences: preferences)
+            } else {
+                guard store.save(preferences, server: apiClient.serverIdentifier ?? "demo", userID: ownerID) else { return }
+            }
+            savedPreferences = preferences
+            saveMessage = "Settings saved to this display."
+        } catch {
+            saveMessage = "Settings could not be saved. Your changes are still here. Try again."
+        }
     }
 
     private func load() async {
         state = .loading
         do {
-            let user = try await apiClient.fetchMe()
-            guard !Task.isCancelled else { return }
-            savedPreferences = store.load(server: apiClient.serverIdentifier ?? "demo", userID: user.id)
-            preferences = savedPreferences
-            state = .loaded(user.id)
+            if let displayID {
+                savedPreferences = try await apiClient.fetchPairedDisplayCommute(id: displayID)
+                guard !Task.isCancelled else { return }
+                preferences = savedPreferences
+                state = .loaded(displayID)
+            } else {
+                let user = try await apiClient.fetchMe()
+                guard !Task.isCancelled else { return }
+                savedPreferences = store.load(server: apiClient.serverIdentifier ?? "demo", userID: user.id)
+                preferences = savedPreferences
+                state = .loaded(user.id)
+            }
         } catch {
             guard !Task.isCancelled else { return }
             state = .failed(.from(error))

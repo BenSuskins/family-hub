@@ -14,6 +14,12 @@ import (
 type contextKey string
 
 const UserContextKey contextKey = "user"
+const DisplayTokenIDContextKey contextKey = "display_token_id"
+
+func GetDisplayTokenID(ctx context.Context) string {
+	id, _ := ctx.Value(DisplayTokenIDContextKey).(string)
+	return id
+}
 
 // RequireUser authenticates the request using a Bearer API token, populates
 // the user into the request context, and delegates to the next handler.

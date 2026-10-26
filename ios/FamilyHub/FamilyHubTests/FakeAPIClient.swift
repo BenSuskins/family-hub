@@ -228,6 +228,13 @@ final class FakeAPIClient: APIClientProtocol {
     func createToken(name: String) async throws -> CreatedToken { try createTokenResult.get() }
     func deleteToken(id: String) async throws { try deleteTokenResult.get() }
     func fetchPairedDisplays() async throws -> [PairedDisplay] { try pairedDisplaysResult.get() }
+    func updatePairedDisplaySections(id: String, enabledSections: [String]) async throws {
+        var displays = try pairedDisplaysResult.get()
+        guard let index = displays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = displays[index]
+        displays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections)
+        pairedDisplaysResult = .success(displays)
+    }
     func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws { try approveDisplayPairingResult.get() }
     func deletePairedDisplay(id: String) async throws { try deletePairedDisplayResult.get() }
     func fetchInventory() async throws -> [InventoryArea] { try inventoryResult.get() }

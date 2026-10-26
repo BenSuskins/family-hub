@@ -887,6 +887,12 @@ public final class APIClient: APIClientProtocol {
         try await get("api/displays", decoder: Self.isoDecoder)
     }
 
+    public func updatePairedDisplaySections(id: String, enabledSections: [String]) async throws {
+        struct Request: Encodable { let enabledSections: [String] }
+        struct Response: Decodable { let enabledSections: [String] }
+        let _: Response = try await patch("api/displays/\(id)", body: Request(enabledSections: enabledSections))
+    }
+
     public func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {
         struct Request: Encodable { let pairingCode: String; let name: String }
         struct Response: Decodable { let status: String }

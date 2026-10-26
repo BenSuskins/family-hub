@@ -1,29 +1,20 @@
 "use client";
 
 import { QRCodeSVG } from "qrcode.react";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { KioskScratchpad } from "@/components/kiosk-scratchpad";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 
 type DisplayEvent = { ID: string; Title: string; StartTime: string; Location: string };
-type DisplayChore = { ID: string; Name: string; Status: string; DueDate?: string | null };
+type DisplayChore = { ID: string; Name: string; Status: string; DueDate?: string | null; AssignedToUserID?: string | null };
 type DisplayMeal = { Date: string; MealType: string; Name: string };
-type DisplayRecipe = { ID: string; Title: string; Steps?: string[]; Instructions?: string; Ingredients?: { name: string; items: string[] }[] };
 type Weather = { status: string; current?: { temperature: number; code: number }; high?: number; low?: number; hours?: { time: string; temperature: number; code: number; rainProbability: number }[]; days?: { date: string; high: number; low: number; code: number; rainProbability?: number }[] };
-type Snapshot = { events: DisplayEvent[]; chores: DisplayChore[]; meals: DisplayMeal[]; weather: Weather; timezone: string; updatedAt: string };
+type Departure = { eventID: string; title: string; destination: string; startTime: string; leaveAt: string; drivingSeconds: number };
+type BinSchedule = { collections?: { date: string; type: string; name: string }[]; enabled?: boolean };
+type Snapshot = { events: DisplayEvent[]; chores: DisplayChore[]; meals: DisplayMeal[]; weather: Weather; departures: Departure[]; bins: BinSchedule; enabledSections: string[]; timezone: string; updatedAt: string };
 type Pairing = { challengeId: string; pairingCode: string; expiresAt: string };
-type OverviewSection = "agenda" | "meals" | "chores" | "weather";
 type MealType = "breakfast" | "lunch" | "dinner";
-type MealEditTarget = { date: string; mealType: MealType };
-const overviewSections: { id: OverviewSection; title: string; description: string }[] = [
-  { id: "agenda", title: "Calendar", description: "Today’s events" },
-  { id: "meals", title: "Meals", description: "Today’s meal plan" },
-  { id: "chores", title: "Chores", description: "Shared routines" },
-  { id: "weather", title: "Weather", description: "Local forecast" },
-];
 const displayTokenKey = "family-hub-display-token";
 const snapshotKey = "family-hub-display-snapshot";
-const displaySectionsKey = "family-hub-display-sections";
 const apiBase = getApiBaseUrl();
 class DisplayAccessRevoked extends Error {}
 
@@ -34,21 +25,25 @@ async function displayRequest<T>(path: string, token: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function weatherLabel(code:number){if(code===0)return "Clear";if([1,2].includes(code))return "Partly cloudy";if(code===3)return "Cloudy";if([45,48].includes(code))return "Fog";if([51,53,55,56,57].includes(code))return "Drizzle";if([61,63,65,66,67,80,81,82].includes(code))return "Rain";if([71,73,75,77,85,86].includes(code))return "Snow";if([95,96,99].includes(code))return "Thunderstorms";return "Forecast";}
-function dayKeyAt(date: Date, timezone: string) { const parts=new Intl.DateTimeFormat("en-CA",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);const value=(type:string)=>parts.find(part=>part.type===type)?.value??"00";return value("year")+"-"+value("month")+"-"+value("day"); }
-function nextDayKey(key:string) { const [year,month,day]=key.split("-").map(Number);const next=new Date(Date.UTC(year,month-1,day+1));return next.getUTCFullYear()+"-"+String(next.getUTCMonth()+1).padStart(2,"0")+"-"+String(next.getUTCDate()).padStart(2,"0"); }
+function dayKeyAt(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const value = (type: string) => parts.find(part => part.type === type)?.value ?? "00";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+function nextDayKey(key: string) { const [year, month, day] = key.split("-").map(Number); const next = new Date(Date.UTC(year, month - 1, day + 1)); return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`; }
 
 function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void }) {
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const [error, setError] = useState("");
   const [renewing, setRenewing] = useState(false);
+  const [clock, setClock] = useState<Date | null>(null);
   const create = useCallback(async () => {
     setRenewing(true); setError("");
     try { const response = await fetch(apiBase + "/api/display-pairing/challenges", { method: "POST" }); if (!response.ok) throw new Error("We could not start pairing. Please try again."); setPairing(await response.json() as Pairing); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "We could not start pairing. Please try again."); }
     finally { setRenewing(false); }
   }, []);
-  useEffect(() => { void create(); }, [create]);
+  useEffect(() => { setClock(new Date()); const timer = window.setInterval(() => setClock(new Date()), 30_000); void create(); return () => window.clearInterval(timer); }, [create]);
   useEffect(() => {
     if (!pairing) return;
     let stopped = false;
@@ -63,7 +58,9 @@ function PairDisplay({ onClaimed }: { onClaimed: (token: string) => void }) {
     return () => { stopped = true; window.clearInterval(timer); };
   }, [pairing, onClaimed]);
   const qrValue = pairing ? JSON.stringify({ apiBaseUrl: apiBase, challengeId: pairing.challengeId, pairingCode: pairing.pairingCode }) : "";
-  return <main className="pair-screen"><section className="pair-card"><span className="brand-mark">f</span><p className="kicker">PAIR WITH YOUR HOME</p><h1>One screen for everyone.</h1><p>Open Family Hub on an iPhone or iPad, scan this code, then approve this display.</p>{pairing ? <div className="qr-wrap"><QRCodeSVG value={qrValue} size={228} level="M" includeMargin /></div> : <div className="qr-empty" role="status">{renewing ? "Preparing a new code…" : "Pairing code is unavailable"}</div>}{error && <p className="error-message" role="alert">{error}</p>}<button className="action-button" disabled={renewing} onClick={() => void create()}>{renewing ? "Preparing…" : "Create a new pairing code"}</button><small>Each code expires after five minutes and can be used once.</small></section></main>;
+  const pairingHour = clock ? Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }).format(clock)) : 12;
+  const isDark = pairingHour >= 20 || pairingHour < 6;
+  return <main className={`wall-display-shell${isDark ? " is-dark" : ""}`}><section className={`wall-display${isDark ? " is-dark" : ""}`} aria-label="Family Hub display pairing"><div className="wall-pairing"><span className="wall-pair-mark" aria-hidden="true">f</span><h1>{error.includes("expired") ? "Let’s try that again." : "Bring your household together."}</h1><p>Open Family Hub on your iPhone.<br/>Go to Settings → Displays → Scan QR code.</p>{pairing ? <div className="wall-qr"><QRCodeSVG value={qrValue} size={170} level="M" includeMargin /></div> : <div className="wall-qr wall-qr-empty" role="status">{renewing ? "Preparing a new code…" : "Pairing code is unavailable"}</div>}<small>Single-use code · Expires in five minutes</small>{error && <p className="wall-pair-error" role="alert">{error}</p>}<div className="wall-pair-owner">A shared household screen. No personal login needed here.</div>{(!pairing || error) && <button className="action-button" disabled={renewing} onClick={() => void create()}>{renewing ? "Preparing…" : "Create a new pairing code"}</button>}</div></section></main>;
 }
 
 export function DisplayClient() {
@@ -71,84 +68,84 @@ export function DisplayClient() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
   const [offline, setOffline] = useState(false);
-  const [clock, setClock] = useState(new Date());
-  const [selectedApp, setSelectedApp] = useState("");
-  const [mealEditTarget, setMealEditTarget] = useState<MealEditTarget | null>(null);
-  const [visibleSections, setVisibleSections] = useState<OverviewSection[]>(overviewSections.map(section => section.id));
-  const [sectionsLoaded, setSectionsLoaded] = useState(false);
+  const [clock, setClock] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const accept = useCallback((value: string) => { localStorage.setItem(displayTokenKey, value); setToken(value); }, []);
-  useEffect(() => { const saved = localStorage.getItem(displayTokenKey) ?? ""; setToken(saved); const cached = localStorage.getItem(snapshotKey); if (cached) { try { const value=JSON.parse(cached) as Snapshot; snapshotRef.current=value; setSnapshot(value); } catch { localStorage.removeItem(snapshotKey); } } }, []);
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(displaySectionsKey) ?? "null") as unknown;
-      if (Array.isArray(saved)) setVisibleSections(saved.filter((section): section is OverviewSection => overviewSections.some(option => option.id === section)));
-    } catch {
-      localStorage.removeItem(displaySectionsKey);
-    }
-    setSectionsLoaded(true);
+    const saved = localStorage.getItem(displayTokenKey) ?? "";
+    setToken(saved);
+    const cached = localStorage.getItem(snapshotKey);
+    if (cached) { try { const value = JSON.parse(cached) as Snapshot; snapshotRef.current = value; setSnapshot(value); } catch { localStorage.removeItem(snapshotKey); } }
   }, []);
-  useEffect(() => { if (sectionsLoaded) localStorage.setItem(displaySectionsKey, JSON.stringify(visibleSections)); }, [sectionsLoaded, visibleSections]);
-  useEffect(() => { const timer=window.setInterval(()=>setClock(new Date()),30_000);return()=>window.clearInterval(timer); }, []);
-  const refresh=useCallback(async()=>{
-    if(!token)return;
-    const now=new Date();
-    const [homeResult]=await Promise.allSettled([displayRequest<{timezone:string}>("/api/display/home-info",token)]);
-    const timezone=homeResult.status==="fulfilled"?homeResult.value.timezone:snapshotRef.current?.timezone??"Europe/London";
-    const calendarDate=dayKeyAt(now,timezone);
-    setError("");
-    const [calendarResult,weatherResult]=await Promise.allSettled([
-      displayRequest<{events:DisplayEvent[];chores:DisplayChore[];meals:DisplayMeal[]}>("/api/display/calendar?view=week&date="+calendarDate,token),
-      displayRequest<Weather>("/api/display/weather",token),
+  useEffect(() => { setClock(new Date()); const timer = window.setInterval(() => setClock(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    const timezone = snapshotRef.current?.timezone ?? "Europe/London";
+    const date = dayKeyAt(new Date(), timezone);
+    const results = await Promise.allSettled([
+      displayRequest<{ timezone: string }>("/api/display/home-info", token),
+      displayRequest<{ events: DisplayEvent[]; chores: DisplayChore[]; meals: DisplayMeal[] }>("/api/display/calendar?view=week&date=" + date, token),
+      displayRequest<Weather>("/api/display/weather", token),
+      displayRequest<{ items?: Departure[] }>("/api/display/departures", token),
+      displayRequest<BinSchedule>("/api/display/bin-collections", token),
+      displayRequest<{ enabledSections: string[] }>("/api/display/settings", token),
     ]);
-    if(calendarResult.status==="fulfilled"||weatherResult.status==="fulfilled"){
-      setSnapshot(current=>{
-        const next:Snapshot={events:calendarResult.status==="fulfilled"?calendarResult.value.events:current?.events??[],chores:calendarResult.status==="fulfilled"?calendarResult.value.chores:current?.chores??[],meals:calendarResult.status==="fulfilled"?calendarResult.value.meals:current?.meals??[],weather:weatherResult.status==="fulfilled"?weatherResult.value:current?.weather??{status:"unavailable"},timezone:timezone,updatedAt:new Date().toISOString()};
-        snapshotRef.current=next;localStorage.setItem(snapshotKey,JSON.stringify(next));return next;
-      });
-    }
-    const hasFailure=homeResult.status==="rejected"||calendarResult.status==="rejected"||weatherResult.status==="rejected";
-    const revoked=[homeResult,calendarResult,weatherResult].some(result=>result.status==="rejected"&&result.reason instanceof DisplayAccessRevoked);
-    if(revoked){localStorage.removeItem(displayTokenKey);localStorage.removeItem(snapshotKey);snapshotRef.current=null;setSnapshot(null);setToken("");setOffline(false);setError("");setLoading(false);return}
-    setOffline(hasFailure);if(hasFailure&&!snapshotRef.current)setError("We’re having trouble connecting. The display will keep trying.");setLoading(false);
-  },[token]);
-  useEffect(()=>{if(!token)return;void refresh();const timer=window.setInterval(()=>void refresh(),60_000);return()=>window.clearInterval(timer)},[token,refresh]);
-  if(!token)return <PairDisplay onClaimed={accept}/>;
-  if(selectedApp==="settings")return <main className="kiosk-app"><header><button className="kiosk-back" onClick={()=>setSelectedApp("")}>← Home</button><h1>Display settings</h1></header><section className="kiosk-settings"><h2>What appears here</h2><p>Choose which sections this display shows on its home screen. You can still open every family app from the launcher.</p>{overviewSections.map(section=><button className="kiosk-setting-row" key={section.id} aria-pressed={visibleSections.includes(section.id)} onClick={()=>setVisibleSections(current=>current.includes(section.id)?current.filter(item=>item!==section.id):[...current,section.id])}><span><strong>{section.title}</strong><small>{section.description}</small></span><span className={visibleSections.includes(section.id)?"setting-toggle is-on":"setting-toggle"} aria-hidden="true" /></button>)}</section></main>;
-  if(selectedApp==="launcher")return <main className="kiosk-app"><header><button className="kiosk-back" onClick={()=>{setMealEditTarget(null);setSelectedApp("")}}>← Home</button><h1>Family apps</h1></header><div className="launcher-grid">{["Shopping","Scratchpad","Calendar","Recipes","Meal plan","Inventory"].map((app,index)=><button className="launcher-tile" key={app} onClick={()=>setSelectedApp(app)}><span aria-hidden="true">{["＋","✎","▦","♧","♨","▤"][index]}</span>{app}</button>)}</div></main>;
-  if(selectedApp){return <main className="kiosk-app"><header><button className="kiosk-back" onClick={()=>{setMealEditTarget(null);setSelectedApp("")}}>← Home</button><h1>{selectedApp}</h1></header><KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget}/></main>}
-  const timezone=snapshot?.timezone??"Europe/London";
-  const date=clock.toLocaleDateString("en-GB",{weekday:"long",month:"long",day:"numeric",timeZone:timezone});
-  const today=dayKeyAt(clock,timezone);
-  const hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:timezone,hour:"2-digit",hourCycle:"h23"}).format(clock));
-  const showTomorrowMeal=hour>=18;
-  const mealDate=showTomorrowMeal?nextDayKey(today):today;
-  const nextMealType:MealType=showTomorrowMeal||hour<11?"breakfast":hour<16?"lunch":"dinner";
-  const events=(snapshot?.events??[]).filter(item=>dayKeyAt(new Date(item.StartTime),timezone)===today).sort((a,b)=>a.StartTime.localeCompare(b.StartTime));
-  const chores=(snapshot?.chores??[]).filter(item=>item.Status==="pending"||item.Status==="overdue").slice(0,4);
-  const meals=snapshot?.meals??[];
-  const visible=new Set(visibleSections);
-  return <main className="kiosk-screen"><header className="kiosk-header"><div><div className="kiosk-time">{clock.toLocaleTimeString("en-GB", {hour:"numeric",minute:"2-digit",timeZone:timezone})}</div><div className="kiosk-date">{date}</div></div><div className="kiosk-header-actions"><button className="kiosk-weather" onClick={()=>setSelectedApp("Weather")}>{snapshot?.weather.current?<><strong>{Math.round(snapshot.weather.current.temperature)}°</strong><span>{offline?"Saved forecast":"At home · tap for forecast"}</span></>:<span>{loading?"Connecting…":"Weather unavailable"}</span>}</button><button className="display-settings-button" onClick={()=>setSelectedApp("settings")}>Settings</button></div></header>{offline&&<div className="offline-banner" role="status">Showing the last saved family update · Trying to reconnect</div>}{error&&<div className="offline-banner" role="alert">{error}</div>}{visible.size===0?<section className="kiosk-no-sections"><h2>No overview sections selected</h2><p>Choose what this display shows in display settings.</p><button className="launcher-button" onClick={()=>setSelectedApp("settings")}>Choose sections</button></section>:<div className="kiosk-columns">{visible.has("agenda")&&<button className="kiosk-card kiosk-card-action agenda-card" onClick={()=>setSelectedApp("Calendar")} aria-label="Open Calendar"><p className="kicker">THE DAY AHEAD</p><h2>On the family calendar</h2>{events.length?events.map(item=><div className="kiosk-event" key={item.ID}><time>{new Date(item.StartTime).toLocaleTimeString([], {hour:"numeric",minute:"2-digit",timeZone:timezone})}</time><div><strong>{item.Title}</strong>{item.Location&&<small>{item.Location}</small>}</div></div>):<p className="kiosk-empty">A little space in the day.</p>}</button>}{visible.has("meals")&&<section className="kiosk-card meal-overview"><button className="kiosk-card-title" onClick={()=>{setMealEditTarget(null);setSelectedApp("Meal plan")}}><p className="kicker">AT THE TABLE</p><h2>Meals</h2></button><MealPreview label={showTomorrowMeal?"Tomorrow’s preview":"Today"} date={mealDate} meals={meals} nextMealType={nextMealType} onMealSelect={mealType=>{setMealEditTarget({date:mealDate,mealType});setSelectedApp("Meal plan")}}/></section>}{visible.has("chores")&&<button className="kiosk-card kiosk-card-action" onClick={()=>setSelectedApp("Calendar")} aria-label="Open Calendar for shared routines"><p className="kicker">SHARED ROUTINES</p><h2>Things to do</h2>{chores.length?chores.map(item=><div className="kiosk-chore" key={item.ID}><span className="kiosk-check"/><span>{item.Name}</span></div>):<p className="kiosk-empty">Nothing waiting right now.</p>}</button>}{visible.has("weather")&&<button className="kiosk-card kiosk-card-action forecast-card" onClick={()=>setSelectedApp("Weather")} aria-label="Open weather details"><p className="kicker">THE WEATHER</p><h2>At home</h2><div className="forecast-strip">{(snapshot?.weather.hours??[]).slice(0,6).map(hour=><div key={hour.time}><small>{new Date(hour.time).toLocaleTimeString([], {hour:"numeric"})}</small><strong>{Math.round(hour.temperature)}°</strong><span>{Math.round(hour.rainProbability)}% rain</span></div>)}</div><div className="forecast-week">{(snapshot?.weather.days??[]).slice(0,7).map(day=><div key={day.date}><small>{new Date(day.date).toLocaleDateString([], {weekday:"short"})}</small><strong>{Math.round(day.high)}°</strong><span>{Math.round(day.low)}° · {weatherLabel(day.code)}{day.rainProbability===undefined?"":" · "+Math.round(day.rainProbability)+"% rain"}</span></div>)}</div></button>}</div>}<footer className="kiosk-footer"><span>{snapshot?.updatedAt?"Updated "+new Date(snapshot.updatedAt).toLocaleTimeString([], {hour:"numeric",minute:"2-digit",timeZone:timezone}):"Family Hub"}</span><div className="kiosk-footer-actions"><button className="kiosk-settings-link" onClick={()=>setSelectedApp("settings")}>Display settings</button><button className="launcher-button" onClick={()=>setSelectedApp("launcher")}>Open family apps</button></div></footer></main>;
-}
-
-function MealPreview({label,date,meals,nextMealType,onMealSelect}:{label:string;date:string;meals:DisplayMeal[];nextMealType:MealType;onMealSelect:(mealType:MealType)=>void}){const items=meals.filter(item=>item.Date===date);return <div className="kiosk-meal-day"><strong>{label}</strong>{(["breakfast","lunch","dinner"] as MealType[]).map(mealType=>{const meal=items.find(item=>item.MealType===mealType);const next=mealType===nextMealType;return <button className={next?"kiosk-meal-option next-meal":"kiosk-meal-option"} key={mealType} aria-label={meal?`Edit ${mealType} meal, ${meal.Name}`:`Add ${mealType} meal`} onClick={()=>onMealSelect(mealType)}><small>{mealType}{next?" · Coming up":""}</small><span>{meal?.Name??"Not planned"}</span></button>})}</div>}
-
-function KioskApp({app,token,initialMeal}:{app:string;token:string;initialMeal:MealEditTarget|null}){return app==="Scratchpad"?<KioskScratchpad token={token}/>:<KioskDataApp app={app} token={token} initialMeal={initialMeal}/>}
-function KioskDataApp({app,token,initialMeal}:{app:string;token:string;initialMeal:MealEditTarget|null}){
-  const [data,setData]=useState<unknown>(null);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [week,setWeek]=useState(()=>dayKeyAt(new Date(),"Europe/London"));const [selected,setSelected]=useState("");const [mealName,setMealName]=useState("");const [recipeDetails,setRecipeDetails]=useState<Record<string,DisplayRecipe>>({});const [recipeErrors,setRecipeErrors]=useState<Record<string,string>>({});const [newMealDate,setNewMealDate]=useState(()=>dayKeyAt(new Date(),"Europe/London"));const [newMealType,setNewMealType]=useState<MealType>("dinner");const [newMealName,setNewMealName]=useState("");const initialMealApplied=useRef(false);
-  const path=app==="Shopping"?"/api/display/shopping":app==="Calendar"?"/api/display/calendar?view=week&date="+week:app==="Recipes"?"/api/display/recipes":app==="Meal plan"?"/api/display/meals"+(initialMeal?"?week="+initialMeal.date:""):app==="Inventory"?"/api/display/inventory":"/api/display/weather";
-  const load=useCallback(async()=>{setError("");try{setData(await displayRequest<unknown>(path,token))}catch{setError("This family information is unavailable right now.")}},[path,token]);useEffect(()=>{void load()},[load]);
-  useEffect(()=>{if(app!=="Meal plan"||!initialMeal||!Array.isArray(data)||initialMealApplied.current)return;initialMealApplied.current=true;setNewMealDate(initialMeal.date);setNewMealType(initialMeal.mealType);const meal=(data as DisplayMeal[]).find(item=>item.Date===initialMeal.date&&item.MealType===initialMeal.mealType);if(meal){setSelected(meal.Date+meal.MealType);setMealName(meal.Name)}},[app,data,initialMeal]);
-  async function updateShopping(item:{id:string;name:string;purchased:boolean;version:number}){setBusy(item.id);setError("");try{await fetch(apiBase+"/api/display/shopping/items/"+item.id,{method:"PATCH",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({purchased:!item.purchased,version:item.version})}).then(async response=>{if(!response.ok)throw new Error();return response.json()});await load()}catch{setError("We couldn’t update the shopping list. Please try again.")}finally{setBusy("")}}
-  async function addMeal(event:FormEvent<HTMLFormElement>){event.preventDefault();const name=newMealName.trim();if(!name)return;setBusy("new-meal");setError("");try{const response=await fetch(apiBase+"/api/display/meals",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({date:newMealDate,mealType:newMealType,name})});if(!response.ok)throw new Error();setNewMealName("");await load()}catch{setError("We couldn’t save that meal. Please try again.")}finally{setBusy("")}}
-  async function loadRecipe(id:string){try{const recipe=await displayRequest<DisplayRecipe>("/api/display/recipes/"+id,token);setRecipeDetails(current=>({...current,[id]:recipe}))}catch{setRecipeErrors(current=>({...current,[id]:"This recipe is unavailable right now."}))}}
-  async function saveMeal(event:FormEvent<HTMLFormElement>,meal:DisplayMeal){event.preventDefault();const name=mealName.trim();if(!name)return;setBusy(meal.Date+meal.MealType);setError("");try{const response=await fetch(apiBase+"/api/display/meals",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({date:meal.Date,mealType:meal.MealType,name})});if(!response.ok)throw new Error();setSelected("");setMealName("");await load()}catch{setError("We couldn’t save that meal. Please try again.")}finally{setBusy("")}}
-  if(error&&!data)return <p role="alert">{error}</p>;if(!data)return <p role="status">Loading…</p>;
-  if(app==="Shopping")return <div className="kiosk-list">{error&&<p role="alert">{error}</p>}{(data as {id:string;name:string;purchased:boolean;version:number}[]).map(item=><label className="shopping-check" key={item.id}><input type="checkbox" checked={item.purchased} disabled={busy===item.id} onChange={()=>void updateShopping(item)}/><span>{item.name}</span></label>)}</div>;
-  if(app==="Inventory")return <div className="kiosk-list">{(data as {ID:string;Name:string;Items:{ID:string;Name:string;Quantity:number;Unit:string}[]}[]).map(area=><section key={area.ID}><h2>{area.Name}</h2>{area.Items.map(item=><p key={item.ID}>{item.Name} · {item.Quantity} {item.Unit}</p>)}</section>)}</div>;
-  if(app==="Recipes")return <div className="kiosk-list">{(data as {ID:string;Title:string}[]).map(recipe=>{const detail=recipeDetails[recipe.ID];return <details key={recipe.ID} onToggle={event=>{if(event.currentTarget.open&&!detail&&!recipeErrors[recipe.ID])void loadRecipe(recipe.ID)}}><summary>{recipe.Title}</summary>{recipeErrors[recipe.ID]?<><p role="alert">{recipeErrors[recipe.ID]}</p><button className="kiosk-back" onClick={()=>{setRecipeErrors(current=>({...current,[recipe.ID]:""}));void loadRecipe(recipe.ID)}}>Try again</button></>:!detail?<p role="status">Loading recipe…</p>:<><h3>Ingredients</h3>{(detail.Ingredients??[]).flatMap(group=>group.items).map((ingredient,index)=><p key={index}>{ingredient}</p>)}<h3>Method</h3>{(detail.Steps??(detail.Instructions?[detail.Instructions]:[])).map((step,index)=><p key={index}>{index+1}. {step}</p>)}</>}</details>})}</div>;
-  if(app==="Calendar"){const calendar=data as {events:DisplayEvent[];chores:DisplayChore[]};return <div className="kiosk-list"><div className="calendar-toolbar"><button className="icon-action" aria-label="Previous week" onClick={()=>setWeek(dayKeyAt(new Date(Date.parse(week+"T12:00:00Z")-7*86400000),"UTC"))}>←</button><strong>Week of {week}</strong><button className="icon-action" aria-label="Next week" onClick={()=>setWeek(dayKeyAt(new Date(Date.parse(week+"T12:00:00Z")+7*86400000),"UTC"))}>→</button><button className="text-action" onClick={()=>setWeek(dayKeyAt(new Date(),"Europe/London"))}>Today</button></div>{calendar.events.map(event=><details key={event.ID}><summary>{new Date(event.StartTime).toLocaleString()} · {event.Title}</summary>{event.Location&&<p>{event.Location}</p>}</details>)}{calendar.chores.map(chore=><p key={chore.ID}>Chore · {chore.Name}</p>)}</div>}
-  if(app==="Weather"){const weather=data as Weather;return <div className="kiosk-list"><h2>{weather.current?.temperature}° at home</h2><div className="forecast-week">{weather.days?.map(day=><div key={day.date}><small>{new Date(day.date).toLocaleDateString([], {weekday:"long"})}</small><strong>{Math.round(day.high)}°</strong><span>{Math.round(day.low)}° · {weatherLabel(day.code)}{day.rainProbability===undefined?"":" · "+Math.round(day.rainProbability)+"% rain"}</span></div>)}</div></div>}
-  return <div className="kiosk-list"><form className="inline-form" onSubmit={event=>void addMeal(event)}><label>Date<input aria-label="Meal date" type="date" value={newMealDate} onChange={event=>setNewMealDate(event.target.value)}/></label><label>Meal<select aria-label="Meal type" value={newMealType} onChange={event=>setNewMealType(event.target.value as MealType)}><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option></select></label><label>Meal idea<input aria-label="Meal idea" value={newMealName} onChange={event=>setNewMealName(event.target.value)} placeholder="Add a meal idea"/></label><button className="action-button" disabled={!newMealName.trim()||busy==="new-meal"}>{busy==="new-meal"?"Saving…":"Add meal"}</button></form>{error&&<p role="alert">{error}</p>}{(data as DisplayMeal[]).map(meal=><section key={meal.Date+meal.MealType}><p>{meal.Date} · {meal.MealType}</p>{selected===meal.Date+meal.MealType?<form className="inline-form" onSubmit={event=>void saveMeal(event,meal)}><input aria-label="Meal name" value={mealName} onChange={event=>setMealName(event.target.value)} /><button className="action-button" disabled={busy===selected}>Save</button><button type="button" className="text-action" onClick={()=>setSelected("")}>Cancel</button></form>:<><strong>{meal.Name}</strong><button className="text-action" onClick={()=>{setSelected(meal.Date+meal.MealType);setMealName(meal.Name)}}>Edit</button></>}</section>)}</div>
+    const revoked = results.some(result => result.status === "rejected" && result.reason instanceof DisplayAccessRevoked);
+    if (revoked) { localStorage.removeItem(displayTokenKey); localStorage.removeItem(snapshotKey); snapshotRef.current = null; setSnapshot(null); setToken(""); setOffline(false); setLoading(false); return; }
+    const previous = snapshotRef.current;
+    const value: Snapshot = {
+      timezone: results[0].status === "fulfilled" ? results[0].value.timezone : timezone,
+      events: results[1].status === "fulfilled" ? results[1].value.events ?? [] : previous?.events ?? [],
+      chores: results[1].status === "fulfilled" ? results[1].value.chores ?? [] : previous?.chores ?? [],
+      meals: results[1].status === "fulfilled" ? results[1].value.meals ?? [] : previous?.meals ?? [],
+      weather: results[2].status === "fulfilled" ? results[2].value : previous?.weather ?? { status: "unavailable" },
+      departures: results[3].status === "fulfilled" ? results[3].value.items ?? [] : previous?.departures ?? [],
+      bins: results[4].status === "fulfilled" ? results[4].value : previous?.bins ?? {},
+      enabledSections: results[5].status === "fulfilled" ? results[5].value.enabledSections : previous?.enabledSections ?? ["calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping"],
+      updatedAt: new Date().toISOString(),
+    };
+    const failed = results.some(result => result.status === "rejected");
+    snapshotRef.current = value;
+    setSnapshot(value);
+    localStorage.setItem(snapshotKey, JSON.stringify(value));
+    setOffline(failed);
+    setError(failed && !previous ? "We’re having trouble connecting. The display will keep trying." : "");
+    setLoading(false);
+  }, [token]);
+  useEffect(() => { if (!token) return; void refresh(); const timer = window.setInterval(() => void refresh(), 60_000); return () => window.clearInterval(timer); }, [token, refresh]);
+  if (!token) return <PairDisplay onClaimed={accept} />;
+  if (!clock) return <main className="wall-display-shell" aria-busy="true" />;
+  const timezone = snapshot?.timezone ?? "Europe/London";
+  const dateKey = dayKeyAt(clock, timezone);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", hourCycle: "h23" }).format(clock));
+  const tomorrow = hour >= 18;
+  const mealDate = tomorrow ? nextDayKey(dateKey) : dateKey;
+  const nextMeal: MealType = tomorrow || hour < 11 ? "breakfast" : hour < 16 ? "lunch" : "dinner";
+  const events = (snapshot?.events ?? []).filter(item => dayKeyAt(new Date(item.StartTime), timezone) === dateKey).sort((first, second) => first.StartTime.localeCompare(second.StartTime));
+  const chores = (snapshot?.chores ?? []).filter(item => item.Status === "pending" || item.Status === "overdue").slice(0, 3);
+  const departure = (snapshot?.departures ?? []).find(item => !item.startTime || new Date(item.startTime) >= clock) ?? snapshot?.departures[0];
+  const bins = (snapshot?.bins.collections ?? []).filter(item => item.date >= dateKey).slice(0, 1);
+  const meals = snapshot?.meals ?? [];
+  const sections = new Set(snapshot?.enabledSections ?? ["calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping"]);
+  const date = clock.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone });
+  const time = clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
+  const currentWeather = snapshot?.weather.current;
+  const todaysMeals = meals.filter(item => item.Date === mealDate);
+  const appearanceHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", hourCycle: "h23" }).format(clock));
+  const isDark = appearanceHour >= 20 || appearanceHour < 6;
+  return <main className={`wall-display-shell${isDark ? " is-dark" : ""}`}><section className={`wall-display${isDark ? " is-dark" : ""}`} aria-label="Family Hub wall display">
+    <header className="wall-header"><div><p>{date} · Willow household</p><h1>{departure ? (hour >= 16 ? "Home for the evening." : "Home for the day.") : "A little room for a good day."}</h1></div><div className="wall-weather">{sections.has("weather") && <><span aria-hidden="true">☀</span><div><strong>{currentWeather ? `${Math.round(currentWeather.temperature)}°` : "—"}</strong><small>{currentWeather ? "Mostly sunny" : loading ? "Loading forecast" : "Forecast unavailable"}{snapshot?.weather.high !== undefined ? ` · H ${Math.round(snapshot.weather.high)}° L ${Math.round(snapshot.weather.low ?? 0)}°` : ""}</small></div></>}<time>{time}</time></div></header>
+    {offline && <div className="wall-status" role="status">Connection lost · Showing saved information · Trying to reconnect</div>}{error && <div className="wall-status" role="alert">{error}</div>}
+    <div className="wall-primary-grid">
+      {sections.has("departures") && <section className="wall-card departure-card"><div className="wall-card-heading"><span aria-hidden="true">⌑</span><strong>Time to head out</strong>{departure && <small>Leave in {Math.max(0, Math.round((new Date(departure.leaveAt).getTime() - clock.getTime()) / 60_000))} min</small>}</div>{departure ? <><time className="departure-time">{new Date(departure.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><h2>{departure.title}</h2><p>{departure.destination}{departure.drivingSeconds ? ` · ${Math.round(departure.drivingSeconds / 60)} min drive` : ""}</p><small className="wall-departure-foot">Starts at {new Date(departure.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</small></> : <div className="wall-empty"><h2>No journeys coming up</h2><p>Your family's next departure will appear here.</p></div>}</section>}
+      {sections.has("meals") && <section className="wall-card meals-card"><div className="wall-card-heading"><span aria-hidden="true">♧</span><strong>Today’s meals</strong></div><div className="wall-meal-list">{(["breakfast", "lunch", "dinner"] as MealType[]).map(type => { const meal = todaysMeals.find(item => item.MealType === type); return <div className={type === nextMeal ? "wall-meal-row next" : "wall-meal-row"} key={type}><span>{type}</span><strong>{meal?.Name ?? "Not planned"}</strong>{type === nextMeal && <small>Up next</small>}</div>; })}</div><div className="wall-meal-footer">Edit meals <span>→</span></div></section>}
+    </div>
+    <div className="wall-secondary-grid">
+      {sections.has("bins") && <section className="wall-card wall-small-card"><div className="wall-card-heading"><span aria-hidden="true">♲</span><strong>Bins out tonight</strong></div>{bins.length ? <><h2>{bins[0].name || bins[0].type}</h2><p>Collection {new Date(bins[0].date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long" })}<br/>{new Date(bins[0].date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</p><small>Leave them out before bedtime</small></> : <div className="wall-empty"><h2>No collection scheduled</h2><p>Upcoming bin collections will appear here.</p></div>}</section>}
+      {sections.has("calendar") && <section className="wall-card wall-small-card"><div className="wall-card-heading"><span aria-hidden="true">▦</span><strong>Coming up</strong><small>{events.length} {events.length === 1 ? "event" : "events"}</small></div>{events.length ? <>{events.slice(0, 2).map(event => <div className="wall-event-row" key={event.ID}><time>{new Date(event.StartTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}</time><div><strong>{event.Title}</strong><small>{event.Location || "Shared family calendar"}</small></div></div>)}<small className="wall-card-foot">Shared family calendar</small></> : <div className="wall-empty"><h2>Space in the calendar</h2><p>Nothing else planned today.</p></div>}</section>}
+      {sections.has("chores") && <section className="wall-card wall-small-card"><div className="wall-card-heading"><span aria-hidden="true">☷</span><strong>A few things to do</strong><small>{chores.length} left</small></div>{chores.length ? chores.map(chore => <div className="wall-chore-row" key={chore.ID}><i aria-hidden="true"/><span>{chore.Name}<small>{chore.AssignedToUserID ? "Assigned" : "Anyone"}</small></span></div>) : <div className="wall-empty"><h2>All caught up</h2><p>No chores are waiting right now.</p></div>}</section>}
+    </div>
+    <nav className="wall-launcher" aria-label="Family apps">{sections.has("shopping") && <span><b aria-hidden="true">♧</b>Shopping</span>}<span><b aria-hidden="true">▤</b>Notes</span>{sections.has("calendar") && <span><b aria-hidden="true">▦</b>Calendar</span>}<span><b aria-hidden="true">♨</b>Recipes</span>{sections.has("meals") && <span><b aria-hidden="true">♧</b>Meal plan</span>}<span><b aria-hidden="true">✓</b>Inventory</span></nav>
+  </section></main>;
 }

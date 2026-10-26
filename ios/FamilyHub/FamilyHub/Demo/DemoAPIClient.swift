@@ -605,6 +605,12 @@ final class DemoAPIClient: APIClientProtocol {
 
     func fetchPairedDisplays() async throws -> [PairedDisplay] { pairedDisplays }
 
+    func updatePairedDisplaySections(id: String, enabledSections: [String]) async throws {
+        guard let index = pairedDisplays.firstIndex(where: { $0.id == id }) else { throw APIError.notFound }
+        let display = pairedDisplays[index]
+        pairedDisplays[index] = PairedDisplay(id: display.id, name: display.name, pairedByUserID: display.pairedByUserID, createdAt: display.createdAt, enabledSections: enabledSections)
+    }
+
     func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {
         pairedDisplays.append(PairedDisplay(id: id, name: name, pairedByUserID: "demo-user", createdAt: Date()))
     }

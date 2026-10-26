@@ -117,3 +117,38 @@ func (handler *DisplayPairingHandler) Revoke(w http.ResponseWriter, r *http.Requ
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+var displaySections = map[string]bool{"calendar": true, "meals": true, "chores": true, "weather": true, "departures": true, "trains": true, "bins": true, "shopping": true}
+
+func (handler *DisplayPairingHandler) UpdateSections(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		EnabledSections []string `json:"enabledSections"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	seen := make(map[string]bool, len(body.EnabledSections))
+	for _, section := range body.EnabledSections {
+		if !displaySections[section] || seen[section] {
+			writeJSONError(w, http.StatusBadRequest, "display sections are invalid")
+			return
+		}
+		seen[section] = true
+	}
+	if err := handler.repository.UpdateSections(r.Context(), chi.URLParam(r, "id"), body.EnabledSections); errors.Is(err, sql.ErrNoRows) {
+		writeJSONError(w, http.StatusNotFound, "display not found")
+	} else if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not update display settings")
+	} else {
+		writeJSON(w, http.StatusOK, map[string][]string{"enabledSections": body.EnabledSections})
+	}
+}
+
+func (handler *DisplayPairingHandler) Settings(w http.ResponseWriter, r *http.Request) {
+	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "could not load display settings")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{"enabledSections": display.EnabledSections})
+}

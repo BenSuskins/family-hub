@@ -10,7 +10,8 @@ Family Hub Web is the browser client for a single Family Hub server installation
 
 - Today, calendar, chores, meals, recipes, shopping, and inventory pages.
 - Admin controls for household settings and paired wall displays.
-- Full-screen wall display with a launcher for shared household tasks.
+- Full-screen wall display with configurable overview sections and a launcher
+  for shared household tasks.
 - Responsive layout for phones, tablets, and larger screens.
 
 ## Tech Stack
@@ -67,8 +68,7 @@ Set this value when building and running the web app. Configure the OIDC provide
 
 ## Documentation
 
-- [Web product requirements](../docs/web-frontend-product-requirements.md)
-- [Web design](../docs/web-design.md)
+- [Shared design guide](../docs/DESIGN.md)
 - [API endpoints](../docs/endpoints.md)
 - [OIDC setup](../docs/oidc-setup.md)
 

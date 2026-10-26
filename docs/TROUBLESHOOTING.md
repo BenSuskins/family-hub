@@ -44,3 +44,14 @@ Cause: the device cannot reach `GET /api/client-config` or the API server.
 
 Fix: check the server URL in the app, DNS, TLS, firewall rules, and reverse
 proxy routing.
+
+## Web
+
+**Web sign-in returns to the login page**
+
+Cause: the OIDC callback URL or the API's allowed web origin does not match the
+web app's origin.
+
+Fix: add `<web-origin>/auth/callback` to the OIDC client, set `WEB_ORIGIN` to
+the exact web origin, and check that the browser can reach the Go API. See
+[OIDC Client Setup](oidc-setup.md).

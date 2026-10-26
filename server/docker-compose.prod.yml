@@ -9,6 +9,7 @@ services:
       - DATABASE_PATH=/data/family-hub.db
       - OIDC_ISSUER=${OIDC_ISSUER}
       - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+      - WEB_ORIGIN=${WEB_ORIGIN:-}
       - APNS_KEY_ID=${APNS_KEY_ID:-}
       - APNS_TEAM_ID=${APNS_TEAM_ID:-}
       - APNS_TOPIC=${APNS_TOPIC:-}

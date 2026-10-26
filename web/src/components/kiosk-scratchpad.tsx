@@ -234,14 +234,18 @@ export function KioskScratchpad({
           disabled={!strokeCount || saving}
           onClick={undo}
         >
-          Undo line
+          <Typography as="span" variant="caption">
+            Undo line
+          </Typography>
         </button>
         <button
           className="kiosk-tool"
           disabled={!strokeCount || saving}
           onClick={clear}
         >
-          Clear page
+          <Typography as="span" variant="caption">
+            Clear page
+          </Typography>
         </button>
       </div>
       <canvas

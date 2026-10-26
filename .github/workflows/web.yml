@@ -1,0 +1,22 @@
+name: Web CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: BenSuskins/repo-templates/.github/workflows/verify-js.yml@main
+    with:
+      bun-version: "1.4.4"
+      working-directory: web
+      install-command: bun install --frozen-lockfile
+      scripts: |
+        bun run lint
+        bun run build

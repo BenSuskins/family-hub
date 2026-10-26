@@ -74,7 +74,9 @@ Set this value when building and running the web app. Configure the OIDC provide
 
 ## Deployment
 
-Build and deploy this app as a separate web service from the Go API. Provide `NEXT_PUBLIC_FAMILY_HUB_API_URL` at build time and set `WEB_ORIGIN` on the Go server to the public web origin. This client does not create a separate household or database.
+Build and deploy this app as a separate web service from the Go API. The Docker image uses standalone output and includes only the files needed to run the Next.js server. It builds with `https://hub.suskins.co.uk` as the API URL; pass another `NEXT_PUBLIC_FAMILY_HUB_API_URL` build argument for a different installation.
+
+The `Web image` workflow builds the image for pull requests and publishes `ghcr.io/bensuskins/family-hub-web:latest` plus a commit-SHA tag after changes merge to `main`. Set `WEB_ORIGIN` on the Go server to the web app's public origin. This client does not create a separate household or database.
 
 ## Security
 

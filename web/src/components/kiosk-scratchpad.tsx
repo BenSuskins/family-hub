@@ -1,6 +1,6 @@
 "use client";
 
-import { PointerEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { getApiBaseUrl } from "@/lib/api";
 
 type Point = { x: number; y: number };
@@ -14,7 +14,8 @@ const colors = [
 ];
 
 export function KioskScratchpad({ token, onSaveReady }: { token: string; onSaveReady: (save: (() => Promise<void>) | null) => void }) {
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [strokeCount, setStrokeCount] = useState(0);
+  const [redrawRevision, setRedrawRevision] = useState(0);
   const [color, setColor] = useState(colors[0].value);
   const [message, setMessage] = useState("Loading the family drawing…");
   const [saving, setSaving] = useState(false);
@@ -36,14 +37,20 @@ export function KioskScratchpad({ token, onSaveReady }: { token: string; onSaveR
         const draftText = localStorage.getItem("family-hub-display-scratchpad-draft");
         const draft = draftText ? JSON.parse(draftText) as Stroke[] : null;
         const current = draft ?? value.strokes;
-        liveStrokes.current = current; setStrokes(current); dirty.current = Boolean(draft);
+        liveStrokes.current = current;
+        setStrokeCount(current.length);
+        setRedrawRevision(revision => revision + 1);
+        dirty.current = Boolean(draft);
         setMessage(draft ? "Unsynced changes restored" : "Shared with everyone at home");
       })
       .catch(() => {
         if (!active) return;
         try {
           const draft=JSON.parse(localStorage.getItem("family-hub-display-scratchpad-draft")??"[]") as Stroke[];
-          liveStrokes.current=draft; setStrokes(draft); dirty.current=draft.length>0;
+          liveStrokes.current = draft;
+          setStrokeCount(draft.length);
+          setRedrawRevision(revision => revision + 1);
+          dirty.current = draft.length > 0;
           setMessage(draft.length?"Showing your saved local draft":"The family drawing is unavailable right now.");
         } catch {
           localStorage.removeItem("family-hub-display-scratchpad-draft"); setMessage("The family drawing is unavailable right now.");
@@ -69,7 +76,7 @@ export function KioskScratchpad({ token, onSaveReady }: { token: string; onSaveR
       for (const point of stroke.points.slice(1)) context.lineTo(point.x * bounds.width, point.y * bounds.height);
       context.stroke();
     }
-  }, [strokes]);
+  }, [redrawRevision]);
 
   function point(event: PointerEvent<HTMLCanvasElement>): Point {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -77,12 +84,32 @@ export function KioskScratchpad({ token, onSaveReady }: { token: string; onSaveR
   }
   function start(event: PointerEvent<HTMLCanvasElement>) {
     drawing.current = true; setIsDrawing(true); event.currentTarget.setPointerCapture(event.pointerId);
-    const next = [...liveStrokes.current, { color, points: [point(event)] }]; liveStrokes.current = next; dirty.current = true; setStrokes(next);
+    const next = [...liveStrokes.current, { color, points: [point(event)] }];
+    liveStrokes.current = next;
+    dirty.current = true;
+    setStrokeCount(next.length);
+    setRedrawRevision(revision => revision + 1);
   }
   function move(event: PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return;
-    const next = liveStrokes.current.slice(); const last = next[next.length - 1];
-    next[next.length - 1] = { ...last, points: [...last.points, point(event)] }; liveStrokes.current = next; dirty.current = true; setStrokes(next);
+    const last = liveStrokes.current.at(-1);
+    const previousPoint = last?.points.at(-1);
+    const nextPoint = point(event);
+    if (!last || !previousPoint) return;
+    last.points.push(nextPoint);
+    const element = event.currentTarget;
+    const bounds = element.getBoundingClientRect();
+    const context = element.getContext("2d");
+    if (!context) return;
+    context.strokeStyle = last.color;
+    context.lineWidth = 4;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(previousPoint.x * bounds.width, previousPoint.y * bounds.height);
+    context.lineTo(nextPoint.x * bounds.width, nextPoint.y * bounds.height);
+    context.stroke();
+    dirty.current = true;
   }
   const save = useCallback(async () => {
     if (!dirty.current) return;
@@ -99,16 +126,27 @@ export function KioskScratchpad({ token, onSaveReady }: { token: string; onSaveR
     } finally { setSaving(false); }
   }, [token]);
   useEffect(() => { onSaveReady(save); return () => onSaveReady(null); }, [onSaveReady, save]);
-  function undo() { const next = liveStrokes.current.slice(0, -1); liveStrokes.current = next; dirty.current = true; setStrokes(next); }
-  function clear() { liveStrokes.current = []; dirty.current = true; setStrokes([]); }
+  function undo() {
+    const next = liveStrokes.current.slice(0, -1);
+    liveStrokes.current = next;
+    dirty.current = true;
+    setStrokeCount(next.length);
+    setRedrawRevision(revision => revision + 1);
+  }
+  function clear() {
+    liveStrokes.current = [];
+    dirty.current = true;
+    setStrokeCount(0);
+    setRedrawRevision(revision => revision + 1);
+  }
 
   return <section className="kiosk-drawing">
     <p className="dialog-label">A shared place for the little things.</p>
     <div className="kiosk-drawing-tools">
       <span>Pick a pen colour</span>
       <div role="group" aria-label="Pen colour">{colors.map(pen => <button key={pen.name} aria-label={`${pen.name} pen`} aria-pressed={color === pen.value} className={color === pen.value ? "kiosk-color selected" : "kiosk-color"} style={{ backgroundColor: pen.value }} onClick={() => setColor(pen.value)} />)}</div>
-      <button className="kiosk-tool" disabled={!strokes.length || saving} onClick={undo}>Undo line</button>
-      <button className="kiosk-tool" disabled={!strokes.length || saving} onClick={clear}>Clear page</button>
+      <button className="kiosk-tool" disabled={!strokeCount || saving} onClick={undo}>Undo line</button>
+      <button className="kiosk-tool" disabled={!strokeCount || saving} onClick={clear}>Clear page</button>
     </div>
     <canvas ref={canvas} data-drawing={isDrawing} aria-label="Draw on the family scratchpad" onPointerDown={start} onPointerMove={move} onPointerUp={() => { drawing.current = false; setIsDrawing(false); }} onPointerCancel={() => { drawing.current = false; setIsDrawing(false); }} />
     <p className="dialog-label">Draw with a finger or stylus. Your drawing is shared with everyone at home.</p>

@@ -6,14 +6,13 @@ import { dayKeyAt } from "@/lib/display-logic";
 import { hourAt, weekStartAt } from "@/features/display/model/display-formatters";
 import type { DisplayChore } from "@/features/display/model/display-types";
 import type { DisplayEvent } from "@/lib/display-logic";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 
 type CalendarData = { events: DisplayEvent[]; chores: DisplayChore[] };
 const dayMilliseconds = 86_400_000;
 const timeSlots = [8, 10, 12, 14, 16, 18];
 
-export function CalendarApp({ token, timezone }: KioskAppProps) {
-  const [week, setWeek] = useState(() => weekStartAt(new Date(), timezone));
+export function CalendarApp({ token, timezone, clock }: { token: string; timezone: string; clock: Date }) {
+  const [week, setWeek] = useState(() => weekStartAt(clock, timezone));
   const { data: calendar, error } = useKioskResource<CalendarData>(`/api/display/calendar?view=week&date=${week}`, token);
   if (error && !calendar) return <p role="alert">{error}</p>;
   if (!calendar) return <p role="status">Loading…</p>;
@@ -28,7 +27,7 @@ export function CalendarApp({ token, timezone }: KioskAppProps) {
     return event.AllDay ? hour === 8 : hourAt(event.StartTime, timezone) >= hour && hourAt(event.StartTime, timezone) < hour + 2;
   });
   const moveWeek = (offset: number) => setWeek(weekStartAt(new Date(Date.parse(`${week}T12:00:00Z`) + offset * 7 * dayMilliseconds), "UTC"));
-  const today = weekStartAt(new Date(), timezone);
+  const today = weekStartAt(clock, timezone);
 
   return <div>
     <div className="calendar-toolbar">

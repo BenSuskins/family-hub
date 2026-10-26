@@ -1,9 +1,9 @@
 "use client";
 
-import { MouseEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PairDisplay } from "@/features/display/components/pair-display";
 import { apiBase } from "@/features/display/api/display-api";
-import type { DisplayChore, EventDetails, MealEditTarget } from "@/features/display/model/display-types";
+import type { DisplayChore, DisplaySelection, EventDetails, KioskAppName } from "@/features/display/model/display-types";
 import { householdDocumentTitle } from "@/lib/display-logic";
 
 import { DisplayScreen } from "@/features/display/components/display-screen";
@@ -16,14 +16,11 @@ export function DisplayClient() {
   const reportTokenStorageFailure = useCallback((message: string) => setSessionFailures([message]), []);
   const session = useDisplaySession(reportTokenStorageFailure);
   const { mockReady, token, setToken, clock, clockRef, accept } = session;
-  const clearToken = useCallback(() => { setSessionFailures([]); setToken(""); }, []);
+  const clearToken = useCallback(() => { setSessionFailures([]); setToken(""); }, [setToken]);
   const snapshotState = useDisplaySnapshot(token, clockRef, clearToken);
   const { snapshot, householdName, loading, failures: snapshotFailures, refresh } = snapshotState;
   const failures = [...sessionFailures, ...snapshotFailures];
-  const [selectedApp, setSelectedApp] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
-  const [mealEditTarget, setMealEditTarget] = useState<MealEditTarget | null>(null);
-  const [selectedChore, setSelectedChore] = useState<DisplayChore | null>(null);
+  const [selection, setSelection] = useState<DisplaySelection>(null);
   const [pendingChoreId, setPendingChoreId] = useState("");
   const [choreFeedback, setChoreFeedback] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
@@ -37,18 +34,18 @@ export function DisplayClient() {
     if (closeInFlightRef.current || dialogRef.current?.querySelector("canvas[data-drawing='true']")) return;
     closeInFlightRef.current = true;
     try {
-      if (selectedApp === "Notes") await scratchpadSaveRef.current?.();
+      if (selection?.kind === "app" && selection.app === "Notes") await scratchpadSaveRef.current?.();
     } finally {
       closeInFlightRef.current = false;
-      setSelectedApp(""); setSelectedEvent(null); setSelectedChore(null); setMealEditTarget(null);
+      setSelection(null);
     }
-  }, [selectedApp]);
+  }, [selection]);
   useEffect(() => {
     document.title = householdDocumentTitle(householdName);
   }, [householdName]);
 
   useEffect(() => {
-    if (!selectedApp) return;
+    if (!selection) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialogRef.current?.focus();
     let timer = window.setTimeout(closeForIdle, 5 * 60_000);
@@ -78,14 +75,13 @@ export function DisplayClient() {
       window.removeEventListener("keydown", keydown);
       previousFocus?.focus();
     };
-  }, [selectedApp, close]);
+  }, [selection, close]);
 
-  const open = (app: string, _event?: MouseEvent<HTMLElement>) => {
-    setSelectedApp(app);
+  const open = (app: KioskAppName | "launcher") => {
+    setSelection({ kind: "app", app });
   };
-  const openEvent = (details: EventDetails, event?: MouseEvent<HTMLElement>) => {
-    setSelectedEvent(details);
-    open("Family event", event);
+  const openEvent = (details: EventDetails) => {
+    setSelection({ kind: "event", event: details });
   };
   const completeAssignedChore = async (chore: DisplayChore) => {
     const userID = chore.AssignedToUserID;
@@ -113,17 +109,14 @@ export function DisplayClient() {
     clock={clock}
     loading={loading}
     failures={failures}
-    selectedApp={selectedApp}
-    selectedEvent={selectedEvent}
-    selectedChore={selectedChore}
-    mealEditTarget={mealEditTarget}
+    selection={selection}
     pendingChoreId={pendingChoreId}
     choreFeedback={choreFeedback}
     token={token}
     dialogRef={dialogRef}
     onOpenApp={open}
     onOpenEvent={openEvent}
-    onSelectChore={(chore, event) => { setSelectedChore(chore); open("Chore completion", event); }}
+    onSelectChore={(chore) => { setSelection({ kind: "chore", chore }); }}
     onCompleteAssignedChore={completeAssignedChore}
     onClose={() => { void close(); }}
     onRefresh={() => { void refresh(); }}

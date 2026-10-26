@@ -5,11 +5,10 @@ import { useEffect, useState } from "react";
 import { displayRequest } from "@/features/display/api/display-api";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 import type { DisplayRecipe } from "@/features/display/model/display-types";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 
 type RecipeSummary = { ID: string; Title: string };
 
-export function RecipesApp({ token, onDialogTitleChange }: KioskAppProps) {
+export function RecipesApp({ token, onDialogTitleChange }: { token: string; onDialogTitleChange?: (title: string | null) => void }) {
   const { data: recipes, error } = useKioskResource<RecipeSummary[]>("/api/display/recipes", token);
   const [details, setDetails] = useState<Record<string, DisplayRecipe>>({});
   const [recipeErrors, setRecipeErrors] = useState<Record<string, string>>({});
@@ -44,21 +43,11 @@ export function RecipesApp({ token, onDialogTitleChange }: KioskAppProps) {
     return <div className="recipe-detail">
       <button className="kiosk-back recipe-back" onClick={() => setSelectedRecipeID("")}><ChevronLeft size={18} aria-hidden="true" /> Recipe book</button>
       <p className="dialog-label">Family recipe</p>
-      {recipeErrors[selectedRecipe.ID]
-        ? <><p role="alert">{recipeErrors[selectedRecipe.ID]}</p><button className="action-button" onClick={() => void loadRecipe(selectedRecipe.ID)}>Try again</button></>
-        : !detail
-          ? <p role="status">Loading recipe…</p>
-          : <>
-              {(detail.Servings || detail.PrepTime || detail.CookTime) && <p className="detail-body recipe-meta">{[
-                detail.Servings ? `Serves ${detail.Servings}` : "",
-                detail.PrepTime ? `${detail.PrepTime} prep` : "",
-                detail.CookTime ? `${detail.CookTime} cook` : "",
-              ].filter(Boolean).join(" · ")}</p>}
-              <h3>Ingredients</h3>
-              {(detail.Ingredients ?? []).flatMap(group => group.items).map((ingredient, index) => <p className="recipe-detail-line" key={index}>{ingredient}</p>)}
-              <h3>Method</h3>
-              {(detail.Steps ?? (detail.Instructions ? [detail.Instructions] : [])).map((step, index) => <p className="recipe-detail-line" key={index}>{index + 1}. {step}</p>)}
-            </>}
+      <RecipeDetails
+        recipe={detail}
+        error={recipeErrors[selectedRecipe.ID]}
+        onRetry={() => void loadRecipe(selectedRecipe.ID)}
+      />
     </div>;
   }
 
@@ -70,4 +59,21 @@ export function RecipesApp({ token, onDialogTitleChange }: KioskAppProps) {
       <ChevronRight className="recipe-row-chevron" size={18} aria-hidden="true" />
     </button>)}
   </div>;
+}
+
+function RecipeDetails({ recipe, error, onRetry }: { recipe: DisplayRecipe | null; error?: string; onRetry: () => void }) {
+  if (error) return <><p role="alert">{error}</p><button className="action-button" onClick={onRetry}>Try again</button></>;
+  if (!recipe) return <p role="status">Loading recipe…</p>;
+  const steps = recipe.Steps ?? (recipe.Instructions ? [recipe.Instructions] : []);
+  return <>
+    {(recipe.Servings || recipe.PrepTime || recipe.CookTime) && <p className="detail-body recipe-meta">{[
+      recipe.Servings ? `Serves ${recipe.Servings}` : "",
+      recipe.PrepTime ? `${recipe.PrepTime} prep` : "",
+      recipe.CookTime ? `${recipe.CookTime} cook` : "",
+    ].filter(Boolean).join(" · ")}</p>}
+    <h3>Ingredients</h3>
+    {(recipe.Ingredients ?? []).flatMap(group => group.items).map((ingredient, index) => <p className="recipe-detail-line" key={index}>{ingredient}</p>)}
+    <h3>Method</h3>
+    {steps.map((step, index) => <p className="recipe-detail-line" key={index}>{index + 1}. {step}</p>)}
+  </>;
 }

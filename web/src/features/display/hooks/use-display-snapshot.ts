@@ -14,6 +14,16 @@ type DisplaySnapshotState = {
   refresh: () => Promise<void>;
 };
 
+function getEvents(
+  dashboardCalendar: { events?: DisplayEvent[]; availability?: Record<string, string> } | undefined,
+  previous: Snapshot | null,
+) {
+  if (dashboardCalendar?.availability?.events !== "unavailable" && dashboardCalendar) {
+    return dashboardCalendar.events ?? [];
+  }
+  return previous?.events ?? [];
+}
+
 export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Date | null>, onAccessRevoked: () => void): DisplaySnapshotState {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [householdName, setHouseholdName] = useState("Family");
@@ -25,9 +35,14 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
   const refresh = useCallback(async () => {
     if (!token || refreshInFlight.current) return;
     refreshInFlight.current = true;
-    let successfulResources: string[] = [];
+    const successfulResources: string[] = [];
     try {
-      const displaySettings = await displayRequest<DisplaySettings>("/api/display/settings", token);
+      const [settingsResult, homeResult] = await Promise.allSettled([
+        displayRequest<DisplaySettings>("/api/display/settings", token),
+        displayRequest<{ timezone: string; familyName?: string }>("/api/display/home-info", token),
+      ]);
+      if (settingsResult.status === "rejected") throw settingsResult.reason;
+      const displaySettings = settingsResult.value;
       if (!displaySettings.id) throw new Error("The server returned incomplete display settings.");
       const storageKey = snapshotKey(displaySettings.id);
       let previous = snapshotRef.current?.displayId === displaySettings.id ? snapshotRef.current : null;
@@ -46,12 +61,11 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
         setSnapshot(previous);
         if (previous.householdName) setHouseholdName(previous.householdName);
       }
-      const homeResult = await Promise.allSettled([displayRequest<{ timezone: string; familyName?: string }>("/api/display/home-info", token)]);
-      if (homeResult[0].status === "rejected" && homeResult[0].reason instanceof DisplayAccessRevoked) throw homeResult[0].reason;
-      const timezone = homeResult[0].status === "fulfilled" ? homeResult[0].value.timezone : previous?.timezone ?? "Europe/London";
-      const nextHouseholdName = homeResult[0].status === "fulfilled" ? homeResult[0].value.familyName?.trim() || "Family" : previous?.householdName || "Family";
+      if (homeResult.status === "rejected" && homeResult.reason instanceof DisplayAccessRevoked) throw homeResult.reason;
+      const timezone = homeResult.status === "fulfilled" ? homeResult.value.timezone : previous?.timezone ?? "Europe/London";
+      const nextHouseholdName = homeResult.status === "fulfilled" ? homeResult.value.familyName?.trim() || "Family" : previous?.householdName || "Family";
       setHouseholdName(nextHouseholdName);
-      if (homeResult[0].status === "fulfilled") successfulResources.push("home");
+      if (homeResult.status === "fulfilled") successfulResources.push("home");
       const now = localMocksEnabled ? clockRef.current ?? new Date() : new Date();
       const mealWindow = mealWindowAt(now, timezone);
       const sections = new Set(displaySettings.enabledSections ?? []);
@@ -73,7 +87,7 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
       const results = await Promise.allSettled(fetches.map(([, promise]) => promise));
       if (results.some(result => result.status === "rejected" && result.reason instanceof DisplayAccessRevoked)) throw new DisplayAccessRevoked();
       const values = new Map<string, unknown>();
-      const nextFailures: string[] = homeResult[0].status === "rejected" ? ["Home settings"] : [];
+      const nextFailures: string[] = homeResult.status === "rejected" ? ["Home settings"] : [];
       results.forEach((result, index) => {
         const key = fetches[index][0];
         if (result.status === "fulfilled") { values.set(key, result.value); successfulResources.push(key); }
@@ -85,17 +99,23 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
       const resourceAvailability = { ...previous?.availability };
       for (const [key, result] of results.entries()) {
         const resource = fetches[key][0];
-        resourceAvailability[resource] = result.status === "fulfilled" ? "available" : previous?.availability[resource] ? "stale" : "unavailable";
+        if (result.status === "fulfilled") resourceAvailability[resource] = "available";
+        else if (previous?.availability[resource]) resourceAvailability[resource] = "stale";
+        else resourceAvailability[resource] = "unavailable";
       }
       if (values.has("calendar")) {
-        resourceAvailability.events = !sections.has("calendar")
-          ? previous?.availability.events ?? "unavailable"
-          : !dashboardCalendar || dashboardCalendar.availability?.events === "unavailable"
-            ? previous?.resourceUpdatedAt.events ? "stale" : "unavailable"
-            : "available";
-        resourceAvailability.meals = calendarAvailability.meals === "unavailable"
-          ? previous?.resourceUpdatedAt.meals ? "stale" : "unavailable"
-          : "available";
+        if (!sections.has("calendar")) {
+          resourceAvailability.events = previous?.availability.events ?? "unavailable";
+        } else if (!dashboardCalendar || dashboardCalendar.availability?.events === "unavailable") {
+          resourceAvailability.events = previous?.resourceUpdatedAt.events ? "stale" : "unavailable";
+        } else {
+          resourceAvailability.events = "available";
+        }
+        if (calendarAvailability.meals === "unavailable") {
+          resourceAvailability.meals = previous?.resourceUpdatedAt.meals ? "stale" : "unavailable";
+        } else {
+          resourceAvailability.meals = "available";
+        }
         resourceAvailability.chores = "available";
       } else if (sections.has("calendar") || sections.has("meals") || sections.has("chores")) {
         resourceAvailability.events = previous?.resourceUpdatedAt.events ? "stale" : "unavailable";
@@ -106,7 +126,7 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
         schemaVersion: 2,
         displayId: displaySettings.id,
         householdName: nextHouseholdName,
-        events: dashboardCalendar && dashboardCalendar.availability?.events !== "unavailable" ? dashboardCalendar.events ?? [] : previous?.events ?? [],
+        events: getEvents(dashboardCalendar, previous),
         chores: calendar?.chores ?? previous?.chores ?? [],
         meals: calendar && calendarAvailability.meals !== "unavailable" ? calendar.meals ?? [] : previous?.meals ?? [],
         weather: values.has("weather") ? values.get("weather") as Weather : previous?.weather,
@@ -144,7 +164,7 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
       setLoading(false);
       refreshInFlight.current = false;
     }
-  }, [token, onAccessRevoked]);
+  }, [token, clockRef, onAccessRevoked]);
 
   useEffect(() => {
     if (!localMocksEnabled || !token) return;

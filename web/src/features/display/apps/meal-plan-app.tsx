@@ -3,16 +3,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiBase } from "@/features/display/api/display-api";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
-import type { DisplayMeal, MealType } from "@/features/display/model/display-types";
+import type { DisplayMeal, MealEditTarget, MealType } from "@/features/display/model/display-types";
 import { dayKeyAt, mealWindowAt } from "@/lib/display-logic";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 
 type RecipeChoice = { ID: string; Title: string; MealType?: string | null };
 
 const mealTypes: MealType[] = ["breakfast", "lunch", "dinner"];
 const mealLabels: Record<MealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
-export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitleChange }: KioskAppProps) {
+export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitleChange }: {
+  token: string;
+  timezone: string;
+  initialMeal: MealEditTarget | null;
+  clock: Date;
+  onDialogTitleChange?: (title: string | null) => void;
+}) {
   const today = dayKeyAt(clock, timezone);
   const selectedDate = initialMeal?.date ?? mealWindowAt(clock, timezone).date;
   const [selected, setSelected] = useState<MealType | "">(initialMeal?.mealType ?? "");

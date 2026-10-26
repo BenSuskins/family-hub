@@ -30,5 +30,10 @@ export type Pairing = { challengeId: string; pairingCode: string; expiresAt: str
 export type MealEditTarget = { date: string; mealType: MealType };
 export type EventDetails = { title: string; startTime: string; endTime?: string | null; location?: string; leaveAt?: string; drivingSeconds?: number };
 export type KioskAppName = "Shopping" | "Notes" | "Calendar" | "Recipes" | "Meal plan" | "Inventory" | "Weather";
+export type DisplaySelection =
+  | { kind: "app"; app: KioskAppName | "launcher" }
+  | { kind: "event"; event: EventDetails }
+  | { kind: "chore"; chore: DisplayChore }
+  | null;
 
 export type { DisplayDeparture, DisplayEvent, MealType } from "@/lib/display-logic";

@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiBase } from "@/features/display/api/display-api";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
-import type { KioskAppProps } from "@/features/display/apps/kiosk-app";
 
 type ShoppingItem = { id: string; name: string; purchased: boolean; version: number };
 
-export function ShoppingApp({ token }: KioskAppProps) {
+export function ShoppingApp({ token }: { token: string }) {
   const { data: items, error, setError, reload } = useKioskResource<ShoppingItem[]>("/api/display/shopping", token);
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");

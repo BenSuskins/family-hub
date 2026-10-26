@@ -200,6 +200,7 @@ final class DemoAPIClient: APIClientProtocol {
     private var users: [User] = DemoData.users
     private var categories: [ChoreCategory] = DemoData.categories
     private var tokens: [APIToken] = []
+    private var pairedDisplays: [PairedDisplay] = []
     private var areas: [InventoryArea] = DemoData.inventory
     private var calendarSubscriptions = [
         CalendarSubscription(id: "demo-calendar-school", name: "School", url: "https://example.com/school.ics", color: "blue")
@@ -600,6 +601,16 @@ final class DemoAPIClient: APIClientProtocol {
 
     func deleteToken(id: String) async throws {
         tokens.removeAll { $0.id == id }
+    }
+
+    func fetchPairedDisplays() async throws -> [PairedDisplay] { pairedDisplays }
+
+    func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {
+        pairedDisplays.append(PairedDisplay(id: id, name: name, pairedByUserID: "demo-user", createdAt: Date()))
+    }
+
+    func deletePairedDisplay(id: String) async throws {
+        pairedDisplays.removeAll { $0.id == id }
     }
 
     // MARK: - Inventory

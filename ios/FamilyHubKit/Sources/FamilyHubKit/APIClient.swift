@@ -883,6 +883,20 @@ public final class APIClient: APIClientProtocol {
         try await delete("api/tokens/\(id)")
     }
 
+    public func fetchPairedDisplays() async throws -> [PairedDisplay] {
+        try await get("api/displays", decoder: Self.isoDecoder)
+    }
+
+    public func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws {
+        struct Request: Encodable { let pairingCode: String; let name: String }
+        struct Response: Decodable { let status: String }
+        let _: Response = try await post("api/display-pairing/challenges/\(id)/approve", body: Request(pairingCode: pairingCode, name: name))
+    }
+
+    public func deletePairedDisplay(id: String) async throws {
+        try await delete("api/displays/\(id)")
+    }
+
     // MARK: - Inventory
 
     public func fetchInventory() async throws -> [InventoryArea] {

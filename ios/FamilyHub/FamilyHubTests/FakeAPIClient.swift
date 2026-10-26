@@ -105,6 +105,9 @@ final class FakeAPIClient: APIClientProtocol {
     var updateCategoryResult: Result<ChoreCategory, Error> = .success(ChoreCategory(id: "1", name: "Updated"))
     var deleteCategoryResult: Result<Void, Error> = .success(())
     var tokensResult: Result<[APIToken], Error> = .success([])
+    var pairedDisplaysResult: Result<[PairedDisplay], Error> = .success([])
+    var approveDisplayPairingResult: Result<Void, Error> = .success(())
+    var deletePairedDisplayResult: Result<Void, Error> = .success(())
     var createTokenResult: Result<CreatedToken, Error> = .success(CreatedToken(id: "1", name: "Test", plaintext: "abc123"))
     var deleteTokenResult: Result<Void, Error> = .success(())
     var changeStockError: Error?
@@ -224,6 +227,9 @@ final class FakeAPIClient: APIClientProtocol {
     func fetchTokens() async throws -> [APIToken] { try tokensResult.get() }
     func createToken(name: String) async throws -> CreatedToken { try createTokenResult.get() }
     func deleteToken(id: String) async throws { try deleteTokenResult.get() }
+    func fetchPairedDisplays() async throws -> [PairedDisplay] { try pairedDisplaysResult.get() }
+    func approveDisplayPairing(id: String, pairingCode: String, name: String) async throws { try approveDisplayPairingResult.get() }
+    func deletePairedDisplay(id: String) async throws { try deletePairedDisplayResult.get() }
     func fetchInventory() async throws -> [InventoryArea] { try inventoryResult.get() }
     func createArea(_ request: AreaRequest) async throws -> InventoryArea { try createAreaResult.get() }
     func updateArea(id: String, _ request: AreaRequest) async throws -> InventoryArea { try updateAreaResult.get() }

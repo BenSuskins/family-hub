@@ -3,7 +3,7 @@
 All routes wired in `server/internal/server/server.go`.
 
 **Global middleware** (all routes): logger, recoverer, gzip compression, security headers,
-and per-IP rate limit (100 req/min). Authenticated routes require a Bearer API token.
+and per-IP rate limit (600 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer API token.
 
 **Conventions used below:**
 
@@ -26,8 +26,8 @@ curl -s $BASE_URL/health
 ```
 
 ### `GET /api/client-config`
-- **Usecase:** Returns OIDC `clientID` + `issuer` so mobile clients can start the auth flow.
-- **Callers:** iOS app on first launch.
+- **Usecase:** Returns OIDC `clientID` + `issuer` so iOS and web clients can start the auth flow.
+- **Callers:** iOS and web apps on first launch.
 - **Security:** None (public, non-sensitive).
 
 ```bash
@@ -36,15 +36,15 @@ curl -s $BASE_URL/api/client-config | jq
 
 ---
 
-## Mobile token exchange
+## Client token exchange
 
 ### `POST /api/auth/exchange`
-- **Usecase:** Swap an OIDC bearer (from iOS app's OIDC login) for a long-lived API token. Creates user on first login.
-- **Callers:** iOS app post-OIDC login.
-- **Security:** Rate limited 10/min per IP. Validates bearer against OIDC userinfo endpoint. Revokes prior "iOS App" tokens for the user.
+- **Usecase:** Swap an OIDC bearer for a long-lived Family Hub API token. Creates the user on first login.
+- **Callers:** iOS and web apps after OIDC login.
+- **Security:** Rate limited 10/min per IP. Validates bearer against OIDC userinfo endpoint. The default client replaces only prior "iOS App" tokens. Pass `?client=web` to replace only prior "Web App" tokens; this does not revoke iOS tokens.
 
 ```bash
-curl -s -X POST $BASE_URL/api/auth/exchange \
+curl -s -X POST "$BASE_URL/api/auth/exchange?client=web" \
   -H "Authorization: Bearer <OIDC_ACCESS_TOKEN>" | jq
 ```
 
@@ -117,6 +117,78 @@ To check the live provider outside CI, set the token in the environment and run:
 cd server
 COMMUTE_LIVE_TEST=true go test ./internal/services -run TestHuxleyLive -count=1 -v
 ```
+
+### `GET /api/scratchpad` / `PUT /api/scratchpad`
+- **Use case:** Read or save the shared drawing-only household scratchpad.
+- **Callers:** Authenticated member app and paired display. `PUT` accepts `{"strokes":[{"color":"#3c654c","points":[{"x":0.2,"y":0.3}]}]}`; normalized points must be in the 0..1 range and colors use the fixed palette.
+- **Security:** Bearer API token. Text notes and arbitrary SVG are not accepted. The body is limited to 1 MiB.
+
+```bash
+curl -s "$BASE_URL/api/scratchpad" -H "Authorization: Bearer $API_TOKEN" | jq
+```
+
+### `POST /api/display-pairing/challenges`
+- **Use case:** Start a short-lived wall display pairing request. Returns an id and a secret code for the display's QR handoff.
+- **Callers:** Display setup screen.
+- **Security:** Public and rate limited to 5/min per IP. The challenge expires after five minutes.
+
+```bash
+curl -s -X POST "$BASE_URL/api/display-pairing/challenges" | jq
+```
+
+### `POST /api/display-pairing/challenges/{id}/approve`
+- **Use case:** Approve a display pairing and assign its name.
+- **Callers:** Authenticated iOS or web household member after scanning the QR code.
+- **Security:** Bearer API token. Requires the challenge secret; a challenge can be approved once before it expires.
+
+```bash
+curl -s -X POST "$BASE_URL/api/display-pairing/challenges/<id>/approve" \
+  -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"pairingCode":"<code>","name":"Kitchen display"}' | jq
+```
+
+### `POST /api/display-pairing/challenges/{id}/claim`
+- **Use case:** Exchange an approved challenge for the display's revocable, least-privilege bearer credential.
+- **Callers:** Display setup screen.
+- **Security:** Public and rate limited to 10/min per IP. Requires the challenge secret. Claim succeeds once.
+
+```bash
+curl -s -X POST "$BASE_URL/api/display-pairing/challenges/<id>/claim" \
+  -H "Content-Type: application/json" -d '{"pairingCode":"<code>"}' | jq
+```
+
+### `GET /api/displays` / `DELETE /api/displays/{id}`
+- **Use case:** List or revoke paired wall displays.
+- **Callers:** iOS or web admin settings.
+- **Security:** Bearer API token and admin role. Revocation deletes the display credential immediately.
+
+```bash
+curl -s "$BASE_URL/api/displays" -H "Authorization: Bearer $API_TOKEN" | jq
+curl -s -X DELETE "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
+```
+
+### Display API
+
+These routes accept only a display-scoped Bearer token. The token cannot authenticate to member or admin routes. The display can update shopping purchase state, meal names, and the shared scratchpad.
+
+| Route | Use case | Caller | Access |
+|---|---|---|---|
+| `GET /api/display/home-info` | Read the display's home settings. | Wall display | Display token |
+| `GET /api/display/weather` | Read current, hourly, and seven-day weather. | Wall display | Display token |
+| `GET /api/display/departures` | Read today's departure context. | Wall display | Display token |
+| `GET /api/display/chores` | Read household chores. | Wall display | Display token |
+| `GET /api/display/meals` | Read the current meal week. | Wall display | Display token |
+| `POST /api/display/meals` | Add or replace a meal for its date and meal type. | Wall display | Display token |
+| `GET /api/display/calendar` | Read calendar events, chores, and meals for the requested range. | Wall display | Display token |
+| `GET /api/display/shopping` | Read the shared shopping list. | Wall display | Display token |
+| `PATCH /api/display/shopping/items/{id}` | Mark a shopping item picked up or return it to the list. | Wall display | Display token |
+| `GET /api/display/inventory` | Read inventory grouped by area. | Wall display | Display token |
+| `GET /api/display/recipes` | Read family recipes. | Wall display | Display token |
+| `GET /api/display/recipes/{id}` | Read a recipe with ingredients and steps. | Wall display | Display token |
+| `GET /api/display/scratchpad` | Read the shared drawing. | Wall display | Display token |
+| `PUT /api/display/scratchpad` | Save a shared drawing with the fixed palette and normalized points. | Wall display | Display token |
+
+All routes use the same JSON shapes as their member API equivalents. Calendar accepts `view=week|day|month` and the corresponding `date` or `month` query parameters. Scratchpad saves have a 1 MiB request limit.
 
 ### `GET /api/me`
 - **Usecase:** Current user profile for the token holder.
@@ -746,7 +818,7 @@ curl -s -X DELETE $BASE_URL/api/tokens/<tokenID> -H "Authorization: Bearer $API_
 
 ## Auth summary
 
-Only three flows:
+Authentication uses these flows:
 
 | Flow | Routes |
 |---|---|
@@ -754,12 +826,14 @@ Only three flows:
 | **OIDC bearer (one-time)** | `POST /api/auth/exchange` |
 | **Authed user** (Bearer, via `RequireUser`) | JSON API and media routes |
 | **Admin user** (`+ RequireAdmin`) | User/setting/category/calendar-feed management, `/api/tokens*`, `/api/admin/*` |
+| **Display credential** (Bearer, via `RequireDisplay`) | Display routes, including shopping purchase updates, meal updates, and scratchpad saves |
+| **Pairing challenge** | Public challenge creation and one-time claim; member-authenticated approval |
 
 Chores, recipes, and meals are available to any authenticated user. Admin
 management routes require the admin role.
 
-`POST /api/auth/exchange` carries an additional 10-req/min per-IP limit on top
-of the global 100/min limit.
+`POST /api/auth/exchange` carries an additional 10-req/min per-IP limit. Pairing
+challenge creation and claim routes have their own 5/min and 10/min limits.
 
 ## Household location and weather
 

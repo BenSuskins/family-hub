@@ -62,7 +62,7 @@ final class ChoreAPIClientTests: XCTestCase {
         defer { session.invalidateAndCancel() }
         let provider = StaticTokenProvider(token: "chore-token")
         let client = APIClient(baseURL: URL(string: "https://chores.example")!, session: session, tokenProvider: provider, retryPolicy: .none)
-        let definitions = try await client.fetchChoreDefinitions(includeInactive: true)
+        let definitions = try await client.fetchChoreDefinitions(includeInactive: true, forceRefresh: true)
         XCTAssertEqual(definitions.first?.id, "bins")
         let request = ChoreRequest(name: "Bins", description: "", assignees: [])
         _ = try await client.createChoreDefinition(request)

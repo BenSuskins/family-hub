@@ -44,3 +44,18 @@ identity_providers:
 5. Set `OIDC_CLIENT_ID` to the Auth0 Client ID shown in the application settings.
 
 > Auth0's free tier limits to 7,500 monthly active users — more than enough for a family.
+
+## Web client
+
+The web app uses a separate public authorization-code client with PKCE S256.
+Add `https://<web-host>/auth/callback` as an allowed redirect URI and the web
+origin as an allowed origin. Use the client ID returned by
+`GET /api/client-config`; do not put a client secret in the web build.
+
+Set `NEXT_PUBLIC_FAMILY_HUB_API_URL` to the Go API origin when building the
+web app. Set the API server's `WEB_ORIGIN` to the exact web origin, including
+scheme and port. The API permits browser requests only from this origin.
+
+The browser exchanges its OIDC bearer at
+`POST /api/auth/exchange?client=web`. This creates or rotates the Web App token
+without revoking the user's iOS token.

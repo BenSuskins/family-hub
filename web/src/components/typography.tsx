@@ -28,9 +28,19 @@ export type TypographyProps = HTMLAttributes<HTMLElement> & {
   variant: TypographyVariant;
 };
 
-export function Typography({ as = "span", className, variant, ...props }: TypographyProps) {
-  const variantClass = variant.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
-  const classes = ["typography", `typography--${variantClass}`, className].filter(Boolean).join(" ");
+export function Typography({
+  as = "span",
+  className,
+  variant,
+  ...props
+}: TypographyProps) {
+  const variantClass = variant.replace(
+    /[A-Z]/g,
+    (letter) => `-${letter.toLowerCase()}`,
+  );
+  const classes = ["typography", `typography--${variantClass}`, className]
+    .filter(Boolean)
+    .join(" ");
 
   return createElement(as, { ...props, className: classes });
 }

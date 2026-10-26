@@ -8,8 +8,8 @@
     "start": "next start",
     "test": "bun test",
     "lint": "eslint .",
-    "format": "prettier --write src/features/display/components",
-    "format:check": "prettier --check src/features/display/components"
+    "format": "prettier --write 'src/**/*.tsx'",
+    "format:check": "prettier --check 'src/**/*.tsx'"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",

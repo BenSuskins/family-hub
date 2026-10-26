@@ -2,6 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { X } from "lucide-react";
+import { Typography } from "@/components/typography";
 import { KioskApp } from "@/features/display/apps/kiosk-app";
 import { ChoreCompletionDialog } from "@/features/display/components/chore-completion-dialog";
 import type {
@@ -61,7 +62,9 @@ export function DisplayDialog(props: DisplayDialogProps) {
       >
         <header className="display-dialog-heading">
           <div>
-            <h2 id="display-dialog-title">{title}</h2>
+            <Typography as="h2" variant="dialogTitle" id="display-dialog-title">
+              {title}
+            </Typography>
           </div>
           <button
             className="close-button"
@@ -88,7 +91,9 @@ export function DisplayDialog(props: DisplayDialogProps) {
             className="display-dialog-back"
             onClick={() => void onClose()}
           >
-            Back to the overview
+            <Typography as="span" variant="caption">
+              Back to the overview
+            </Typography>
           </button>
         </div>
       </section>
@@ -214,7 +219,9 @@ function Launcher({
           onClick={() => onOpenApp(app)}
         >
           <span aria-hidden="true">{symbol}</span>
-          {app}
+          <Typography as="span" variant="cardTitle">
+            {app}
+          </Typography>
         </button>
       ))}
     </div>
@@ -234,16 +241,18 @@ function FamilyEventDetails({
 
   return (
     <div className="event-detail">
-      <p>
+      <Typography as="p" variant="dialogLabel">
         {startTime.toLocaleDateString("en-GB", {
           weekday: "long",
           day: "numeric",
           month: "long",
           timeZone: timezone,
         })}
-      </p>
-      <h3>{event.title}</h3>
-      <p>
+      </Typography>
+      <Typography as="h3" variant="detailTitle">
+        {event.title}
+      </Typography>
+      <Typography as="p" variant="detailBody">
         {startTime.toLocaleTimeString("en-GB", {
           hour: "2-digit",
           minute: "2-digit",
@@ -252,10 +261,14 @@ function FamilyEventDetails({
         {endTime
           ? `–${endTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}`
           : ""}
-      </p>
-      {event.location && <p>{event.location}</p>}
+      </Typography>
+      {event.location && (
+        <Typography as="p" variant="detailBody">
+          {event.location}
+        </Typography>
+      )}
       {leaveAt && (
-        <p className="event-travel">
+        <Typography as="p" variant="detailBody" className="event-travel">
           Leave at{" "}
           {leaveAt.toLocaleTimeString("en-GB", {
             hour: "2-digit",
@@ -265,7 +278,7 @@ function FamilyEventDetails({
           {event.drivingSeconds
             ? ` · ${Math.round(event.drivingSeconds / 60)} min drive`
             : ""}
-        </p>
+        </Typography>
       )}
     </div>
   );

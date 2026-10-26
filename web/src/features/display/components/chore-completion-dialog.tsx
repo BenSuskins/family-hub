@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Typography } from "@/components/typography";
 import { apiBase } from "@/features/display/api/display-api";
 import type {
   DisplayChore,
@@ -54,7 +55,9 @@ export function ChoreCompletionDialog({
   }
   return (
     <section className="person-picker">
-      <h3>Who completed {chore.Name}?</h3>
+      <Typography as="h3" variant="dialogTitle">
+        Who completed {chore.Name}?
+      </Typography>
       {people.map((person) => (
         <button
           className="person-button"
@@ -65,10 +68,16 @@ export function ChoreCompletionDialog({
           <span className="person-avatar">
             {person.name.slice(0, 1).toUpperCase()}
           </span>
-          {person.name}
+          <Typography as="span" variant="body">
+            {person.name}
+          </Typography>
         </button>
       ))}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <Typography as="p" variant="body" role="alert">
+          {error}
+        </Typography>
+      )}
     </section>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Typography } from "@/components/typography";
 import { QRCodeSVG } from "qrcode.react";
 import { Home } from "lucide-react";
 import { apiBase } from "@/features/display/api/display-api";
@@ -123,47 +124,63 @@ export function PairDisplay({
         <span className="wall-pair-mark" aria-hidden="true">
           <Home size={34} strokeWidth={1.7} />
         </span>
-        <h1>
+        <Typography as="h1" variant="pageTitle">
           {error.includes("expired")
             ? "Let’s try that again."
             : "Bring your household together."}
-        </h1>
-        <p>
+        </Typography>
+        <Typography as="p" variant="detailBody">
           Open Family Hub on your iPhone.
           <br />
           Go to Settings → Wall displays → Scan a display code.
-        </p>
+        </Typography>
         {pairing ? (
           <div className="wall-qr">
             <QRCodeSVG value={qrValue} size={180} level="M" includeMargin />
           </div>
         ) : (
           !error && (
-            <div className="wall-qr-empty" role="status">
+            <Typography
+              as="div"
+              variant="caption"
+              className="wall-qr-empty"
+              role="status"
+            >
               {renewing
                 ? "Preparing a pairing code…"
                 : "Pairing code unavailable"}
-            </div>
+            </Typography>
           )
         )}
         {error && (
-          <p className="wall-pair-error" role="alert">
+          <Typography
+            as="p"
+            variant="body"
+            className="wall-pair-error"
+            role="alert"
+          >
             {error}
-          </p>
+          </Typography>
         )}
-        {pairing && <small>Single-use code · Expires in five minutes</small>}
+        {pairing && (
+          <Typography as="small" variant="caption">
+            Single-use code · Expires in five minutes
+          </Typography>
+        )}
         {(!pairing || error) && (
           <button
             className="action-button"
             disabled={renewing}
             onClick={() => void create()}
           >
-            {pairingActionLabel(renewing, error)}
+            <Typography as="span" variant="caption">
+              {pairingActionLabel(renewing, error)}
+            </Typography>
           </button>
         )}
-        <p className="wall-pair-owner">
+        <Typography as="p" variant="body" className="wall-pair-owner">
           A shared household screen. No personal login needed here.
-        </p>
+        </Typography>
       </section>
     </main>
   );

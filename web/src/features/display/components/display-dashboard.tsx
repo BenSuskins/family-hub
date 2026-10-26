@@ -1,6 +1,7 @@
 "use client";
 
 import type { MouseEvent } from "react";
+import { Typography } from "@/components/typography";
 import {
   BookOpen,
   CalendarDays,
@@ -203,8 +204,12 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
         <header className="display-header">
           <div className="display-brand">
             <div>
-              <p>{formattedDate}</p>
-              <h1>{displayGreeting(localHour)}</h1>
+              <Typography as="p" variant="date">
+                {formattedDate}
+              </Typography>
+              <Typography as="h1" variant="greeting">
+                {displayGreeting(localHour)}
+              </Typography>
             </div>
           </div>
           <div className="display-header-right">
@@ -216,32 +221,46 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               >
                 <WeatherIcon code={weather.current.code} size={41} />
                 <span>
-                  <strong>{Math.round(weather.current.temperature)}°</strong>
-                  <small>
+                  <Typography as="strong" variant="cardTitle">
+                    {Math.round(weather.current.temperature)}°
+                  </Typography>
+                  <Typography as="small" variant="cardHint">
                     {weather.current.summary ??
                       weatherLabel(weather.current.code)}{" "}
                     · H{" "}
                     {Math.round(weather.high ?? weather.current.temperature)}° L{" "}
                     {Math.round(weather.low ?? weather.current.temperature)}°
-                  </small>
+                  </Typography>
                 </span>
               </button>
             )}
-            <time>{formattedTime}</time>
+            <Typography as="time" variant="clock">
+              {formattedTime}
+            </Typography>
           </div>
         </header>
         {failures.length > 0 && (
-          <div className="display-status" role="status">
+          <Typography
+            as="div"
+            variant="body"
+            className="display-status"
+            role="status"
+          >
             {failures.join(" and ")}{" "}
             {current
               ? "could not be updated. Showing saved information where available."
               : "are unavailable. The display will keep trying."}
-          </div>
+          </Typography>
         )}
         {loading && !current && (
-          <p className="display-loading" role="status">
+          <Typography
+            as="p"
+            variant="body"
+            className="display-loading"
+            role="status"
+          >
             Loading household information…
-          </p>
+          </Typography>
         )}
         <div
           className="display-grid"
@@ -250,11 +269,13 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
           {rankedCards.length === 0 && (
             <section className="display-card empty-wall" aria-live="polite">
               <div>
-                <h2>A quiet moment at home.</h2>
-                <p>
+                <Typography as="h2" variant="cardTitle">
+                  A quiet moment at home.
+                </Typography>
+                <Typography as="p" variant="body">
                   Enabled sections appear when there is something useful to
                   show.
-                </p>
+                </Typography>
               </div>
             </section>
           )}
@@ -266,22 +287,34 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               <div className="display-card-heading">
                 <span>
                   <SectionIcon name="departures" />
-                  Time to head out
+                  <Typography as="span" variant="cardTitle">
+                    Time to head out
+                  </Typography>
                 </span>
-                <small className="leave-pill">
+                <Typography
+                  as="small"
+                  variant="cardHint"
+                  className="leave-pill"
+                >
                   {departureMinutes > 0
                     ? `Leave in ${departureMinutes} min`
                     : "Time to leave"}
-                </small>
+                </Typography>
               </div>
-              <div className="departure-time">
+              <Typography
+                as="div"
+                variant="departureTime"
+                className="departure-time"
+              >
                 {new Date(departureItems[0].leaveAt).toLocaleTimeString(
                   "en-GB",
                   { hour: "2-digit", minute: "2-digit", timeZone: timezone },
                 )}
-              </div>
-              <h2>{departureItems[0].title}</h2>
-              <p>
+              </Typography>
+              <Typography as="h2" variant="departureTitle">
+                {departureItems[0].title}
+              </Typography>
+              <Typography as="p" variant="subtitle">
                 {[
                   departureItems[0].subtitle,
                   departureItems[0].destination,
@@ -291,15 +324,15 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                 ]
                   .filter(Boolean)
                   .join(" · ")}
-              </p>
+              </Typography>
               <div className="departure-footer">
-                <small>
+                <Typography as="small" variant="caption">
                   Starts at{" "}
                   {new Date(departureItems[0].startTime).toLocaleTimeString(
                     "en-GB",
                     { hour: "2-digit", minute: "2-digit", timeZone: timezone },
                   )}
-                </small>
+                </Typography>
                 <button
                   className="display-card-cta"
                   onClick={(event) => {
@@ -321,7 +354,10 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                     );
                   }}
                 >
-                  Event details <span aria-hidden="true">→</span>
+                  <Typography as="span" variant="caption">
+                    Event details
+                  </Typography>{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               </div>
             </section>
@@ -353,7 +389,9 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               <div className="display-card-heading">
                 <span>
                   <SectionIcon name="meals" />
-                  {mealWindow.label}’s meals
+                  <Typography as="span" variant="cardTitle">
+                    {mealWindow.label}’s meals
+                  </Typography>
                 </span>
               </div>
               <div className="meal-agenda">
@@ -365,9 +403,17 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                         className={`meal-agenda-row${type === mealWindow.nextMeal ? " meal-current" : ""}`}
                         key={`${meal.Date}-${meal.MealType}`}
                       >
-                        <span>{type}</span>
-                        <strong>{meal.Name}</strong>
-                        {type === mealWindow.nextMeal && <small>Up next</small>}
+                        <Typography as="span" variant="caption">
+                          {type}
+                        </Typography>
+                        <Typography as="strong" variant="caption">
+                          {meal.Name}
+                        </Typography>
+                        {type === mealWindow.nextMeal && (
+                          <Typography as="small" variant="cardHint">
+                            Up next
+                          </Typography>
+                        )}
                       </div>
                     )
                   );
@@ -381,7 +427,10 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                     onOpenApp("Meal plan", event);
                   }}
                 >
-                  Edit meals <span aria-hidden="true">→</span>
+                  <Typography as="span" variant="caption">
+                    Edit meals
+                  </Typography>{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               </div>
             </section>
@@ -396,11 +445,13 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               <div className="display-card-heading">
                 <span>
                   <SectionIcon name="calendar" />
-                  Coming up
+                  <Typography as="span" variant="cardTitle">
+                    Coming up
+                  </Typography>
                 </span>
-                <small>
+                <Typography as="small" variant="cardHint">
                   {events.length} {events.length === 1 ? "event" : "events"}
-                </small>
+                </Typography>
               </div>
               {events.slice(0, 3).map((item) => {
                 const relatedDeparture = departureItems.find(
@@ -429,13 +480,18 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                     }
                   >
                     <time>
-                      {item.AllDay
-                        ? "All day"
-                        : new Date(item.StartTime).toLocaleTimeString("en-GB", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: timezone,
-                          })}
+                      <Typography as="span" variant="caption">
+                        {item.AllDay
+                          ? "All day"
+                          : new Date(item.StartTime).toLocaleTimeString(
+                              "en-GB",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: timezone,
+                              },
+                            )}
+                      </Typography>
                     </time>
                     <span
                       className="event-line"
@@ -447,8 +503,14 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                       aria-hidden="true"
                     />
                     <span>
-                      <strong>{item.Title}</strong>
-                      {eventSubtitle && <small>{eventSubtitle}</small>}
+                      <Typography as="strong" variant="cardTitle">
+                        {item.Title}
+                      </Typography>
+                      {eventSubtitle && (
+                        <Typography as="small" variant="cardHint">
+                          {eventSubtitle}
+                        </Typography>
+                      )}
                     </span>
                   </button>
                 );
@@ -465,9 +527,14 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
             >
               <div className="display-card-heading">
                 <span>
-                  <SectionIcon name="chores" />A few things to do
+                  <SectionIcon name="chores" />
+                  <Typography as="span" variant="cardTitle">
+                    A few things to do
+                  </Typography>
                 </span>
-                <small>{chores.length} left</small>
+                <Typography as="small" variant="cardHint">
+                  {chores.length} left
+                </Typography>
               </div>
               {chores.map((chore) => {
                 const person = chore.AssignedToUserID
@@ -491,10 +558,12 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                   >
                     <span className="chore-ring" aria-hidden="true" />
                     <span>
-                      <strong>{chore.Name}</strong>
-                      <small>
+                      <Typography as="strong" variant="caption">
+                        {chore.Name}
+                      </Typography>
+                      <Typography as="small" variant="cardHint">
                         {pending ? "Saving…" : (person ?? "Anyone")}
-                      </small>
+                      </Typography>
                     </span>
                     {person && (
                       <span className="chore-avatar" aria-hidden="true">
@@ -516,17 +585,21 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               <div className="display-card-heading">
                 <span>
                   <SectionIcon name="bins" />
-                  {collections[0].date === dateKey
-                    ? "Bins collected today"
-                    : "Bins out tonight"}
+                  <Typography as="span" variant="cardTitle">
+                    {collections[0].date === dateKey
+                      ? "Bins collected today"
+                      : "Bins out tonight"}
+                  </Typography>
                 </span>
               </div>
               {collections.map((bin) => (
                 <div className="bin-content" key={`${bin.date}-${bin.type}`}>
                   <Trash2 size={45} strokeWidth={1.7} aria-hidden="true" />
                   <div>
-                    <strong>{bin.name || bin.type}</strong>
-                    <p>
+                    <Typography as="strong" variant="cardTitle">
+                      {bin.name || bin.type}
+                    </Typography>
+                    <Typography as="p" variant="body">
                       Collection {bin.date === dateKey ? "today" : "tomorrow"}
                       <br />
                       {new Date(`${bin.date}T12:00:00`).toLocaleDateString(
@@ -538,13 +611,17 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                           timeZone: timezone,
                         },
                       )}
-                    </p>
+                    </Typography>
                   </div>
                 </div>
               ))}
-              <div className="bin-card-footer">
+              <Typography
+                as="div"
+                variant="cardHint"
+                className="bin-card-footer"
+              >
                 Leave them out before bedtime
-              </div>
+              </Typography>
             </section>
           )}
           {isCardVisible("trains") && trains.length > 0 && (
@@ -557,30 +634,44 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               <div className="display-card-heading">
                 <span>
                   <SectionIcon name="trains" />
-                  Next trains
+                  <Typography as="span" variant="cardTitle">
+                    Next trains
+                  </Typography>
                 </span>
               </div>
-              <small className="route-caption">
+              <Typography
+                as="small"
+                variant="cardHint"
+                className="route-caption"
+              >
                 {stationName(firstBoard!.origin.code)} →{" "}
                 {stationName(firstBoard!.destination.code)}
-              </small>
+              </Typography>
               {trains.slice(0, 3).map(({ board, train }) => (
                 <div
                   className="train-row"
                   key={`${board.origin.code}-${train.serviceId}`}
                 >
-                  <time>
+                  <Typography as="time" variant="caption">
                     {train.expectedDeparture || train.scheduledDeparture || "—"}
-                  </time>
-                  <strong>{stationShortName(board.destination.code)}</strong>
-                  <small>{trainStatusLabel(train)}</small>
+                  </Typography>
+                  <Typography as="strong" variant="caption">
+                    {stationShortName(board.destination.code)}
+                  </Typography>
+                  <Typography as="small" variant="cardHint">
+                    {trainStatusLabel(train)}
+                  </Typography>
                 </div>
               ))}
-              <div className="train-card-footer">
+              <Typography
+                as="div"
+                variant="cardHint"
+                className="train-card-footer"
+              >
                 {current?.availability.trains === "available"
                   ? "Updated just now"
                   : "Saved train times"}
-              </div>
+              </Typography>
             </section>
           )}
         </div>
@@ -594,7 +685,9 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                   aria-hidden="true"
                   className="display-icon"
                 />
-                <span>{name}</span>
+                <Typography as="span" variant="caption">
+                  {name}
+                </Typography>
               </button>
             ))}
           </nav>
@@ -603,7 +696,15 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
               aria-label={`Refresh display data${refreshAgeLabel ? `; last successful refresh ${refreshAgeLabel}` : ""}`}
               onClick={onRefresh}
             >
-              Refresh{refreshAgeLabel && <small> ({refreshAgeLabel})</small>}
+              <Typography as="span" variant="caption">
+                Refresh
+              </Typography>
+              {refreshAgeLabel && (
+                <Typography as="small" variant="cardHint">
+                  {" "}
+                  ({refreshAgeLabel})
+                </Typography>
+              )}
             </button>
           </footer>
         </div>

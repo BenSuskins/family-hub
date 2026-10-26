@@ -173,15 +173,18 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAdmin)
 			r.Get("/api/displays", displayPairingHandler.List)
+			r.Patch("/api/displays/{id}", displayPairingHandler.UpdateSections)
 			r.Delete("/api/displays/{id}", displayPairingHandler.Revoke)
 		})
 	})
 
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.RequireDisplay(tokenRepo, userRepo))
+		r.Get("/api/display/settings", displayPairingHandler.Settings)
 		r.Get("/api/display/home-info", householdHandler.HomeInfo)
 		r.Get("/api/display/weather", householdHandler.Weather)
 		r.Get("/api/display/departures", householdHandler.Departures)
+		r.Get("/api/display/bin-collections", binCollectionsHandler.GetForDisplay)
 		r.Get("/api/display/chores", apiHandler.ListChores)
 		r.Get("/api/display/meals", apiHandler.ListMeals)
 		r.Post("/api/display/meals", apiHandler.SaveMeal)

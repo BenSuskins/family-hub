@@ -12,8 +12,8 @@
 
 Family Hub is a self-hosted household service for chores, meals, recipes,
 calendars, shopping, and inventory. The Go server provides a JSON and media API
-for the SwiftUI iOS app, its extensions, and a separately deployed web client.
-The web client also supports a paired wall display with a limited device token.
+for the SwiftUI iOS app and its extensions. A separately deployed web client
+serves only the QR-paired wall display.
 
 ## Features
 
@@ -24,15 +24,15 @@ The web client also supports a paired wall display with a limited device token.
 - **iCal subscriptions** — admin-managed feeds (school, sports, etc.)
 - **Meal planning** — weekly planner (breakfast/lunch/dinner) linked to the recipe library
 - **Recipes** — ingredient groups, cooking times, import from URL (JSON-LD + HTML fallback)
-- **Web app and wall display** — browser access to household data and a configurable shared display; see the [web guide](../web/README.md)
-- **REST API** — scoped Bearer tokens for iOS, web, and paired displays. See [`endpoints.md`](endpoints.md)
+- **Wall display** — a household dashboard paired and configured from iOS; see the [web guide](../web/README.md)
+- **REST API** — scoped Bearer tokens for iOS and paired displays. See [`endpoints.md`](endpoints.md)
 - **Admin operations** — user/role management, chore categories, API tokens, and database backup/restore through the API
 
 ## Tech Stack
 
 - **Backend:** Go, [Chi](https://github.com/go-chi/chi) router, JSON REST API
 - **Database:** SQLite (`modernc.org/sqlite` — pure Go, no CGO)
-- **Auth:** Public OIDC PKCE clients for iOS and web; scoped Family Hub API tokens
+- **Auth:** Public OIDC PKCE for iOS; scoped Family Hub API tokens for iOS and paired displays
 - **iOS:** SwiftUI, MVVM
 - **Web:** Next.js, React, TypeScript, Bun
 
@@ -42,7 +42,7 @@ The web client also supports a paired wall display with a limited device token.
 family-hub/
 ├── server/                  # Go API server
 ├── ios/                     # SwiftUI iOS app and extensions
-├── web/                     # Next.js household client and paired display
+├── web/                     # Next.js QR pairing and wall display
 ├── data/                    # Runtime data (SQLite, gitignored)
 └── docs/                    # README, ARCHITECTURE, TROUBLESHOOTING, OIDC setup, endpoints
 ```

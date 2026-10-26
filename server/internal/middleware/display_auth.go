@@ -31,6 +31,7 @@ func RequireDisplay(tokenRepo repository.APITokenRepository, userRepo repository
 				return
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, DisplayTokenIDContextKey, token.ID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

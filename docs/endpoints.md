@@ -3,7 +3,7 @@
 All routes wired in `server/internal/server/server.go`.
 
 **Global middleware** (all routes): logger, recoverer, gzip compression, security headers,
-and per-IP rate limit (100 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer API token.
+and per-IP rate limit (100 req/min). When `WEB_ORIGIN` is configured, browser CORS permits only that exact origin. Authenticated routes require a Bearer token scoped for that route.
 
 **Conventions used below:**
 
@@ -26,8 +26,8 @@ curl -s $BASE_URL/health
 ```
 
 ### `GET /api/client-config`
-- **Usecase:** Returns OIDC `clientID` + `issuer` so iOS and web clients can start the auth flow.
-- **Callers:** iOS and web apps on first launch.
+- **Usecase:** Returns OIDC `clientID` + `issuer` so the iOS app can start the auth flow.
+- **Callers:** iOS app on first launch.
 - **Security:** None (public, non-sensitive).
 
 ```bash
@@ -40,11 +40,11 @@ curl -s $BASE_URL/api/client-config | jq
 
 ### `POST /api/auth/exchange`
 - **Usecase:** Swap an OIDC bearer for a long-lived Family Hub API token. Creates the user on first login.
-- **Callers:** iOS and web apps after OIDC login.
-- **Security:** Rate limited 10/min per IP. Validates bearer against OIDC userinfo endpoint. The default client replaces only prior "iOS App" tokens. Pass `?client=web` to replace only prior "Web App" tokens; this does not revoke iOS tokens.
+- **Callers:** iOS app after OIDC login.
+- **Security:** Rate limited 10/min per IP. Validates bearer against OIDC userinfo endpoint and replaces only prior iOS app tokens.
 
 ```bash
-curl -s -X POST "$BASE_URL/api/auth/exchange?client=web" \
+curl -s -X POST "$BASE_URL/api/auth/exchange" \
   -H "Authorization: Bearer <OIDC_ACCESS_TOKEN>" | jq
 ```
 
@@ -138,7 +138,7 @@ curl -s -X POST "$BASE_URL/api/display-pairing/challenges" | jq
 
 ### `POST /api/display-pairing/challenges/{id}/approve`
 - **Use case:** Approve a display pairing and assign its name.
-- **Callers:** Authenticated iOS or web household member after scanning the QR code.
+- **Callers:** Authenticated iOS admin after scanning the QR code.
 - **Security:** Bearer API token. Requires the challenge secret; a challenge can be approved once before it expires.
 
 ```bash
@@ -157,13 +157,14 @@ curl -s -X POST "$BASE_URL/api/display-pairing/challenges/<id>/claim" \
   -H "Content-Type: application/json" -d '{"pairingCode":"<code>"}' | jq
 ```
 
-### `GET /api/displays` / `DELETE /api/displays/{id}`
-- **Use case:** List or revoke paired wall displays.
-- **Callers:** iOS or web admin settings.
+### `GET /api/displays` / `PATCH /api/displays/{id}` / `DELETE /api/displays/{id}`
+- **Use case:** List, configure, or revoke paired wall displays.
+- **Callers:** iOS admin settings.
 - **Security:** Bearer API token and admin role. Revocation deletes the display credential immediately.
 
 ```bash
 curl -s "$BASE_URL/api/displays" -H "Authorization: Bearer $API_TOKEN" | jq
+curl -s -X PATCH "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" -d '{"enabledSections":["calendar","meals","chores","weather","departures","bins"]}' | jq
 curl -s -X DELETE "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
 
@@ -174,8 +175,10 @@ These routes accept only a display-scoped Bearer token. The token cannot authent
 | Route | Use case | Caller | Access |
 |---|---|---|---|
 | `GET /api/display/home-info` | Read the display's home settings. | Wall display | Display token |
+| `GET /api/display/settings` | Read this display's enabled sections. | Wall display | Display token |
 | `GET /api/display/weather` | Read current, hourly, and seven-day weather. | Wall display | Display token |
 | `GET /api/display/departures` | Read today's departure context. | Wall display | Display token |
+| `GET /api/display/bin-collections` | Read the household bin collection schedule. | Wall display | Display token |
 | `GET /api/display/chores` | Read household chores. | Wall display | Display token |
 | `GET /api/display/meals` | Read the current meal week. | Wall display | Display token |
 | `POST /api/display/meals` | Add or replace a meal for its date and meal type. | Wall display | Display token |

@@ -5,19 +5,16 @@
 ## Overview
 
 Family Hub has a Go JSON and media API backed by SQLite, a native SwiftUI app,
-and a separately deployed Next.js web client. Both clients use the shared API
-and household data. A paired wall display uses a revocable, limited credential
-instead of a member account token.
+and a separately deployed Next.js wall display. Admins pair and configure each
+display in iOS. Each paired display uses its own limited, revocable credential.
 
 ## Diagram
 
 ```mermaid
 flowchart LR
     iOS[iOS app and extensions] -->|JSON and media, member token| API[Go API]
-    Web[Web client] -->|JSON, web token| API
     Display[Paired wall display] -->|Limited display token| API
     iOS -.->|PKCE sign-in| OIDC[OIDC provider]
-    Web -.->|PKCE sign-in| OIDC
     API --> DB[(SQLite)]
     API -->|Push notifications| APNs[Apple Push Notification service]
     APNs --> iOS
@@ -34,13 +31,13 @@ flowchart LR
 | Repositories | Interfaces and SQLite data access | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
 | iOS app and extensions | Native household client, widgets, Watch app, and shared models | `ios/` |
-| Web client | Responsive member app and paired wall display | `web/` |
+| Web client | QR pairing state and household wall display | `web/` |
 
 ## Member request flow
 
 ```mermaid
 sequenceDiagram
-    participant C as iOS or web client
+    participant C as iOS app
     participant O as OIDC provider
     participant X as API token exchange
     participant R as Chi router and middleware
@@ -60,11 +57,10 @@ sequenceDiagram
     H-->>C: JSON or media response
 ```
 
-The iOS app and web client each run their own public OIDC PKCE flow. The web
-client exchanges its OIDC bearer at `POST /api/auth/exchange?client=web`. The iOS
-app mirrors its server URL and long-lived API token into the shared app group
-for extensions. The web client uses a web-scoped API token. Admin routes also
-require the admin role. The API does not serve HTML or create browser sessions.
+The iOS app runs the public OIDC PKCE flow and mirrors its server URL and
+long-lived API token into the shared app group for extensions. Admin routes
+also require the admin role. The API does not serve HTML or create browser
+sessions.
 
 Wall displays are paired by an authenticated admin through the iOS app. The
 server issues a separate display credential for each display. Display routes
@@ -84,16 +80,17 @@ ranges and non-HTTP(S) schemes.
 
 ## Data and client state
 
-SQLite is the system of record for household data. Database migrations run
-during server startup. The iOS app uses SwiftData as a cache and does not
-support offline writes. The web client stores its web token in browser local
-storage. Display credentials have a separate scope from member tokens.
+SQLite is the system of record for household data and per-display section
+settings. Database migrations run during server startup. The iOS app uses
+SwiftData as a cache and does not support offline writes. The wall display
+stores its own token and a read-only data snapshot in browser local storage.
+Display credentials have a separate scope from member tokens.
 
 ## External dependencies
 
 | Service | Purpose | Failure mode |
 |---------|---------|--------------|
-| OIDC provider | Sign-in for iOS and web clients | Sign-in and token exchange fail |
+| OIDC provider | Sign-in for iOS | Sign-in and token exchange fail |
 | External iCal feeds | Calendar subscriptions | Feed refresh fails; previously stored events remain |
 | Recipe URLs | Recipe import | Import returns an API error |
 | Open-Meteo | Weather data | Weather becomes unavailable |
@@ -103,12 +100,11 @@ storage. Display credentials have a separate scope from member tokens.
 
 ## Key decisions
 
-- **Separate clients, shared API.** The web app is deployed separately from the
-  Go API; both clients use the same server installation and shared data.
-- **Scoped credentials.** Member, web, and display credentials have distinct
+- **Display-only web client.** The web app is deployed separately from the Go
+  API and serves only pairing and the paired wall display.
+- **Scoped credentials.** Member and display credentials have distinct
   access. A display credential cannot call member or admin routes.
-- **Public PKCE OIDC clients.** No client secret is stored in the server or
-  browser build.
+- **Public PKCE OIDC client.** No client secret is stored in the server.
 - **Pure-Go SQLite.** `modernc.org/sqlite` removes the CGO toolchain dependency;
   tests use in-memory databases.
 - **No offline writes on iOS.** SwiftData is a cache; mutations require

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,10 +15,11 @@ import (
 var ErrPairingUnavailable = errors.New("pairing challenge is invalid, expired, or already used")
 
 type PairedDisplay struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	PairedByUserID string    `json:"pairedByUserId"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID              string    `json:"id"`
+	Name            string    `json:"name"`
+	PairedByUserID  string    `json:"pairedByUserId"`
+	CreatedAt       time.Time `json:"createdAt"`
+	EnabledSections []string  `json:"enabledSections"`
 }
 
 type DisplayPairingRepository interface {
@@ -25,6 +27,8 @@ type DisplayPairingRepository interface {
 	ApproveChallenge(context.Context, string, string, string, string) error
 	ClaimChallenge(context.Context, string, string, models.APIToken) error
 	List(context.Context) ([]PairedDisplay, error)
+	UpdateSections(context.Context, string, []string) error
+	FindByTokenID(context.Context, string) (PairedDisplay, error)
 	Revoke(context.Context, string) error
 }
 
@@ -91,7 +95,7 @@ func (repository *SQLiteDisplayPairingRepository) ClaimChallenge(ctx context.Con
 }
 
 func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]PairedDisplay, error) {
-	rows, err := repository.database.QueryContext(ctx, `SELECT id,name,paired_by_user_id,created_at FROM paired_displays ORDER BY created_at DESC`)
+	rows, err := repository.database.QueryContext(ctx, `SELECT id,name,paired_by_user_id,created_at,enabled_sections FROM paired_displays ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing paired displays: %w", err)
 	}
@@ -99,8 +103,12 @@ func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]P
 	var displays []PairedDisplay
 	for rows.Next() {
 		var display PairedDisplay
-		if err := rows.Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt); err != nil {
+		var sections string
+		if err := rows.Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections); err != nil {
 			return nil, fmt.Errorf("scanning paired display: %w", err)
+		}
+		if err := json.Unmarshal([]byte(sections), &display.EnabledSections); err != nil {
+			return nil, fmt.Errorf("decoding paired display sections: %w", err)
 		}
 		displays = append(displays, display)
 	}
@@ -111,6 +119,38 @@ func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]P
 		displays = []PairedDisplay{}
 	}
 	return displays, nil
+}
+
+func (repository *SQLiteDisplayPairingRepository) UpdateSections(ctx context.Context, id string, sections []string) error {
+	encoded, err := json.Marshal(sections)
+	if err != nil {
+		return fmt.Errorf("encoding display sections: %w", err)
+	}
+	result, err := repository.database.ExecContext(ctx, `UPDATE paired_displays SET enabled_sections=? WHERE id=?`, string(encoded), id)
+	if err != nil {
+		return fmt.Errorf("updating display sections: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking display update: %w", err)
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (repository *SQLiteDisplayPairingRepository) FindByTokenID(ctx context.Context, tokenID string) (PairedDisplay, error) {
+	var display PairedDisplay
+	var sections string
+	err := repository.database.QueryRowContext(ctx, `SELECT id,name,paired_by_user_id,created_at,enabled_sections FROM paired_displays WHERE api_token_id=?`, tokenID).Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections)
+	if err != nil {
+		return PairedDisplay{}, err
+	}
+	if err := json.Unmarshal([]byte(sections), &display.EnabledSections); err != nil {
+		return PairedDisplay{}, fmt.Errorf("decoding paired display sections: %w", err)
+	}
+	return display, nil
 }
 
 func (repository *SQLiteDisplayPairingRepository) Revoke(ctx context.Context, id string) error {

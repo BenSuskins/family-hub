@@ -1,5 +1,5 @@
-import { TodayPage } from "@/components/member-pages";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <TodayPage />;
+  redirect("/display");
 }

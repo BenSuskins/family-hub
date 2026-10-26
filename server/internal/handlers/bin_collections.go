@@ -32,6 +32,15 @@ func (handler *BinCollectionsHandler) Get(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
 }
 
+func (handler *BinCollectionsHandler) GetForDisplay(w http.ResponseWriter, r *http.Request) {
+	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to load bin schedule")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"collections": schedule.Collections})
+}
+
 func (handler *BinCollectionsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBinScheduleBytes+64*1024)
 	if err := r.ParseMultipartForm(maxBinScheduleBytes); err != nil {

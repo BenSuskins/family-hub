@@ -1,6 +1,7 @@
 # Family Hub design
 
-This guide covers the iOS app, web app, and paired wall display. The source
+This guide covers the iOS app and paired wall display. The web client serves
+only the QR-paired wall display. The source
 tokens live in [`AppTheme.swift`](../ios/FamilyHub/FamilyHub/Components/AppTheme.swift)
 and [`globals.css`](../web/src/app/globals.css). Update those files and this
 guide together when the visual system changes.
@@ -10,16 +11,17 @@ guide together when the visual system changes.
 - Keep the iOS app's five top-level areas: Today, Calendar, Chores, Food, and
   Household. Keep a separate navigation stack for each tab.
 - Keep Food and Household as overviews with direct links to their features.
-- Keep the web app's responsive navigation and its Today, Calendar, Chores,
-  Food, and Household destinations.
-- Let admins pair and revoke wall displays from the iOS app. Each display uses
-  its own limited credential and can have its own overview sections.
+- Let admins pair, configure, and disconnect wall displays from the iOS app.
+- Keep the web client to two states: pairing before approval and the shared
+  household display after approval. Do not add member web navigation or kiosk
+  settings.
+- Use the wall display layout from the [interactive handoff](prototypes/wall-display.html).
 
 ## Color palette
 
 Use these light appearance values as the shared Warm Sage base. The iOS app
-also defines semantic colors for dark appearance. The web app has its own dark
-token set in `globals.css`.
+also defines semantic colors for dark appearance. The web display defines its
+dark token set in `globals.css`.
 
 | Role | Light value | Notes |
 |------|-------------|-------|
@@ -48,9 +50,8 @@ color is never the only status cue. Keep text contrast at WCAG AA levels.
 
 - Use the iOS system font and SF Symbols. The large navigation title uses the
   rounded system design and scales with Dynamic Type.
-- Use Arial with Helvetica fallback for web body text and controls.
-- Use Georgia for web display headings, selected meal labels, and the wall
-  display's larger headings.
+- Use the system rounded sans-serif stack for web text and controls, matching
+  the wall-display handoff.
 - Keep labels short and readable. Let user-facing text scale or reflow where
   the platform supports it.
 
@@ -58,11 +59,8 @@ color is never the only status cue. Keep text contrast at WCAG AA levels.
 
 - Use warm, quiet surfaces and simple rounded cards. Keep information easy to
   scan.
-- Use a persistent left navigation rail on wide web screens and a fixed bottom
-  navigation bar on phones.
 - Give the wall display larger type and generous spacing for across-room
-  reading. Keep the family app launcher available when overview sections are
-  hidden.
+  reading. Keep its app launcher along the bottom edge.
 - Make cards fully clickable only when they represent one action. Give each
   control its own target when a card contains multiple actions.
 - Keep interactive targets at least 44 points or pixels in their platform's

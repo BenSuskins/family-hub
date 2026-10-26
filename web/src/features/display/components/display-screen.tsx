@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent, RefObject } from "react";
+import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import { BookOpen, CalendarDays, Check, CookingPot, ShoppingBag, Trash2, X, type LucideIcon } from "lucide-react";
 import { ChoreCompletionDialog } from "@/features/display/components/chore-completion-dialog";
 import { KioskApp } from "@/features/display/apps/kiosk-app";
@@ -40,6 +40,8 @@ type DisplayScreenProps = {
 
 export function DisplayScreen(props: DisplayScreenProps) {
   const { snapshot, clock, loading, failures, selectedApp, selectedEvent, selectedChore, mealEditTarget, pendingChoreId, choreFeedback, token, dialogRef, onOpenApp, onOpenEvent, onSelectChore, onCompleteAssignedChore, onClose, onRefresh, onScratchpadSaveReady } = props;
+  const [appDialogTitle, setAppDialogTitle] = useState<string | null>(null);
+  useEffect(() => { setAppDialogTitle(null); }, [selectedApp]);
   const current = snapshot;
   const timezone = current?.timezone ?? "Europe/London";
   const dateKey = dayKeyAt(clock, timezone);
@@ -112,9 +114,9 @@ export function DisplayScreen(props: DisplayScreenProps) {
 
     {selectedApp && <div className={`display-overlay${isDark ? " is-dark" : ""}`} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section ref={dialogRef} className={`display-dialog${selectedApp === "Weather" ? " weather-dialog" : ""}`} role="dialog" aria-modal="true" aria-labelledby="display-dialog-title" tabIndex={-1}>
-        <header className="display-dialog-heading"><div><h2 id="display-dialog-title">{displayDialogTitle(selectedApp, mealWindow.label)}</h2></div><button className="close-button" onClick={onClose} aria-label="Back to the household overview"><X size={24} strokeWidth={1.7} aria-hidden="true"/></button></header>
+        <header className="display-dialog-heading"><div><h2 id="display-dialog-title">{appDialogTitle ?? displayDialogTitle(selectedApp, mealWindow.label)}</h2></div><button className="close-button" onClick={onClose} aria-label="Back to the household overview"><X size={24} strokeWidth={1.7} aria-hidden="true"/></button></header>
         <div className="display-dialog-content">
-          {selectedApp === "Chore completion" && selectedChore ? <ChoreCompletionDialog chore={selectedChore} people={current?.people ?? []} token={token} onComplete={() => { void onClose(); void onRefresh(); }} /> : selectedApp === "Family event" && selectedEvent ? <div className="event-detail"><p>{new Date(selectedEvent.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</p><h3>{selectedEvent.title}</h3><p>{new Date(selectedEvent.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.endTime ? `–${new Date(selectedEvent.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}` : ""}</p>{selectedEvent.location && <p>{selectedEvent.location}</p>}{selectedEvent.leaveAt && <p className="event-travel">Leave at {new Date(selectedEvent.leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.drivingSeconds ? ` · ${Math.round(selectedEvent.drivingSeconds / 60)} min drive` : ""}</p>}</div> : selectedApp === "launcher" ? <div className="launcher-grid">{[["Shopping", "＋"], ["Scratchpad", "✎"], ["Calendar", "▦"], ["Recipes", "♧"], ["Meal plan", "♨"], ["Inventory", "▤"]].map(([app, symbol]) => <button className="launcher-tile" key={app} onClick={event => onOpenApp(app, event)}><span aria-hidden="true">{symbol}</span>{app}</button>)}</div> : <KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget} timezone={timezone} onScratchpadSaveReady={onScratchpadSaveReady} />}
+          {selectedApp === "Chore completion" && selectedChore ? <ChoreCompletionDialog chore={selectedChore} people={current?.people ?? []} token={token} onComplete={() => { void onClose(); void onRefresh(); }} /> : selectedApp === "Family event" && selectedEvent ? <div className="event-detail"><p>{new Date(selectedEvent.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: timezone })}</p><h3>{selectedEvent.title}</h3><p>{new Date(selectedEvent.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.endTime ? `–${new Date(selectedEvent.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}` : ""}</p>{selectedEvent.location && <p>{selectedEvent.location}</p>}{selectedEvent.leaveAt && <p className="event-travel">Leave at {new Date(selectedEvent.leaveAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone })}{selectedEvent.drivingSeconds ? ` · ${Math.round(selectedEvent.drivingSeconds / 60)} min drive` : ""}</p>}</div> : selectedApp === "launcher" ? <div className="launcher-grid">{[["Shopping", "＋"], ["Notes", "✎"], ["Calendar", "▦"], ["Recipes", "♧"], ["Meal plan", "♨"], ["Inventory", "▤"]].map(([app, symbol]) => <button className="launcher-tile" key={app} onClick={event => onOpenApp(app, event)}><span aria-hidden="true">{symbol}</span>{app}</button>)}</div> : <KioskApp app={selectedApp} token={token} initialMeal={mealEditTarget} timezone={timezone} clock={clock} onDialogTitleChange={setAppDialogTitle} onScratchpadSaveReady={onScratchpadSaveReady} />}
           <button className="display-dialog-back" onClick={() => void onClose()}>Back to the overview</button>
         </div>
       </section>

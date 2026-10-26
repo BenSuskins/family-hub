@@ -2,7 +2,7 @@ import type { DisplayDeparture, DisplayEvent, MealType } from "@/lib/display-log
 
 export type DisplayChore = { ID: string; Name: string; Status: string; DueDate?: string | null; AssignedToUserID?: string | null };
 export type DisplayMeal = { Date: string; MealType: MealType; Name: string; RecipeID?: string | null };
-export type DisplayRecipe = { ID: string; Title: string; Steps?: string[]; Instructions?: string; Ingredients?: { name: string; items: string[] }[] };
+export type DisplayRecipe = { ID: string; Title: string; Steps?: string[]; Instructions?: string; Ingredients?: { name: string; items: string[] }[]; Servings?: number | null; PrepTime?: string | null; CookTime?: string | null; MealType?: string | null };
 export type Weather = { status: string; fetchedAt?: string; location?: string; advice?: string; current?: { temperature: number; code: number; summary?: string }; high?: number; low?: number; hours?: { time: string; temperature: number; code: number; rainProbability: number }[]; days?: { date: string; high: number; low: number; code: number; rainProbability?: number }[] };
 export type BinSchedule = { collections?: { date: string; type: string; name: string }[]; enabled?: boolean };
 export type CommuteBoard = { origin: { code: string }; destination: { code: string }; fetchedAt: string; trains: { serviceId: string; status: string; expectedDeparture?: string | null; scheduledDeparture?: string | null; platform?: string | null; operator?: string }[] };
@@ -29,6 +29,6 @@ export type Snapshot = {
 export type Pairing = { challengeId: string; pairingCode: string; expiresAt: string };
 export type MealEditTarget = { date: string; mealType: MealType };
 export type EventDetails = { title: string; startTime: string; endTime?: string | null; location?: string; leaveAt?: string; drivingSeconds?: number };
-export type KioskAppName = "Shopping" | "Notes" | "Calendar" | "Recipes" | "Meal plan" | "Inventory" | "Journeys" | "Trains" | "Bins" | "Weather";
+export type KioskAppName = "Shopping" | "Notes" | "Calendar" | "Recipes" | "Meal plan" | "Inventory" | "Weather";
 
 export type { DisplayDeparture, DisplayEvent, MealType } from "@/lib/display-logic";

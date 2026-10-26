@@ -321,21 +321,89 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-dialog-heading > div { gap: 0; }
 .display-overlay { background: #1f271b66; backdrop-filter: blur(5px); }
 .display-dialog { width: min(100%, 650px); max-height: min(680px, 94svh); border: 0; border-radius: 27px; padding: 10px; }
-.display-dialog.weather-dialog { width: min(100%, 850px); }
+.display-dialog.weather-dialog { width: min(100%, 650px); }
 .display-dialog-heading { min-height: 66px; padding: 12px 20px 4px; }
 .display-dialog-heading h2 { font-size: 28px; letter-spacing: -.7px; }
 .display-dialog-content { padding: 12px 20px 22px; }
+.shopping-app .shopping-add { margin-bottom: 14px; }
+.shopping-app .inline-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 0; }
+.shopping-app .inline-form label { display: block; }
+.shopping-app .inline-form input { width: 100%; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.shopping-row { width: 100%; min-height: 65px; display: flex; align-items: center; gap: 14px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--ink); text-align: left; font-size: 20px; cursor: pointer; }
+.shopping-row .check-ring { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border: 1.5px solid var(--clay); border-radius: 50%; color: white; font-size: 16px; }
+.shopping-row.purchased .check-ring { border-color: var(--accent); background: var(--accent); }
+.shopping-row.purchased > span:nth-child(2) { color: var(--secondary); text-decoration: line-through; }
+.shopping-row .pending-label { margin-left: auto; color: var(--secondary); font-size: 13px; }
+.shopping-row:disabled { opacity: .45; }
+.shopping-app { gap: 8px; }
+.shopping-app > .dialog-label:last-child { margin-top: 10px; }
+.shopping-undo { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--sage); }
+.shopping-undo button { min-width: 44px; min-height: 44px; color: var(--accent); font-weight: 650; }
+.meal-plan-app { display: grid; }
+.meal-plan-app .meal-day-label { margin-bottom: 12px; }
+.meal-plan-row { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 14px; align-items: center; min-height: 69px; border-bottom: 1px solid var(--border); font-size: 17px; }
+.meal-plan-row > span:first-child { color: var(--secondary); font-size: 14px; }
+.meal-choice-trigger { min-height: 60px; padding: 9px; border-radius: 12px; text-align: left; font-size: 18px; font-weight: 550; }
+.meal-choice-trigger:hover { background: var(--sage); }
+.meal-choice-trigger .muted { color: var(--secondary); font-size: 13px; font-weight: 400; }
+.meal-edit-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.meal-edit-form input { min-width: 150px; min-height: 48px; flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; }
+.meal-edit-form .action-button { min-height: 44px; }
+.meal-edit-hint { margin-top: 16px; }
+.meal-edit-view { display: grid; gap: 10px; }
+.meal-choice-list { display: grid; }
+.meal-choice { width: 100%; min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--ink); text-align: left; font-size: 17px; cursor: pointer; }
+.meal-choice[aria-pressed="true"] { border-radius: 12px; background: var(--sage); }
+.meal-choice strong { color: var(--accent); font-size: 13px; }
+.custom-meal-choice { border-bottom: 0; color: var(--secondary); font-size: 15px; }
+.meal-custom-form { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; padding-top: 8px; }
+.meal-custom-form label { display: grid; flex: 1; gap: 6px; color: var(--secondary); }
+.meal-custom-form input { min-height: 48px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; }
+.inventory-list section { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.inventory-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 18px; }
+.inventory-row > span:first-child small { display: block; margin-top: 3px; color: var(--secondary); font-size: 13px; }
+.inventory-step { display: flex; align-items: center; gap: 8px; }
+.inventory-step button { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--sage); color: var(--accent); font-size: 22px; }
+.inventory-step button:disabled { opacity: .5; }
+.inventory-unit { min-width: 48px; color: var(--secondary); font-size: 13px; }
+.area-heading { margin: 18px 0 3px; color: var(--accent); font-size: 15px; font-weight: 650; }
+.recipe-row { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 11px; padding: 12px 3px !important; border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.recipe-row-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--sage); color: var(--accent); }
+.recipe-row-title { flex: 1; }
+.recipe-row-chevron { color: var(--secondary); transition: transform .15s ease; }
+.recipe-row[open] .recipe-row-chevron { transform: rotate(90deg); }
+.recipe-detail { display: grid; gap: 10px; }
+.recipe-detail h3 { margin-top: 14px; font-size: 19px; }
+.recipe-detail-line { line-height: 1.55; }
+.recipe-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding-left: 0; }
+.kiosk-drawing-tools > span { color: var(--secondary); font-size: 13px; }
+.kiosk-drawing-tools > div[role="group"] { display: flex; gap: 8px; }
+.kiosk-color { width: 48px; height: 48px; min-width: 48px; min-height: 48px; padding: 0; box-shadow: inset 0 0 0 3px var(--surface); }
+.kiosk-color.selected { outline: 2px solid var(--ink); outline-offset: 1px; border-color: transparent; }
+.kiosk-drawing canvas { height: 230px; background: var(--surface); }
+.wall-display.is-dark .shopping-row { background: var(--surface); color: var(--ink); }
+.wall-display.is-dark .shopping-undo { background: var(--sage); color: var(--ink); }
+.wall-display.is-dark .recipe-row summary { border-color: var(--border); }
+@media (max-width: 620px) {
+  .shopping-app .inline-form { grid-template-columns: minmax(0, 1fr) auto; }
+  .shopping-app .inline-form .action-button { padding-inline: 12px; }
+  .meal-plan-row { grid-template-columns: 82px minmax(0, 1fr); gap: 7px; }
+  .meal-edit-form .action-button { width: 100%; }
+  .inventory-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .inventory-unit { display: none; }
+}
 .weather-forecast { display: grid; }
 .dialog-label { color: var(--secondary); font-size: 14px; }
 .hourly-forecast { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
-.hour-card { min-height: 126px; display: grid; justify-items: center; align-content: center; gap: 9px; padding: 10px; border-radius: 14px; background: var(--sage); }
+.hour-card { min-height: 100px; display: grid; justify-items: center; align-content: center; gap: 7px; padding: 8px; border-radius: 14px; background: var(--sage); }
 .hour-card > span, .hour-card > small { color: var(--secondary); font-size: 13px; }
 .hour-card > svg, .weather-cloud-icon, .weather-rain-icon { color: var(--clay); }
 .hour-card > strong { font-size: 19px; }
 .weather-cloud-icon, .weather-rain-icon { font-size: 20px; line-height: 21px; }
 .forecast-days-label { margin: 22px 0 9px; }
 .weather-days { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 18px; }
-.forecast-row { min-height: 48px; display: grid; grid-template-columns: minmax(72px, 115px) 29px 75px 1fr; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.forecast-row { min-height: 48px; display: grid; grid-template-columns: minmax(54px, 1fr) 24px 58px 46px; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .forecast-row > svg, .forecast-row > span:nth-child(2) { color: var(--clay); }
 .forecast-row > strong { font-size: 16px; white-space: nowrap; }
 .forecast-rain { display: flex; align-items: center; gap: 5px; color: var(--secondary); font-size: 12px; }
@@ -408,6 +476,8 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-overlay.is-dark .display-dialog .display-dialog-heading { color: var(--ink); }
 .display-overlay.is-dark .display-dialog .shopping-check { background: var(--surface); color: var(--ink); }
 .display-overlay.is-dark .display-dialog .shopping-undo { background: var(--ink); color: var(--paper); }
+.display-overlay.is-dark .display-dialog .shopping-row { background: var(--surface); color: var(--ink); }
+.display-overlay.is-dark .display-dialog .recipe-row { color: var(--ink); }
 .wall-display-shell.is-dark .display-status { background: #3c3428; color: #e0baa0; }
 .wall-display-shell.is-dark .display-toast { background: #f7f0e2; color: #201f1a; }
 @media (max-width: 560px) {

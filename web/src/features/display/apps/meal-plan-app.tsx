@@ -19,8 +19,10 @@ export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitle
   const [customMeal, setCustomMeal] = useState(false);
   const [mealName, setMealName] = useState("");
   const [busy, setBusy] = useState("");
+  const [editingDate, setEditingDate] = useState<string | null>(initialMeal?.date ?? null);
   const initialMealApplied = useRef(false);
-  const { data: meals, error, setError, reload } = useKioskResource<DisplayMeal[]>(`/api/display/meals?week=${selectedDate}`, token);
+  const activeDate = selected ? editingDate ?? initialMeal?.date ?? selectedDate : selectedDate;
+  const { data: meals, error, setError, reload } = useKioskResource<DisplayMeal[]>(`/api/display/meals?week=${activeDate}`, token);
   const { data: recipes, error: recipesError, reload: reloadRecipes } = useKioskResource<RecipeChoice[]>("/api/display/recipes", token);
 
   useEffect(() => {
@@ -38,10 +40,11 @@ export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitle
   const dateLabel = new Intl.DateTimeFormat("en-GB", {
     weekday: "long", day: "numeric", month: "long", timeZone: timezone,
   }).format(new Date(`${selectedDate}T12:00:00Z`));
-  const dayLabel = selectedDate === today ? "today" : "tomorrow";
+  const dayLabel = activeDate === today ? "today" : "tomorrow";
 
   function editMeal(mealType: MealType) {
     const meal = meals?.find(item => item.Date === selectedDate && item.MealType === mealType);
+    setEditingDate(selectedDate);
     setSelected(mealType);
     setMealName(meal?.Name ?? "");
     setCustomMeal(false);
@@ -56,10 +59,11 @@ export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitle
       const response = await fetch(`${apiBase}/api/display/meals`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ date: selectedDate, mealType: selected, name: name.trim(), ...(recipeID ? { recipeID } : {}) }),
+        body: JSON.stringify({ date: activeDate, mealType: selected, name: name.trim(), ...(recipeID ? { recipeID } : {}) }),
       });
       if (!response.ok) throw new Error();
       setSelected("");
+      setEditingDate(null);
       setCustomMeal(false);
       setMealName("");
       await reload();
@@ -79,7 +83,7 @@ export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitle
   if (!meals) return <p role="status">Loading…</p>;
 
   if (selected) {
-    const currentMeal = meals.find(item => item.Date === selectedDate && item.MealType === selected);
+    const currentMeal = meals.find(item => item.Date === activeDate && item.MealType === selected);
     const typedRecipes = recipes?.filter(recipe => recipe.MealType?.toLowerCase() === selected) ?? [];
     const untypedRecipes = recipes?.filter(recipe => !recipe.MealType) ?? [];
     const choices = typedRecipes.length ? typedRecipes : untypedRecipes;
@@ -90,7 +94,7 @@ export function MealPlanApp({ token, timezone, initialMeal, clock, onDialogTitle
       {recipesError && <p role="alert">{recipesError} <button className="text-action" onClick={() => void reloadRecipes()}>Try again</button></p>}
       {error && <p role="alert">{error}</p>}
       <div className="meal-choice-list">
-        {includesCurrent && <button className="meal-choice" aria-pressed="true" disabled={Boolean(busy)} onClick={() => { setSelected(""); setCustomMeal(false); }}>
+        {includesCurrent && <button className="meal-choice" aria-pressed="true" disabled={Boolean(busy)} onClick={() => { setSelected(""); setEditingDate(null); setCustomMeal(false); }}>
           <span>{currentMeal.Name}</span><strong>Planned</strong>
         </button>}
         {choices.map(recipe => <button className="meal-choice" key={recipe.ID} aria-pressed={recipe.Title === currentMeal?.Name} disabled={Boolean(busy)} onClick={() => void save(recipe.Title, recipe.ID)}>

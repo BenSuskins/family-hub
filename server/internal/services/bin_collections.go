@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	ical "github.com/arran4/golang-ical"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -82,30 +83,60 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 }
 
 func classifyBins(summary string) []models.BinCollection {
-	value := strings.ToLower(summary)
+	words := strings.FieldsFunc(strings.ToLower(summary), func(character rune) bool {
+		return !unicode.IsLetter(character) && !unicode.IsNumber(character)
+	})
 	bins := make([]models.BinCollection, 0, 3)
-	hasFood := strings.Contains(value, "food") || strings.Contains(value, "caddy")
+	hasFood := hasBinWord(words, "food", "caddy")
 	if hasFood {
 		bins = append(bins, models.BinCollection{Type: "food_caddy", Name: "Food caddy"})
 	}
-	hasGarden := strings.Contains(value, "garden") || strings.Contains(value, "green waste")
+	hasGarden := hasBinWord(words, "garden") || hasBinPhrase(words, "green waste")
 	if hasGarden {
 		bins = append(bins, models.BinCollection{Type: "garden", Name: "Garden bin"})
 	}
-	hasPaperOrCard := strings.Contains(value, "paper") || strings.Contains(value, "card")
+	hasPaperOrCard := hasBinWord(words, "paper", "card")
 	if hasPaperOrCard {
 		bins = append(bins, models.BinCollection{Type: "paper_card", Name: "Paper and card recycling"})
 	}
-	hasMixedRecycling := strings.Contains(value, "mixed") || (strings.Contains(value, "recycl") && !hasPaperOrCard && !hasFood)
+	hasExplicitGeneralWaste := hasBinPhrase(words, "general waste") || hasBinWord(words, "refuse") || hasBinPhrase(words, "non recyclable")
+	hasMixedRecycling := hasBinWord(words, "mixed") || (hasBinWord(words, "recycling", "recyclable") && !hasPaperOrCard && !hasFood && !hasExplicitGeneralWaste)
 	if hasMixedRecycling {
 		bins = append(bins, models.BinCollection{Type: "mixed_recycling", Name: "Mixed recycling"})
 	}
-	hasExplicitGeneralWaste := strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable")
 	hasRecognizedCollection := hasFood || hasGarden || hasPaperOrCard || hasMixedRecycling
-	if hasExplicitGeneralWaste || (strings.Contains(value, "waste") && !hasRecognizedCollection) {
+	if hasExplicitGeneralWaste || (hasBinWord(words, "waste") && !hasRecognizedCollection) {
 		bins = append(bins, models.BinCollection{Type: "grey", Name: "Non-recyclable waste"})
 	}
 	return bins
+}
+
+func hasBinWord(words []string, candidates ...string) bool {
+	for _, word := range words {
+		for _, candidate := range candidates {
+			if word == candidate {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasBinPhrase(words []string, phrase string) bool {
+	phraseWords := strings.Fields(phrase)
+	for start := 0; start+len(phraseWords) <= len(words); start++ {
+		matches := true
+		for offset, word := range phraseWords {
+			if words[start+offset] != word {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			return true
+		}
+	}
+	return false
 }
 
 func LoadBinSchedule(ctx context.Context, settings repository.SettingsRepository) (models.BinSchedule, error) {

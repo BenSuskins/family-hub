@@ -90,6 +90,41 @@ END:VCALENDAR`} {
 	}
 }
 
+func TestClassifyBinsMatchesWholeTermsAndExplicitWasteNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		summary string
+		want    []string
+	}{
+		{name: "food waste", summary: "Food Waste", want: []string{"food_caddy"}},
+		{name: "combined food and garden", summary: "Food Recycling and Garden Waste", want: []string{"food_caddy", "garden"}},
+		{name: "explicit general waste", summary: "Food Recycling and General Waste", want: []string{"food_caddy", "grey"}},
+		{name: "non-recyclable waste with paper", summary: "Non-Recyclable Waste and Paper and Card", want: []string{"paper_card", "grey"}},
+		{name: "generic waste", summary: "Waste Collection", want: []string{"grey"}},
+		{name: "partial food word", summary: "Seafood Festival", want: nil},
+		{name: "partial card word", summary: "Cardigan Repair", want: nil},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bins := classifyBins(test.summary)
+			got := make([]string, 0, len(bins))
+			for _, bin := range bins {
+				got = append(got, bin.Type)
+			}
+			if len(got) != len(test.want) {
+				t.Fatalf("classifyBins(%q) types = %v, want %v", test.summary, got, test.want)
+			}
+			for index := range test.want {
+				if got[index] != test.want[index] {
+					t.Errorf("classifyBins(%q) types = %v, want %v", test.summary, got, test.want)
+					break
+				}
+			}
+		})
+	}
+}
+
 func TestBinReminderMessageGroupsCollectionNames(t *testing.T) {
 	collections := []models.BinCollection{
 		{Name: "Food caddy"},

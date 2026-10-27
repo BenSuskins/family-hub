@@ -151,12 +151,7 @@ export function MealPlanApp({
     const currentMeal = meals.find(
       (item) => item.Date === activeDate && item.MealType === selected,
     );
-    const typedRecipes =
-      recipes?.filter(
-        (recipe) => recipe.MealType?.toLowerCase() === selected,
-      ) ?? [];
-    const untypedRecipes = recipes?.filter((recipe) => !recipe.MealType) ?? [];
-    const choices = typedRecipes.length ? typedRecipes : untypedRecipes;
+    const choices = recipes ?? [];
     const includesCurrent =
       currentMeal &&
       !choices.some((recipe) => recipe.Title === currentMeal.Name);

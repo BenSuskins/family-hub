@@ -34,6 +34,16 @@ DTSTART;VALUE=DATE:20261111
 SUMMARY:Food Recycling and Garden Waste
 END:VEVENT
 BEGIN:VEVENT
+UID:food-and-general-waste-1
+DTSTART;VALUE=DATE:20261118
+SUMMARY:Food Recycling and General Waste
+END:VEVENT
+BEGIN:VEVENT
+UID:paper-and-card-waste-1
+DTSTART;VALUE=DATE:20261125
+SUMMARY:Paper and Card Waste
+END:VEVENT
+BEGIN:VEVENT
 UID:unknown
 DTSTART;VALUE=DATE:20261104
 SUMMARY:Street sweeping
@@ -53,6 +63,9 @@ func TestParseBinScheduleMapsUpcomingCollections(t *testing.T) {
 		{Date: "2026-11-04", Type: "mixed_recycling", Name: "Mixed recycling"},
 		{Date: "2026-11-11", Type: "food_caddy", Name: "Food caddy"},
 		{Date: "2026-11-11", Type: "garden", Name: "Garden bin"},
+		{Date: "2026-11-18", Type: "food_caddy", Name: "Food caddy"},
+		{Date: "2026-11-18", Type: "grey", Name: "Non-recyclable waste"},
+		{Date: "2026-11-25", Type: "paper_card", Name: "Paper and card recycling"},
 	}
 	if len(collections) != len(want) {
 		t.Fatalf("collections = %+v, want %+v", collections, want)

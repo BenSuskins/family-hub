@@ -88,18 +88,21 @@ func classifyBins(summary string) []models.BinCollection {
 	if hasFood {
 		bins = append(bins, models.BinCollection{Type: "food_caddy", Name: "Food caddy"})
 	}
-	if strings.Contains(value, "garden") || strings.Contains(value, "green waste") {
+	hasGarden := strings.Contains(value, "garden") || strings.Contains(value, "green waste")
+	if hasGarden {
 		bins = append(bins, models.BinCollection{Type: "garden", Name: "Garden bin"})
 	}
-	if strings.Contains(value, "paper") || strings.Contains(value, "card") {
+	hasPaperOrCard := strings.Contains(value, "paper") || strings.Contains(value, "card")
+	if hasPaperOrCard {
 		bins = append(bins, models.BinCollection{Type: "paper_card", Name: "Paper and card recycling"})
 	}
-	hasPaperOrCard := strings.Contains(value, "paper") || strings.Contains(value, "card")
-	if strings.Contains(value, "mixed") || (strings.Contains(value, "recycl") && !hasPaperOrCard && !hasFood) {
+	hasMixedRecycling := strings.Contains(value, "mixed") || (strings.Contains(value, "recycl") && !hasPaperOrCard && !hasFood)
+	if hasMixedRecycling {
 		bins = append(bins, models.BinCollection{Type: "mixed_recycling", Name: "Mixed recycling"})
 	}
-	hasGarden := strings.Contains(value, "garden") || strings.Contains(value, "green waste")
-	if strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable") || (strings.Contains(value, "waste") && !hasGarden && !hasFood) {
+	hasExplicitGeneralWaste := strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable")
+	hasRecognizedCollection := hasFood || hasGarden || hasPaperOrCard || hasMixedRecycling
+	if hasExplicitGeneralWaste || (strings.Contains(value, "waste") && !hasRecognizedCollection) {
 		bins = append(bins, models.BinCollection{Type: "grey", Name: "Non-recyclable waste"})
 	}
 	return bins

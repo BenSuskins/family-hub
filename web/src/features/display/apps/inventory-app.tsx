@@ -15,7 +15,13 @@ type InventoryItem = {
 };
 type InventoryArea = { ID: string; Name: string; Items: InventoryItem[] };
 
-export function InventoryApp({ token }: { token: string }) {
+export function InventoryApp({
+  token,
+  onInventoryChanged,
+}: {
+  token: string;
+  onInventoryChanged: () => Promise<void>;
+}) {
   const {
     data: areas,
     error,
@@ -45,6 +51,7 @@ export function InventoryApp({ token }: { token: string }) {
       );
       if (!response.ok) throw new Error();
       await reload();
+      await onInventoryChanged();
     } catch {
       setError("Inventory could not be updated. Please try again.");
     } finally {

@@ -37,13 +37,12 @@ export function DisplayClient() {
     error: shoppingError,
     reload: reloadShopping,
   } = useKioskResource<DisplayShoppingItem[]>("/api/display/shopping", token);
-  const { data: inventoryAreas } = useKioskResource<DisplayInventoryArea[]>(
-    "/api/display/inventory",
-    token,
-  );
-  const refreshShopping = useCallback(() => {
-    void reloadShopping();
-  }, [reloadShopping]);
+  const { data: inventoryAreas, reload: reloadInventory } = useKioskResource<
+    DisplayInventoryArea[]
+  >("/api/display/inventory", token);
+  const refreshDisplayResources = useCallback(() => {
+    void Promise.all([reloadShopping(), reloadInventory()]);
+  }, [reloadInventory, reloadShopping]);
   const {
     pendingShoppingId,
     feedback: shoppingFeedback,
@@ -54,7 +53,7 @@ export function DisplayClient() {
     token,
     clockRef,
     clearToken,
-    refreshShopping,
+    refreshDisplayResources,
   );
   const {
     snapshot,
@@ -220,6 +219,7 @@ export function DisplayClient() {
       inventoryAreas={inventoryAreas}
       shoppingError={shoppingError}
       reloadShopping={reloadShopping}
+      reloadInventory={reloadInventory}
       clock={clock}
       loading={loading}
       failures={failures}

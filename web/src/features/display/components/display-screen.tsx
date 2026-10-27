@@ -19,6 +19,7 @@ type DisplayScreenProps = DisplayDashboardProps & {
   token: string;
   shoppingError: string;
   reloadShopping: () => Promise<void>;
+  reloadInventory: () => Promise<void>;
   dialogRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onUndoShopping: () => void;
@@ -36,6 +37,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
     shoppingItems,
     shoppingError,
     reloadShopping,
+    reloadInventory,
     dialogRef,
     onClose,
     onRefresh,
@@ -82,6 +84,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
           shoppingItems={shoppingItems}
           shoppingError={shoppingError}
           reloadShopping={reloadShopping}
+          reloadInventory={reloadInventory}
           timezone={timezone}
           mealLabel={mealLabel}
           token={token}

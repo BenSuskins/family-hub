@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -81,6 +82,42 @@ func TestDisplayPairingRoutesEnforceScopeAndRevocation(t *testing.T) {
 	}
 	if err := json.NewDecoder(response.Body).Decode(&claimed); err != nil {
 		t.Fatal(err)
+	}
+	settingsRequest := httptest.NewRequest(http.MethodGet, "/api/display/settings", nil)
+	settingsRequest.Header.Set("Authorization", "Bearer "+claimed.Token)
+	settingsResponse := httptest.NewRecorder()
+	application.router.ServeHTTP(settingsResponse, settingsRequest)
+	var settings struct {
+		EnabledSections []string `json:"enabledSections"`
+	}
+	if err := json.NewDecoder(settingsResponse.Body).Decode(&settings); err != nil {
+		t.Fatal(err)
+	}
+	if settingsResponse.Code != http.StatusOK || !slices.Contains(settings.EnabledSections, "inventory") {
+		t.Fatalf("new display settings = %d %v, expected inventory enabled", settingsResponse.Code, settings.EnabledSections)
+	}
+	updateSettings := func(sections string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPatch, "/api/displays/"+challenge.ID, strings.NewReader(`{"enabledSections":`+sections+`}`))
+		request.Header.Set("Authorization", "Bearer admin-token")
+		response := httptest.NewRecorder()
+		application.router.ServeHTTP(response, request)
+		return response
+	}
+	if response := updateSettings(`["calendar","inventory"]`); response.Code != http.StatusOK {
+		t.Fatalf("save inventory section: %d %s", response.Code, response.Body.String())
+	}
+	if response := updateSettings(`["calendar"]`); response.Code != http.StatusOK {
+		t.Fatalf("save existing section choice: %d %s", response.Code, response.Body.String())
+	}
+	settingsRequest = httptest.NewRequest(http.MethodGet, "/api/display/settings", nil)
+	settingsRequest.Header.Set("Authorization", "Bearer "+claimed.Token)
+	settingsResponse = httptest.NewRecorder()
+	application.router.ServeHTTP(settingsResponse, settingsRequest)
+	if err := json.NewDecoder(settingsResponse.Body).Decode(&settings); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(settings.EnabledSections, []string{"calendar"}) {
+		t.Fatalf("saved sections changed unexpectedly: %v", settings.EnabledSections)
 	}
 	for _, test := range []struct {
 		path string

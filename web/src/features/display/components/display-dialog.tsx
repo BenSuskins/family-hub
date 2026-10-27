@@ -69,7 +69,7 @@ export function DisplayDialog(props: DisplayDialogProps) {
           <button
             className="close-button"
             onClick={onClose}
-            aria-label="Back to the household overview"
+            aria-label="Close dialog"
           >
             <X size={24} strokeWidth={1.7} aria-hidden="true" />
           </button>
@@ -87,14 +87,6 @@ export function DisplayDialog(props: DisplayDialogProps) {
             onDialogTitleChange={setAppDialogTitle}
             onScratchpadSaveReady={onScratchpadSaveReady}
           />
-          <button
-            className="display-dialog-back"
-            onClick={() => void onClose()}
-          >
-            <Typography as="span" variant="caption">
-              Back to the overview
-            </Typography>
-          </button>
         </div>
       </section>
     </div>

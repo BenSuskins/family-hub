@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent,
 } from "react";
 import { getApiBaseUrl } from "@/lib/api";
@@ -224,9 +225,13 @@ export function KioskScratchpad({
               className={
                 color === pen.value ? "kiosk-color selected" : "kiosk-color"
               }
-              style={{ backgroundColor: pen.value }}
               onClick={() => setColor(pen.value)}
-            />
+            >
+              <span
+                className="kiosk-color-swatch"
+                style={{ "--ink-color": pen.value } as CSSProperties}
+              />
+            </button>
           ))}
         </div>
         <button

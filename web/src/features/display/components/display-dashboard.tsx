@@ -1,7 +1,6 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 import { Typography } from "@/components/typography";
 import {
   BookOpen,
@@ -58,7 +57,8 @@ const launcherApps: { name: KioskAppName; icon: LucideIcon }[] = [
 ];
 export type DisplayDashboardProps = {
   snapshot: Snapshot | null;
-  token: string;
+  shoppingItems:
+    { id: string; name: string; purchased: boolean; version: number }[] | null;
   clock: Date;
   loading: boolean;
   failures: string[];
@@ -76,7 +76,7 @@ export type DisplayDashboardProps = {
 export function DisplayDashboard(props: DisplayDashboardProps) {
   const {
     snapshot,
-    token,
+    shoppingItems,
     clock,
     loading,
     failures,
@@ -88,9 +88,6 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
     onRefresh,
   } = props;
   const current = snapshot;
-  const { data: shoppingItems } = useKioskResource<
-    { id: string; purchased: boolean }[]
-  >("/api/display/shopping", token);
   const timezone = current?.timezone ?? "Europe/London";
   const dateKey = dayKeyAt(clock, timezone);
   const mealWindow = mealWindowAt(clock, timezone);

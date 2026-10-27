@@ -24,7 +24,7 @@ function getEvents(
   return previous?.events ?? [];
 }
 
-export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Date | null>, onAccessRevoked: () => void): DisplaySnapshotState {
+export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Date | null>, onAccessRevoked: () => void, onRefreshComplete?: () => void): DisplaySnapshotState {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [householdName, setHouseholdName] = useState("Family");
   const [loading, setLoading] = useState(true);
@@ -173,8 +173,9 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
     } finally {
       setLoading(false);
       refreshInFlight.current = false;
+      onRefreshComplete?.();
     }
-  }, [token, clockRef, onAccessRevoked]);
+  }, [token, clockRef, onAccessRevoked, onRefreshComplete]);
 
   useEffect(() => {
     if (!localMocksEnabled || !token) return;

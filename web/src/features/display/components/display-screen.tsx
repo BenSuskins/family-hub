@@ -13,6 +13,8 @@ type DisplayScreenProps = DisplayDashboardProps & {
   selection: DisplaySelection;
   choreFeedback: string;
   token: string;
+  shoppingError: string;
+  reloadShopping: () => Promise<void>;
   dialogRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void;
@@ -25,6 +27,9 @@ export function DisplayScreen(props: DisplayScreenProps) {
     selection,
     choreFeedback,
     token,
+    shoppingItems,
+    shoppingError,
+    reloadShopping,
     dialogRef,
     onClose,
     onRefresh,
@@ -55,6 +60,9 @@ export function DisplayScreen(props: DisplayScreenProps) {
           key={selection.kind === "app" ? selection.app : selection.kind}
           selection={selection}
           snapshot={snapshot}
+          shoppingItems={shoppingItems}
+          shoppingError={shoppingError}
+          reloadShopping={reloadShopping}
           timezone={timezone}
           mealLabel={mealLabel}
           token={token}

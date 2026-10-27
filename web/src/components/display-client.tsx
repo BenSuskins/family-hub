@@ -15,6 +15,14 @@ import { householdDocumentTitle } from "@/lib/display-logic";
 import { DisplayScreen } from "@/features/display/components/display-screen";
 import { useDisplaySession } from "@/features/display/hooks/use-display-session";
 import { useDisplaySnapshot } from "@/features/display/hooks/use-display-snapshot";
+import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
+
+type ShoppingItem = {
+  id: string;
+  name: string;
+  purchased: boolean;
+  version: number;
+};
 
 export function DisplayClient() {
   const [sessionFailures, setSessionFailures] = useState<string[]>([]);
@@ -28,7 +36,20 @@ export function DisplayClient() {
     setSessionFailures([]);
     setToken("");
   }, [setToken]);
-  const snapshotState = useDisplaySnapshot(token, clockRef, clearToken);
+  const {
+    data: shoppingItems,
+    error: shoppingError,
+    reload: reloadShopping,
+  } = useKioskResource<ShoppingItem[]>("/api/display/shopping", token);
+  const refreshShopping = useCallback(() => {
+    void reloadShopping();
+  }, [reloadShopping]);
+  const snapshotState = useDisplaySnapshot(
+    token,
+    clockRef,
+    clearToken,
+    refreshShopping,
+  );
   const {
     snapshot,
     householdName,
@@ -189,6 +210,9 @@ export function DisplayClient() {
   return (
     <DisplayScreen
       snapshot={snapshot}
+      shoppingItems={shoppingItems}
+      shoppingError={shoppingError}
+      reloadShopping={reloadShopping}
       clock={clock}
       loading={loading}
       failures={failures}

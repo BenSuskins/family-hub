@@ -120,16 +120,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
     const eventDate = eventDateKey(event, timezone);
     return eventDate === dateKey;
   });
-  const firstWeekEvent = weekEvents[0];
-  const nextEventDay = firstWeekEvent
-    ? eventDateKey(firstWeekEvent, timezone)
-    : dateKey;
-  const events = todayEvents.length
-    ? todayEvents
-    : weekEvents.filter((event) => {
-        const eventDate = eventDateKey(event, timezone);
-        return eventDate === nextEventDay;
-      });
+  const events = todayEvents;
   const chores = (current?.chores ?? [])
     .filter((item) => item.Status === "pending" || item.Status === "overdue")
     .sort((first, second) =>
@@ -496,7 +487,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
             <section
               style={cardStyle("calendar")}
               className={`display-card calendar-card ${cardLayoutClass("calendar")}`}
-              aria-label="Upcoming calendar events"
+              aria-label="Today’s calendar events"
               tabIndex={0}
             >
               <div className="display-card-heading">
@@ -537,7 +528,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                     }
                   >
                     <time>
-                      <Typography as="span" variant="caption">
+                      <Typography as="span" variant="displayEventTime">
                         {item.AllDay
                           ? "All day"
                           : new Date(item.StartTime).toLocaleTimeString(
@@ -560,11 +551,11 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                       aria-hidden="true"
                     />
                     <span>
-                      <Typography as="strong" variant="cardTitle">
+                      <Typography as="strong" variant="displayEventTitle">
                         {item.Title}
                       </Typography>
                       {eventSubtitle && (
-                        <Typography as="small" variant="cardHint">
+                        <Typography as="small" variant="displayEventMeta">
                           {eventSubtitle}
                         </Typography>
                       )}
@@ -615,7 +606,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                     }
                   >
                     <time>
-                      <Typography as="span" variant="caption">
+                      <Typography as="span" variant="displayEventDate">
                         {new Date(`${eventDay}T12:00:00Z`).toLocaleDateString(
                           "en-GB",
                           {
@@ -626,7 +617,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                           },
                         )}
                       </Typography>
-                      <Typography as="small" variant="cardHint">
+                      <Typography as="small" variant="displayEventTime">
                         {item.AllDay
                           ? "All day"
                           : new Date(item.StartTime).toLocaleTimeString(
@@ -649,11 +640,11 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                       aria-hidden="true"
                     />
                     <span>
-                      <Typography as="strong" variant="cardTitle">
+                      <Typography as="strong" variant="displayEventTitle">
                         {item.Title}
                       </Typography>
                       {item.Location && (
-                        <Typography as="small" variant="cardHint">
+                        <Typography as="small" variant="displayEventMeta">
                           {item.Location}
                         </Typography>
                       )}

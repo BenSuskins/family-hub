@@ -40,6 +40,10 @@ export const typographyVariants = [
   "calendarHour",
   "calendarEvent",
   "calendarEventTime",
+  "displayEventTitle",
+  "displayEventTime",
+  "displayEventDate",
+  "displayEventMeta",
 ] as const;
 
 export type TypographyVariant = (typeof typographyVariants)[number];

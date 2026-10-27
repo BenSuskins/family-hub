@@ -34,7 +34,6 @@ import {
   rankDisplayCards,
   relevantBinDate,
   relevantDepartures,
-  usefulCalendarEvents,
   weatherLabel,
 } from "@/lib/display-logic";
 
@@ -90,23 +89,9 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
   const dateKey = dayKeyAt(clock, timezone);
   const mealWindow = mealWindowAt(clock, timezone);
   const sections = new Set(current?.enabledSections ?? overviewSections);
-  const upcomingEvents = usefulCalendarEvents(
-    current?.events ?? [],
-    clock,
-    timezone,
-  );
-  const todayEvents = upcomingEvents.filter(
+  const events = (current?.events ?? []).filter(
     (event) => dayKeyAt(new Date(event.StartTime), timezone) === dateKey,
   );
-  const nextEventDay = upcomingEvents[0]
-    ? dayKeyAt(new Date(upcomingEvents[0].StartTime), timezone)
-    : dateKey;
-  const events = todayEvents.length
-    ? todayEvents
-    : upcomingEvents.filter(
-        (event) =>
-          dayKeyAt(new Date(event.StartTime), timezone) === nextEventDay,
-      );
   const chores = (current?.chores ?? [])
     .filter((item) => item.Status === "pending" || item.Status === "overdue")
     .sort((first, second) =>

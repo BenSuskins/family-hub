@@ -68,6 +68,6 @@ export function stationShortName(code: string) {
 }
 
 export function resourceName(key: string) {
-  const names: Record<string, string> = { calendar: "Calendar", weather: "Weather", departures: "Journeys", bins: "Bin collections", people: "Household members", commute: "Commute settings", trains: "Train times" };
+  const names: Record<string, string> = { calendar: "Calendar", "dashboard-calendar": "Calendar", "dashboard-chores": "Chores", weather: "Weather", departures: "Journeys", bins: "Bin collections", people: "Household members", commute: "Commute settings", trains: "Train times" };
   return names[key] ?? key;
 }

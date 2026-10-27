@@ -15,7 +15,7 @@
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-body { margin: 0; background: #eeece5; color: var(--ink); font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { margin: 0; background: #eeece5; color: var(--ink); font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-synthesis: none; }
 button { font: inherit; touch-action: manipulation; }
 button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 
@@ -214,7 +214,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-dialog-heading > div { display: flex; align-items: center; gap: 12px; }
 .display-dialog-heading h2 { margin: 0; font-size: 23px; }
 .display-dialog-heading img { border-radius: 10px; }
-.close-button { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--sage); color: var(--ink); font-size: 29px; cursor: pointer; }
+.close-button { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 29px; cursor: pointer; }
 .display-dialog-content { overflow: auto; overscroll-behavior: contain; padding: clamp(16px, 2vw, 28px); }
 .pair-screen.is-dark { background: #1b1e18; color: #f7f0e2; }
 .pair-screen.is-dark .pair-card { border-color: #494a3e; background: #2d3028; }
@@ -363,10 +363,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-dialog-heading { border-bottom: 0; }
 .display-dialog-heading > div { gap: 0; }
 .display-overlay { background: #1f271b66; backdrop-filter: blur(5px); }
-.display-dialog { width: min(100%, 650px); max-height: min(680px, 94svh); border: 0; border-radius: 27px; padding: 10px; }
-.display-dialog.weather-dialog { width: min(100%, 650px); }
+.display-dialog { width: min(100%, 740px); max-height: min(760px, 94svh); border: 0; border-radius: 27px; padding: 10px; background: var(--surface); }
+.display-dialog.weather-dialog { width: min(100%, 740px); }
 .display-dialog-heading { min-height: 66px; padding: 12px 20px 4px; }
-.display-dialog-heading h2 { font-size: 28px; letter-spacing: -.7px; }
+.display-dialog-heading h2 { font-size: 28px; font-weight: 700; letter-spacing: -.7px; }
 .display-dialog-content { padding: 12px 20px 22px; }
 .shopping-app .shopping-add { margin-bottom: 14px; }
 .shopping-app .inline-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 0; }
@@ -422,8 +422,11 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .recipe-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding-left: 0; }
 .kiosk-drawing-tools > span { color: var(--secondary); font-size: 13px; }
 .kiosk-drawing-tools > div[role="group"] { display: flex; gap: 8px; }
-.kiosk-color { width: 48px; height: 48px; min-width: 48px; min-height: 48px; padding: 0; box-shadow: inset 0 0 0 3px var(--surface); }
-.kiosk-color.selected { outline: 2px solid var(--ink); outline-offset: 1px; border-color: transparent; }
+.kiosk-color { width: 48px; height: 48px; min-width: 48px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 2px solid transparent; border-radius: 50%; background: transparent; }
+.kiosk-color.selected { border-color: var(--ink); }
+.kiosk-color-swatch { width: 26px; height: 26px; border: 2px solid #fff9; border-radius: 50%; background: var(--ink-color); box-shadow: 0 1px 4px #0002; }
+.kiosk-tool { min-height: 44px; padding: 10px 16px; border: 0; border-radius: 12px; background: var(--sage); color: var(--accent); font-size: 15px; font-weight: 600; }
+.kiosk-tool .typography--caption { font-size: 15px; }
 .kiosk-drawing canvas { height: 230px; background: var(--surface); }
 .wall-display.is-dark .shopping-row { background: var(--surface); color: var(--ink); }
 .wall-display.is-dark .shopping-undo { background: var(--sage); color: var(--ink); }
@@ -511,11 +514,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .trains-card .train-row small { color: var(--accent); font-size: clamp(11px, .82vw, 14px); white-space: nowrap; }
 .meal-card { cursor: pointer; }
 .meal-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.display-dialog-back { min-height: 44px; display: block; margin: 22px 0 0 auto; padding: 10px 16px; border: 0; border-radius: 12px; background: var(--sage); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
 .shopping-undo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 12px 0; padding: 12px 15px; border-radius: 12px; background: var(--ink); color: var(--paper); }
 .shopping-undo button { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
 .display-toast { position: fixed; z-index: 30; left: 50%; bottom: 28px; transform: translateX(-50%); max-width: min(90vw, 650px); padding: 14px 22px; border-radius: 16px; background: var(--ink); color: var(--paper); box-shadow: 0 8px 25px #0002; font-size: clamp(14px, 1vw, 17px); white-space: nowrap; }
-.display-overlay.is-dark .display-dialog { --paper: #201f1a; --surface: #2d3028; --ink: #f7f0e2; --secondary: #c3beaf; --accent: #bad0ab; --sage: #3e4a37; --clay: #e0baa0; --border: #494a3e; background: var(--paper); color: var(--ink); }
+.display-overlay.is-dark .display-dialog { --paper: #201f1a; --surface: #2d3028; --ink: #f7f0e2; --secondary: #c3beaf; --accent: #bad0ab; --sage: #3e4a37; --clay: #e0baa0; --border: #494a3e; background: var(--surface); color: var(--ink); }
 .display-overlay.is-dark .display-dialog .display-dialog-heading { color: var(--ink); }
 .display-overlay.is-dark .display-dialog .shopping-check { background: var(--surface); color: var(--ink); }
 .display-overlay.is-dark .display-dialog .shopping-undo { background: var(--ink); color: var(--paper); }

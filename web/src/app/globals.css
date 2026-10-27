@@ -166,6 +166,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .typography--calendar-hour { color: var(--secondary); font-size: 11px; }
 .typography--calendar-event { font-size: 11px; line-height: 1.2; }
 .typography--calendar-event-time { color: var(--secondary); font-size: 10px; }
+.typography--display-event-title { font-size: clamp(19px, 1.65vw, 25px); font-weight: 550; line-height: 1.25; letter-spacing: -.035em; }
+.typography--display-event-time { color: var(--secondary); font-size: clamp(14px, 1vw, 16px); font-variant-numeric: tabular-nums; }
+.typography--display-event-date { font-size: clamp(15px, 1.05vw, 17px); font-weight: 550; }
+.typography--display-event-meta { color: var(--secondary); font-size: clamp(14px, 1vw, 17px); line-height: 1.4; }
 
 /* Paired display: content fills the browser viewport rather than simulating a device. */
 .wall-display-shell { min-height: 100svh; display: block; padding: 0; background: var(--paper); }

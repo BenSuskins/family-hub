@@ -6,17 +6,23 @@ import {
   type DisplayDashboardProps,
 } from "@/features/display/components/display-dashboard";
 import { DisplayDialog } from "@/features/display/components/display-dialog";
-import type { DisplaySelection } from "@/features/display/model/display-types";
+import type {
+  DisplaySelection,
+  DisplayShoppingItem,
+} from "@/features/display/model/display-types";
 import { mealWindowAt } from "@/lib/display-logic";
 
 type DisplayScreenProps = DisplayDashboardProps & {
   selection: DisplaySelection;
   choreFeedback: string;
+  shoppingFeedback: { message: string; undoItem?: DisplayShoppingItem } | null;
   token: string;
   shoppingError: string;
   reloadShopping: () => Promise<void>;
+  reloadInventory: () => Promise<void>;
   dialogRef: RefObject<HTMLElement | null>;
   onClose: () => void;
+  onUndoShopping: () => void;
   onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void;
 };
 
@@ -26,10 +32,12 @@ export function DisplayScreen(props: DisplayScreenProps) {
     clock,
     selection,
     choreFeedback,
+    shoppingFeedback,
     token,
     shoppingItems,
     shoppingError,
     reloadShopping,
+    reloadInventory,
     dialogRef,
     onClose,
     onRefresh,
@@ -55,6 +63,19 @@ export function DisplayScreen(props: DisplayScreenProps) {
           {choreFeedback}
         </div>
       )}
+      {shoppingFeedback && (
+        <div className="display-toast" role="status">
+          <span>{shoppingFeedback.message}</span>
+          {shoppingFeedback.undoItem && (
+            <button
+              className="display-toast-action"
+              onClick={props.onUndoShopping}
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
       {selection && (
         <DisplayDialog
           key={selection.kind === "app" ? selection.app : selection.kind}
@@ -63,6 +84,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
           shoppingItems={shoppingItems}
           shoppingError={shoppingError}
           reloadShopping={reloadShopping}
+          reloadInventory={reloadInventory}
           timezone={timezone}
           mealLabel={mealLabel}
           token={token}

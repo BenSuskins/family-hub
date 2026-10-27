@@ -6,6 +6,8 @@ import { PairDisplay } from "@/features/display/components/pair-display";
 import { apiBase } from "@/features/display/api/display-api";
 import type {
   DisplayChore,
+  DisplayInventoryArea,
+  DisplayShoppingItem,
   DisplaySelection,
   EventDetails,
   KioskAppName,
@@ -15,14 +17,8 @@ import { householdDocumentTitle } from "@/lib/display-logic";
 import { DisplayScreen } from "@/features/display/components/display-screen";
 import { useDisplaySession } from "@/features/display/hooks/use-display-session";
 import { useDisplaySnapshot } from "@/features/display/hooks/use-display-snapshot";
+import { useDisplayShoppingActions } from "@/features/display/hooks/use-display-shopping-actions";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
-
-type ShoppingItem = {
-  id: string;
-  name: string;
-  purchased: boolean;
-  version: number;
-};
 
 export function DisplayClient() {
   const [sessionFailures, setSessionFailures] = useState<string[]>([]);
@@ -40,15 +36,24 @@ export function DisplayClient() {
     data: shoppingItems,
     error: shoppingError,
     reload: reloadShopping,
-  } = useKioskResource<ShoppingItem[]>("/api/display/shopping", token);
-  const refreshShopping = useCallback(() => {
-    void reloadShopping();
-  }, [reloadShopping]);
+  } = useKioskResource<DisplayShoppingItem[]>("/api/display/shopping", token);
+  const { data: inventoryAreas, reload: reloadInventory } = useKioskResource<
+    DisplayInventoryArea[]
+  >("/api/display/inventory", token);
+  const refreshDisplayResources = useCallback(() => {
+    void Promise.all([reloadShopping(), reloadInventory()]);
+  }, [reloadInventory, reloadShopping]);
+  const {
+    pendingShoppingId,
+    feedback: shoppingFeedback,
+    toggleShopping,
+    undoShopping,
+  } = useDisplayShoppingActions(token, reloadShopping);
   const snapshotState = useDisplaySnapshot(
     token,
     clockRef,
     clearToken,
-    refreshShopping,
+    refreshDisplayResources,
   );
   const {
     snapshot,
@@ -211,14 +216,18 @@ export function DisplayClient() {
     <DisplayScreen
       snapshot={snapshot}
       shoppingItems={shoppingItems}
+      inventoryAreas={inventoryAreas}
       shoppingError={shoppingError}
       reloadShopping={reloadShopping}
+      reloadInventory={reloadInventory}
       clock={clock}
       loading={loading}
       failures={failures}
       selection={selection}
       pendingChoreId={pendingChoreId}
       choreFeedback={choreFeedback}
+      shoppingFeedback={shoppingFeedback}
+      pendingShoppingId={pendingShoppingId}
       token={token}
       dialogRef={dialogRef}
       onOpenApp={open}
@@ -227,6 +236,8 @@ export function DisplayClient() {
         setSelection({ kind: "chore", chore });
       }}
       onCompleteAssignedChore={completeAssignedChore}
+      onToggleShopping={toggleShopping}
+      onUndoShopping={undoShopping}
       onClose={() => {
         void close();
       }}

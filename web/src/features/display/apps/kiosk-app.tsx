@@ -52,7 +52,9 @@ const MealPlan = dynamic<MealPlanAppProps>(
     ),
   { loading: LoadingApp },
 );
-const Inventory = dynamic<SharedAppProps>(
+const Inventory = dynamic<
+  SharedAppProps & { onInventoryChanged: () => Promise<void> }
+>(
   () =>
     import("@/features/display/apps/inventory-app").then(
       (module) => module.InventoryApp,
@@ -78,7 +80,10 @@ type KioskAppProps =
       error: string;
       reload: () => Promise<void>;
     } & SharedAppProps)
-  | ({ app: "Inventory" } & SharedAppProps)
+  | ({
+      app: "Inventory";
+      onInventoryChanged: () => Promise<void>;
+    } & SharedAppProps)
   | ({ app: "Calendar" } & CalendarAppProps)
   | ({ app: "Recipes" } & SharedAppProps)
   | ({ app: "Meal plan" } & MealPlanAppProps)
@@ -120,7 +125,13 @@ export function KioskApp(props: KioskAppProps) {
         onDialogTitleChange={props.onDialogTitleChange}
       />
     );
-  if (props.app === "Inventory") return <Inventory token={props.token} />;
+  if (props.app === "Inventory")
+    return (
+      <Inventory
+        token={props.token}
+        onInventoryChanged={props.onInventoryChanged}
+      />
+    );
   if (props.app === "Weather")
     return (
       <Weather

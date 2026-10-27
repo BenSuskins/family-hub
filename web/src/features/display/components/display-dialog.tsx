@@ -18,6 +18,7 @@ type DisplayDialogProps = {
   shoppingItems: ShoppingItem[] | null;
   shoppingError: string;
   reloadShopping: () => Promise<void>;
+  reloadInventory: () => Promise<void>;
   timezone: string;
   mealLabel: string;
   token: string;
@@ -44,6 +45,7 @@ export function DisplayDialog(props: DisplayDialogProps) {
     shoppingItems,
     shoppingError,
     reloadShopping,
+    reloadInventory,
     timezone,
     mealLabel,
     token,
@@ -94,6 +96,7 @@ export function DisplayDialog(props: DisplayDialogProps) {
             shoppingItems={shoppingItems}
             shoppingError={shoppingError}
             reloadShopping={reloadShopping}
+            reloadInventory={reloadInventory}
             timezone={timezone}
             token={token}
             clock={clock}
@@ -135,6 +138,7 @@ function DialogContent(props: DialogContentProps) {
     shoppingItems,
     shoppingError,
     reloadShopping,
+    reloadInventory,
     timezone,
     token,
     clock,
@@ -180,7 +184,13 @@ function DialogContent(props: DialogContentProps) {
           reload={reloadShopping}
         />
       );
-    return <KioskApp app="Inventory" token={token} />;
+    return (
+      <KioskApp
+        app="Inventory"
+        token={token}
+        onInventoryChanged={reloadInventory}
+      />
+    );
   }
   if (selection.app === "Calendar") {
     return (

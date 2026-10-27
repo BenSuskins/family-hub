@@ -4,6 +4,7 @@ import { Profiler } from "react";
 import { useRef } from "react";
 import { Window } from "happy-dom";
 import { KioskScratchpad } from "@/components/kiosk-scratchpad";
+import { InventoryApp } from "@/features/display/apps/inventory-app";
 import { useDisplaySnapshot } from "@/features/display/hooks/use-display-snapshot";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 
@@ -22,6 +23,7 @@ Object.assign(globalThis, {
 const { cleanup, fireEvent, render, screen, waitFor } =
   await import("@testing-library/react");
 const originalFetch = globalThis.fetch;
+const doNothing = () => {};
 
 afterEach(() => {
   cleanup();
@@ -41,7 +43,7 @@ function SnapshotProbe() {
   const { snapshot, householdName } = useDisplaySnapshot(
     "test-token",
     clock,
-    () => {},
+    doNothing,
   );
   return (
     <p>
@@ -50,6 +52,21 @@ function SnapshotProbe() {
         : "Loading household"}
     </p>
   );
+}
+
+function SnapshotRefreshProbe({
+  onRefreshComplete,
+}: {
+  onRefreshComplete: () => void;
+}) {
+  const clock = useRef<Date | null>(null);
+  const { refresh } = useDisplaySnapshot(
+    "test-token",
+    clock,
+    doNothing,
+    onRefreshComplete,
+  );
+  return <button onClick={() => void refresh()}>Refresh snapshot</button>;
 }
 
 test("snapshot settings and home information load concurrently", async () => {
@@ -76,6 +93,76 @@ test("snapshot settings and home information load concurrently", async () => {
     Response.json({ id: "display-1", name: "Kitchen", enabledSections: [] }),
   );
   await screen.findByText("The Example Family · Europe/London");
+});
+
+test("snapshot refresh completion reloads display resources", async () => {
+  globalThis.fetch = async (input) => {
+    const path = new URL(String(input), "http://localhost").pathname;
+    if (path === "/api/display/settings")
+      return Response.json({ id: "display-1", enabledSections: [] });
+    if (path === "/api/display/home-info")
+      return Response.json({ timezone: "Europe/London", familyName: "Home" });
+    throw new Error(`Unexpected display request: ${path}`);
+  };
+  let refreshCount = 0;
+  render(
+    <SnapshotRefreshProbe
+      onRefreshComplete={() => {
+        refreshCount += 1;
+      }}
+    />,
+  );
+
+  await waitFor(() => assert.ok(refreshCount >= 1));
+  const countBeforeRefresh = refreshCount;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh snapshot" }));
+  await waitFor(() => assert.ok(refreshCount > countBeforeRefresh));
+});
+
+test("inventory stock changes refresh the dashboard inventory resource", async () => {
+  let inventoryRequestCount = 0;
+  let dashboardRefreshCount = 0;
+  globalThis.fetch = async (input, init) => {
+    const path = new URL(String(input), "http://localhost").pathname;
+    if (path === "/api/display/inventory") {
+      inventoryRequestCount += 1;
+      return Response.json([
+        {
+          ID: "pantry",
+          Name: "Pantry",
+          Items: [
+            {
+              ID: "soap",
+              Name: "Soap",
+              TrackingMode: "count",
+              Quantity: 2,
+              Level: 0,
+              Unit: "bottle",
+            },
+          ],
+        },
+      ]);
+    }
+    if (path === "/api/display/inventory/items/soap/stock") {
+      assert.equal(init?.method, "PUT");
+      return Response.json({});
+    }
+    throw new Error(`Unexpected display request: ${path}`);
+  };
+  render(
+    <InventoryApp
+      token="test-token"
+      onInventoryChanged={async () => {
+        dashboardRefreshCount += 1;
+      }}
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add one bottle of Soap" }),
+  );
+  await waitFor(() => assert.equal(dashboardRefreshCount, 1));
+  assert.equal(inventoryRequestCount, 2);
 });
 
 test("a response for an old kiosk resource path cannot replace the current resource", async () => {

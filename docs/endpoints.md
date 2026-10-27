@@ -172,10 +172,11 @@ curl -s -X POST "$BASE_URL/api/display-pairing/challenges/<id>/claim" \
 - **Use case:** List, configure, or revoke paired wall displays.
 - **Callers:** iOS admin settings.
 - **Security:** Bearer API token and admin role. Revocation deletes the display credential immediately.
+- **Settings:** `PATCH` replaces `enabledSections`. Supported values are `calendar`, `meals`, `chores`, `weather`, `departures`, `trains`, `bins`, `shopping`, and `inventory`. Newly paired displays enable all supported sections by default. Existing displays keep their saved choices until an administrator updates them.
 
 ```bash
 curl -s "$BASE_URL/api/displays" -H "Authorization: Bearer $API_TOKEN" | jq
-curl -s -X PATCH "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" -d '{"enabledSections":["calendar","meals","chores","weather","departures","bins"]}' | jq
+curl -s -X PATCH "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" -d '{"enabledSections":["calendar","meals","chores","weather","departures","bins","shopping","inventory"]}' | jq
 curl -s -X DELETE "$BASE_URL/api/displays/<id>" -H "Authorization: Bearer $API_TOKEN" -w "%{http_code}\n"
 ```
 

@@ -36,7 +36,7 @@ public struct PairedDisplay: Codable, Identifiable, Equatable {
         commutePreferences = try values.decodeIfPresent(CommutePreferences.self, forKey: .commutePreferences) ?? CommutePreferences()
     }
 
-    public static let defaultSections = ["calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping"]
+    public static let defaultSections = ["calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping", "inventory"]
 }
 
 public struct DisplayPairingCode: Codable, Equatable {

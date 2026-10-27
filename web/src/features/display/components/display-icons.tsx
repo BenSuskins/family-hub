@@ -8,6 +8,7 @@ import {
   CloudSun,
   ListChecks,
   Monitor,
+  Package,
   ShoppingBag,
   Sun,
   TrainFront,
@@ -25,6 +26,7 @@ const sectionIcons: Record<string, LucideIcon> = {
   trains: TrainFront,
   bins: Trash2,
   shopping: ShoppingBag,
+  inventory: Package,
 };
 
 export function SectionIcon({

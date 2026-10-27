@@ -9,7 +9,9 @@
       "weather",
       "departures",
       "trains",
-      "bins"
+      "bins",
+      "shopping",
+      "inventory"
     ]
   },
   "home": {
@@ -335,9 +337,10 @@
         {
           "ID": "item-rice",
           "Name": "Rice",
-          "TrackingMode": "quantity",
+          "TrackingMode": "count",
           "Quantity": 2,
           "Level": 0,
+          "LowAt": 3,
           "Unit": "bags"
         },
         {
@@ -346,6 +349,7 @@
           "TrackingMode": "level",
           "Quantity": 0,
           "Level": 50,
+          "LowAt": 25,
           "Unit": ""
         }
       ]
@@ -357,9 +361,10 @@
         {
           "ID": "item-eggs",
           "Name": "Eggs",
-          "TrackingMode": "quantity",
+          "TrackingMode": "count",
           "Quantity": 6,
           "Level": 0,
+          "LowAt": 2,
           "Unit": ""
         }
       ]

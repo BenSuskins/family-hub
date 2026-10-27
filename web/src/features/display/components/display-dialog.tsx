@@ -15,6 +15,9 @@ import { displayDialogTitle } from "@/features/display/model/display-formatters"
 type DisplayDialogProps = {
   selection: Exclude<DisplaySelection, null>;
   snapshot: Snapshot | null;
+  shoppingItems: ShoppingItem[] | null;
+  shoppingError: string;
+  reloadShopping: () => Promise<void>;
   timezone: string;
   mealLabel: string;
   token: string;
@@ -27,10 +30,20 @@ type DisplayDialogProps = {
   onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void;
 };
 
+type ShoppingItem = {
+  id: string;
+  name: string;
+  purchased: boolean;
+  version: number;
+};
+
 export function DisplayDialog(props: DisplayDialogProps) {
   const {
     selection,
     snapshot,
+    shoppingItems,
+    shoppingError,
+    reloadShopping,
     timezone,
     mealLabel,
     token,
@@ -54,7 +67,7 @@ export function DisplayDialog(props: DisplayDialogProps) {
     >
       <section
         ref={dialogRef}
-        className={`display-dialog${selection.kind === "app" && selection.app === "Weather" ? " weather-dialog" : ""}`}
+        className={`display-dialog${selection.kind === "app" && selection.app === "Weather" ? " weather-dialog" : ""}${selection.kind === "app" && selection.app === "Recipes" ? " recipe-dialog" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="display-dialog-title"
@@ -78,6 +91,9 @@ export function DisplayDialog(props: DisplayDialogProps) {
           <DialogContent
             selection={selection}
             snapshot={snapshot}
+            shoppingItems={shoppingItems}
+            shoppingError={shoppingError}
+            reloadShopping={reloadShopping}
             timezone={timezone}
             token={token}
             clock={clock}
@@ -116,6 +132,9 @@ function DialogContent(props: DialogContentProps) {
   const {
     selection,
     snapshot,
+    shoppingItems,
+    shoppingError,
+    reloadShopping,
     timezone,
     token,
     clock,
@@ -151,7 +170,17 @@ function DialogContent(props: DialogContentProps) {
     );
   }
   if (selection.app === "Shopping" || selection.app === "Inventory") {
-    return <KioskApp app={selection.app} token={token} />;
+    if (selection.app === "Shopping")
+      return (
+        <KioskApp
+          app="Shopping"
+          token={token}
+          items={shoppingItems}
+          error={shoppingError}
+          reload={reloadShopping}
+        />
+      );
+    return <KioskApp app="Inventory" token={token} />;
   }
   if (selection.app === "Calendar") {
     return (
@@ -164,13 +193,7 @@ function DialogContent(props: DialogContentProps) {
     );
   }
   if (selection.app === "Recipes") {
-    return (
-      <KioskApp
-        app="Recipes"
-        token={token}
-        onDialogTitleChange={onDialogTitleChange}
-      />
-    );
+    return <KioskApp app="Recipes" token={token} />;
   }
   if (selection.app === "Meal plan") {
     return (

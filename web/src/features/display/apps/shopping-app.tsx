@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Typography } from "@/components/typography";
 import { apiBase } from "@/features/display/api/display-api";
-import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 
 type ShoppingItem = {
   id: string;
@@ -12,22 +11,27 @@ type ShoppingItem = {
   version: number;
 };
 
-export function ShoppingApp({ token }: { token: string }) {
-  const {
-    data: items,
-    error,
-    setError,
-    reload,
-  } = useKioskResource<ShoppingItem[]>("/api/display/shopping", token);
+export function ShoppingApp({
+  token,
+  items,
+  error,
+  reload,
+}: {
+  token: string;
+  items: ShoppingItem[] | null;
+  error: string;
+  reload: () => Promise<void>;
+}) {
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");
+  const [mutationError, setMutationError] = useState("");
   const [undoItem, setUndoItem] = useState<ShoppingItem | null>(null);
   const undoTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(undoTimer.current), []);
 
   async function update(item: ShoppingItem) {
     setBusy(item.id);
-    setError("");
+    setMutationError("");
     try {
       const response = await fetch(
         `${apiBase}/api/display/shopping/items/${item.id}`,
@@ -56,7 +60,9 @@ export function ShoppingApp({ token }: { token: string }) {
         }, 5_000);
       }
     } catch {
-      setError("We couldn’t update the shopping list. Please try again.");
+      setMutationError(
+        "We couldn’t update the shopping list. Please try again.",
+      );
     } finally {
       setBusy("");
     }
@@ -67,7 +73,7 @@ export function ShoppingApp({ token }: { token: string }) {
     const name = newName.trim();
     if (!name) return;
     setBusy("new-shopping");
-    setError("");
+    setMutationError("");
     try {
       const response = await fetch(`${apiBase}/api/display/shopping/items`, {
         method: "POST",
@@ -81,16 +87,16 @@ export function ShoppingApp({ token }: { token: string }) {
       setNewName("");
       await reload();
     } catch {
-      setError("We couldn’t add that item. Please try again.");
+      setMutationError("We couldn’t add that item. Please try again.");
     } finally {
       setBusy("");
     }
   }
 
-  if (error && !items)
+  if ((mutationError || error) && !items)
     return (
       <Typography as="p" variant="body" role="alert">
-        {error}
+        {mutationError || error}
       </Typography>
     );
   if (!items)
@@ -123,9 +129,9 @@ export function ShoppingApp({ token }: { token: string }) {
           </Typography>
         </button>
       </form>
-      {error && (
+      {(mutationError || error) && (
         <Typography as="p" variant="body" role="alert">
-          {error}
+          {mutationError || error}
         </Typography>
       )}
       {items

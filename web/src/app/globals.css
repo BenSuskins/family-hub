@@ -413,12 +413,26 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .area-heading { margin: 18px 0 3px; }
 .recipe-row { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 11px; padding: 12px 3px !important; border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
 .recipe-row-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--sage); color: var(--accent); }
-.recipe-row-title { flex: 1; }
+.recipe-row-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.recipe-row-title { font-weight: 600; }
+.recipe-row-meta { color: var(--secondary); }
 .recipe-row-chevron { color: var(--secondary); transition: transform .15s ease; }
 .recipe-row[open] .recipe-row-chevron { transform: rotate(90deg); }
-.recipe-detail { display: grid; gap: 10px; }
-.recipe-detail h3 { margin-top: 14px; font-size: 19px; }
-.recipe-detail-line { line-height: 1.55; }
+.recipe-dialog { width: min(100%, 1100px); }
+.recipe-dialog .display-dialog-content { padding: 14px clamp(24px, 4.5vw, 54px) 32px; }
+.recipe-dialog .display-dialog-heading { padding-inline: clamp(24px, 4.5vw, 54px); }
+.recipe-dialog .display-dialog-heading h2 { font-size: clamp(25px, 3vw, 36px); }
+.recipe-dialog .close-button { width: 58px; height: 58px; background: var(--paper); }
+.recipe-detail { display: grid; gap: 13px; }
+.recipe-detail h3 { margin-top: 14px; font-size: clamp(20px, 2.1vw, 27px); }
+.recipe-detail-title { font-size: clamp(28px, 4vw, 44px) !important; line-height: 1.12; letter-spacing: -1px; }
+.recipe-meta { margin: 1px 0 8px; color: var(--secondary); }
+.recipe-ingredients, .recipe-method { display: grid; gap: 9px; margin: 0; padding-left: 1.3em; }
+.recipe-ingredients { list-style-type: disc; }
+.recipe-method { list-style-type: decimal; }
+.recipe-detail-line { line-height: 1.5; }
+.recipe-ingredients li { padding-left: 4px; }
+.recipe-method li { padding-left: 5px; }
 .recipe-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding-left: 0; }
 .kiosk-drawing-tools > span { color: var(--secondary); font-size: 13px; }
 .kiosk-drawing-tools > div[role="group"] { display: flex; gap: 8px; }

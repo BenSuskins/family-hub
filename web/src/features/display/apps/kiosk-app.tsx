@@ -6,17 +6,25 @@ import { KioskScratchpad } from "@/components/kiosk-scratchpad";
 import type { MealEditTarget } from "@/features/display/model/display-types";
 
 type SharedAppProps = { token: string };
+type ShoppingItem = {
+  id: string;
+  name: string;
+  purchased: boolean;
+  version: number;
+};
+type ShoppingAppProps = SharedAppProps & {
+  items: ShoppingItem[] | null;
+  error: string;
+  reload: () => Promise<void>;
+};
 type CalendarAppProps = SharedAppProps & { timezone: string; clock: Date };
 type WeatherAppProps = CalendarAppProps;
-type RecipeAppProps = SharedAppProps & {
-  onDialogTitleChange?: (title: string | null) => void;
-};
 type MealPlanAppProps = WeatherAppProps & {
   initialMeal: MealEditTarget | null;
   onDialogTitleChange?: (title: string | null) => void;
 };
 
-const Shopping = dynamic<SharedAppProps>(
+const Shopping = dynamic<ShoppingAppProps>(
   () =>
     import("@/features/display/apps/shopping-app").then(
       (module) => module.ShoppingApp,
@@ -30,7 +38,7 @@ const Calendar = dynamic<CalendarAppProps>(
     ),
   { loading: LoadingApp },
 );
-const Recipes = dynamic<RecipeAppProps>(
+const Recipes = dynamic<SharedAppProps>(
   () =>
     import("@/features/display/apps/recipes-app").then(
       (module) => module.RecipesApp,
@@ -64,9 +72,15 @@ type KioskAppProps =
       app: "Notes";
       onScratchpadSaveReady: (save: (() => Promise<void>) | null) => void;
     } & SharedAppProps)
-  | ({ app: "Shopping" | "Inventory" } & SharedAppProps)
+  | ({
+      app: "Shopping";
+      items: ShoppingItem[] | null;
+      error: string;
+      reload: () => Promise<void>;
+    } & SharedAppProps)
+  | ({ app: "Inventory" } & SharedAppProps)
   | ({ app: "Calendar" } & CalendarAppProps)
-  | ({ app: "Recipes" } & RecipeAppProps)
+  | ({ app: "Recipes" } & SharedAppProps)
   | ({ app: "Meal plan" } & MealPlanAppProps)
   | ({ app: "Weather" } & WeatherAppProps);
 
@@ -78,7 +92,15 @@ export function KioskApp(props: KioskAppProps) {
         onSaveReady={props.onScratchpadSaveReady}
       />
     );
-  if (props.app === "Shopping") return <Shopping token={props.token} />;
+  if (props.app === "Shopping")
+    return (
+      <Shopping
+        token={props.token}
+        items={props.items}
+        error={props.error}
+        reload={props.reload}
+      />
+    );
   if (props.app === "Calendar")
     return (
       <Calendar
@@ -87,13 +109,7 @@ export function KioskApp(props: KioskAppProps) {
         clock={props.clock}
       />
     );
-  if (props.app === "Recipes")
-    return (
-      <Recipes
-        token={props.token}
-        onDialogTitleChange={props.onDialogTitleChange}
-      />
-    );
+  if (props.app === "Recipes") return <Recipes token={props.token} />;
   if (props.app === "Meal plan")
     return (
       <MealPlan

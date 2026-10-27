@@ -57,6 +57,8 @@ const launcherApps: { name: KioskAppName; icon: LucideIcon }[] = [
 ];
 export type DisplayDashboardProps = {
   snapshot: Snapshot | null;
+  shoppingItems:
+    { id: string; name: string; purchased: boolean; version: number }[] | null;
   clock: Date;
   loading: boolean;
   failures: string[];
@@ -74,6 +76,7 @@ export type DisplayDashboardProps = {
 export function DisplayDashboard(props: DisplayDashboardProps) {
   const {
     snapshot,
+    shoppingItems,
     clock,
     loading,
     failures,
@@ -671,7 +674,9 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                   className="display-icon"
                 />
                 <Typography as="span" variant="caption">
-                  {name}
+                  {name === "Shopping" && shoppingItems
+                    ? `${name} (${shoppingItems.filter((item) => !item.purchased).length})`
+                    : name}
                 </Typography>
               </button>
             ))}

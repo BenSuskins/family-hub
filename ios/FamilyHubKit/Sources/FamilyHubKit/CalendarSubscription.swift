@@ -22,4 +22,19 @@ public enum CalendarSubscriptionColor: String, CaseIterable, Identifiable, Senda
     case indigo, violet, rose, red, orange, amber, emerald, teal, sky, blue
 
     public var id: String { rawValue }
+
+    public var hex: String {
+        switch self {
+        case .indigo: "#6366F1"
+        case .violet: "#8B5CF6"
+        case .rose: "#F43F5E"
+        case .red: "#EF4444"
+        case .orange: "#F97316"
+        case .amber: "#F59E0B"
+        case .emerald: "#10B981"
+        case .teal: "#14B8A6"
+        case .sky: "#0EA5E9"
+        case .blue: "#3B82F6"
+        }
+    }
 }

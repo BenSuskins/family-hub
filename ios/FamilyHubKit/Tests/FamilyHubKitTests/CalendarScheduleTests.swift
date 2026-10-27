@@ -12,6 +12,18 @@ final class CalendarScheduleTests: XCTestCase {
 
     private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
 
+    func testSubscriptionColorsMapToDisplayableHexValues() {
+        let colors: [(CalendarSubscriptionColor, String)] = [
+            (.indigo, "#6366F1"), (.violet, "#8B5CF6"), (.rose, "#F43F5E"),
+            (.red, "#EF4444"), (.orange, "#F97316"), (.amber, "#F59E0B"),
+            (.emerald, "#10B981"), (.teal, "#14B8A6"), (.sky, "#0EA5E9"),
+            (.blue, "#3B82F6")
+        ]
+        for (color, expectedHex) in colors {
+            XCTAssertEqual(color.hex, expectedHex)
+        }
+    }
+
     func testEventAppearsOnEachDayItOccupiesWithoutIncludingItsExclusiveEnd() async {
         let schedule = CalendarSchedule(calendar: calendar)
         let event = CalendarEvent(id: "trip", title: "Trip", description: "", location: "",

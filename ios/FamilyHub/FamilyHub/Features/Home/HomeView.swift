@@ -449,7 +449,8 @@ private struct EventRow: View {
     }
 
     private var dotColor: Color {
-        Color(hex: event.color) ?? .accentColor
+        let eventColor = CalendarSubscriptionColor(rawValue: event.color.lowercased())?.hex ?? event.color
+        return Color(hex: eventColor) ?? .accentColor
     }
 
     var body: some View {

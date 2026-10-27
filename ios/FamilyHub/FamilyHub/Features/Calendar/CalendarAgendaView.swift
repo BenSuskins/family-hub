@@ -53,6 +53,10 @@ struct CalendarDisplayItem: Identifiable {
 
 enum CalendarPalette {
     static func color(_ value: String) -> Color {
+        if let subscriptionColor = CalendarSubscriptionColor(rawValue: value.lowercased()),
+           let color = Color(hex: subscriptionColor.hex) {
+            return color
+        }
         if let color = Color(hex: value) { return color }
         switch value.lowercased() {
         case "red": return .red

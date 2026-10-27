@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { Typography } from "@/components/typography";
 import { useKioskResource } from "@/features/display/hooks/use-kiosk-resource";
 import { dayKeyAt } from "@/lib/display-logic";
+import { calendarEventColor } from "@/lib/calendar-color";
 import {
   hourAt,
   weekStartAt,
@@ -140,7 +141,7 @@ export function CalendarApp({
                       key={event.ID}
                       style={
                         {
-                          "--event-color": event.Color ?? "#718da6",
+                          "--event-color": calendarEventColor(event.Color),
                         } as React.CSSProperties
                       }
                     >

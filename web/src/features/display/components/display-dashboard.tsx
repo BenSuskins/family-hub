@@ -43,6 +43,7 @@ import {
   relevantDepartures,
   weatherLabel,
 } from "@/lib/display-logic";
+import { calendarEventColor } from "@/lib/calendar-color";
 
 const overviewSections = [
   "calendar",
@@ -548,7 +549,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                       className="event-line"
                       style={
                         {
-                          "--event-color": item.Color ?? "#718da6",
+                          "--event-color": calendarEventColor(item.Color),
                         } as React.CSSProperties
                       }
                       aria-hidden="true"
@@ -637,7 +638,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                       className="event-line"
                       style={
                         {
-                          "--event-color": item.Color ?? "#718da6",
+                          "--event-color": calendarEventColor(item.Color),
                         } as React.CSSProperties
                       }
                       aria-hidden="true"

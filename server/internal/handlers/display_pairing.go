@@ -150,7 +150,7 @@ func (handler *DisplayPairingHandler) Revoke(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
-var displaySections = map[string]bool{"calendar": true, "meals": true, "chores": true, "weather": true, "departures": true, "trains": true, "bins": true, "shopping": true}
+var displaySections = map[string]bool{"calendar": true, "meals": true, "chores": true, "weather": true, "departures": true, "trains": true, "bins": true, "shopping": true, "inventory": true}
 
 func (handler *DisplayPairingHandler) UpdateSections(w http.ResponseWriter, r *http.Request) {
 	var body struct {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   dayKeyAt,
+  addDaysKey,
   displayGreeting,
   displayStoragePrefix,
   householdDocumentTitle,
@@ -9,6 +10,8 @@ import {
   mealWindowAt,
   rankDisplayCards,
   nextDayKey,
+  mondayKey,
+  rollingDateKeys,
   relevantBinDate,
   relevantDepartures,
   usefulCalendarEvents,
@@ -16,18 +19,46 @@ import {
 } from "./display-logic";
 
 test("meal preview uses the selected household timezone and switches at 20:00", () => {
-  assert.deepEqual(mealWindowAt(new Date("2026-10-26T19:59:00Z"), "Europe/London"), {
-    date: "2026-10-26", label: "Today", nextMeal: "dinner",
-  });
-  assert.deepEqual(mealWindowAt(new Date("2026-10-26T20:00:00Z"), "Europe/London"), {
-    date: "2026-10-27", label: "Tomorrow", nextMeal: "breakfast",
-  });
-  assert.equal(mealWindowAt(new Date("2026-03-29T18:59:00Z"), "Europe/London").label, "Today");
-  assert.equal(mealWindowAt(new Date("2026-03-29T19:00:00Z"), "Europe/London").label, "Tomorrow");
-  assert.equal(mealWindowAt(new Date("2026-10-26T09:59:00Z"), "Europe/London").nextMeal, "breakfast");
-  assert.equal(mealWindowAt(new Date("2026-10-26T10:00:00Z"), "Europe/London").nextMeal, "lunch");
-  assert.equal(mealWindowAt(new Date("2026-10-26T14:59:00Z"), "Europe/London").nextMeal, "lunch");
-  assert.equal(mealWindowAt(new Date("2026-10-26T15:00:00Z"), "Europe/London").nextMeal, "dinner");
+  assert.deepEqual(
+    mealWindowAt(new Date("2026-10-26T19:59:00Z"), "Europe/London"),
+    {
+      date: "2026-10-26",
+      label: "Today",
+      nextMeal: "dinner",
+    },
+  );
+  assert.deepEqual(
+    mealWindowAt(new Date("2026-10-26T20:00:00Z"), "Europe/London"),
+    {
+      date: "2026-10-27",
+      label: "Tomorrow",
+      nextMeal: "breakfast",
+    },
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-03-29T18:59:00Z"), "Europe/London").label,
+    "Today",
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-03-29T19:00:00Z"), "Europe/London").label,
+    "Tomorrow",
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-10-26T09:59:00Z"), "Europe/London").nextMeal,
+    "breakfast",
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-10-26T10:00:00Z"), "Europe/London").nextMeal,
+    "lunch",
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-10-26T14:59:00Z"), "Europe/London").nextMeal,
+    "lunch",
+  );
+  assert.equal(
+    mealWindowAt(new Date("2026-10-26T15:00:00Z"), "Europe/London").nextMeal,
+    "dinner",
+  );
 });
 
 test("overview prioritizes near departures, dinner, and evening bin reminders", () => {
@@ -39,39 +70,150 @@ test("overview prioritizes near departures, dinner, and evening bin reminders", 
     departureSoon: true,
     dinnerNext: true,
     hasCalendarEvents: true,
+    hasWeekCalendarEvents: false,
+    hasWeekMeals: false,
     hasOpenChores: true,
     binsRelevant: true,
     binsTomorrow: true,
     trainsAvailable: true,
     weatherAvailable: true,
+    hasShoppingItems: false,
+    hasLowInventory: false,
   });
-  assert.deepEqual(ranked.slice(0, 4), ["departures", "meals", "bins", "calendar"]);
+  assert.deepEqual(ranked.slice(0, 4), [
+    "departures",
+    "meals",
+    "bins",
+    "calendar",
+  ]);
+});
+
+test("rolling display windows include seven local dates across week and year boundaries", () => {
+  assert.deepEqual(rollingDateKeys("2026-12-29", 7), [
+    "2026-12-29",
+    "2026-12-30",
+    "2026-12-31",
+    "2027-01-01",
+    "2027-01-02",
+    "2027-01-03",
+    "2027-01-04",
+  ]);
+  assert.equal(addDaysKey("2026-10-31", 1), "2026-11-01");
+  assert.equal(mondayKey("2026-10-27"), "2026-10-26");
+  assert.equal(mondayKey("2026-11-01"), "2026-10-26");
+});
+
+test("overview ranks the most urgent cards before showing no more than five", () => {
+  const ranked = rankDisplayCards({
+    hour: 18,
+    departureSoon: true,
+    dinnerNext: true,
+    hasCalendarEvents: true,
+    hasWeekCalendarEvents: true,
+    hasWeekMeals: true,
+    hasOpenChores: true,
+    binsRelevant: true,
+    binsTomorrow: true,
+    trainsAvailable: true,
+    weatherAvailable: true,
+    hasShoppingItems: true,
+    hasLowInventory: true,
+  });
+  assert.deepEqual(ranked.slice(0, 5), [
+    "departures",
+    "meals",
+    "bins",
+    "calendar",
+    "inventory",
+  ]);
 });
 
 test("calendar date keys remain local over daylight saving transitions", () => {
-  assert.equal(dayKeyAt(new Date("2026-03-29T00:30:00Z"), "Europe/London"), "2026-03-29");
-  assert.equal(dayKeyAt(new Date("2026-10-26T00:30:00Z"), "Europe/London"), "2026-10-26");
+  assert.equal(
+    dayKeyAt(new Date("2026-03-29T00:30:00Z"), "Europe/London"),
+    "2026-03-29",
+  );
+  assert.equal(
+    dayKeyAt(new Date("2026-10-26T00:30:00Z"), "Europe/London"),
+    "2026-10-26",
+  );
   assert.equal(nextDayKey("2026-12-31"), "2027-01-01");
 });
 
 test("calendar selection keeps ongoing events and excludes ended events", () => {
   const now = new Date("2026-10-26T12:00:00Z");
-  const events = usefulCalendarEvents([
-    { ID: "ended", Title: "Ended", StartTime: "2026-10-26T08:00:00Z", EndTime: "2026-10-26T09:00:00Z" },
-    { ID: "ongoing", Title: "Ongoing", StartTime: "2026-10-26T11:00:00Z", EndTime: "2026-10-26T13:00:00Z" },
-    { ID: "all-day", Title: "All day", StartTime: "2026-10-26T00:00:00Z", AllDay: true },
-  ], now, "Europe/London");
-  assert.deepEqual(events.map(event => event.ID), ["all-day", "ongoing"]);
+  const events = usefulCalendarEvents(
+    [
+      {
+        ID: "ended",
+        Title: "Ended",
+        StartTime: "2026-10-26T08:00:00Z",
+        EndTime: "2026-10-26T09:00:00Z",
+      },
+      {
+        ID: "ongoing",
+        Title: "Ongoing",
+        StartTime: "2026-10-26T11:00:00Z",
+        EndTime: "2026-10-26T13:00:00Z",
+      },
+      {
+        ID: "all-day",
+        Title: "All day",
+        StartTime: "2026-10-26T00:00:00Z",
+        AllDay: true,
+      },
+    ],
+    now,
+    "Europe/London",
+  );
+  assert.deepEqual(
+    events.map((event) => event.ID),
+    ["all-day", "ongoing"],
+  );
 });
 
 test("departure cards exclude past and distant journeys and sort by leave time", () => {
-  const result = relevantDepartures([
-    { eventID: "late", title: "Later", destination: "", startTime: "2026-10-26T15:40:00Z", leaveAt: "2026-10-26T15:00:00Z", drivingSeconds: 0 },
-    { eventID: "past", title: "Past", destination: "", startTime: "2026-10-26T09:30:00Z", leaveAt: "2026-10-26T09:00:00Z", drivingSeconds: 0 },
-    { eventID: "just-passed", title: "Just passed", destination: "", startTime: "2026-10-26T12:25:00Z", leaveAt: "2026-10-26T11:55:00Z", drivingSeconds: 0 },
-    { eventID: "soon", title: "Soon", destination: "", startTime: "2026-10-26T13:00:00Z", leaveAt: "2026-10-26T12:30:00Z", drivingSeconds: 0 },
-  ], new Date("2026-10-26T12:00:00Z"));
-  assert.deepEqual(result.map(item => item.eventID), ["just-passed", "soon"]);
+  const result = relevantDepartures(
+    [
+      {
+        eventID: "late",
+        title: "Later",
+        destination: "",
+        startTime: "2026-10-26T15:40:00Z",
+        leaveAt: "2026-10-26T15:00:00Z",
+        drivingSeconds: 0,
+      },
+      {
+        eventID: "past",
+        title: "Past",
+        destination: "",
+        startTime: "2026-10-26T09:30:00Z",
+        leaveAt: "2026-10-26T09:00:00Z",
+        drivingSeconds: 0,
+      },
+      {
+        eventID: "just-passed",
+        title: "Just passed",
+        destination: "",
+        startTime: "2026-10-26T12:25:00Z",
+        leaveAt: "2026-10-26T11:55:00Z",
+        drivingSeconds: 0,
+      },
+      {
+        eventID: "soon",
+        title: "Soon",
+        destination: "",
+        startTime: "2026-10-26T13:00:00Z",
+        leaveAt: "2026-10-26T12:30:00Z",
+        drivingSeconds: 0,
+      },
+    ],
+    new Date("2026-10-26T12:00:00Z"),
+  );
+  assert.deepEqual(
+    result.map((item) => item.eventID),
+    ["just-passed", "soon"],
+  );
 });
 
 test("bin relevance includes today and tomorrow only", () => {
@@ -86,11 +228,48 @@ test("weather conditions use the provider code", () => {
 });
 
 test("cache keys include the API origin and old cache schemas are rejected", () => {
-  assert.match(displayStoragePrefix("https://family.example/api/"), /family\.example/);
-  assert.notEqual(displayStoragePrefix("https://one.example"), displayStoragePrefix("https://two.example"));
-  assert.equal(isDisplaySnapshot({ schemaVersion: 1, displayId: "display" }), false);
-  assert.equal(isDisplaySnapshot({ schemaVersion: 2, displayId: "display", timezone: "Europe/London", resourceUpdatedAt: {}, availability: {}, events: [], chores: [], meals: [], people: [], enabledSections: [] }), true);
-  assert.equal(isDisplaySnapshot({ schemaVersion: 2, displayId: "display", timezone: "Europe/London", resourceUpdatedAt: {}, availability: {}, events: "corrupt", chores: [], meals: [], people: [], enabledSections: [] }), false);
+  assert.match(
+    displayStoragePrefix("https://family.example/api/"),
+    /family\.example/,
+  );
+  assert.notEqual(
+    displayStoragePrefix("https://one.example"),
+    displayStoragePrefix("https://two.example"),
+  );
+  assert.equal(
+    isDisplaySnapshot({ schemaVersion: 1, displayId: "display" }),
+    false,
+  );
+  assert.equal(
+    isDisplaySnapshot({
+      schemaVersion: 2,
+      displayId: "display",
+      timezone: "Europe/London",
+      resourceUpdatedAt: {},
+      availability: {},
+      events: [],
+      chores: [],
+      meals: [],
+      people: [],
+      enabledSections: [],
+    }),
+    true,
+  );
+  assert.equal(
+    isDisplaySnapshot({
+      schemaVersion: 2,
+      displayId: "display",
+      timezone: "Europe/London",
+      resourceUpdatedAt: {},
+      availability: {},
+      events: "corrupt",
+      chores: [],
+      meals: [],
+      people: [],
+      enabledSections: [],
+    }),
+    false,
+  );
   assert.match(displayStoragePrefix(""), /same-origin/);
   assert.equal(householdDocumentTitle(" Willow "), "Willow household");
   assert.equal(householdDocumentTitle(undefined), "Family household");

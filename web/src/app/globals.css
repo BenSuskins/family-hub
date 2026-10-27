@@ -194,9 +194,22 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-card-action p { margin: 5px 0; color: var(--secondary); }
 .display-event, .display-chore { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 9px 4px; border: 0; border-top: 1px solid var(--border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .display-event time { width: 55px; flex: none; color: var(--secondary); }
+.display-week-event time { width: 70px; }
+.display-week-event time small { margin-top: 3px; }
 .display-event strong, .display-event small, .display-chore strong, .display-chore small { display: block; }
 .display-event small, .display-chore small { margin-top: 4px; color: var(--secondary); }
 .display-chore { min-height: 60px; }
+.week-meal-list { display: grid; }
+.week-meal-row { min-height: 46px; display: grid; grid-template-columns: 76px 66px minmax(0, 1fr); align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+.week-meal-row > span, .week-meal-row > small { color: var(--secondary); }
+.week-meal-row > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.display-shopping-row, .display-inventory-row { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 5px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.display-shopping-row .check-ring { width: 22px; height: 22px; flex: none; border: 1.5px solid var(--clay); border-radius: 50%; }
+.display-shopping-row > small { margin-left: auto; color: var(--secondary); }
+.display-shopping-row:disabled { opacity: .55; cursor: progress; }
+.display-inventory-row { justify-content: space-between; }
+.display-inventory-row > span:first-child small { display: block; margin-top: 3px; color: var(--secondary); }
+.display-inventory-row > small { flex: none; color: var(--secondary); }
 .chore-ring { width: 22px; height: 22px; flex: none; border: 2px solid var(--clay); border-radius: 50%; }
 .bin-row, .train-row { display: grid; gap: 5px; padding: 9px 0; border-top: 1px solid var(--border); }
 .bin-row span, .train-row small { color: var(--secondary); }
@@ -530,7 +543,8 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .meal-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .shopping-undo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 12px 0; padding: 12px 15px; border-radius: 12px; background: var(--ink); color: var(--paper); }
 .shopping-undo button { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
-.display-toast { position: fixed; z-index: 30; left: 50%; bottom: 28px; transform: translateX(-50%); max-width: min(90vw, 650px); padding: 14px 22px; border-radius: 16px; background: var(--ink); color: var(--paper); box-shadow: 0 8px 25px #0002; font-size: clamp(14px, 1vw, 17px); white-space: nowrap; }
+.display-toast { position: fixed; z-index: 30; left: 50%; bottom: 28px; transform: translateX(-50%); max-width: min(90vw, 650px); display: flex; align-items: center; gap: 18px; padding: 8px 14px 8px 22px; border-radius: 16px; background: var(--ink); color: var(--paper); box-shadow: 0 8px 25px #0002; font-size: clamp(14px, 1vw, 17px); white-space: nowrap; }
+.display-toast-action { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
 .display-overlay.is-dark .display-dialog { --paper: #201f1a; --surface: #2d3028; --ink: #f7f0e2; --secondary: #c3beaf; --accent: #bad0ab; --sage: #3e4a37; --clay: #e0baa0; --border: #494a3e; background: var(--surface); color: var(--ink); }
 .display-overlay.is-dark .display-dialog .display-dialog-heading { color: var(--ink); }
 .display-overlay.is-dark .display-dialog .shopping-check { background: var(--surface); color: var(--ink); }

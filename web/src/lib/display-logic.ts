@@ -11,11 +11,15 @@ export type DisplayCardContext = {
   departureSoon: boolean;
   dinnerNext: boolean;
   hasCalendarEvents: boolean;
+  hasWeekCalendarEvents: boolean;
+  hasWeekMeals: boolean;
   hasOpenChores: boolean;
   binsRelevant: boolean;
   binsTomorrow: boolean;
   trainsAvailable: boolean;
   weatherAvailable: boolean;
+  hasShoppingItems: boolean;
+  hasLowInventory: boolean;
 };
 
 export type DisplayEvent = {
@@ -45,14 +49,30 @@ export function dayKeyAt(date: Date, timezone: string) {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(date);
-  const value = (type: string) => parts.find(part => part.type === type)?.value ?? "00";
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? "00";
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 export function nextDayKey(key: string) {
+  return addDaysKey(key, 1);
+}
+
+export function addDaysKey(key: string, days: number) {
   const [year, month, day] = key.split("-").map(Number);
-  const next = new Date(Date.UTC(year, month - 1, day + 1));
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+export function rollingDateKeys(startDate: string, dayCount: number) {
+  return Array.from({ length: dayCount }, (_, index) =>
+    addDaysKey(startDate, index),
+  );
+}
+
+export function mondayKey(dateKey: string) {
+  const weekday = new Date(`${dateKey}T12:00:00Z`).getUTCDay();
+  return addDaysKey(dateKey, -((weekday + 6) % 7));
 }
 
 export function previousDayKey(key: string) {
@@ -68,8 +88,10 @@ export function mealWindowAt(date: Date, timezone: string): MealWindow {
     minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(date);
-  const hour = Number(parts.find(part => part.type === "hour")?.value ?? "0");
-  const minute = Number(parts.find(part => part.type === "minute")?.value ?? "0");
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? "0",
+  );
   const minutes = hour * 60 + minute;
   const today = dayKeyAt(date, timezone);
   const tomorrow = minutes >= 20 * 60;
@@ -96,30 +118,46 @@ export function weatherLabel(code: number) {
   return "Forecast unavailable";
 }
 
-export function usefulCalendarEvents(events: DisplayEvent[], now: Date, timezone: string) {
+export function usefulCalendarEvents(
+  events: DisplayEvent[],
+  now: Date,
+  timezone: string,
+) {
   return events
-    .filter(event => {
+    .filter((event) => {
       const start = new Date(event.StartTime);
       const end = event.EndTime ? new Date(event.EndTime) : start;
-      return event.AllDay || end >= now || dayKeyAt(start, timezone) === dayKeyAt(now, timezone) && start >= now;
+      return (
+        event.AllDay ||
+        end >= now ||
+        (dayKeyAt(start, timezone) === dayKeyAt(now, timezone) && start >= now)
+      );
     })
     .sort((first, second) => first.StartTime.localeCompare(second.StartTime));
 }
 
-export function relevantDepartures(departures: DisplayDeparture[], now: Date, minutesAhead = 45) {
+export function relevantDepartures(
+  departures: DisplayDeparture[],
+  now: Date,
+  minutesAhead = 45,
+) {
   const earliestRelevantLeave = now.getTime() - 10 * 60 * 1000;
   const latestRelevantLeave = now.getTime() + minutesAhead * 60 * 1000;
   return departures
-    .filter(item => {
+    .filter((item) => {
       const leaveAt = Date.parse(item.leaveAt);
       const startTime = Date.parse(item.startTime);
-      return Number.isFinite(leaveAt)
-        && Number.isFinite(startTime)
-        && leaveAt >= earliestRelevantLeave
-        && leaveAt <= latestRelevantLeave
-        && startTime > now.getTime();
+      return (
+        Number.isFinite(leaveAt) &&
+        Number.isFinite(startTime) &&
+        leaveAt >= earliestRelevantLeave &&
+        leaveAt <= latestRelevantLeave &&
+        startTime > now.getTime()
+      );
     })
-    .sort((first, second) => Date.parse(first.leaveAt) - Date.parse(second.leaveAt));
+    .sort(
+      (first, second) => Date.parse(first.leaveAt) - Date.parse(second.leaveAt),
+    );
 }
 
 export function relevantBinDate(collectionDate: string, today: string) {
@@ -128,7 +166,9 @@ export function relevantBinDate(collectionDate: string, today: string) {
 
 export function displayStoragePrefix(apiBase: string) {
   const base = apiBase ? new URL(apiBase) : null;
-  const scope = base ? base.origin + base.pathname.replace(/\/$/, "") : "same-origin";
+  const scope = base
+    ? base.origin + base.pathname.replace(/\/$/, "")
+    : "same-origin";
   return `family-hub.display.v2.${encodeURIComponent(scope)}`;
 }
 
@@ -151,32 +191,54 @@ export function rankDisplayCards(context: DisplayCardContext) {
   const candidates = [
     { key: "calendar", score: context.hasCalendarEvents ? 80 : 0 },
     { key: "meals", score: context.hour >= 16 ? 90 : 65 },
+    { key: "week-calendar", score: context.hasWeekCalendarEvents ? 72 : 0 },
+    { key: "week-meals", score: context.hasWeekMeals ? 62 : 0 },
     { key: "chores", score: choreScore },
     { key: "departures", score: context.departureSoon ? 110 : 0 },
     { key: "bins", score: context.binsRelevant && context.hour >= 17 ? 85 : 0 },
     { key: "trains", score: context.trainsAvailable ? trainScore : 0 },
+    { key: "shopping", score: context.hasShoppingItems ? 70 : 0 },
+    { key: "inventory", score: context.hasLowInventory ? 76 : 0 },
   ];
-  return candidates.filter(candidate => candidate.score > 0)
+  return candidates
+    .filter((candidate) => candidate.score > 0)
     .sort((first, second) => second.score - first.score)
-    .map(candidate => candidate.key);
+    .map((candidate) => candidate.key);
 }
 
-export function isDisplaySnapshot(value: unknown): value is { schemaVersion: 2; displayId: string; [key: string]: unknown } {
+export function isDisplaySnapshot(
+  value: unknown,
+): value is { schemaVersion: 2; displayId: string; [key: string]: unknown } {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Record<string, unknown>;
-  const object = (candidate: unknown) => candidate !== null && typeof candidate === "object" && !Array.isArray(candidate);
-  return snapshot.schemaVersion === 2
-    && typeof snapshot.displayId === "string"
-    && typeof snapshot.timezone === "string"
-    && Array.isArray(snapshot.events)
-    && Array.isArray(snapshot.chores)
-    && Array.isArray(snapshot.meals)
-    && Array.isArray(snapshot.people)
-    && Array.isArray(snapshot.enabledSections)
-    && object(snapshot.resourceUpdatedAt)
-    && object(snapshot.availability)
-    && (snapshot.weather === undefined || object(snapshot.weather))
-    && (snapshot.departures === undefined || (object(snapshot.departures) && Array.isArray((snapshot.departures as Record<string, unknown>).items)))
-    && (snapshot.bins === undefined || (object(snapshot.bins) && Array.isArray((snapshot.bins as Record<string, unknown>).collections)))
-    && (snapshot.commute === undefined || (object(snapshot.commute) && Array.isArray((snapshot.commute as Record<string, unknown>).boards)));
+  const object = (candidate: unknown) =>
+    candidate !== null &&
+    typeof candidate === "object" &&
+    !Array.isArray(candidate);
+  return (
+    snapshot.schemaVersion === 2 &&
+    typeof snapshot.displayId === "string" &&
+    typeof snapshot.timezone === "string" &&
+    Array.isArray(snapshot.events) &&
+    Array.isArray(snapshot.chores) &&
+    Array.isArray(snapshot.meals) &&
+    Array.isArray(snapshot.people) &&
+    Array.isArray(snapshot.enabledSections) &&
+    object(snapshot.resourceUpdatedAt) &&
+    object(snapshot.availability) &&
+    (snapshot.weather === undefined || object(snapshot.weather)) &&
+    (snapshot.departures === undefined ||
+      (object(snapshot.departures) &&
+        Array.isArray(
+          (snapshot.departures as Record<string, unknown>).items,
+        ))) &&
+    (snapshot.bins === undefined ||
+      (object(snapshot.bins) &&
+        Array.isArray(
+          (snapshot.bins as Record<string, unknown>).collections,
+        ))) &&
+    (snapshot.commute === undefined ||
+      (object(snapshot.commute) &&
+        Array.isArray((snapshot.commute as Record<string, unknown>).boards)))
+  );
 }

@@ -230,6 +230,7 @@ private struct PairedDisplaySettingsView: View {
         SectionOption(id: "trains", title: "Trains", symbol: "tram"),
         SectionOption(id: "bins", title: "Bins", symbol: "trash"),
         SectionOption(id: "shopping", title: "Shopping", symbol: "basket"),
+        SectionOption(id: "inventory", title: "Low inventory", symbol: "shippingbox"),
     ]
 
     let display: PairedDisplay

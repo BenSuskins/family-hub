@@ -35,8 +35,8 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 		if property := event.GetProperty(ical.ComponentPropertySummary); property != nil {
 			summary = strings.TrimSpace(property.Value)
 		}
-		binType, name := classifyBin(summary)
-		if binType == "" {
+		bins := classifyBins(summary)
+		if len(bins) == 0 {
 			continue
 		}
 		start := event.GetProperty(ical.ComponentPropertyDtStart)
@@ -57,12 +57,17 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 			}
 			date = parsed.In(location).Format("2006-01-02")
 		}
-		key := date + ":" + binType
-		if date < today || seen[key] {
+		if date < today {
 			continue
 		}
-		seen[key] = true
-		collections = append(collections, models.BinCollection{Date: date, Type: binType, Name: name})
+		for _, bin := range bins {
+			key := date + ":" + bin.Type
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			collections = append(collections, models.BinCollection{Date: date, Type: bin.Type, Name: bin.Name})
+		}
 	}
 	if len(collections) == 0 {
 		return nil, errors.New("calendar contains no upcoming bin collection dates")
@@ -76,22 +81,28 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 	return collections, nil
 }
 
-func classifyBin(summary string) (string, string) {
+func classifyBins(summary string) []models.BinCollection {
 	value := strings.ToLower(summary)
-	switch {
-	case strings.Contains(value, "garden") || strings.Contains(value, "green waste"):
-		return "garden", "Garden bin"
-	case strings.Contains(value, "food") || strings.Contains(value, "caddy"):
-		return "food_caddy", "Food caddy"
-	case strings.Contains(value, "paper") || strings.Contains(value, "card"):
-		return "paper_card", "Paper and card recycling"
-	case strings.Contains(value, "mixed") || strings.Contains(value, "recycl") || strings.Contains(value, "recyclable"):
-		return "mixed_recycling", "Mixed recycling"
-	case strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable") || strings.Contains(value, "waste"):
-		return "grey", "Non-recyclable waste"
-	default:
-		return "", ""
+	bins := make([]models.BinCollection, 0, 3)
+	if strings.Contains(value, "food") || strings.Contains(value, "caddy") {
+		bins = append(bins, models.BinCollection{Type: "food_caddy", Name: "Food caddy"})
 	}
+	if strings.Contains(value, "garden") || strings.Contains(value, "green waste") {
+		bins = append(bins, models.BinCollection{Type: "garden", Name: "Garden bin"})
+	}
+	if strings.Contains(value, "paper") || strings.Contains(value, "card") {
+		bins = append(bins, models.BinCollection{Type: "paper_card", Name: "Paper and card recycling"})
+	}
+	hasPaperOrCard := strings.Contains(value, "paper") || strings.Contains(value, "card")
+	hasFood := strings.Contains(value, "food") || strings.Contains(value, "caddy")
+	if strings.Contains(value, "mixed") || (strings.Contains(value, "recycl") && !hasPaperOrCard && !hasFood) {
+		bins = append(bins, models.BinCollection{Type: "mixed_recycling", Name: "Mixed recycling"})
+	}
+	hasGarden := strings.Contains(value, "garden") || strings.Contains(value, "green waste")
+	if strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable") || (strings.Contains(value, "waste") && !hasGarden) {
+		bins = append(bins, models.BinCollection{Type: "grey", Name: "Non-recyclable waste"})
+	}
+	return bins
 }
 
 func LoadBinSchedule(ctx context.Context, settings repository.SettingsRepository) (models.BinSchedule, error) {

@@ -27,10 +27,19 @@ export function trainStatusLabel(train: CommuteBoard["trains"][number]) {
   return `${Math.max(1, delay)} min late`;
 }
 
-export function latestRefresh(resourceUpdatedAt: Record<string, string>, timezone: string) {
+export function refreshAge(resourceUpdatedAt: Record<string, string>, now: Date) {
   const timestamps = Object.values(resourceUpdatedAt).map(Date.parse).filter(Number.isFinite);
   if (!timestamps.length) return "saved information";
-  return new Date(Math.max(...timestamps)).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
+
+  const elapsedMinutes = Math.floor(Math.max(0, now.getTime() - Math.max(...timestamps)) / 60_000);
+  if (elapsedMinutes === 0) return "just now";
+  if (elapsedMinutes < 60) return `${elapsedMinutes} min ago`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours} hr ago`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `${elapsedDays} day${elapsedDays === 1 ? "" : "s"} ago`;
 }
 
 export function displayDialogTitle(app: string, mealLabel: string) {
@@ -59,6 +68,6 @@ export function stationShortName(code: string) {
 }
 
 export function resourceName(key: string) {
-  const names: Record<string, string> = { calendar: "Calendar", weather: "Weather", departures: "Journeys", bins: "Bin collections", people: "Household members", commute: "Commute settings", trains: "Train times" };
+  const names: Record<string, string> = { calendar: "Calendar", "dashboard-calendar": "Calendar", "dashboard-chores": "Chores", weather: "Weather", departures: "Journeys", bins: "Bin collections", people: "Household members", commute: "Commute settings", trains: "Train times" };
   return names[key] ?? key;
 }

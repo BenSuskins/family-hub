@@ -1,13 +1,15 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import { Typography } from "@/components/typography";
 import {
   BookOpen,
   CalendarDays,
   CookingPot,
+  Moon,
   Package,
   ShoppingBag,
+  Sun,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -226,7 +228,8 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
     if (cardOrder[key] === 1) return "primary-second";
     return "secondary-card";
   };
-  const isDark = localHour >= 20 || localHour < 6;
+  const [manualDarkMode, setManualDarkMode] = useState<boolean | null>(null);
+  const isDark = manualDarkMode ?? (localHour >= 20 || localHour < 6);
   const formattedDate = clock.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -978,6 +981,18 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
             ))}
           </nav>
           <footer className="display-footer">
+            <button
+              className="display-theme-toggle"
+              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+              title={`Switch to ${isDark ? "light" : "dark"} mode`}
+              onClick={() => setManualDarkMode(!isDark)}
+            >
+              {isDark ? (
+                <Sun size={20} aria-hidden="true" />
+              ) : (
+                <Moon size={20} aria-hidden="true" />
+              )}
+            </button>
             <button
               aria-label={`Refresh display data${refreshAgeLabel ? `; last successful refresh ${refreshAgeLabel}` : ""}`}
               onClick={onRefresh}

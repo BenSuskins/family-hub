@@ -297,8 +297,9 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-launcher button { min-width: 0; min-height: 44px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
 .display-launcher button span { color: inherit; font-size: clamp(12px, .9vw, 14px); font-weight: 500; }
 .display-launcher button > svg { color: inherit; }
-.display-footer { flex: none; display: flex; align-items: center; justify-content: flex-end; color: var(--secondary); font-size: 13px; }
+.display-footer { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--secondary); font-size: 13px; }
 .display-footer button { min-width: 44px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.display-footer .display-theme-toggle { display: grid; place-items: center; }
 .display-footer button small { color: var(--secondary); font-size: 12px; font-weight: 500; }
 
 /* Keep the paired display aligned with the prototype's wall preview. */

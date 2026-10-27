@@ -8,9 +8,6 @@ import type { MealEditTarget } from "@/features/display/model/display-types";
 type SharedAppProps = { token: string };
 type CalendarAppProps = SharedAppProps & { timezone: string; clock: Date };
 type WeatherAppProps = CalendarAppProps;
-type RecipeAppProps = SharedAppProps & {
-  onDialogTitleChange?: (title: string | null) => void;
-};
 type MealPlanAppProps = WeatherAppProps & {
   initialMeal: MealEditTarget | null;
   onDialogTitleChange?: (title: string | null) => void;
@@ -30,7 +27,7 @@ const Calendar = dynamic<CalendarAppProps>(
     ),
   { loading: LoadingApp },
 );
-const Recipes = dynamic<RecipeAppProps>(
+const Recipes = dynamic<SharedAppProps>(
   () =>
     import("@/features/display/apps/recipes-app").then(
       (module) => module.RecipesApp,
@@ -66,7 +63,7 @@ type KioskAppProps =
     } & SharedAppProps)
   | ({ app: "Shopping" | "Inventory" } & SharedAppProps)
   | ({ app: "Calendar" } & CalendarAppProps)
-  | ({ app: "Recipes" } & RecipeAppProps)
+  | ({ app: "Recipes" } & SharedAppProps)
   | ({ app: "Meal plan" } & MealPlanAppProps)
   | ({ app: "Weather" } & WeatherAppProps);
 
@@ -87,13 +84,7 @@ export function KioskApp(props: KioskAppProps) {
         clock={props.clock}
       />
     );
-  if (props.app === "Recipes")
-    return (
-      <Recipes
-        token={props.token}
-        onDialogTitleChange={props.onDialogTitleChange}
-      />
-    );
+  if (props.app === "Recipes") return <Recipes token={props.token} />;
   if (props.app === "Meal plan")
     return (
       <MealPlan

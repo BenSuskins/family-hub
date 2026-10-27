@@ -54,7 +54,7 @@ export function DisplayDialog(props: DisplayDialogProps) {
     >
       <section
         ref={dialogRef}
-        className={`display-dialog${selection.kind === "app" && selection.app === "Weather" ? " weather-dialog" : ""}`}
+        className={`display-dialog${selection.kind === "app" && selection.app === "Weather" ? " weather-dialog" : ""}${selection.kind === "app" && selection.app === "Recipes" ? " recipe-dialog" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="display-dialog-title"
@@ -164,13 +164,7 @@ function DialogContent(props: DialogContentProps) {
     );
   }
   if (selection.app === "Recipes") {
-    return (
-      <KioskApp
-        app="Recipes"
-        token={token}
-        onDialogTitleChange={onDialogTitleChange}
-      />
-    );
+    return <KioskApp app="Recipes" token={token} />;
   }
   if (selection.app === "Meal plan") {
     return (

@@ -203,6 +203,7 @@ These routes accept only a display-scoped Bearer token. The token cannot authent
 | `GET /api/display/departures` | Read today's departure context. | Wall display | Display token |
 | `GET /api/display/bin-collections` | Read the household bin collection schedule. | Wall display | Display token |
 | `GET /api/display/chores` | Read household chores. | Wall display | Display token |
+| `GET /api/display/dashboard` | Read dashboard counts and today's/overdue chores for the display overview. | Wall display | Display token |
 | `POST /api/display/chores/{id}/complete` | Complete a chore and attribute it to a selected household member. | Wall display | Display token |
 | `GET /api/display/meals` | Read the current meal week. | Wall display | Display token |
 | `POST /api/display/meals` | Add or replace a meal for its date and meal type. | Wall display | Display token |
@@ -220,6 +221,10 @@ These routes accept only a display-scoped Bearer token. The token cannot authent
 | `PUT /api/display/scratchpad` | Save a shared drawing with the fixed palette and normalized points. | Wall display | Display token |
 
 All routes use the same JSON shapes as their member API equivalents. Calendar accepts `view=week|day|month` and the corresponding `date` or `month` query parameters. Scratchpad saves have a 1 MiB request limit.
+
+```bash
+curl -s "$BASE_URL/api/display/dashboard" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq
+```
 
 ```bash
 curl -s "$BASE_URL/api/display/people" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq

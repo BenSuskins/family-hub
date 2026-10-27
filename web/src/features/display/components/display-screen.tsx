@@ -7,7 +7,7 @@ import { KioskApp } from "@/features/display/apps/kiosk-app";
 import { WeatherIcon, SectionIcon } from "@/features/display/components/display-icons";
 import { latestRefresh, displayDialogTitle, stationName, stationShortName, trainStatusLabel } from "@/features/display/model/display-formatters";
 import type { DisplayChore, EventDetails, MealEditTarget, Snapshot } from "@/features/display/model/display-types";
-import { dayKeyAt, displayGreeting, mealWindowAt, rankDisplayCards, relevantBinDate, relevantDepartures, usefulCalendarEvents, weatherLabel } from "@/lib/display-logic";
+import { dayKeyAt, displayGreeting, mealWindowAt, rankDisplayCards, relevantBinDate, relevantDepartures, weatherLabel } from "@/lib/display-logic";
 
 const overviewSections = ["calendar", "meals", "chores", "weather", "departures", "trains", "bins", "shopping"] as const;
 const launcherApps: { name: string; icon: LucideIcon }[] = [
@@ -45,10 +45,7 @@ export function DisplayScreen(props: DisplayScreenProps) {
   const dateKey = dayKeyAt(clock, timezone);
   const mealWindow = mealWindowAt(clock, timezone);
   const sections = new Set(current?.enabledSections ?? overviewSections);
-  const upcomingEvents = usefulCalendarEvents(current?.events ?? [], clock, timezone);
-  const todayEvents = upcomingEvents.filter(event => dayKeyAt(new Date(event.StartTime), timezone) === dateKey);
-  const nextEventDay = upcomingEvents[0] ? dayKeyAt(new Date(upcomingEvents[0].StartTime), timezone) : dateKey;
-  const events = todayEvents.length ? todayEvents : upcomingEvents.filter(event => dayKeyAt(new Date(event.StartTime), timezone) === nextEventDay);
+  const events = (current?.events ?? []).filter(event => dayKeyAt(new Date(event.StartTime), timezone) === dateKey);
   const chores = (current?.chores ?? []).filter(item => item.Status === "pending" || item.Status === "overdue").sort((first, second) => (first.DueDate ?? "9999").localeCompare(second.DueDate ?? "9999"));
   const meals = (current?.meals ?? []).filter(item => item.Date === mealWindow.date);
   const departureItems = relevantDepartures(current?.departures?.items ?? [], clock);

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { displayTokenKey, snapshotKey, localMocksEnabled, readStorage, writeStorage, removeStorage, displayRequest, DisplayAccessRevoked } from "@/features/display/api/display-api";
 import type { BinSchedule, CommuteResult, DisplayChore, DisplayMeal, DisplayPerson, DisplaySettings, Snapshot, Weather } from "@/features/display/model/display-types";
 import { resourceName } from "@/features/display/model/display-formatters";
-import { isDisplaySnapshot, mealWindowAt, type DisplayEvent } from "@/lib/display-logic";
+import { dayKeyAt, isDisplaySnapshot, mealWindowAt, type DisplayEvent } from "@/lib/display-logic";
 
 type DisplaySnapshotState = {
   snapshot: Snapshot | null;
@@ -56,12 +56,13 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
       const mealWindow = mealWindowAt(now, timezone);
       const sections = new Set(displaySettings.enabledSections ?? []);
       const fetches: [string, Promise<unknown>][] = [];
-      if (sections.has("calendar") || sections.has("meals") || sections.has("chores")) {
+      if (sections.has("meals")) {
         fetches.push(["calendar", displayRequest(`/api/display/calendar?view=week&date=${mealWindow.date}`, token)]);
       }
       if (sections.has("calendar")) {
-        fetches.push(["dashboard-calendar", displayRequest(`/api/display/calendar?view=dashboard&date=${mealWindow.date}`, token)]);
+        fetches.push(["dashboard-calendar", displayRequest(`/api/display/calendar?view=day&date=${dayKeyAt(now, timezone)}`, token)]);
       }
+      if (sections.has("chores")) fetches.push(["dashboard-chores", displayRequest("/api/display/dashboard", token)]);
       if (sections.has("weather")) fetches.push(["weather", displayRequest("/api/display/weather", token)]);
       if (sections.has("departures")) fetches.push(["departures", displayRequest("/api/display/departures", token)]);
       if (sections.has("bins")) fetches.push(["bins", displayRequest("/api/display/bin-collections", token)]);
@@ -81,33 +82,38 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
       });
       const calendar = values.get("calendar") as { events?: DisplayEvent[]; chores?: DisplayChore[]; meals?: DisplayMeal[]; availability?: Record<string, string> } | undefined;
       const dashboardCalendar = values.get("dashboard-calendar") as { events?: DisplayEvent[]; availability?: Record<string, string> } | undefined;
+      const dashboardChores = values.get("dashboard-chores") as { chores_due_today_list?: DisplayChore[]; chores_overdue_list?: DisplayChore[] } | undefined;
       const calendarAvailability = calendar?.availability ?? {};
+      const dashboardChoresAvailable = values.has("dashboard-chores");
+      const today = dayKeyAt(now, timezone);
       const resourceAvailability = { ...previous?.availability };
       for (const [key, result] of results.entries()) {
         const resource = fetches[key][0];
         resourceAvailability[resource] = result.status === "fulfilled" ? "available" : previous?.availability[resource] ? "stale" : "unavailable";
       }
-      if (values.has("calendar")) {
-        resourceAvailability.events = !sections.has("calendar")
-          ? previous?.availability.events ?? "unavailable"
-          : !dashboardCalendar || dashboardCalendar.availability?.events === "unavailable"
-            ? previous?.resourceUpdatedAt.events ? "stale" : "unavailable"
-            : "available";
+      if (sections.has("calendar")) {
+        resourceAvailability.events = !dashboardCalendar || dashboardCalendar.availability?.events === "unavailable"
+          ? previous?.resourceUpdatedAt.events ? "stale" : "unavailable"
+          : "available";
+      }
+      if (sections.has("meals")) {
         resourceAvailability.meals = calendarAvailability.meals === "unavailable"
           ? previous?.resourceUpdatedAt.meals ? "stale" : "unavailable"
-          : "available";
-        resourceAvailability.chores = "available";
-      } else if (sections.has("calendar") || sections.has("meals") || sections.has("chores")) {
-        resourceAvailability.events = previous?.resourceUpdatedAt.events ? "stale" : "unavailable";
-        resourceAvailability.meals = previous?.resourceUpdatedAt.meals ? "stale" : "unavailable";
-        resourceAvailability.chores = previous?.resourceUpdatedAt.chores ? "stale" : "unavailable";
+          : calendar ? "available" : previous?.resourceUpdatedAt.meals ? "stale" : "unavailable";
+      }
+      if (sections.has("chores")) {
+        resourceAvailability.chores = dashboardChoresAvailable
+          ? "available"
+          : previous?.resourceUpdatedAt.chores ? "stale" : "unavailable";
       }
       const next: Snapshot = {
         schemaVersion: 2,
         displayId: displaySettings.id,
         householdName: nextHouseholdName,
         events: dashboardCalendar && dashboardCalendar.availability?.events !== "unavailable" ? dashboardCalendar.events ?? [] : previous?.events ?? [],
-        chores: calendar?.chores ?? previous?.chores ?? [],
+        chores: dashboardChoresAvailable
+          ? [...(dashboardChores?.chores_overdue_list ?? []), ...(dashboardChores?.chores_due_today_list ?? [])]
+          : (previous?.chores ?? []).filter(chore => chore.Status === "overdue" || Boolean(chore.DueDate && chore.DueDate.slice(0, 10) <= today)),
         meals: calendar && calendarAvailability.meals !== "unavailable" ? calendar.meals ?? [] : previous?.meals ?? [],
         weather: values.has("weather") ? values.get("weather") as Weather : previous?.weather,
         departures: values.has("departures") ? values.get("departures") as Snapshot["departures"] : previous?.departures,
@@ -120,11 +126,9 @@ export function useDisplaySnapshot(token: string, clockRef: MutableRefObject<Dat
         availability: resourceAvailability,
       };
       for (const resource of successfulResources) next.resourceUpdatedAt[resource] = now.toISOString();
-      if (values.has("calendar")) {
-        if (resourceAvailability.events === "available") next.resourceUpdatedAt.events = now.toISOString();
-        if (resourceAvailability.meals === "available") next.resourceUpdatedAt.meals = now.toISOString();
-        next.resourceUpdatedAt.chores = now.toISOString();
-      }
+      if (sections.has("calendar") && resourceAvailability.events === "available") next.resourceUpdatedAt.events = now.toISOString();
+      if (sections.has("meals") && resourceAvailability.meals === "available") next.resourceUpdatedAt.meals = now.toISOString();
+      if (dashboardChoresAvailable) next.resourceUpdatedAt.chores = now.toISOString();
       snapshotRef.current = next;
       setSnapshot(next);
       setFailures(nextFailures);

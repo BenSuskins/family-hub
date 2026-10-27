@@ -68,12 +68,14 @@ export function WeatherApp({
         {data.days?.map((day) => (
           <div className="forecast-row" key={day.date}>
             <Typography as="span" variant="forecastLabel">
-              {day.date === dayKeyAt(clock, timezone)
+              {day.date.slice(0, 10) === dayKeyAt(clock, timezone)
                 ? "Today"
-                : new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", {
+                : new Date(
+                    `${day.date.slice(0, 10)}T12:00:00Z`,
+                  ).toLocaleDateString("en-GB", {
                     weekday: "short",
                     day: "numeric",
-                    timeZone: timezone,
+                    timeZone: "UTC",
                   })}
             </Typography>
             <WeatherIcon code={day.code} />

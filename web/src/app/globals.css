@@ -214,7 +214,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .display-dialog-heading > div { display: flex; align-items: center; gap: 12px; }
 .display-dialog-heading h2 { margin: 0; font-size: 23px; }
 .display-dialog-heading img { border-radius: 10px; }
-.close-button { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 29px; cursor: pointer; }
+.close-button { width: 48px; height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 29px; cursor: pointer; }
 .display-dialog-content { overflow: auto; overscroll-behavior: contain; padding: clamp(16px, 2vw, 28px); }
 .pair-screen.is-dark { background: #1b1e18; color: #f7f0e2; }
 .pair-screen.is-dark .pair-card { border-color: #494a3e; background: #2d3028; }

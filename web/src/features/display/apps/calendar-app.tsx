@@ -116,22 +116,22 @@ export function CalendarApp({
           <div className="week-corner" />
           {dates.map((date) => (
             <div className="week-day" key={dateKey(date)}>
-              <Typography as="strong" variant="caption">
+              <Typography as="strong" variant="calendarWeekday">
                 {new Intl.DateTimeFormat("en-GB", {
                   weekday: "short",
                   timeZone: "UTC",
                 }).format(date)}
               </Typography>
-              <Typography as="span" variant="caption">
+              <Typography as="span" variant="calendarDate">
                 {date.getUTCDate()}
               </Typography>
             </div>
           ))}
           {timeSlots.map((hour) => (
             <Fragment key={hour}>
-              <div className="week-hour">
+              <Typography as="div" variant="calendarHour" className="week-hour">
                 {String(hour).padStart(2, "0")}:00
-              </div>
+              </Typography>
               {dates.map((date) => (
                 <div className="week-cell" key={`${dateKey(date)}-${hour}`}>
                   {eventsForSlot(date, hour).map((event) => (
@@ -144,7 +144,7 @@ export function CalendarApp({
                         } as React.CSSProperties
                       }
                     >
-                      <Typography as="small" variant="caption">
+                      <Typography as="small" variant="calendarEventTime">
                         {event.AllDay
                           ? "All day"
                           : new Date(event.StartTime).toLocaleTimeString(
@@ -156,7 +156,7 @@ export function CalendarApp({
                               },
                             )}
                       </Typography>
-                      <Typography as="span" variant="body">
+                      <Typography as="span" variant="calendarEvent">
                         {event.Title}
                       </Typography>
                     </div>

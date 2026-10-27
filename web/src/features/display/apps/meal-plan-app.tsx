@@ -196,10 +196,10 @@ export function MealPlanApp({
                 setCustomMeal(false);
               }}
             >
-              <Typography as="span" variant="body">
+              <Typography as="span" variant="mealChoice">
                 {currentMeal.Name}
               </Typography>
-              <Typography as="strong" variant="caption">
+              <Typography as="strong" variant="mealChoiceStatus">
                 Planned
               </Typography>
             </button>
@@ -212,15 +212,19 @@ export function MealPlanApp({
               disabled={Boolean(busy)}
               onClick={() => void save(recipe.Title, recipe.ID)}
             >
-              <Typography as="span" variant="body">
+              <Typography as="span" variant="mealChoice">
                 {recipe.Title}
               </Typography>
               {recipe.Title === currentMeal?.Name ? (
-                <Typography as="strong" variant="caption">
+                <Typography as="strong" variant="mealChoiceStatus">
                   Planned
                 </Typography>
               ) : (
-                <Typography as="span" variant="caption" className="muted">
+                <Typography
+                  as="span"
+                  variant="mealChoiceHint"
+                  className="muted"
+                >
                   {busy === recipe.ID ? "Saving…" : "Choose"}
                 </Typography>
               )}
@@ -234,10 +238,10 @@ export function MealPlanApp({
             }}
             disabled={Boolean(busy)}
           >
-            <Typography as="span" variant="body">
+            <Typography as="span" variant="customMealChoice">
               Something else
             </Typography>
-            <Typography as="span" variant="caption" className="muted">
+            <Typography as="span" variant="mealChoiceHint" className="muted">
               Type a meal
             </Typography>
           </button>
@@ -293,14 +297,14 @@ export function MealPlanApp({
         );
         return (
           <div className="meal-plan-row" key={mealType}>
-            <Typography as="span" variant="caption">
+            <Typography as="span" variant="mealPlanLabel">
               {mealLabels[mealType]}
             </Typography>
             <button
               className="meal-choice-trigger"
               onClick={() => editMeal(mealType)}
             >
-              <Typography as="span" variant="body">
+              <Typography as="span" variant="mealPlanValue">
                 {meal?.Name ?? "Choose a meal"}
               </Typography>{" "}
               <Typography as="span" variant="caption" className="muted">

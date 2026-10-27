@@ -40,16 +40,16 @@ export function WeatherApp({
       <div className="hourly-forecast">
         {data.hours?.slice(0, 6).map((hour, index) => (
           <div className="hour-card" key={hour.time}>
-            <Typography as="span" variant="caption">
+            <Typography as="span" variant="weatherHour">
               {index === 0
                 ? "Now"
                 : `${new Date(hour.time).toLocaleTimeString("en-GB", { hour: "2-digit", timeZone: timezone })}:00`}
             </Typography>
             <WeatherIcon code={hour.code} />
-            <Typography as="strong" variant="cardTitle">
+            <Typography as="strong" variant="weatherTemperature">
               {Math.round(hour.temperature)}°
             </Typography>
-            <Typography as="small" variant="caption">
+            <Typography as="small" variant="weatherHour">
               {hour.rainProbability === 0
                 ? "Dry"
                 : `${Math.round(hour.rainProbability)}%`}
@@ -67,7 +67,7 @@ export function WeatherApp({
       <div className="weather-days">
         {data.days?.map((day) => (
           <div className="forecast-row" key={day.date}>
-            <Typography as="span" variant="caption">
+            <Typography as="span" variant="forecastLabel">
               {day.date === dayKeyAt(clock, timezone)
                 ? "Today"
                 : new Date(`${day.date}T12:00:00`).toLocaleDateString("en-GB", {
@@ -77,13 +77,21 @@ export function WeatherApp({
                   })}
             </Typography>
             <WeatherIcon code={day.code} />
-            <Typography as="strong" variant="cardTitle">
+            <Typography as="strong" variant="forecastTemperature">
               {Math.round(day.high)}°{" "}
-              <Typography as="span" variant="caption" className="muted">
+              <Typography
+                as="span"
+                variant="forecastTemperature"
+                className="muted"
+              >
                 {Math.round(day.low)}°
               </Typography>
             </Typography>
-            <Typography as="span" variant="caption" className="forecast-rain">
+            <Typography
+              as="span"
+              variant="forecastRain"
+              className="forecast-rain"
+            >
               <CloudRain size={15} strokeWidth={1.7} aria-hidden="true" />{" "}
               {Math.round(day.rainProbability ?? 0)}%
             </Typography>

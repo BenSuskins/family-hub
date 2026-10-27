@@ -141,7 +141,7 @@ export function ShoppingApp({ token }: { token: string }) {
             <span className="check-ring" aria-hidden="true">
               {item.purchased ? "✓" : ""}
             </span>
-            <Typography as="span" variant="body">
+            <Typography as="span" variant="shoppingItem">
               {item.name}
             </Typography>
             {busy === item.id && (

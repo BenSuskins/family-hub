@@ -29,6 +29,21 @@ DTSTART;VALUE=DATE:20261104
 SUMMARY:Mixed Recycling
 END:VEVENT
 BEGIN:VEVENT
+UID:food-and-garden-1
+DTSTART;VALUE=DATE:20261111
+SUMMARY:Food Recycling and Garden Waste
+END:VEVENT
+BEGIN:VEVENT
+UID:food-and-general-waste-1
+DTSTART;VALUE=DATE:20261118
+SUMMARY:Food Recycling and General Waste
+END:VEVENT
+BEGIN:VEVENT
+UID:paper-and-card-waste-1
+DTSTART;VALUE=DATE:20261125
+SUMMARY:Paper and Card Waste
+END:VEVENT
+BEGIN:VEVENT
 UID:unknown
 DTSTART;VALUE=DATE:20261104
 SUMMARY:Street sweeping
@@ -46,6 +61,11 @@ func TestParseBinScheduleMapsUpcomingCollections(t *testing.T) {
 		{Date: "2026-10-28", Type: "food_caddy", Name: "Food caddy"},
 		{Date: "2026-10-28", Type: "garden", Name: "Garden bin"},
 		{Date: "2026-11-04", Type: "mixed_recycling", Name: "Mixed recycling"},
+		{Date: "2026-11-11", Type: "food_caddy", Name: "Food caddy"},
+		{Date: "2026-11-11", Type: "garden", Name: "Garden bin"},
+		{Date: "2026-11-18", Type: "food_caddy", Name: "Food caddy"},
+		{Date: "2026-11-18", Type: "grey", Name: "Non-recyclable waste"},
+		{Date: "2026-11-25", Type: "paper_card", Name: "Paper and card recycling"},
 	}
 	if len(collections) != len(want) {
 		t.Fatalf("collections = %+v, want %+v", collections, want)
@@ -67,6 +87,41 @@ END:VCALENDAR`} {
 		if _, err := ParseBinSchedule(data, time.Now()); err == nil {
 			t.Fatalf("ParseBinSchedule(%q) succeeded", data)
 		}
+	}
+}
+
+func TestClassifyBinsMatchesWholeTermsAndExplicitWasteNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		summary string
+		want    []string
+	}{
+		{name: "food waste", summary: "Food Waste", want: []string{"food_caddy"}},
+		{name: "combined food and garden", summary: "Food Recycling and Garden Waste", want: []string{"food_caddy", "garden"}},
+		{name: "explicit general waste", summary: "Food Recycling and General Waste", want: []string{"food_caddy", "grey"}},
+		{name: "non-recyclable waste with paper", summary: "Non-Recyclable Waste and Paper and Card", want: []string{"paper_card", "grey"}},
+		{name: "generic waste", summary: "Waste Collection", want: []string{"grey"}},
+		{name: "partial food word", summary: "Seafood Festival", want: nil},
+		{name: "partial card word", summary: "Cardigan Repair", want: nil},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bins := classifyBins(test.summary)
+			got := make([]string, 0, len(bins))
+			for _, bin := range bins {
+				got = append(got, bin.Type)
+			}
+			if len(got) != len(test.want) {
+				t.Fatalf("classifyBins(%q) types = %v, want %v", test.summary, got, test.want)
+			}
+			for index := range test.want {
+				if got[index] != test.want[index] {
+					t.Errorf("classifyBins(%q) types = %v, want %v", test.summary, got, test.want)
+					break
+				}
+			}
+		})
 	}
 }
 

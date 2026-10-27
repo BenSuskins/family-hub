@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	ical "github.com/arran4/golang-ical"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -35,8 +36,8 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 		if property := event.GetProperty(ical.ComponentPropertySummary); property != nil {
 			summary = strings.TrimSpace(property.Value)
 		}
-		binType, name := classifyBin(summary)
-		if binType == "" {
+		bins := classifyBins(summary)
+		if len(bins) == 0 {
 			continue
 		}
 		start := event.GetProperty(ical.ComponentPropertyDtStart)
@@ -57,12 +58,17 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 			}
 			date = parsed.In(location).Format("2006-01-02")
 		}
-		key := date + ":" + binType
-		if date < today || seen[key] {
+		if date < today {
 			continue
 		}
-		seen[key] = true
-		collections = append(collections, models.BinCollection{Date: date, Type: binType, Name: name})
+		for _, bin := range bins {
+			key := date + ":" + bin.Type
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			collections = append(collections, models.BinCollection{Date: date, Type: bin.Type, Name: bin.Name})
+		}
 	}
 	if len(collections) == 0 {
 		return nil, errors.New("calendar contains no upcoming bin collection dates")
@@ -76,22 +82,61 @@ func ParseBinSchedule(data string, now time.Time) ([]models.BinCollection, error
 	return collections, nil
 }
 
-func classifyBin(summary string) (string, string) {
-	value := strings.ToLower(summary)
-	switch {
-	case strings.Contains(value, "garden") || strings.Contains(value, "green waste"):
-		return "garden", "Garden bin"
-	case strings.Contains(value, "food") || strings.Contains(value, "caddy"):
-		return "food_caddy", "Food caddy"
-	case strings.Contains(value, "paper") || strings.Contains(value, "card"):
-		return "paper_card", "Paper and card recycling"
-	case strings.Contains(value, "mixed") || strings.Contains(value, "recycl") || strings.Contains(value, "recyclable"):
-		return "mixed_recycling", "Mixed recycling"
-	case strings.Contains(value, "general") || strings.Contains(value, "refuse") || strings.Contains(value, "non-recyclable") || strings.Contains(value, "waste"):
-		return "grey", "Non-recyclable waste"
-	default:
-		return "", ""
+func classifyBins(summary string) []models.BinCollection {
+	words := strings.FieldsFunc(strings.ToLower(summary), func(character rune) bool {
+		return !unicode.IsLetter(character) && !unicode.IsNumber(character)
+	})
+	bins := make([]models.BinCollection, 0, 3)
+	hasFood := hasBinWord(words, "food", "caddy")
+	if hasFood {
+		bins = append(bins, models.BinCollection{Type: "food_caddy", Name: "Food caddy"})
 	}
+	hasGarden := hasBinWord(words, "garden") || hasBinPhrase(words, "green waste")
+	if hasGarden {
+		bins = append(bins, models.BinCollection{Type: "garden", Name: "Garden bin"})
+	}
+	hasPaperOrCard := hasBinWord(words, "paper", "card")
+	if hasPaperOrCard {
+		bins = append(bins, models.BinCollection{Type: "paper_card", Name: "Paper and card recycling"})
+	}
+	hasExplicitGeneralWaste := hasBinPhrase(words, "general waste") || hasBinWord(words, "refuse") || hasBinPhrase(words, "non recyclable")
+	hasMixedRecycling := hasBinWord(words, "mixed") || (hasBinWord(words, "recycling", "recyclable") && !hasPaperOrCard && !hasFood && !hasExplicitGeneralWaste)
+	if hasMixedRecycling {
+		bins = append(bins, models.BinCollection{Type: "mixed_recycling", Name: "Mixed recycling"})
+	}
+	hasRecognizedCollection := hasFood || hasGarden || hasPaperOrCard || hasMixedRecycling
+	if hasExplicitGeneralWaste || (hasBinWord(words, "waste") && !hasRecognizedCollection) {
+		bins = append(bins, models.BinCollection{Type: "grey", Name: "Non-recyclable waste"})
+	}
+	return bins
+}
+
+func hasBinWord(words []string, candidates ...string) bool {
+	for _, word := range words {
+		for _, candidate := range candidates {
+			if word == candidate {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasBinPhrase(words []string, phrase string) bool {
+	phraseWords := strings.Fields(phrase)
+	for start := 0; start+len(phraseWords) <= len(words); start++ {
+		matches := true
+		for offset, word := range phraseWords {
+			if words[start+offset] != word {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			return true
+		}
+	}
+	return false
 }
 
 func LoadBinSchedule(ctx context.Context, settings repository.SettingsRepository) (models.BinSchedule, error) {

@@ -168,6 +168,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
         (Date.parse(departureItems[0].leaveAt) - clock.getTime()) / 60_000,
       )
     : Infinity;
+  const departureCountdown = formatDepartureCountdown(departureMinutes);
   const localHour = Number(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: timezone,
@@ -196,6 +197,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
   const rankedCards = rankDisplayCards({
     hour: localHour,
     departureSoon: departureMinutes <= 45,
+    hasDeparture: departureItems.length > 0,
     dinnerNext:
       mealWindow.label === "Today" && mealWindow.nextMeal === "dinner",
     hasCalendarEvents: events.length > 0,
@@ -344,9 +346,7 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
                   variant="cardHint"
                   className="leave-pill"
                 >
-                  {departureMinutes > 0
-                    ? `Leave in ${departureMinutes} min`
-                    : "Time to leave"}
+                  {departureCountdown}
                 </Typography>
               </div>
               <Typography
@@ -997,4 +997,13 @@ export function DisplayDashboard(props: DisplayDashboardProps) {
       </section>
     </main>
   );
+}
+
+function formatDepartureCountdown(minutes: number) {
+  if (minutes <= 0) return "Time to leave";
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours === 0) return `Leave in ${minutes} min`;
+  if (remainingMinutes === 0) return `Leave in ${hours} hr`;
+  return `Leave in ${hours} hr ${remainingMinutes} min`;
 }

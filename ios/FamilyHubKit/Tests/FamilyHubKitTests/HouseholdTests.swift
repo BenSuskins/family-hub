@@ -31,6 +31,8 @@ final class HouseholdTests: XCTestCase {
             let data = Data(#"{"eventID":"next","title":"Dentist","destination":"10 High Street","startTime":"2026-10-18T14:00:00Z","leaveAt":"2026-10-18T13:30:00Z","drivingSeconds":1200,"fetchedAt":"2026-10-18T13:20:00Z"}"#.utf8)
             let departure = try JSONDecoder().decode(Departure.self, from: data)
             XCTAssertEqual(departure.countdown(at: APIDate.parse("2026-10-18T13:20:00Z")!), "Leave in 10 min")
+            XCTAssertEqual(departure.countdown(at: APIDate.parse("2026-10-18T08:01:00Z")!), "Leave in 5 hr 29 min")
+            XCTAssertEqual(departure.countdown(at: APIDate.parse("2026-10-18T09:00:00Z")!), "Leave in 4 hr 30 min")
             XCTAssertEqual(departure.countdown(at: APIDate.parse("2026-10-18T13:31:00Z")!), "Leave now")
             XCTAssertNil(departure.countdown(at: APIDate.parse("2026-10-18T14:00:00Z")!))
         }

@@ -71,7 +71,14 @@ public struct Departure: Codable, Identifiable {
     public func countdown(at now: Date) -> String? {
         guard let start = APIDate.parse(startTime), let departure = APIDate.parse(leaveAt), now < start else { return nil }
         if now >= departure { return "Leave now" }
-        return "Leave in \(Int(ceil(departure.timeIntervalSince(now) / 60))) min"
+        let minutes = Int(ceil(departure.timeIntervalSince(now) / 60))
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+        guard hours > 0 else { return "Leave in \(minutes) min" }
+        if remainingMinutes == 0 {
+            return "Leave in \(hours) hr"
+        }
+        return "Leave in \(hours) hr \(remainingMinutes) min"
     }
 }
 

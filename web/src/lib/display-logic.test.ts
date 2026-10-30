@@ -68,6 +68,7 @@ test("overview prioritizes near departures, dinner, and evening bin reminders", 
   const ranked = rankDisplayCards({
     hour: 18,
     departureSoon: true,
+    hasDeparture: true,
     dinnerNext: true,
     hasCalendarEvents: true,
     hasWeekCalendarEvents: false,
@@ -107,6 +108,7 @@ test("overview ranks the most urgent cards before showing no more than five", ()
   const ranked = rankDisplayCards({
     hour: 18,
     departureSoon: true,
+    hasDeparture: true,
     dinnerNext: true,
     hasCalendarEvents: true,
     hasWeekCalendarEvents: true,
@@ -179,8 +181,8 @@ test("departure cards exclude past and distant journeys and sort by leave time",
         eventID: "late",
         title: "Later",
         destination: "",
-        startTime: "2026-10-26T15:40:00Z",
-        leaveAt: "2026-10-26T15:00:00Z",
+        startTime: "2026-10-27T15:40:00Z",
+        leaveAt: "2026-10-27T15:00:00Z",
         drivingSeconds: 0,
       },
       {
@@ -207,13 +209,41 @@ test("departure cards exclude past and distant journeys and sort by leave time",
         leaveAt: "2026-10-26T12:30:00Z",
         drivingSeconds: 0,
       },
+      {
+        eventID: "later",
+        title: "Later today",
+        destination: "",
+        startTime: "2026-10-26T18:10:00Z",
+        leaveAt: "2026-10-26T17:49:00Z",
+        drivingSeconds: 0,
+      },
     ],
     new Date("2026-10-26T12:00:00Z"),
   );
   assert.deepEqual(
     result.map((item) => item.eventID),
-    ["just-passed", "soon"],
+    ["just-passed", "soon", "later"],
   );
+});
+
+test("departure cards retain upcoming trips outside the urgent window", () => {
+  const ranked = rankDisplayCards({
+    hour: 12,
+    departureSoon: false,
+    hasDeparture: true,
+    dinnerNext: false,
+    hasCalendarEvents: false,
+    hasWeekCalendarEvents: false,
+    hasWeekMeals: false,
+    hasOpenChores: false,
+    binsRelevant: false,
+    binsTomorrow: false,
+    trainsAvailable: false,
+    weatherAvailable: false,
+    hasShoppingItems: false,
+    hasLowInventory: false,
+  });
+  assert.deepEqual(ranked, ["meals", "departures"]);
 });
 
 test("bin relevance includes today and tomorrow only", () => {

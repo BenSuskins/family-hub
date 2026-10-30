@@ -139,7 +139,7 @@ test("ranks available cards and displays no more than five", () => {
             title: "Library",
             destination: "",
             startTime: "2026-10-27T18:30:00Z",
-            leaveAt: "2026-10-27T18:00:00Z",
+            leaveAt: "2026-10-27T23:19:00Z",
             drivingSeconds: 0,
           },
         ],
@@ -191,7 +191,36 @@ test("ranks available cards and displays no more than five", () => {
     document.querySelector(".display-grid")?.getAttribute("data-card-count"),
     "5",
   );
-  assert.ok(screen.getByRole("region", { name: "Time to head out" }));
+});
+
+test("formats long departure countdowns in hours and scales bin collection content", () => {
+  renderDashboard({
+    snapshot: makeSnapshot({
+      enabledSections: ["departures", "bins"],
+      departures: {
+        status: "available",
+        items: [
+          {
+            eventID: "today",
+            title: "Library",
+            destination: "",
+            startTime: "2026-10-28T00:00:00Z",
+            leaveAt: "2026-10-27T23:19:00Z",
+            drivingSeconds: 0,
+          },
+        ],
+      },
+      bins: {
+        collections: [
+          { date: "2026-10-28", type: "recycling", name: "Recycling" },
+        ],
+      },
+    }),
+  });
+
+  assert.ok(screen.getByText("Leave in 5 hr 49 min"));
+  assert.ok(screen.getByRole("region", { name: "Bin collections" }));
+  assert.ok(screen.getByText("Recycling"));
 });
 
 test("uses configured low-stock thresholds and opens inventory; shopping rows are actionable", () => {

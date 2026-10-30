@@ -9,6 +9,7 @@ export type MealWindow = {
 export type DisplayCardContext = {
   hour: number;
   departureSoon: boolean;
+  hasDeparture: boolean;
   dinnerNext: boolean;
   hasCalendarEvents: boolean;
   hasWeekCalendarEvents: boolean;
@@ -139,7 +140,7 @@ export function usefulCalendarEvents(
 export function relevantDepartures(
   departures: DisplayDeparture[],
   now: Date,
-  minutesAhead = 45,
+  minutesAhead = 12 * 60,
 ) {
   const earliestRelevantLeave = now.getTime() - 10 * 60 * 1000;
   const latestRelevantLeave = now.getTime() + minutesAhead * 60 * 1000;
@@ -188,13 +189,16 @@ export function rankDisplayCards(context: DisplayCardContext) {
   let trainScore = 0;
   if (context.hour >= 7 && context.hour < 10) trainScore = 88;
   else if (context.hour >= 16 && context.hour < 19) trainScore = 45;
+  let departureScore = 0;
+  if (context.departureSoon) departureScore = 110;
+  else if (context.hasDeparture) departureScore = 42;
   const candidates = [
     { key: "calendar", score: context.hasCalendarEvents ? 80 : 0 },
     { key: "meals", score: context.hour >= 16 ? 90 : 65 },
     { key: "week-calendar", score: context.hasWeekCalendarEvents ? 72 : 0 },
     { key: "week-meals", score: context.hasWeekMeals ? 62 : 0 },
     { key: "chores", score: choreScore },
-    { key: "departures", score: context.departureSoon ? 110 : 0 },
+    { key: "departures", score: departureScore },
     { key: "bins", score: context.binsRelevant && context.hour >= 17 ? 85 : 0 },
     { key: "trains", score: context.trainsAvailable ? trainScore : 0 },
     { key: "shopping", score: context.hasShoppingItems ? 70 : 0 },

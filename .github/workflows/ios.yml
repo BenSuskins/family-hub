@@ -57,8 +57,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Select Xcode 26.1
-        run: sudo xcode-select -s /Applications/Xcode_26.1.app
+      - name: Select Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
 
       # Resolve the simulator at run time instead of naming a model.
       #
@@ -76,14 +76,11 @@ jobs:
         run: |
           devices=$(xcrun simctl list devices available -j)
 
-          # Runtime keys look like com.apple.CoreSimulator.SimRuntime.iOS-26-1,
-          # so reverse identifier order is newest-first in practice.
+          # Keep the simulator runtime aligned with the selected Xcode SDK.
           udid=$(printf '%s' "$devices" | jq -r '
             .devices
             | to_entries
-            | map(select(.key | test("iOS")))
-            | sort_by(.key)
-            | reverse
+            | map(select(.key | test("iOS-26-2")))
             | (.[0].value // [])
             | map(select(.name | startswith("iPhone")))
             | (.[0].udid // empty)

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"testing"
 	"time"
 
@@ -220,7 +221,7 @@ func TestChoreService_CompleteChore_CreatesRecurrence(t *testing.T) {
 		t.Fatalf("completing recurring chore: %v", err)
 	}
 
-	allChores, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{})
+	allChores, _ := choreRepo.FindAll(ctx, choreapp.ChoreFilter{})
 	pendingCount := 0
 	for _, c := range allChores {
 		if c.Status == models.ChoreStatusPending {
@@ -382,7 +383,7 @@ func TestChoreService_CompleteChore_UsesSeriesRule(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 
-	pending, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{
+	pending, _ := choreRepo.FindAll(ctx, choreapp.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusPending},
 	})
 	if len(pending) == 0 {
@@ -467,7 +468,7 @@ func TestChoreService_UpdateOverdueChores(t *testing.T) {
 		t.Fatalf("updating overdue: %v", err)
 	}
 
-	allChores, _ := choreRepo.FindAll(ctx, repository.ChoreFilter{})
+	allChores, _ := choreRepo.FindAll(ctx, choreapp.ChoreFilter{})
 	for _, c := range allChores {
 		if c.Name == "Overdue" && c.Status != models.ChoreStatusOverdue {
 			t.Errorf("expected overdue status, got '%s'", c.Status)

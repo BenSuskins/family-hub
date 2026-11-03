@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -38,7 +39,7 @@ type choreSeries interface {
 }
 
 type ChoreService struct {
-	choreRepo      repository.ChoreRepository
+	choreRepo      choreapp.ChoreRepository
 	assignmentRepo choreAssignments
 	userRepo       choreUsers
 	seriesRepo     choreSeries
@@ -47,7 +48,7 @@ type ChoreService struct {
 }
 
 func NewChoreService(
-	choreRepo repository.ChoreRepository,
+	choreRepo choreapp.ChoreRepository,
 	assignmentRepo choreAssignments,
 	userRepo choreUsers,
 	seriesRepo choreSeries,
@@ -180,7 +181,7 @@ func (service *ChoreService) resolve(ctx context.Context, choreID, userID string
 	if err != nil {
 		return err
 	}
-	return service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+	return service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.assignmentRepo = assignments
@@ -548,7 +549,7 @@ func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 
 func (service *ChoreService) CreateChore(ctx context.Context, task models.Chore, eligible []string) (models.Chore, error) {
 	var created models.Chore
-	err := service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+	err := service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.assignmentRepo = assignments
@@ -573,14 +574,14 @@ func (service *ChoreService) CreateChore(ctx context.Context, task models.Chore,
 }
 
 func (service *ChoreService) UpdateDefinition(ctx context.Context, task models.Chore, eligible []string) error {
-	return service.choreRepo.Transact(ctx, func(chores repository.ChoreRepository, assignments repository.ChoreAssignmentRepository, users repository.UserRepository, definitions repository.ChoreSeriesRepository) error {
+	return service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.seriesRepo = definitions
 		if err := scoped.SyncSeriesDefinition(ctx, task, eligible); err != nil {
 			return err
 		}
-		current, err := chores.FindAll(ctx, repository.ChoreFilter{SeriesID: task.SeriesID, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+		current, err := chores.FindAll(ctx, choreapp.ChoreFilter{SeriesID: task.SeriesID, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 		if err != nil {
 			return err
 		}

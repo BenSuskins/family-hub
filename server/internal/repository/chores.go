@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
@@ -15,40 +16,6 @@ const (
 	OrderByDueDateAsc      = "due_date ASC NULLS LAST, name ASC"
 	OrderByCompletedAtDesc = "completed_at DESC NULLS LAST, name ASC"
 )
-
-type ChoreFilter struct {
-	Status            *models.ChoreStatus
-	Statuses          []models.ChoreStatus
-	RecurrenceTypes   []models.RecurrenceType
-	AssignedToUser    *string
-	CategoryID        *string
-	DueBefore         *time.Time
-	DueAfter          *time.Time
-	OrderBy           string
-	Limit             int
-	OnlyNextPerSeries bool
-	IncludeHistory    bool
-	HistoryOnly       bool
-	SeriesID          *string
-	AfterID           string
-}
-
-type ChoreRepository interface {
-	Transact(context.Context, func(ChoreRepository, ChoreAssignmentRepository, UserRepository, ChoreSeriesRepository) error) error
-
-	FindByID(ctx context.Context, id string) (models.Chore, error)
-	FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error)
-	Create(ctx context.Context, chore models.Chore) (models.Chore, error)
-	Update(ctx context.Context, chore models.Chore) error
-	Delete(ctx context.Context, id string) error
-	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
-	MarkOverdue(ctx context.Context, choreID string) error
-	FindDueToday(ctx context.Context) ([]models.Chore, error)
-	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
-	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
-	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
-	CountBySeries(ctx context.Context, seriesID string) (int, error)
-}
 
 type SQLiteChoreRepository struct {
 	database queryConnection
@@ -103,7 +70,7 @@ const choreColumnNames = `id, name, description, created_by_user_id, category_id
 
 const choreJoin = `FROM chores c LEFT JOIN chore_series cs ON cs.id = c.series_id`
 
-func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
+func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter choreapp.ChoreFilter) ([]models.Chore, error) {
 	where := "WHERE 1=1"
 	if !filter.IncludeHistory {
 		where += " AND cs.deleted_at IS NULL"

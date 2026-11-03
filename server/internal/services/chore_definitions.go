@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
 type ChoreDefinition struct {
@@ -48,7 +48,7 @@ func (service *ChoreService) Definition(ctx context.Context, identifier string) 
 	if definition.DeletedAt != nil {
 		return result, nil
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{SeriesID: &identifier, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{SeriesID: &identifier, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return result, err
 	}

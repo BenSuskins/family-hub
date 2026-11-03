@@ -41,27 +41,12 @@ type ChoreRepository interface {
 }
 
 type ChoreAssignmentRepository interface {
-	Create(ctx context.Context, assignment models.ChoreAssignment) (models.ChoreAssignment, error)
-	FindByChoreID(ctx context.Context, choreID string) ([]models.ChoreAssignment, error)
-	MarkCompleted(ctx context.Context, choreID string, userID string) error
-	MarkReassigned(ctx context.Context, choreID string) error
-	CompletedCountByUser(ctx context.Context, userID string, since time.Time) (int, error)
-	RecentCompleted(ctx context.Context, limit int) ([]models.ChoreAssignment, error)
-	DeleteCompleted(ctx context.Context) error
+	Create(context.Context, models.ChoreAssignment) (models.ChoreAssignment, error)
+	MarkReassigned(context.Context, string) error
 }
 
 type UserRepository interface {
-	FindByID(ctx context.Context, id string) (models.User, error)
-	FindByOIDCSubject(ctx context.Context, subject string) (models.User, error)
-	FindAll(ctx context.Context) ([]models.User, error)
-	Create(ctx context.Context, user models.User) (models.User, error)
-	UpdateRole(ctx context.Context, id string, role models.Role) error
-	UpdateProfile(ctx context.Context, id string, name string, email string, avatarURL string) error
-	FindAvatarData(ctx context.Context, userID string) (string, error)
-	UpdateAvatar(ctx context.Context, userID string, dataURI string) error
-	ClearAvatar(ctx context.Context, userID string) error
-	Count(ctx context.Context) (int, error)
-	MarkOnboarded(ctx context.Context, id string) error
+	FindAll(context.Context) ([]models.User, error)
 }
 
 type ChoreSeriesRepository interface {
@@ -74,5 +59,4 @@ type ChoreSeriesRepository interface {
 	SetRotationCursor(ctx context.Context, seriesID string, userID string) error
 	MarkDeleted(ctx context.Context, seriesID string) error
 	SetEligibleAssignees(ctx context.Context, seriesID string, userIDs []string) error
-	GetEligibleAssignees(ctx context.Context, seriesID string) ([]string, error)
 }

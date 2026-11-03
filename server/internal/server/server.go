@@ -7,6 +7,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/bensuskins/family-hub/internal/apidocs"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/handlers"
 	"github.com/bensuskins/family-hub/internal/httpresponse"
@@ -84,6 +85,12 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 		_, _ = w.Write([]byte("ok"))
 	})
 	router.Get("/metrics", httpMetrics.ServeHTTP)
+	if cfg.APIDocsEnabled {
+		router.Get("/api/openapi.json", apidocs.SpecificationHandler)
+		router.Get("/api/docs", apidocs.ExplorerHandler)
+		router.Get("/api/docs/swagger-ui-bundle.js", apidocs.JavaScriptHandler)
+		router.Get("/api/docs/swagger-ui.css", apidocs.StylesheetHandler)
+	}
 	router.Get("/api/client-config", apiHandler.ClientConfig)
 	router.With(httprate.LimitByIP(10, time.Minute)).Post("/api/auth/exchange", apiHandler.ExchangeToken)
 

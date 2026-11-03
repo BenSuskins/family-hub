@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	APIDocsEnabled    bool
 	APNsKeyID         string
 	APNsTeamID        string
 	APNsTopic         string
@@ -25,6 +26,7 @@ type Config struct {
 
 func Load() (Config, error) {
 	config := Config{
+		APIDocsEnabled:    os.Getenv("API_DOCS_ENABLED") == "true",
 		APNsKeyID:         os.Getenv("APNS_KEY_ID"),
 		APNsTeamID:        os.Getenv("APNS_TEAM_ID"),
 		APNsTopic:         os.Getenv("APNS_TOPIC"),

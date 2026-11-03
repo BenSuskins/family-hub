@@ -13,6 +13,17 @@ export API_TOKEN="<token from /api/auth/exchange or POST /api/tokens>"
 
 ---
 
+## Developer API documentation
+
+Set `API_DOCS_ENABLED=true` to enable the public developer routes below. They are disabled by default. Enable them only in a trusted environment.
+
+- `GET /api/openapi.json` returns the OpenAPI 3.1 specification.
+- `GET /api/docs` serves Swagger UI. The UI loads its JavaScript and CSS from `/api/docs/swagger-ui-bundle.js` and `/api/docs/swagger-ui.css`.
+
+```bash
+curl -s "$BASE_URL/api/openapi.json" | jq
+```
+
 ## Public routes (no auth)
 
 ### `GET /metrics`

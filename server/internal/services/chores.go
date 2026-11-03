@@ -18,20 +18,39 @@ var (
 	ErrChoreAlreadyComplete = choredomain.ErrAlreadyResolved
 )
 
+type choreUsers interface {
+	FindAll(context.Context) ([]models.User, error)
+}
+
+type choreAssignments interface {
+	Create(context.Context, models.ChoreAssignment) (models.ChoreAssignment, error)
+	MarkReassigned(context.Context, string) error
+}
+
+type choreSeries interface {
+	FindAll(context.Context) ([]models.ChoreSeries, error)
+	FindByID(context.Context, string) (*models.ChoreSeries, error)
+	Create(context.Context, models.ChoreSeries) (models.ChoreSeries, error)
+	Update(context.Context, models.ChoreSeries) error
+	SetRotationCursor(context.Context, string, string) error
+	MarkDeleted(context.Context, string) error
+	SetEligibleAssignees(context.Context, string, []string) error
+}
+
 type ChoreService struct {
 	choreRepo      repository.ChoreRepository
-	assignmentRepo repository.ChoreAssignmentRepository
-	userRepo       repository.UserRepository
-	seriesRepo     repository.ChoreSeriesRepository
+	assignmentRepo choreAssignments
+	userRepo       choreUsers
+	seriesRepo     choreSeries
 	now            func() time.Time
 	settings       repository.SettingsRepository
 }
 
 func NewChoreService(
 	choreRepo repository.ChoreRepository,
-	assignmentRepo repository.ChoreAssignmentRepository,
-	userRepo repository.UserRepository,
-	seriesRepo repository.ChoreSeriesRepository,
+	assignmentRepo choreAssignments,
+	userRepo choreUsers,
+	seriesRepo choreSeries,
 	options ...ChoreOption,
 ) *ChoreService {
 	service := &ChoreService{

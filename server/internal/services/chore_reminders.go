@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"sort"
 	"strings"
 	"time"
@@ -28,13 +29,13 @@ func (failure *PushError) Error() string { return "push rejected: " + failure.Re
 
 type ChoreReminderService struct {
 	settings repository.SettingsRepository
-	chores   repository.ChoreRepository
+	chores   choreapp.ChoreRepository
 	devices  repository.NotificationRepository
 	sender   ReminderSender
 	users    repository.UserRepository
 }
 
-func NewChoreReminderService(settings repository.SettingsRepository, chores repository.ChoreRepository, devices repository.NotificationRepository, sender ReminderSender, users ...repository.UserRepository) *ChoreReminderService {
+func NewChoreReminderService(settings repository.SettingsRepository, chores choreapp.ChoreRepository, devices repository.NotificationRepository, sender ReminderSender, users ...repository.UserRepository) *ChoreReminderService {
 	service := &ChoreReminderService{settings: settings, chores: chores, devices: devices, sender: sender}
 	if len(users) > 0 {
 		service.users = users[0]
@@ -109,7 +110,7 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 		}
 		for _, device := range devices {
 			// Read again for each delivery so a retry sees completions from other devices.
-			chores, err := service.chores.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+			chores, err := service.chores.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 			if err != nil {
 				return err
 			}

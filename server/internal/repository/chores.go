@@ -17,10 +17,6 @@ const (
 	OrderByCompletedAtDesc = "completed_at DESC NULLS LAST, name ASC"
 )
 
-type ChoreFilter = choreapp.ChoreFilter
-
-type ChoreRepository = choreapp.ChoreRepository
-
 type SQLiteChoreRepository struct {
 	database queryConnection
 }
@@ -74,7 +70,7 @@ const choreColumnNames = `id, name, description, created_by_user_id, category_id
 
 const choreJoin = `FROM chores c LEFT JOIN chore_series cs ON cs.id = c.series_id`
 
-func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error) {
+func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter choreapp.ChoreFilter) ([]models.Chore, error) {
 	where := "WHERE 1=1"
 	if !filter.IncludeHistory {
 		where += " AND cs.deleted_at IS NULL"

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"sync"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func TestCurrentTaskResolvesOnceAndRotatesFromOwner(t *testing.T) {
 	if successes != 1 {
 		t.Fatalf("successful actions: %d", successes)
 	}
-	current, err := chores.FindAll(context.Background(), repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	current, err := chores.FindAll(context.Background(), choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestCurrentTaskResolvesOnceAndRotatesFromOwner(t *testing.T) {
 	if _, err := service.Forecast(context.Background(), now, now.AddDate(0, 0, 7)); err != nil {
 		t.Fatal(err)
 	}
-	currentAfter, _ := chores.FindAll(context.Background(), repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
+	currentAfter, _ := chores.FindAll(context.Background(), choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
 	if len(currentAfter) != 1 {
 		t.Fatal("forecast created tasks")
 	}
@@ -95,7 +96,7 @@ func TestTaskDatesPreserveRepeatRules(t *testing.T) {
 			if err := service.CompleteChore(context.Background(), task.ID, users[0].ID); err != nil {
 				t.Fatal(err)
 			}
-			current, err := chores.FindAll(context.Background(), repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
+			current, err := chores.FindAll(context.Background(), choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -157,7 +158,7 @@ func TestForecastHonoursLimitsWithoutCreatingTasks(t *testing.T) {
 	if err := service.CompleteChore(context.Background(), predictions[0].ID, users[0].ID); err == nil {
 		t.Fatal("forecast can complete")
 	}
-	current, err := chores.FindAll(context.Background(), repository.ChoreFilter{SeriesID: task.SeriesID})
+	current, err := chores.FindAll(context.Background(), choreapp.ChoreFilter{SeriesID: task.SeriesID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +199,7 @@ func TestUndatedTasksAppearOnHomeAndCanRepeat(t *testing.T) {
 	if err := service.SkipChore(context.Background(), task.ID, users[0].ID); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := chores.FindAll(context.Background(), repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
+	pending, err := chores.FindAll(context.Background(), choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending}})
 	if err != nil {
 		t.Fatal(err)
 	}

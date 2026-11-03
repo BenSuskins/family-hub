@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"database/sql"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"testing"
 	"time"
 
@@ -192,7 +193,7 @@ func TestChoreRepository_FindAll_WithFilters(t *testing.T) {
 	choreRepo.Update(ctx, created)
 
 	pending := models.ChoreStatusPending
-	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{Status: &pending})
+	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{Status: &pending})
 	if err != nil {
 		t.Fatalf("finding chores: %v", err)
 	}
@@ -277,7 +278,7 @@ func TestChoreRepository_FindAll_WithStatuses(t *testing.T) {
 	createdCompleted.CompletedAt = &now
 	choreRepo.Update(ctx, createdCompleted)
 
-	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{
+	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue},
 	})
 	if err != nil {
@@ -318,7 +319,7 @@ func TestChoreRepository_FindAll_WithOrderBy(t *testing.T) {
 	second.CompletedAt = &later
 	choreRepo.Update(ctx, second)
 
-	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{
+	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusCompleted},
 		OrderBy:  repository.OrderByCompletedAtDesc,
 	})
@@ -352,7 +353,7 @@ func TestChoreRepository_FindAll_WithLimit(t *testing.T) {
 		})
 	}
 
-	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{Limit: 3})
+	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{Limit: 3})
 	if err != nil {
 		t.Fatalf("finding chores with limit: %v", err)
 	}
@@ -360,7 +361,7 @@ func TestChoreRepository_FindAll_WithLimit(t *testing.T) {
 		t.Errorf("expected 3 chores with limit, got %d", len(chores))
 	}
 
-	allChores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{})
+	allChores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{})
 	if err != nil {
 		t.Fatalf("finding all chores: %v", err)
 	}
@@ -385,7 +386,7 @@ func TestChoreRepository_FindAll_LimitZeroReturnsAll(t *testing.T) {
 		})
 	}
 
-	chores, err := choreRepo.FindAll(ctx, repository.ChoreFilter{Limit: 0})
+	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{Limit: 0})
 	if err != nil {
 		t.Fatalf("finding chores with limit 0: %v", err)
 	}
@@ -508,7 +509,7 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 
 			testCase.setup(t, repo, user.ID)
 
-			results, err := repo.FindAll(ctx, repository.ChoreFilter{OnlyNextPerSeries: true, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+			results, err := repo.FindAll(ctx, choreapp.ChoreFilter{OnlyNextPerSeries: true, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 			if err != nil {
 				t.Fatalf("FindAll: %v", err)
 			}

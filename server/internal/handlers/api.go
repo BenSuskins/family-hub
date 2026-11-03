@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"io"
 	"log/slog"
 	"net/http"
@@ -22,7 +23,7 @@ import (
 )
 
 type APIHandler struct {
-	choreRepo          repository.ChoreRepository
+	choreRepo          choreapp.ChoreRepository
 	userRepo           repository.UserRepository
 	categoryRepo       repository.CategoryRepository
 	assignmentRepo     repository.ChoreAssignmentRepository
@@ -55,7 +56,7 @@ const (
 )
 
 func NewAPIHandler(
-	choreRepo repository.ChoreRepository,
+	choreRepo choreapp.ChoreRepository,
 	userRepo repository.UserRepository,
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
@@ -223,7 +224,7 @@ func (handler *APIHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	filter := repository.ChoreFilter{}
+	filter := choreapp.ChoreFilter{}
 
 	if status := r.URL.Query().Get("status"); status != "" {
 		s := models.ChoreStatus(status)
@@ -543,7 +544,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	lastInstant := end.Add(-time.Nanosecond)
-	chores, err := handler.choreRepo.FindAll(ctx, repository.ChoreFilter{
+	chores, err := handler.choreRepo.FindAll(ctx, choreapp.ChoreFilter{
 		DueAfter:  &start,
 		DueBefore: &lastInstant,
 	})

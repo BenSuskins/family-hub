@@ -8,13 +8,14 @@ import (
 	"sort"
 	"time"
 
+	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrChoreAlreadyComplete = errors.New("chore is already completed")
+	ErrChoreAlreadyComplete = choredomain.ErrAlreadyResolved
 )
 
 type ChoreService struct {
@@ -170,8 +171,15 @@ func (service *ChoreService) resolve(ctx context.Context, choreID, userID string
 		if err != nil {
 			return err
 		}
-		if task.Status != models.ChoreStatusPending && task.Status != models.ChoreStatusOverdue {
-			return ErrChoreAlreadyComplete
+		state := choredomain.Restore(choredomain.Status(task.Status))
+		var resolved choredomain.Resolution
+		if status == models.ChoreStatusCompleted {
+			resolved, err = state.Complete(userID, now)
+		} else {
+			resolved, err = state.Skip(userID, now)
+		}
+		if err != nil {
+			return err
 		}
 		var definition *models.ChoreSeries
 		if task.SeriesID != nil {
@@ -183,9 +191,10 @@ func (service *ChoreService) resolve(ctx context.Context, choreID, userID string
 		if definition != nil && definition.DeletedAt != nil {
 			return ErrChoreAlreadyComplete
 		}
-		task.Status = status
-		task.ResolvedAt = &now
-		task.ResolvedByUserID = &userID
+		task.Status = models.ChoreStatus(resolved.Status())
+		resolvedAt, resolvedBy := resolved.ResolvedAt(), resolved.UserID()
+		task.ResolvedAt = &resolvedAt
+		task.ResolvedByUserID = &resolvedBy
 		if status == models.ChoreStatusCompleted {
 			task.CompletedAt = &now
 			task.CompletedByUserID = &userID

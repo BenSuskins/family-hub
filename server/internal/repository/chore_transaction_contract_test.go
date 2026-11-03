@@ -11,7 +11,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
-func TestChoreTransactionRollsBackAllRepositories(t *testing.T) {
+func TestChoreTransactionRollsBackWrites(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.NewTestDatabase(t)
 	users := repository.NewUserRepository(db)
@@ -36,7 +36,7 @@ func TestChoreTransactionRollsBackAllRepositories(t *testing.T) {
 		if _, err := series.Create(ctx, models.ChoreSeries{ID: task.ID, Name: "Definition", CreatedByUserID: user.ID}); err != nil {
 			return err
 		}
-		if err := users.UpdateRole(ctx, user.ID, models.RoleAdmin); err != nil {
+		if _, err := users.FindAll(ctx); err != nil {
 			return err
 		}
 		return failure

@@ -171,7 +171,7 @@ func (service *ChoreService) resolve(ctx context.Context, choreID, userID string
 		if err != nil {
 			return err
 		}
-		state := choredomain.Restore(string(task.Status))
+		state := choredomain.Restore(choredomain.Status(task.Status))
 		var resolved choredomain.Resolution
 		if status == models.ChoreStatusCompleted {
 			resolved, err = state.Complete(userID, now)

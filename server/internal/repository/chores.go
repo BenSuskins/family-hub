@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
@@ -16,39 +17,9 @@ const (
 	OrderByCompletedAtDesc = "completed_at DESC NULLS LAST, name ASC"
 )
 
-type ChoreFilter struct {
-	Status            *models.ChoreStatus
-	Statuses          []models.ChoreStatus
-	RecurrenceTypes   []models.RecurrenceType
-	AssignedToUser    *string
-	CategoryID        *string
-	DueBefore         *time.Time
-	DueAfter          *time.Time
-	OrderBy           string
-	Limit             int
-	OnlyNextPerSeries bool
-	IncludeHistory    bool
-	HistoryOnly       bool
-	SeriesID          *string
-	AfterID           string
-}
+type ChoreFilter = choreapp.ChoreFilter
 
-type ChoreRepository interface {
-	Transact(context.Context, func(ChoreRepository, ChoreAssignmentRepository, UserRepository, ChoreSeriesRepository) error) error
-
-	FindByID(ctx context.Context, id string) (models.Chore, error)
-	FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error)
-	Create(ctx context.Context, chore models.Chore) (models.Chore, error)
-	Update(ctx context.Context, chore models.Chore) error
-	Delete(ctx context.Context, id string) error
-	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
-	MarkOverdue(ctx context.Context, choreID string) error
-	FindDueToday(ctx context.Context) ([]models.Chore, error)
-	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
-	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
-	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
-	CountBySeries(ctx context.Context, seriesID string) (int, error)
-}
+type ChoreRepository = choreapp.ChoreRepository
 
 type SQLiteChoreRepository struct {
 	database queryConnection

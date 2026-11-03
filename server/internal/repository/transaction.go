@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 )
 
 type queryConnection interface {
@@ -26,7 +27,7 @@ func withTransaction(ctx context.Context, connection queryConnection, operation 
 	return transaction.Commit()
 }
 
-func (repository *SQLiteChoreRepository) Transact(ctx context.Context, operation func(ChoreRepository, ChoreAssignmentRepository, UserRepository, ChoreSeriesRepository) error) error {
+func (repository *SQLiteChoreRepository) Transact(ctx context.Context, operation func(choreapp.ChoreRepository, choreapp.ChoreAssignmentRepository, choreapp.UserRepository, choreapp.ChoreSeriesRepository) error) error {
 	return withTransaction(ctx, repository.database, func(connection queryConnection) error {
 		return operation(&SQLiteChoreRepository{connection}, &SQLiteChoreAssignmentRepository{connection}, &SQLiteUserRepository{connection}, &SQLiteChoreSeriesRepository{connection})
 	})

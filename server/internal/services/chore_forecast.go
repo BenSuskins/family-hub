@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
@@ -15,7 +16,7 @@ func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time)
 	if err != nil {
 		return nil, err
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (service *ChoreService) DueTasks(ctx context.Context) (today, overdue []mod
 	if err != nil {
 		return nil, nil, err
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, repository.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return nil, nil, err
 	}

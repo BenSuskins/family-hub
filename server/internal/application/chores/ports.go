@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+type ChoreOrder string
+
+const (
+	OrderDueDate   ChoreOrder = "due_date"
+	OrderCompleted ChoreOrder = "completed"
+	OrderHistory   ChoreOrder = "history"
+)
+
 type ChoreFilter struct {
 	Status            *models.ChoreStatus
 	Statuses          []models.ChoreStatus
@@ -14,7 +22,7 @@ type ChoreFilter struct {
 	CategoryID        *string
 	DueBefore         *time.Time
 	DueAfter          *time.Time
-	OrderBy           string
+	OrderBy           ChoreOrder
 	Limit             int
 	OnlyNextPerSeries bool
 	IncludeHistory    bool

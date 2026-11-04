@@ -12,11 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	OrderByDueDateAsc      = "due_date ASC NULLS LAST, name ASC"
-	OrderByCompletedAtDesc = "completed_at DESC NULLS LAST, name ASC"
-)
-
 type SQLiteChoreRepository struct {
 	database queryConnection
 }
@@ -126,9 +121,16 @@ func (repository *SQLiteChoreRepository) FindAll(ctx context.Context, filter cho
 		args = append(args, *filter.DueAfter)
 	}
 
-	orderBy := filter.OrderBy
-	if orderBy == "" {
-		orderBy = OrderByDueDateAsc
+	var orderBy string
+	switch filter.OrderBy {
+	case "", choreapp.OrderDueDate:
+		orderBy = "due_date ASC NULLS LAST, name ASC"
+	case choreapp.OrderCompleted:
+		orderBy = "completed_at DESC NULLS LAST, name ASC"
+	case choreapp.OrderHistory:
+		orderBy = "COALESCE(c.resolved_at,c.created_at) DESC,c.id DESC"
+	default:
+		return nil, fmt.Errorf("unknown chore ordering: %q", filter.OrderBy)
 	}
 
 	var query string

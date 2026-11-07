@@ -321,7 +321,7 @@ func TestChoreRepository_FindAll_WithOrderBy(t *testing.T) {
 
 	chores, err := choreRepo.FindAll(ctx, choreapp.ChoreFilter{
 		Statuses: []models.ChoreStatus{models.ChoreStatusCompleted},
-		OrderBy:  repository.OrderByCompletedAtDesc,
+		OrderBy:  choreapp.OrderCompleted,
 	})
 	if err != nil {
 		t.Fatalf("finding chores: %v", err)
@@ -522,5 +522,13 @@ func TestChoreRepository_FindAll_OnlyNextPerSeries(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestChoreRepositoryRejectsUnknownOrder(t *testing.T) {
+	repo := repository.NewChoreRepository(testutil.NewTestDatabase(t))
+	_, err := repo.FindAll(context.Background(), choreapp.ChoreFilter{OrderBy: choreapp.ChoreOrder("unknown")})
+	if err == nil {
+		t.Fatal("expected unknown order to be rejected")
 	}
 }

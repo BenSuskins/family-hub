@@ -128,7 +128,7 @@ func (handler *APIHandler) SkipChore(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *APIHandler) ChoreHistory(w http.ResponseWriter, r *http.Request) {
-	filter := choreapp.ChoreFilter{IncludeHistory: true, HistoryOnly: true, OrderBy: "COALESCE(c.resolved_at,c.created_at) DESC,c.id DESC", Limit: 51, AfterID: r.URL.Query().Get("cursor")}
+	filter := choreapp.ChoreFilter{IncludeHistory: true, HistoryOnly: true, OrderBy: choreapp.OrderHistory, Limit: 51, AfterID: r.URL.Query().Get("cursor")}
 	if identifier := r.URL.Query().Get("definition_id"); identifier != "" {
 		filter.SeriesID = &identifier
 	}

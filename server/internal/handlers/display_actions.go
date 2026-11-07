@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -51,9 +51,9 @@ func (handler *APIHandler) CompleteDisplayChore(writer http.ResponseWriter, requ
 	switch {
 	case err == nil:
 		writer.WriteHeader(http.StatusNoContent)
-	case errors.Is(err, services.ErrChoreAlreadyComplete):
+	case errors.Is(err, choreapp.ErrChoreAlreadyComplete):
 		writeJSONError(writer, http.StatusConflict, "chore is already complete")
-	case errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, choreapp.ErrChoreNotFound):
 		writeJSONError(writer, http.StatusNotFound, "chore not found")
 	default:
 		writeAPIError(writer, request, http.StatusInternalServerError, "failed to complete chore", err)

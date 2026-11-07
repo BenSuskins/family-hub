@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
@@ -36,7 +36,7 @@ func TestChoreDefinitionsSeparateSetupTasksAndHistory(t *testing.T) {
 		}
 		return response.Body.Bytes()
 	}
-	var definition services.ChoreDefinition
+	var definition choreapp.ChoreDefinition
 	if err := json.Unmarshal(call("POST", "/api/chore-definitions", `{"name":"Bins","dueDate":"2020-01-01","recurrenceType":"daily","recurrenceCount":2}`, 201), &definition); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestChoreDefinitionsSeparateSetupTasksAndHistory(t *testing.T) {
 		t.Fatal("skip did not create successor")
 	}
 	call("POST", "/api/chores/"+definition.CurrentTask.ID+"/complete", "", 204)
-	var active []services.ChoreDefinition
+	var active []choreapp.ChoreDefinition
 	json.Unmarshal(call("GET", "/api/chore-definitions", "", 200), &active)
 	if len(active) != 0 {
 		t.Fatal("finished definition remains active")

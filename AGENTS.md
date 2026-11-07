@@ -34,11 +34,13 @@ API token into the shared app group so extensions can read them. See
 
 ## Architecture
 
-Request flow: HTTP → Chi router → Middleware → Handler → Service → Repository → SQLite
+Chore request flow: HTTP → Chi router → Middleware → Handler → Chore application → SQLite adapter. Other features can call repositories from handlers.
 
 ```
 server/
 ├── internal/
+│   ├── application/chores/  # Chore operations and storage ports
+│   ├── domain/chores/       # Chore rules
 │   ├── config/          # Environment parsing
 │   ├── database/        # DB connection and migration runner
 │   ├── models/          # Domain types
@@ -52,18 +54,22 @@ server/
 
 ## Key Patterns
 
-**Repositories** — Each feature area has an interface in
-`internal/repository/` with a SQLite implementation. Tests use in-memory
-SQLite (`:memory:`).
+**Repositories** — SQLite adapters live in `internal/repository/`. Chore ports
+live in the chore application; other repository interfaces remain beside their
+implementations. Repository tests use in-memory SQLite (`:memory:`).
 
-**Services** — Business logic lives in `internal/services/`. Handlers call
-services; services call repositories. Avoid direct repository access from
-handlers when logic belongs in a service.
+**Chores** — Chore operations and storage ports live in
+`internal/application/chores/`. Chore rules live in `internal/domain/chores/`.
+The SQLite adapter implements the ports. Shared adapter contracts live in
+`internal/contracttests/`.
+
+**Services** — Other business logic lives in `internal/services/`. Avoid direct
+repository access from handlers when logic belongs in a service.
 
 **Authentication** — `POST /api/auth/exchange` exchanges a one-time OIDC bearer
 token for a Family Hub API token. All other authenticated routes require
 `Authorization: Bearer <token>`. Admin routes also require the admin role.
-The API does not issue web sessions or serve HTML.
+The API does not issue web sessions. An opt-in setting serves the API explorer.
 
 **Errors and media** — API errors use a JSON object with an `error` field.
 Image and database backup routes return binary data on success.
@@ -76,7 +82,7 @@ Image and database backup routes return binary data on success.
 
 | Area | Handler | Service | Notes |
 |------|---------|---------|-------|
-| Chores | `handlers/api.go` | `services/chores.go`, `services/recurrence.go` | Recurrence: daily, weekly, monthly, custom cron |
+| Chores | `handlers/api.go` | `application/chores/`, `domain/chores/` | Recurrence: daily, weekly, monthly, custom cron |
 | Calendar | `handlers/api.go`, `handlers/calendar_subscriptions_api.go` | `services/ical_fetcher.go` | Unified events and admin-managed iCal feeds |
 | Meals | `handlers/api.go` | — | Weekly planner backed by `meal_plans` |
 | Recipes | `handlers/api.go` | `services/recipe_extractor.go` | URL extraction and API CRUD; share sheet uses JSON routes |

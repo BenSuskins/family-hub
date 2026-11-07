@@ -3,11 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
@@ -33,6 +35,9 @@ func (repository *SQLiteChoreRepository) FindByID(ctx context.Context, id string
 		&chore.Status, &chore.CompletedAt, &chore.CompletedByUserID, &chore.ResolvedAt, &chore.ResolvedByUserID,
 		&chore.CreatedAt, &chore.UpdatedAt,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Chore{}, choreapp.ErrChoreNotFound
+	}
 	if err != nil {
 		return models.Chore{}, fmt.Errorf("finding chore by id: %w", err)
 	}
@@ -248,7 +253,7 @@ func (repository *SQLiteChoreRepository) FindOverdueChores(ctx context.Context) 
 
 	var overdue []models.Chore
 	for _, chore := range candidates {
-		if IsOverdue(chore, now) {
+		if choredomain.IsOverdue(chore, now) {
 			overdue = append(overdue, chore)
 		}
 	}
@@ -344,30 +349,6 @@ func (repository *SQLiteChoreRepository) CountBySeries(ctx context.Context, seri
 		return 0, fmt.Errorf("counting chores by series: %w", err)
 	}
 	return count, nil
-}
-
-func IsOverdue(chore models.Chore, now time.Time) bool {
-	if chore.DueDate == nil {
-		return false
-	}
-
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	dueDay := time.Date(chore.DueDate.Year(), chore.DueDate.Month(), chore.DueDate.Day(), 0, 0, 0, 0, now.Location())
-
-	if dueDay.Before(startOfToday) {
-		return true
-	}
-
-	if dueDay.Equal(startOfToday) && chore.DueTime != nil {
-		parsed, err := time.Parse("15:04", *chore.DueTime)
-		if err != nil {
-			return false
-		}
-		dueAt := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, now.Location())
-		return now.After(dueAt)
-	}
-
-	return false
 }
 
 func scanChores(rows *sql.Rows) ([]models.Chore, error) {

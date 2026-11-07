@@ -1,13 +1,12 @@
-package services
+package chores
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
 func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time) ([]models.Chore, error) {
@@ -16,7 +15,7 @@ func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time)
 	if err != nil {
 		return nil, err
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +27,7 @@ func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time)
 		if err != nil {
 			return nil, err
 		}
-		remaining := maxExpansionIterations
+		remaining := choredomain.MaxExpansionIterations
 		if task.RecurrenceCount != nil && task.SeriesID != nil {
 			count, err := service.choreRepo.CountBySeries(ctx, *task.SeriesID)
 			if err != nil {
@@ -40,13 +39,13 @@ func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time)
 		if err != nil {
 			return nil, err
 		}
-		config, err := parseConfig(task.RecurrenceValue)
+		config, err := choredomain.ParseConfig(task.RecurrenceValue)
 		if err != nil {
 			return nil, err
 		}
 		owner := task.AssignedToUserID
 		index := task.LastAssignedIndex
-		for iteration := 0; iteration < remaining && iteration < maxExpansionIterations && date != nil; iteration++ {
+		for iteration := 0; iteration < remaining && iteration < choredomain.MaxExpansionIterations && date != nil; iteration++ {
 			if date.Format("2006-01-02") > end.Format("2006-01-02") {
 				break
 			}
@@ -68,7 +67,7 @@ func (service *ChoreService) Forecast(ctx context.Context, start, end time.Time)
 				forecast.Status = models.ChoreStatusPending
 				result = append(result, forecast)
 			}
-			next := advanceToNextOccurrence(*date, task.RecurrenceType, config)
+			next := choredomain.AdvanceToNextOccurrence(*date, task.RecurrenceType, config)
 			if !next.After(*date) {
 				break
 			}
@@ -85,12 +84,12 @@ func (service *ChoreService) DueTasks(ctx context.Context) (today, overdue []mod
 	if err != nil {
 		return nil, nil, err
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, task := range tasks {
-		if task.Status == models.ChoreStatusOverdue || repository.IsOverdue(task, now) {
+		if task.Status == models.ChoreStatusOverdue || choredomain.IsOverdue(task, now) {
 			task.Status = models.ChoreStatusOverdue
 			overdue = append(overdue, task)
 		} else if task.DueDate == nil || task.DueDate.Format("2006-01-02") == now.Format("2006-01-02") {

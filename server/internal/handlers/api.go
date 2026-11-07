@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"io"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
@@ -23,13 +23,12 @@ import (
 )
 
 type APIHandler struct {
-	choreRepo          choreapp.ChoreRepository
 	userRepo           repository.UserRepository
 	categoryRepo       repository.CategoryRepository
 	assignmentRepo     repository.ChoreAssignmentRepository
 	tokenRepo          repository.APITokenRepository
 	settingsRepo       repository.SettingsRepository
-	choreService       *services.ChoreService
+	choreService       *choreapp.ChoreService
 	mealPlanRepo       repository.MealPlanRepository
 	recipeRepo         repository.RecipeRepository
 	inventoryRepo      repository.InventoryRepository
@@ -56,13 +55,12 @@ const (
 )
 
 func NewAPIHandler(
-	choreRepo choreapp.ChoreRepository,
 	userRepo repository.UserRepository,
 	categoryRepo repository.CategoryRepository,
 	assignmentRepo repository.ChoreAssignmentRepository,
 	tokenRepo repository.APITokenRepository,
 	settingsRepo repository.SettingsRepository,
-	choreService *services.ChoreService,
+	choreService *choreapp.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
 	inventoryRepo repository.InventoryRepository,
@@ -73,7 +71,6 @@ func NewAPIHandler(
 	oidcIssuer string,
 ) *APIHandler {
 	return &APIHandler{
-		choreRepo:          choreRepo,
 		userRepo:           userRepo,
 		categoryRepo:       categoryRepo,
 		assignmentRepo:     assignmentRepo,
@@ -234,7 +231,7 @@ func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {
 		filter.AssignedToUser = &assignedTo
 	}
 
-	chores, err := handler.choreRepo.FindAll(ctx, filter)
+	chores, err := handler.choreService.FindChores(ctx, filter)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chores", err)
 		return
@@ -247,7 +244,7 @@ func (handler *APIHandler) ListChores(w http.ResponseWriter, r *http.Request) {
 
 func (handler *APIHandler) GetChore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	chore, err := handler.choreRepo.FindByID(ctx, chi.URLParam(r, "id"))
+	chore, err := handler.choreService.FindChore(ctx, chi.URLParam(r, "id"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "chore not found")
 		return
@@ -428,9 +425,9 @@ func (handler *APIHandler) CompleteChore(w http.ResponseWriter, r *http.Request)
 
 	if err := handler.choreService.CompleteChore(ctx, choreID, user.ID); err != nil {
 		switch {
-		case errors.Is(err, services.ErrChoreAlreadyComplete):
+		case errors.Is(err, choreapp.ErrChoreAlreadyComplete):
 			writeJSONError(w, http.StatusConflict, "chore is already complete")
-		case errors.Is(err, sql.ErrNoRows):
+		case errors.Is(err, choreapp.ErrChoreNotFound):
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		default:
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to complete chore", err)
@@ -544,7 +541,7 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	lastInstant := end.Add(-time.Nanosecond)
-	chores, err := handler.choreRepo.FindAll(ctx, choreapp.ChoreFilter{
+	chores, err := handler.choreService.FindChores(ctx, choreapp.ChoreFilter{
 		DueAfter:  &start,
 		DueBefore: &lastInstant,
 	})
@@ -809,9 +806,9 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	choreID := chi.URLParam(r, "id")
 
-	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	chore, err := handler.choreService.FindChore(ctx, choreID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, choreapp.ErrChoreNotFound) {
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore", err)
@@ -835,24 +832,12 @@ func (handler *APIHandler) UpdateChore(w http.ResponseWriter, r *http.Request) {
 	chore.Name = body.Name
 	chore.Description = body.Description
 	body.applyTo(&chore)
-	if chore.SeriesID == nil {
-		chore.SeriesID = &chore.ID
-	}
-	eligible := body.Assignees
-	if eligible == nil {
-		definition, err := handler.choreService.Definition(ctx, *chore.SeriesID)
-		if err != nil {
-			choreDefinitionError(w, r, err)
+	updated, err := handler.choreService.UpdateExistingChore(ctx, chore, body.Assignees)
+	if err != nil {
+		if errors.Is(err, choreapp.ErrChoreAlreadyComplete) {
+			writeJSONError(w, http.StatusConflict, "chore is no longer outstanding")
 			return
 		}
-		eligible = definition.Chore.EligibleAssignees
-	}
-	if err := handler.choreService.UpdateDefinition(ctx, chore, eligible); err != nil {
-		choreDefinitionError(w, r, err)
-		return
-	}
-	updated, err := handler.choreRepo.FindByID(ctx, choreID)
-	if err != nil {
 		choreDefinitionError(w, r, err)
 		return
 	}
@@ -863,21 +848,18 @@ func (handler *APIHandler) DeleteChore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	choreID := chi.URLParam(r, "id")
 
-	chore, err := handler.choreRepo.FindByID(ctx, choreID)
+	task, err := handler.choreService.FindChore(ctx, choreID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, choreapp.ErrChoreNotFound) {
 			writeJSONError(w, http.StatusNotFound, "chore not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore", err)
 		}
 		return
 	}
-
-	if chore.SeriesID != nil {
-		if err := handler.choreService.DeleteSeriesDefinition(ctx, *chore.SeriesID); err != nil {
-			choreDefinitionError(w, r, err)
-			return
-		}
+	if err := handler.choreService.DeleteExistingChore(ctx, task); err != nil {
+		choreDefinitionError(w, r, err)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

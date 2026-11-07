@@ -8,6 +8,7 @@ import (
 	_ "time/tzdata"
 
 	"github.com/bensuskins/family-hub/internal/apidocs"
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/handlers"
 	"github.com/bensuskins/family-hub/internal/httpresponse"
@@ -42,7 +43,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	inventoryRepo := repository.NewInventoryRepository(database)
 	icalSubRepo := repository.NewICalSubscriptionRepository(database)
 
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, services.WithChoreSettings(settingsRepo))
+	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(settingsRepo)))
 	icalFetcher := services.NewICalFetcher(icalSubRepo)
 	recipeExtractor := services.NewRecipeExtractor()
 	commuteService := services.NewCommuteService(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
@@ -50,7 +51,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	displayPairingHandler := handlers.NewDisplayPairingHandler(repository.NewDisplayPairingRepository(database), tokenRepo)
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(repository.NewDisplayPairingRepository(database), settingsRepo, commuteService)
 	scratchpadHandler := handlers.NewScratchpadHandler(repository.NewScratchpadRepository(database))
-	apiHandler := handlers.NewAPIHandler(choreRepo, userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
+	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(icalSubRepo, icalFetcher)
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)

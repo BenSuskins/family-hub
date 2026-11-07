@@ -2,18 +2,17 @@ package services_test
 
 import (
 	"context"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"testing"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
 func setupChoreServiceWithSeries(t *testing.T) (
-	*services.ChoreService,
+	*choreapp.ChoreService,
 	*repository.SQLiteChoreRepository,
 	*repository.SQLiteChoreAssignmentRepository,
 	*repository.SQLiteUserRepository,
@@ -25,12 +24,12 @@ func setupChoreServiceWithSeries(t *testing.T) (
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
-	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	service := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
 	return service, choreRepo, assignmentRepo, userRepo, seriesRepo
 }
 
 func setupChoreService(t *testing.T) (
-	*services.ChoreService,
+	*choreapp.ChoreService,
 	*repository.SQLiteChoreRepository,
 	*repository.SQLiteChoreAssignmentRepository,
 	*repository.SQLiteUserRepository,
@@ -195,7 +194,7 @@ func TestChoreService_CompleteChore_AlreadyComplete(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error completing already completed chore")
 	}
-	if err != services.ErrChoreAlreadyComplete {
+	if err != choreapp.ErrChoreAlreadyComplete {
 		t.Errorf("expected ErrChoreAlreadyComplete, got %v", err)
 	}
 }
@@ -350,7 +349,7 @@ func TestChoreService_CompleteChore_UsesSeriesRule(t *testing.T) {
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
-	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	service := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
 	ctx := context.Background()
 
 	users := createUsers(t, userRepo, 2)
@@ -397,7 +396,7 @@ func TestChoreService_Assignment_UsesSeriesPoolAndCursor(t *testing.T) {
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
-	service := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
+	service := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
 	ctx := context.Background()
 
 	users := createUsers(t, userRepo, 3)

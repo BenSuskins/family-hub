@@ -1,4 +1,4 @@
-package services
+package chores
 
 import (
 	"encoding/json"
@@ -9,14 +9,14 @@ import (
 )
 
 type RecurrenceConfig struct {
-	Interval int      `json:"interval,omitempty"`
-	Unit     string   `json:"unit,omitempty"`
-	Days     []string `json:"days,omitempty"`
-	DayOfMonth int    `json:"day_of_month,omitempty"`
-	Pattern  string   `json:"pattern,omitempty"`
+	Interval   int      `json:"interval,omitempty"`
+	Unit       string   `json:"unit,omitempty"`
+	Days       []string `json:"days,omitempty"`
+	DayOfMonth int      `json:"day_of_month,omitempty"`
+	Pattern    string   `json:"pattern,omitempty"`
 }
 
-func parseConfig(recurrenceValue string) (RecurrenceConfig, error) {
+func ParseConfig(recurrenceValue string) (RecurrenceConfig, error) {
 	var config RecurrenceConfig
 	if recurrenceValue != "" {
 		if err := json.Unmarshal([]byte(recurrenceValue), &config); err != nil {
@@ -33,7 +33,7 @@ func intervalOrDefault(interval int) int {
 	return interval
 }
 
-func advanceToNextOccurrence(from time.Time, recurrenceType models.RecurrenceType, config RecurrenceConfig) time.Time {
+func AdvanceToNextOccurrence(from time.Time, recurrenceType models.RecurrenceType, config RecurrenceConfig) time.Time {
 	interval := intervalOrDefault(config.Interval)
 
 	switch recurrenceType {
@@ -86,16 +86,16 @@ func CalculateNextDueDate(chore models.Chore, completedAt time.Time) (*time.Time
 		baseDate = *chore.DueDate
 	}
 
-	config, err := parseConfig(chore.RecurrenceValue)
+	config, err := ParseConfig(chore.RecurrenceValue)
 	if err != nil {
 		return nil, err
 	}
 
-	nextDate := advanceToNextOccurrence(baseDate, chore.RecurrenceType, config)
+	nextDate := AdvanceToNextOccurrence(baseDate, chore.RecurrenceType, config)
 	return &nextDate, nil
 }
 
-const maxExpansionIterations = 366
+const MaxExpansionIterations = 366
 
 // findNextWeekday returns the next occurrence on one of targetDays after `from`.
 // interval applies a multi-week gap: when the next matching weekday falls into a

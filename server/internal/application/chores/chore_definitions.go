@@ -1,13 +1,14 @@
-package services
+package chores
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"time"
 
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 )
+
+var ErrDefinitionNotFound = errors.New("chore definition not found")
 
 type ChoreDefinition struct {
 	ID          string
@@ -40,7 +41,7 @@ func (service *ChoreService) Definition(ctx context.Context, identifier string) 
 		return ChoreDefinition{}, err
 	}
 	if definition == nil {
-		return ChoreDefinition{}, sql.ErrNoRows
+		return ChoreDefinition{}, ErrDefinitionNotFound
 	}
 	task := models.Chore{ID: identifier, Name: definition.Name, Description: definition.Description, CreatedByUserID: definition.CreatedByUserID, SeriesID: &identifier, EligibleAssignees: definition.EligibleAssignees, Status: models.ChoreStatusPending}
 	task = applySeriesRule(task, definition)
@@ -48,7 +49,7 @@ func (service *ChoreService) Definition(ctx context.Context, identifier string) 
 	if definition.DeletedAt != nil {
 		return result, nil
 	}
-	tasks, err := service.choreRepo.FindAll(ctx, choreapp.ChoreFilter{SeriesID: &identifier, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+	tasks, err := service.choreRepo.FindAll(ctx, ChoreFilter{SeriesID: &identifier, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return result, err
 	}

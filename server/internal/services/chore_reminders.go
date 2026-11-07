@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"sort"
 	"strings"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
@@ -27,15 +27,19 @@ type PushError struct {
 
 func (failure *PushError) Error() string { return "push rejected: " + failure.Reason }
 
+type reminderChoreReader interface {
+	FindAll(context.Context, choreapp.ChoreFilter) ([]models.Chore, error)
+}
+
 type ChoreReminderService struct {
 	settings repository.SettingsRepository
-	chores   choreapp.ChoreRepository
+	chores   reminderChoreReader
 	devices  repository.NotificationRepository
 	sender   ReminderSender
 	users    repository.UserRepository
 }
 
-func NewChoreReminderService(settings repository.SettingsRepository, chores choreapp.ChoreRepository, devices repository.NotificationRepository, sender ReminderSender, users ...repository.UserRepository) *ChoreReminderService {
+func NewChoreReminderService(settings repository.SettingsRepository, chores reminderChoreReader, devices repository.NotificationRepository, sender ReminderSender, users ...repository.UserRepository) *ChoreReminderService {
 	service := &ChoreReminderService{settings: settings, chores: chores, devices: devices, sender: sender}
 	if len(users) > 0 {
 		service.users = users[0]
@@ -212,4 +216,11 @@ func (summary ChoreReminderSummary) Message() PushMessage {
 	}
 	body := strings.Join(parts, "\n")
 	return PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://today", ThreadID: "chore-reminders"}
+}
+
+func ChoreTimezone(settings repository.SettingsRepository) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
+		reminders, err := LoadChoreReminders(ctx, settings)
+		return reminders.Timezone, err
+	}
 }

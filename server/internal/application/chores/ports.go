@@ -2,9 +2,13 @@ package chores
 
 import (
 	"context"
-	"github.com/bensuskins/family-hub/internal/models"
+	"errors"
 	"time"
+
+	"github.com/bensuskins/family-hub/internal/models"
 )
+
+var ErrChoreNotFound = errors.New("chore not found")
 
 type ChoreOrder string
 
@@ -38,11 +42,8 @@ type ChoreRepository interface {
 	FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error)
 	Create(ctx context.Context, chore models.Chore) (models.Chore, error)
 	Update(ctx context.Context, chore models.Chore) error
-	Delete(ctx context.Context, id string) error
 	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
 	MarkOverdue(ctx context.Context, choreID string) error
-	FindDueToday(ctx context.Context) ([]models.Chore, error)
-	CountByStatusAndUser(ctx context.Context, status models.ChoreStatus, userID string) (int, error)
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)
 	CountBySeries(ctx context.Context, seriesID string) (int, error)

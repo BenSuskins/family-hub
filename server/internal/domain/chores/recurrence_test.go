@@ -1,4 +1,4 @@
-package services
+package chores
 
 import (
 	"testing"
@@ -272,9 +272,9 @@ func TestAdvanceMonthly_Overflow(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config := RecurrenceConfig{Interval: test.interval, DayOfMonth: test.dayOfMonth}
-			got := advanceToNextOccurrence(test.from, models.RecurrenceMonthly, config)
+			got := AdvanceToNextOccurrence(test.from, models.RecurrenceMonthly, config)
 			if !got.Equal(test.want) {
-				t.Errorf("advanceToNextOccurrence(%v) = %v, want %v", test.from, got, test.want)
+				t.Errorf("AdvanceToNextOccurrence(%v) = %v, want %v", test.from, got, test.want)
 			}
 		})
 	}
@@ -293,7 +293,7 @@ func TestAdvanceWeekly_MultiDayWithInterval(t *testing.T) {
 	}
 
 	for i, w := range want {
-		cursor = advanceToNextOccurrence(cursor, models.RecurrenceWeekly, config)
+		cursor = AdvanceToNextOccurrence(cursor, models.RecurrenceWeekly, config)
 		if !cursor.Equal(w) {
 			t.Fatalf("occurrence %d = %v (%s), want %v (%s)", i, cursor, cursor.Weekday(), w, w.Weekday())
 		}
@@ -304,10 +304,9 @@ func TestAdvanceWeekly_SingleDayWithInterval(t *testing.T) {
 	// Every 2 weeks on Monday.
 	config := RecurrenceConfig{Interval: 2, Days: []string{"monday"}}
 	from := time.Date(2025, time.January, 6, 8, 0, 0, 0, time.UTC) // Monday
-	got := advanceToNextOccurrence(from, models.RecurrenceWeekly, config)
+	got := AdvanceToNextOccurrence(from, models.RecurrenceWeekly, config)
 	want := time.Date(2025, time.January, 20, 8, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
-

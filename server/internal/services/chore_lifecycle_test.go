@@ -2,14 +2,13 @@ package services_test
 
 import (
 	"context"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"sync"
 	"testing"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
@@ -20,7 +19,7 @@ func TestCurrentTaskResolvesOnceAndRotatesFromOwner(t *testing.T) {
 	people := repository.NewUserRepository(connection)
 	definitions := repository.NewChoreSeriesRepository(connection)
 	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
-	service := services.NewChoreService(chores, assignments, people, definitions, services.WithChoreClock(func() time.Time { return now }))
+	service := choreapp.NewChoreService(chores, assignments, people, definitions, choreapp.WithChoreClock(func() time.Time { return now }))
 	users := createUsers(t, people, 2)
 	due := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
 	task := newRecurringChore(t, chores, definitions, models.ChoreSeries{Name: "Bins", RecurrenceType: models.RecurrenceDaily}, models.Chore{Name: "Bins", CreatedByUserID: users[0].ID, AssignedToUserID: &users[0].ID, DueDate: &due})
@@ -90,7 +89,7 @@ func TestTaskDatesPreserveRepeatRules(t *testing.T) {
 			definitions := repository.NewChoreSeriesRepository(connection)
 			now, _ := time.Parse(time.RFC3339, test.now)
 			due, _ := time.Parse("2006-01-02", test.due)
-			service := services.NewChoreService(chores, assignments, people, definitions, services.WithChoreClock(func() time.Time { return now }))
+			service := choreapp.NewChoreService(chores, assignments, people, definitions, choreapp.WithChoreClock(func() time.Time { return now }))
 			users := createUsers(t, people, 1)
 			task := newRecurringChore(t, chores, definitions, models.ChoreSeries{Name: "Routine", RecurrenceType: models.RecurrenceType(test.rule), RecurrenceValue: test.config, RecurOnComplete: test.afterCompletion}, models.Chore{Name: "Routine", CreatedByUserID: users[0].ID, AssignedToUserID: &users[0].ID, DueDate: &due})
 			if err := service.CompleteChore(context.Background(), task.ID, users[0].ID); err != nil {
@@ -140,7 +139,7 @@ func TestForecastHonoursLimitsWithoutCreatingTasks(t *testing.T) {
 	people := repository.NewUserRepository(connection)
 	definitions := repository.NewChoreSeriesRepository(connection)
 	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
-	service := services.NewChoreService(chores, repository.NewChoreAssignmentRepository(connection), people, definitions, services.WithChoreClock(func() time.Time { return now }))
+	service := choreapp.NewChoreService(chores, repository.NewChoreAssignmentRepository(connection), people, definitions, choreapp.WithChoreClock(func() time.Time { return now }))
 	users := createUsers(t, people, 2)
 	due := time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
 	limit := 3

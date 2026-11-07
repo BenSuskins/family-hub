@@ -1,15 +1,13 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"net/http"
 	"strconv"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -32,7 +30,7 @@ func (handler *APIHandler) GetChoreDefinition(w http.ResponseWriter, r *http.Req
 }
 
 func choreDefinitionError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, choreapp.ErrChoreNotFound) || errors.Is(err, choreapp.ErrDefinitionNotFound) {
 		writeJSONError(w, http.StatusNotFound, "chore definition not found")
 	} else {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to change chore definition", err)
@@ -116,7 +114,7 @@ func (handler *APIHandler) DeleteChoreDefinition(w http.ResponseWriter, r *http.
 
 func (handler *APIHandler) SkipChore(w http.ResponseWriter, r *http.Request) {
 	err := handler.choreService.SkipChore(r.Context(), chi.URLParam(r, "id"), middleware.GetUser(r.Context()).ID)
-	if errors.Is(err, services.ErrChoreAlreadyComplete) {
+	if errors.Is(err, choreapp.ErrChoreAlreadyComplete) {
 		writeJSONError(w, http.StatusConflict, "chore is no longer outstanding")
 		return
 	}
@@ -128,10 +126,6 @@ func (handler *APIHandler) SkipChore(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *APIHandler) ChoreHistory(w http.ResponseWriter, r *http.Request) {
-	filter := choreapp.ChoreFilter{IncludeHistory: true, HistoryOnly: true, OrderBy: choreapp.OrderHistory, Limit: 51, AfterID: r.URL.Query().Get("cursor")}
-	if identifier := r.URL.Query().Get("definition_id"); identifier != "" {
-		filter.SeriesID = &identifier
-	}
 	limit := 50
 	if value := r.URL.Query().Get("limit"); value != "" {
 		parsed, err := strconv.Atoi(value)
@@ -141,19 +135,10 @@ func (handler *APIHandler) ChoreHistory(w http.ResponseWriter, r *http.Request) 
 		}
 		limit = parsed
 	}
-	filter.Limit = limit + 1
-	items, err := handler.choreRepo.FindAll(r.Context(), filter)
+	history, err := handler.choreService.History(r.Context(), limit, r.URL.Query().Get("cursor"), r.URL.Query().Get("definition_id"))
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore history", err)
 		return
 	}
-	if items == nil {
-		items = []models.Chore{}
-	}
-	cursor := ""
-	if len(items) > limit {
-		items = items[:limit]
-		cursor = items[len(items)-1].ID
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"Items": items, "NextCursor": cursor})
+	writeJSON(w, http.StatusOK, history)
 }

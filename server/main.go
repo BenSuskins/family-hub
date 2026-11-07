@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/database"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -37,7 +38,7 @@ func main() {
 	choreRepo := repository.NewChoreRepository(db)
 	assignmentRepo := repository.NewChoreAssignmentRepository(db)
 	seriesRepo := repository.NewChoreSeriesRepository(db)
-	choreService := services.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, services.WithChoreSettings(repository.NewSettingsRepository(db)))
+	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(repository.NewSettingsRepository(db))))
 
 	var reminderSender services.ReminderSender
 	var messageSender services.MessageSender
@@ -81,7 +82,7 @@ func runBinReminders(service *services.BinReminderService) {
 	}
 }
 
-func runOverdueChecker(choreService *services.ChoreService) {
+func runOverdueChecker(choreService *choreapp.ChoreService) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 

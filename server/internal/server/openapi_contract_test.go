@@ -225,3 +225,34 @@ func TestOpenAPIRejectsInvalidResponseShapes(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAPIChoreDefinitionLifecycleContract(t *testing.T) {
+	fixture := newContractFixture(t)
+	created := fixture.request(t, http.MethodPost, "/api/chore-definitions", "member", `{"name":"Bins","dueDate":"2026-01-01","recurrenceType":"daily","recurrenceCount":2}`, true)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create definition: %d %s", created.Code, created.Body.String())
+	}
+	var definition struct {
+		ID          string
+		CurrentTask *models.Chore
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &definition); err != nil {
+		t.Fatal(err)
+	}
+	if definition.ID == "" || definition.CurrentTask == nil {
+		t.Fatalf("missing current chore: %s", created.Body.String())
+	}
+	definitionPath := "/api/chore-definitions/" + definition.ID
+	updated := fixture.request(t, http.MethodPut, definitionPath, "member", `{"name":"Bins edited","dueDate":"2026-01-01","recurrenceType":"daily","recurrenceCount":2}`, true)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update: %d %s", updated.Code, updated.Body.String())
+	}
+	skipped := fixture.request(t, http.MethodPost, "/api/chores/"+definition.CurrentTask.ID+"/skip", "member", "", true)
+	if skipped.Code != http.StatusNoContent {
+		t.Fatalf("skip: %d %s", skipped.Code, skipped.Body.String())
+	}
+	history := fixture.request(t, http.MethodGet, "/api/chore-history?definition_id="+definition.ID+"&limit=1", "member", "", true)
+	if history.Code != http.StatusOK {
+		t.Fatalf("history: %d %s", history.Code, history.Body.String())
+	}
+}

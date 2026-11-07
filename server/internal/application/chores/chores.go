@@ -1,4 +1,4 @@
-package services
+package chores
 
 import (
 	"context"
@@ -8,10 +8,8 @@ import (
 	"sort"
 	"time"
 
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -20,19 +18,19 @@ var (
 )
 
 type ChoreService struct {
-	choreRepo      choreapp.ChoreRepository
-	assignmentRepo choreapp.ChoreAssignmentRepository
-	userRepo       choreapp.UserRepository
-	seriesRepo     choreapp.ChoreSeriesRepository
+	choreRepo      ChoreRepository
+	assignmentRepo ChoreAssignmentRepository
+	userRepo       UserRepository
+	seriesRepo     ChoreSeriesRepository
 	now            func() time.Time
-	settings       repository.SettingsRepository
+	timezone       func(context.Context) (string, error)
 }
 
 func NewChoreService(
-	choreRepo choreapp.ChoreRepository,
-	assignmentRepo choreapp.ChoreAssignmentRepository,
-	userRepo choreapp.UserRepository,
-	seriesRepo choreapp.ChoreSeriesRepository,
+	choreRepo ChoreRepository,
+	assignmentRepo ChoreAssignmentRepository,
+	userRepo UserRepository,
+	seriesRepo ChoreSeriesRepository,
 	options ...ChoreOption,
 ) *ChoreService {
 	service := &ChoreService{
@@ -111,29 +109,13 @@ func (service *ChoreService) assignNextUser(ctx context.Context, chore models.Ch
 	return chore, nil
 }
 
-// rotationStart returns the index of the candidate that should be tried first.
-// When the previously assigned user is still in the candidate list, rotation
-// continues from the person after them (robust to membership changes). Otherwise
-// it falls back to advancing the stored positional index.
-func rotationStart(candidates []models.User, lastAssignedUserID *string, lastIndex int) int {
-	n := len(candidates)
-	if lastAssignedUserID != nil {
-		for i, user := range candidates {
-			if user.ID == *lastAssignedUserID {
-				return (i + 1) % n
-			}
-		}
-	}
-	return ((lastIndex+1)%n + n) % n
-}
-
 type ChoreOption func(*ChoreService)
 
 func WithChoreClock(clock func() time.Time) ChoreOption {
 	return func(service *ChoreService) { service.now = clock }
 }
-func WithChoreSettings(settings repository.SettingsRepository) ChoreOption {
-	return func(service *ChoreService) { service.settings = settings }
+func WithChoreTimezone(timezone func(context.Context) (string, error)) ChoreOption {
+	return func(service *ChoreService) { service.timezone = timezone }
 }
 
 func (service *ChoreService) CompleteChore(ctx context.Context, choreID, userID string) error {
@@ -144,12 +126,12 @@ func (service *ChoreService) SkipChore(ctx context.Context, choreID, userID stri
 }
 func (service *ChoreService) householdNow(ctx context.Context) (time.Time, error) {
 	timezone := "Europe/London"
-	if service.settings != nil {
-		settings, err := LoadChoreReminders(ctx, service.settings)
+	if service.timezone != nil {
+		configuredTimezone, err := service.timezone(ctx)
 		if err != nil {
 			return time.Time{}, err
 		}
-		timezone = settings.Timezone
+		timezone = configuredTimezone
 	}
 	location, err := time.LoadLocation(timezone)
 	if err != nil {
@@ -162,7 +144,7 @@ func (service *ChoreService) resolve(ctx context.Context, choreID, userID string
 	if err != nil {
 		return err
 	}
-	return service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
+	return service.choreRepo.Transact(ctx, func(chores ChoreRepository, assignments ChoreAssignmentRepository, users UserRepository, definitions ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.assignmentRepo = assignments
@@ -263,12 +245,12 @@ func nextTaskDate(task models.Chore, now time.Time) (*time.Time, error) {
 	if task.RecurrenceType == models.RecurrenceNone || task.RecurrenceType == "" {
 		return nil, nil
 	}
-	config, err := parseConfig(task.RecurrenceValue)
+	config, err := choredomain.ParseConfig(task.RecurrenceValue)
 	if err != nil {
 		return nil, err
 	}
 	if task.RecurOnComplete {
-		return CalculateNextDueDate(task, now)
+		return choredomain.CalculateNextDueDate(task, now)
 	}
 	if task.DueDate == nil {
 		task.DueDate = &now
@@ -276,7 +258,7 @@ func nextTaskDate(task models.Chore, now time.Time) (*time.Time, error) {
 	date := *task.DueDate
 	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, now.Location())
 	for iteration := 0; iteration < 36600; iteration++ {
-		next := advanceToNextOccurrence(date, task.RecurrenceType, config)
+		next := choredomain.AdvanceToNextOccurrence(date, task.RecurrenceType, config)
 		if !next.After(date) {
 			return nil, errors.New("recurrence does not advance")
 		}
@@ -530,7 +512,7 @@ func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
 
 func (service *ChoreService) CreateChore(ctx context.Context, task models.Chore, eligible []string) (models.Chore, error) {
 	var created models.Chore
-	err := service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
+	err := service.choreRepo.Transact(ctx, func(chores ChoreRepository, assignments ChoreAssignmentRepository, users UserRepository, definitions ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.assignmentRepo = assignments
@@ -555,14 +537,14 @@ func (service *ChoreService) CreateChore(ctx context.Context, task models.Chore,
 }
 
 func (service *ChoreService) UpdateDefinition(ctx context.Context, task models.Chore, eligible []string) error {
-	return service.choreRepo.Transact(ctx, func(chores choreapp.ChoreRepository, assignments choreapp.ChoreAssignmentRepository, users choreapp.UserRepository, definitions choreapp.ChoreSeriesRepository) error {
+	return service.choreRepo.Transact(ctx, func(chores ChoreRepository, assignments ChoreAssignmentRepository, users UserRepository, definitions ChoreSeriesRepository) error {
 		scoped := *service
 		scoped.choreRepo = chores
 		scoped.seriesRepo = definitions
 		if err := scoped.SyncSeriesDefinition(ctx, task, eligible); err != nil {
 			return err
 		}
-		current, err := chores.FindAll(ctx, choreapp.ChoreFilter{SeriesID: task.SeriesID, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+		current, err := chores.FindAll(ctx, ChoreFilter{SeriesID: task.SeriesID, Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 		if err != nil {
 			return err
 		}
@@ -577,4 +559,12 @@ func (service *ChoreService) UpdateDefinition(ctx context.Context, task models.C
 		}
 		return nil
 	})
+}
+
+func rotationStart(candidates []models.User, previous *string, index int) int {
+	ids := make([]string, len(candidates))
+	for position, candidate := range candidates {
+		ids[position] = candidate.ID
+	}
+	return choredomain.RotationStart(ids, previous, index)
 }

@@ -3,10 +3,11 @@ package repository_test
 import (
 	"context"
 	"database/sql"
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"testing"
 	"time"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	choredomain "github.com/bensuskins/family-hub/internal/domain/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -60,7 +61,7 @@ func TestIsOverdue(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := repository.IsOverdue(testCase.chore, now)
+			got := choredomain.IsOverdue(testCase.chore, now)
 			if got != testCase.want {
 				t.Errorf("IsOverdue() = %v, want %v", got, testCase.want)
 			}

@@ -27,11 +27,30 @@ flowchart LR
 | Component | Responsibility | Location |
 |-----------|---------------|----------|
 | Go API | Chi router, authentication, JSON and media routes | `server/internal/server/`, `server/internal/handlers/` |
-| Services | Business rules, recurrence, assignments, external URL guards, provider clients | `server/internal/services/` |
-| Repositories | Interfaces and SQLite data access | `server/internal/repository/` |
+| Chore application | Chore operations, transaction and storage ports | `server/internal/application/chores/` |
+| Chore domain | Resolution, recurrence, overdue and assignment rules | `server/internal/domain/chores/` |
+| Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
+| Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
 | iOS app and extensions | Native household client, widgets, Watch app, and shared models | `ios/` |
 | Web client | QR pairing state and household wall display | `web/` |
+
+### Backend ports and adapters
+
+The chore application exposes operations for creation, resolution, definitions,
+forecasting, and assignment. HTTP handlers and the overdue worker call those
+operations. The application defines the storage and transaction interfaces in
+`server/internal/application/chores/ports.go`. SQLite adapters implement them in
+`server/internal/repository/`; startup connects them in `server/internal/server/`
+and `server/main.go`. A timezone function is injected at startup.
+
+Chore completion and skipping use immutable resolution transitions. Recurrence,
+overdue checks, and assignee rotation use domain rules in
+`server/internal/domain/chores/`. A transaction groups chore, assignment, and
+series writes. Shared tests exercise the in-memory fake and SQLite adapters,
+including rollback, concurrent completion, recurrence and rotation. Other
+features have not yet moved to this architecture; some handlers call
+repositories directly. Chore storage still uses shared model types.
 
 ## Member request flow
 
@@ -50,17 +69,20 @@ sequenceDiagram
     X-->>C: Client-scoped Family Hub API token
     C->>R: Authenticated API request with Bearer token
     R->>H: Resolve user and authorization
-    H->>S: Run domain operation
+    H->>S: Run chore operation
     S->>D: Read or write household data
     D-->>S: Result
     S-->>H: Operation result
     H-->>C: JSON or media response
 ```
 
+The diagram above shows the chore operation path. Other features can take
+different paths.
+
 The iOS app runs the public OIDC PKCE flow and mirrors its server URL and
 long-lived API token into the shared app group for extensions. Admin routes
-also require the admin role. The API does not serve HTML or create browser
-sessions.
+also require the admin role. The API does not create browser sessions. An optional developer setting serves
+the API explorer.
 
 Wall displays are paired by an authenticated admin through the iOS app. The
 server issues a separate display credential for each display. Display routes
@@ -109,7 +131,7 @@ Display credentials have a separate scope from member tokens.
   tests use in-memory databases.
 - **No offline writes on iOS.** SwiftData is a cache; mutations require
   connectivity.
-- **Repository → Service → Handler.** Handlers avoid direct repository access
-  when business logic belongs in a service.
+- **Chore ports and adapters.** The chore application owns storage interfaces;
+  SQLite provides their implementation.
 - **Migrations run on startup.** Deployment does not require a separate
   migration step.

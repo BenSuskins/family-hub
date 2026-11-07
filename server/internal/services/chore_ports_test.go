@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
 
@@ -28,7 +28,7 @@ func TestChoreAssignmentUsesUserCapability(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := services.NewChoreService(chores, repository.NewChoreAssignmentRepository(database), choreUsersFake{users: []models.User{user}}, nil)
+	service := choreapp.NewChoreService(chores, repository.NewChoreAssignmentRepository(database), choreUsersFake{users: []models.User{user}}, nil)
 	assigned, err := service.AssignNextUser(context.Background(), chore)
 	if err != nil {
 		t.Fatal(err)

@@ -6,17 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"github.com/bensuskins/family-hub/internal/models"
 )
 
-type MealPlanFilter struct {
-	DateFrom string
-	DateTo   string
-}
-
 type MealPlanRepository interface {
 	FindByDateAndType(ctx context.Context, date string, mealType models.MealType) (models.MealPlan, error)
-	FindAll(ctx context.Context, filter MealPlanFilter) ([]models.MealPlan, error)
+	FindAll(ctx context.Context, filter mealapp.Filter) ([]models.MealPlan, error)
 	FindByDate(ctx context.Context, date string) ([]models.MealPlan, error)
 	Upsert(ctx context.Context, meal models.MealPlan) error
 	Delete(ctx context.Context, date string, mealType models.MealType) error
@@ -46,7 +42,7 @@ func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Contex
 	return meal, nil
 }
 
-func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter MealPlanFilter) ([]models.MealPlan, error) {
+func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter mealapp.Filter) ([]models.MealPlan, error) {
 	query := `SELECT date, meal_type, recipe_id, name, notes, COALESCE(created_by_user_id,''), created_at, updated_at
 	FROM meal_plans WHERE 1=1`
 
@@ -73,7 +69,7 @@ func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter 
 }
 
 func (repository *SQLiteMealPlanRepository) FindByDate(ctx context.Context, date string) ([]models.MealPlan, error) {
-	return repository.FindAll(ctx, MealPlanFilter{DateFrom: date, DateTo: date})
+	return repository.FindAll(ctx, mealapp.Filter{DateFrom: date, DateTo: date})
 }
 
 func (repository *SQLiteMealPlanRepository) Upsert(ctx context.Context, meal models.MealPlan) error {

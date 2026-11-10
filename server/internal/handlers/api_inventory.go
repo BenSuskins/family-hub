@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -32,7 +31,7 @@ type itemAPIBody struct {
 // the iOS Inventory home screen (areas list + running-low rollup).
 func (handler *APIHandler) ListInventory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	areas, err := handler.inventoryRepo.FindAllAreas(ctx)
+	areas, err := handler.inventoryService.FindAllAreas(ctx)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load inventory", err)
 		return
@@ -56,7 +55,7 @@ func (handler *APIHandler) CreateInventoryArea(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	created, err := handler.inventoryRepo.CreateArea(ctx, models.InventoryArea{
+	created, err := handler.inventoryService.CreateArea(ctx, models.InventoryArea{
 		Name:            body.Name,
 		Icon:            body.Icon,
 		Tint:            body.Tint,
@@ -73,9 +72,9 @@ func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	areaID := chi.URLParam(r, "id")
 
-	area, err := handler.inventoryRepo.FindAreaByID(ctx, areaID)
+	area, err := handler.inventoryService.FindAreaByID(ctx, areaID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, inventorydomain.ErrAreaNotFound) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
@@ -100,14 +99,9 @@ func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Re
 		area.Tint = body.Tint
 	}
 
-	if err := handler.inventoryRepo.UpdateArea(ctx, area); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to update area", err)
-		return
-	}
-
-	updated, err := handler.inventoryRepo.FindAreaByID(ctx, areaID)
+	updated, err := handler.inventoryService.SaveArea(ctx, area)
 	if err != nil {
-		writeJSON(w, http.StatusOK, area)
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update area", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -117,8 +111,8 @@ func (handler *APIHandler) DeleteInventoryArea(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	areaID := chi.URLParam(r, "id")
 
-	if _, err := handler.inventoryRepo.FindAreaByID(ctx, areaID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if _, err := handler.inventoryService.FindAreaByID(ctx, areaID); err != nil {
+		if errors.Is(err, inventorydomain.ErrAreaNotFound) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
@@ -126,7 +120,7 @@ func (handler *APIHandler) DeleteInventoryArea(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := handler.inventoryRepo.DeleteArea(ctx, areaID); err != nil {
+	if err := handler.inventoryService.DeleteArea(ctx, areaID); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete area", err)
 		return
 	}
@@ -138,8 +132,8 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 	user := middleware.GetUser(ctx)
 	areaID := chi.URLParam(r, "id")
 
-	if _, err := handler.inventoryRepo.FindAreaByID(ctx, areaID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if _, err := handler.inventoryService.FindAreaByID(ctx, areaID); err != nil {
+		if errors.Is(err, inventorydomain.ErrAreaNotFound) {
 			writeJSONError(w, http.StatusNotFound, "area not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load area", err)
@@ -156,7 +150,7 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	created, err := handler.inventoryRepo.CreateItem(ctx, models.InventoryItem{
+	created, err := handler.inventoryService.CreateItem(ctx, models.InventoryItem{
 		AreaID:          areaID,
 		Name:            body.Name,
 		TrackingMode:    body.TrackingMode,
@@ -177,9 +171,9 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	itemID := chi.URLParam(r, "id")
 
-	item, err := handler.inventoryRepo.FindItemByID(ctx, itemID)
+	item, err := handler.inventoryService.FindItemByID(ctx, itemID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, inventorydomain.ErrItemNotFound) {
 			writeJSONError(w, http.StatusNotFound, "item not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load item", err)
@@ -203,14 +197,9 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 	item.Unit = body.Unit
 	item.LowAt = body.LowAt
 
-	if err := handler.inventoryRepo.UpdateItem(ctx, item); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to update item", err)
-		return
-	}
-
-	updated, err := handler.inventoryRepo.FindItemByID(ctx, itemID)
+	updated, err := handler.inventoryService.SaveItem(ctx, item)
 	if err != nil {
-		writeJSON(w, http.StatusOK, item)
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update item", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
@@ -220,8 +209,8 @@ func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	itemID := chi.URLParam(r, "id")
 
-	if _, err := handler.inventoryRepo.FindItemByID(ctx, itemID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if _, err := handler.inventoryService.FindItemByID(ctx, itemID); err != nil {
+		if errors.Is(err, inventorydomain.ErrItemNotFound) {
 			writeJSONError(w, http.StatusNotFound, "item not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load item", err)
@@ -229,7 +218,7 @@ func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := handler.inventoryRepo.DeleteItem(ctx, itemID); err != nil {
+	if err := handler.inventoryService.DeleteItem(ctx, itemID); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete item", err)
 		return
 	}
@@ -241,12 +230,12 @@ func (handler *APIHandler) UpdateInventoryStock(w http.ResponseWriter, r *http.R
 	if !decodeJSONBody(w, r, &change) {
 		return
 	}
-	item, err := handler.inventoryRepo.UpdateStock(r.Context(), chi.URLParam(r, "id"), change)
+	item, err := handler.stockService.Update(r.Context(), chi.URLParam(r, "id"), change)
 	if err != nil {
 		switch {
-		case errors.Is(err, sql.ErrNoRows):
+		case errors.Is(err, inventorydomain.ErrItemNotFound):
 			writeJSONError(w, http.StatusNotFound, "item not found")
-		case errors.Is(err, repository.ErrInvalidStockChange):
+		case errors.Is(err, inventorydomain.ErrInvalidStockChange):
 			writeJSONError(w, http.StatusBadRequest, "supply one valid stock value for the item's tracking mode")
 		default:
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to update stock", err)

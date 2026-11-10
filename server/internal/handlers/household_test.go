@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	householdapp "github.com/bensuskins/family-hub/internal/application/household"
+	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
+	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +22,7 @@ import (
 
 func TestHomeInfoAdminAndValidation(t *testing.T) {
 	settings := repository.NewSettingsRepository(testutil.NewTestDatabase(t))
-	handler := NewHouseholdHandler(settings, nil, nil, nil)
+	handler := NewHouseholdHandler(householdapp.New(settings), nil, nil, nil)
 	for _, example := range []struct {
 		role   models.Role
 		body   string
@@ -76,7 +79,7 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHouseholdHandler(repository.NewSettingsRepository(database), nil, nil, repository.NewShoppingRepository(database))
+	handler := NewHouseholdHandler(householdapp.New(repository.NewSettingsRepository(database)), nil, nil, shoppingapp.New(repository.NewShoppingRepository(database)))
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +120,7 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	if err := inventory.DeleteArea(context.Background(), area.ID); err != nil {
 		t.Fatal(err)
 	}
-	list, err := handler.shopping.FindAll(context.Background())
+	list, err := handler.shopping.List(context.Background())
 	if err != nil || len(list) != 1 || list[0].InventoryItemID != nil {
 		t.Fatalf("shopping item must survive inventory deletion: %+v %v", list, err)
 	}
@@ -188,11 +191,11 @@ func TestShoppingLevelRestockAndRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	quantity := 2
-	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Quantity: &quantity}); !errors.Is(err, repository.ErrShoppingInvalid) {
+	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Quantity: &quantity}); !errors.Is(err, shoppingdomain.ErrInvalid) {
 		t.Fatalf("level item accepted quantity: %v", err)
 	}
 	invalid := 101
-	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Level: &invalid}); !errors.Is(err, repository.ErrShoppingInvalid) {
+	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Level: &invalid}); !errors.Is(err, shoppingdomain.ErrInvalid) {
 		t.Fatalf("invalid percentage: %v", err)
 	}
 	level := 80
@@ -206,7 +209,7 @@ func TestShoppingLevelRestockAndRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := shopping.Restock(context.Background(), item.ID, request); !errors.Is(err, repository.ErrShoppingConflict) {
+	if _, err := shopping.Restock(context.Background(), item.ID, request); !errors.Is(err, shoppingdomain.ErrConflict) {
 		t.Fatalf("old purchase accepted: %v", err)
 	}
 	updated, err := inventory.FindItemByID(context.Background(), stock.ID)

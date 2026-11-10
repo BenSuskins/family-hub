@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
+	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )
@@ -18,7 +17,7 @@ func (handler *HouseholdHandler) RegisterShopping(router chi.Router) {
 	router.Post("/api/shopping/items/{id}/restock", handler.RestockShopping)
 }
 func (handler *HouseholdHandler) ListShopping(w http.ResponseWriter, r *http.Request) {
-	items, err := handler.shopping.FindAll(r.Context())
+	items, err := handler.shopping.List(r.Context())
 	if err != nil {
 		shoppingFailure(w, r, err)
 		return
@@ -80,11 +79,11 @@ func (handler *HouseholdHandler) RestockShopping(w http.ResponseWriter, r *http.
 }
 func shoppingFailure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, shoppingdomain.ErrNotFound):
 		writeJSONError(w, http.StatusNotFound, "item not found")
-	case errors.Is(err, repository.ErrShoppingConflict):
+	case errors.Is(err, shoppingdomain.ErrConflict):
 		writeJSONError(w, http.StatusConflict, err.Error())
-	case errors.Is(err, repository.ErrShoppingInvalid):
+	case errors.Is(err, shoppingdomain.ErrInvalid):
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeAPIError(w, r, http.StatusInternalServerError, "shopping change failed", err)

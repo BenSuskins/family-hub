@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -42,4 +43,12 @@ func (repository *SQLiteSettingsRepository) Set(ctx context.Context, key string,
 		return fmt.Errorf("setting %s: %w", key, err)
 	}
 	return nil
+}
+
+func (repository *SQLiteSettingsRepository) Load(ctx context.Context, key string) (string, bool, error) {
+	value, err := repository.Get(ctx, key)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	return value, err == nil, err
 }

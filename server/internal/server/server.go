@@ -9,6 +9,9 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/apidocs"
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	householdapp "github.com/bensuskins/family-hub/internal/application/household"
+	scratchapp "github.com/bensuskins/family-hub/internal/application/scratchpad"
+	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/handlers"
 	"github.com/bensuskins/family-hub/internal/httpresponse"
@@ -50,7 +53,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	commuteHandler := handlers.NewCommuteHandler(commuteService)
 	displayPairingHandler := handlers.NewDisplayPairingHandler(repository.NewDisplayPairingRepository(database), tokenRepo)
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(repository.NewDisplayPairingRepository(database), settingsRepo, commuteService)
-	scratchpadHandler := handlers.NewScratchpadHandler(repository.NewScratchpadRepository(database))
+	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(icalSubRepo, icalFetcher)
 	imageHandler := handlers.NewImageHandler(recipeRepo)
@@ -59,7 +62,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	weatherProvider := services.NewOpenMeteo(providerClient, "https://api.open-meteo.com/v1/forecast", time.Now)
 	drivingProvider := services.NewGoogleDriving(providerClient, cfg.GoogleMapsAPIKey, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")
 	departureService := services.NewDepartureService(icalFetcher, drivingProvider, time.Now)
-	householdHandler := handlers.NewHouseholdHandler(settingsRepo, weatherProvider, departureService, repository.NewShoppingRepository(database))
+	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database)))
 	reminderHandler := handlers.NewChoreReminderHandler(settingsRepo, repository.NewNotificationRepository(database), cfg.PushConfigured() || messageSender != nil)
 	binCollectionsHandler := handlers.NewBinCollectionsHandler(settingsRepo, cfg.PushConfigured() || messageSender != nil)
 	broadcastHandler := handlers.NewBroadcastHandler(services.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)

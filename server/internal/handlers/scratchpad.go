@@ -2,28 +2,25 @@ package handlers
 
 import (
 	"encoding/json"
-	"math"
 	"net/http"
 
+	"errors"
+	scratchapp "github.com/bensuskins/family-hub/internal/application/scratchpad"
+	scratchdomain "github.com/bensuskins/family-hub/internal/domain/scratchpad"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
 const maxScratchpadBytes = 1 << 20
 
-var scratchpadColors = map[string]bool{"#3c654c": true, "#8b503c": true, "#b88642": true, "#343c31": true, "#5d7ea2": true, "#9d3c34": true}
+type ScratchpadHandler struct{ service *scratchapp.Service }
 
-type ScratchpadHandler struct {
-	repository repository.ScratchpadRepository
-}
-
-func NewScratchpadHandler(repository repository.ScratchpadRepository) *ScratchpadHandler {
-	return &ScratchpadHandler{repository: repository}
+func NewScratchpadHandler(service *scratchapp.Service) *ScratchpadHandler {
+	return &ScratchpadHandler{service: service}
 }
 
 func (handler *ScratchpadHandler) Get(w http.ResponseWriter, r *http.Request) {
-	scratchpad, err := handler.repository.Get(r.Context())
+	scratchpad, err := handler.service.Get(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not load scratchpad", err)
 		return
@@ -39,25 +36,13 @@ func (handler *ScratchpadHandler) Save(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "scratchpad drawing is invalid or too large")
 		return
 	}
-	if len(body.Strokes) > 1000 {
-		writeJSONError(w, http.StatusBadRequest, "scratchpad has too many strokes")
-		return
-	}
-	for _, stroke := range body.Strokes {
-		if !scratchpadColors[stroke.Color] || len(stroke.Points) < 1 || len(stroke.Points) > 2000 {
-			writeJSONError(w, http.StatusBadRequest, "scratchpad drawing contains an invalid stroke")
+	user := middleware.GetUser(r.Context())
+	scratchpad, err := handler.service.Save(r.Context(), body.Strokes, user.ID)
+	if err != nil {
+		if errors.Is(err, scratchdomain.ErrTooManyStrokes) || errors.Is(err, scratchdomain.ErrInvalidStroke) || errors.Is(err, scratchdomain.ErrInvalidPoint) {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		for _, point := range stroke.Points {
-			if math.IsNaN(point.X) || math.IsNaN(point.Y) || math.IsInf(point.X, 0) || math.IsInf(point.Y, 0) || point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > 1 {
-				writeJSONError(w, http.StatusBadRequest, "scratchpad point is outside the drawing area")
-				return
-			}
-		}
-	}
-	user := middleware.GetUser(r.Context())
-	scratchpad, err := handler.repository.Save(r.Context(), body.Strokes, user.ID)
-	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not save scratchpad", err)
 		return
 	}

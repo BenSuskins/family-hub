@@ -34,13 +34,13 @@ API token into the shared app group so extensions can read them. See
 
 ## Architecture
 
-Chore request flow: HTTP → Chi router → Middleware → Handler → Chore application → SQLite adapter. Other features can call repositories from handlers.
+Chores, meals, inventory, shopping, scratchpad, and home settings flow through feature application operations to SQLite adapters. Other features can call repositories from handlers.
 
 ```
 server/
 ├── internal/
-│   ├── application/chores/  # Chore operations and storage ports
-│   ├── domain/chores/       # Chore rules
+│   ├── application/     # Feature operations and storage ports
+│   ├── domain/          # Feature rules
 │   ├── config/          # Environment parsing
 │   ├── database/        # DB connection and migration runner
 │   ├── models/          # Domain types
@@ -54,14 +54,20 @@ server/
 
 ## Key Patterns
 
-**Repositories** — SQLite adapters live in `internal/repository/`. Chore ports
-live in the chore application; other repository interfaces remain beside their
-implementations. Repository tests use in-memory SQLite (`:memory:`).
+**Repositories** — SQLite adapters live in `internal/repository/`. Migrated feature ports
+live in their application packages; other repository interfaces remain beside
+their implementations. Repository tests use in-memory SQLite (`:memory:`).
 
 **Chores** — Chore operations and storage ports live in
 `internal/application/chores/`. Chore rules live in `internal/domain/chores/`.
 The SQLite adapter implements the ports. Shared adapter contracts live in
 `internal/contracttests/`.
+
+**Household data** — Meal, inventory, shopping, scratchpad, and home settings
+operations live in `internal/application/`. Their rules live in the matching
+`internal/domain/` packages when needed. Shopping restock and inventory writes
+commit together. Inventory stock changes use a compare-and-swap update. Shared
+stock and shopping contracts live in `internal/contracttests/`.
 
 **Services** — Other business logic lives in `internal/services/`. Avoid direct
 repository access from handlers when logic belongs in a service.
@@ -84,10 +90,12 @@ Image and database backup routes return binary data on success.
 |------|---------|---------|-------|
 | Chores | `handlers/api.go` | `application/chores/`, `domain/chores/` | Recurrence: daily, weekly, monthly, custom cron |
 | Calendar | `handlers/api.go`, `handlers/calendar_subscriptions_api.go` | `services/ical_fetcher.go` | Unified events and admin-managed iCal feeds |
-| Meals | `handlers/api.go` | — | Weekly planner backed by `meal_plans` |
+| Meals | `handlers/api.go` | `application/meals/` | Weekly planner backed by `meal_plans` |
 | Recipes | `handlers/api.go` | `services/recipe_extractor.go` | URL extraction and API CRUD; share sheet uses JSON routes |
-| Inventory | `handlers/api_inventory.go` | — | Areas, items, stock |
-| Shopping | `handlers/shopping.go` | — | Shared shopping list |
+| Inventory | `handlers/api_inventory.go` | `application/inventory/`, `domain/inventory/` | Areas, items, stock |
+| Shopping | `handlers/shopping.go` | `application/shopping/`, `domain/shopping/` | Shared shopping list |
+| Scratchpad | `handlers/scratchpad.go` | `application/scratchpad/`, `domain/scratchpad/` | Shared drawing |
+| Home settings | `handlers/household.go` | `application/household/`, `domain/household/` | Location and time zone |
 | Admin | `handlers/api.go`, `handlers/backup.go` | — | Users, categories, tokens, settings, backup/restore |
 
 ## Gotchas

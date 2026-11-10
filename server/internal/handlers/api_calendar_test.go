@@ -9,6 +9,7 @@ import (
 	"time"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
@@ -53,7 +54,7 @@ func TestCalendarIncludesTheLastDayAndOverlappingEvents(t *testing.T) {
 	handler := &APIHandler{
 		choreService: choreapp.NewChoreService(chores, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)),
 		icalFetcher:  services.NewICalFetcher(subscriptions),
-		mealPlanRepo: meals,
+		mealService:  mealapp.New(meals),
 	}
 	response := httptest.NewRecorder()
 	handler.ListCalendar(response, httptest.NewRequest(http.MethodGet, "/api/calendar?view=month&month=2026-04", nil))

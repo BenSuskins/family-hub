@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
@@ -25,7 +25,7 @@ type InventoryRepository interface {
 	CreateItem(ctx context.Context, item models.InventoryItem) (models.InventoryItem, error)
 	UpdateItem(ctx context.Context, item models.InventoryItem) error
 	DeleteItem(ctx context.Context, id string) error
-	UpdateStock(ctx context.Context, id string, change models.InventoryStockChange) (models.InventoryItem, error)
+	ModifyStock(ctx context.Context, id string, change func(models.InventoryItem) (models.InventoryItem, error)) (models.InventoryItem, error)
 }
 
 type SQLiteInventoryRepository struct {
@@ -101,6 +101,9 @@ func (repository *SQLiteInventoryRepository) FindAreaByID(ctx context.Context, i
 		&area.ID, &area.Name, &area.Icon, &area.Tint,
 		&area.CreatedByUserID, &area.CreatedAt, &area.UpdatedAt,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.InventoryArea{}, inventorydomain.ErrAreaNotFound
+	}
 	if err != nil {
 		return models.InventoryArea{}, fmt.Errorf("finding inventory area by id: %w", err)
 	}
@@ -170,6 +173,9 @@ func (repository *SQLiteInventoryRepository) FindItemByID(ctx context.Context, i
 		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
 		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.InventoryItem{}, inventorydomain.ErrItemNotFound
+	}
 	if err != nil {
 		return models.InventoryItem{}, fmt.Errorf("finding inventory item by id: %w", err)
 	}
@@ -180,7 +186,7 @@ func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, ite
 	if item.ID == "" {
 		item.ID = uuid.New().String()
 	}
-	item = normalizeItem(item)
+	item = inventorydomain.NormalizeItem(item)
 	now := time.Now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
@@ -198,7 +204,7 @@ func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, ite
 }
 
 func (repository *SQLiteInventoryRepository) UpdateItem(ctx context.Context, item models.InventoryItem) error {
-	item = normalizeItem(item)
+	item = inventorydomain.NormalizeItem(item)
 	item.UpdatedAt = time.Now()
 	_, err := repository.database.ExecContext(ctx,
 		`UPDATE inventory_items SET name = ?, tracking_mode = ?, quantity = ?, level = ?, unit = ?, low_at = ?, updated_at = ? WHERE id = ?`,
@@ -249,85 +255,31 @@ func scanItem(rows interface{ Scan(...any) error }, item *models.InventoryItem) 
 	return nil
 }
 
-// normalizeItem clamps an item's fields to valid ranges before persisting:
-// quantity and low_at are never negative, level is bounded to 0–100, and in
-// level mode low_at is read as a percentage so it is bounded to 0–100 too. An
-// unrecognized tracking mode falls back to count.
-func normalizeItem(item models.InventoryItem) models.InventoryItem {
-	if item.TrackingMode != models.TrackingModeLevel {
-		item.TrackingMode = models.TrackingModeCount
-	}
-	item.Quantity = atLeast(item.Quantity, 0)
-	item.Level = clamp(item.Level, 0, 100)
-	if item.TrackingMode == models.TrackingModeLevel {
-		item.LowAt = clamp(item.LowAt, 0, 100)
-	} else {
-		item.LowAt = atLeast(item.LowAt, 0)
-	}
-	return item
-}
-
-func atLeast(value, low int) int {
-	if value < low {
-		return low
-	}
-	return value
-}
-
-func clamp(value, low, high int) int {
-	return atLeast(min(value, high), low)
-}
-
-var ErrInvalidStockChange = errors.New("invalid stock change")
-
-func (repository *SQLiteInventoryRepository) UpdateStock(ctx context.Context, id string, change models.InventoryStockChange) (models.InventoryItem, error) {
-	count := 0
-	for _, value := range []*int64{change.Quantity, change.QuantityDelta, change.Level} {
-		if value != nil {
-			count++
+func (repository *SQLiteInventoryRepository) ModifyStock(ctx context.Context, id string, change func(models.InventoryItem) (models.InventoryItem, error)) (models.InventoryItem, error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return models.InventoryItem{}, err
 		}
-	}
-	if count != 1 {
-		return models.InventoryItem{}, ErrInvalidStockChange
-	}
-	field, expression, mode := "quantity", "?", models.TrackingModeCount
-	var value int64
-	condition := ""
-	arguments := []any{}
-	switch {
-	case change.Quantity != nil:
-		value = *change.Quantity
-		if value < 0 {
-			return models.InventoryItem{}, ErrInvalidStockChange
+		current, err := repository.FindItemByID(ctx, id)
+		if err != nil {
+			return models.InventoryItem{}, err
 		}
-	case change.QuantityDelta != nil:
-		value = *change.QuantityDelta
-		expression = "MAX(0, quantity + ?)"
-		if value > 0 {
-			condition = " AND quantity <= ?"
+		updated, err := change(current)
+		if err != nil {
+			return models.InventoryItem{}, err
 		}
-	case change.Level != nil:
-		field, mode, value = "level", models.TrackingModeLevel, *change.Level
-		if value < 0 || value > 100 {
-			return models.InventoryItem{}, ErrInvalidStockChange
-		}
-	}
-	arguments = append(arguments, value, time.Now(), id, mode)
-	if condition != "" {
-		arguments = append(arguments, int64(math.MaxInt64)-value)
-	}
-	row := repository.database.QueryRowContext(ctx,
-		"UPDATE inventory_items SET "+field+" = "+expression+", updated_at = ? WHERE id = ? AND tracking_mode = ?"+condition+
-			" RETURNING id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at", arguments...)
-	var item models.InventoryItem
-	if err := scanItem(row, &item); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			if _, findError := repository.FindItemByID(ctx, id); findError != nil {
-				return models.InventoryItem{}, findError
+		row := repository.database.QueryRowContext(ctx,
+			`UPDATE inventory_items SET quantity = ?, level = ?, updated_at = ?
+    WHERE id = ? AND tracking_mode = ? AND quantity = ? AND level = ?
+    RETURNING id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at`,
+			updated.Quantity, updated.Level, time.Now(), id, current.TrackingMode, current.Quantity, current.Level)
+		var saved models.InventoryItem
+		if err := scanItem(row, &saved); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
 			}
-			return models.InventoryItem{}, ErrInvalidStockChange
+			return models.InventoryItem{}, err
 		}
-		return models.InventoryItem{}, err
+		return saved, nil
 	}
-	return item, nil
 }

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
+
 	"github.com/bensuskins/family-hub/internal/services"
 )
 
@@ -234,7 +236,7 @@ func TestHuxleyClientRejectsProviderFailuresWithoutLeakingToken(t *testing.T) {
 			t.Cleanup(provider.Close)
 			client := services.NewHuxleyClient(provider.URL, "private-test-token", provider.Client())
 			_, err := client.FetchTrains(context.Background(), "KEL", "LST", 5)
-			if !errors.Is(err, services.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
+			if !errors.Is(err, commuteapp.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
 				t.Fatalf("expected safe provider error, got %v", err)
 			}
 		})
@@ -242,14 +244,14 @@ func TestHuxleyClientRejectsProviderFailuresWithoutLeakingToken(t *testing.T) {
 	t.Run("missing token", func(t *testing.T) {
 		client := services.NewHuxleyClient("https://example.invalid", "", nil)
 		_, err := client.FetchTrains(context.Background(), "KEL", "LST", 5)
-		if !errors.Is(err, services.ErrCommuteUnavailable) {
+		if !errors.Is(err, commuteapp.ErrCommuteUnavailable) {
 			t.Fatalf("expected unavailable, got %v", err)
 		}
 	})
 	t.Run("invalid URL", func(t *testing.T) {
 		client := services.NewHuxleyClient("https://example.invalid/%private-test-token", "private-test-token", nil)
 		_, err := client.FetchTrains(context.Background(), "KEL", "LST", 5)
-		if !errors.Is(err, services.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
+		if !errors.Is(err, commuteapp.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
 			t.Fatalf("expected safe URL error, got %v", err)
 		}
 	})
@@ -258,7 +260,7 @@ func TestHuxleyClientRejectsProviderFailuresWithoutLeakingToken(t *testing.T) {
 		provider.Close()
 		client := services.NewHuxleyClient(provider.URL, "private-test-token", provider.Client())
 		_, err := client.FetchTrains(context.Background(), "KEL", "LST", 5)
-		if !errors.Is(err, services.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
+		if !errors.Is(err, commuteapp.ErrCommuteProvider) || strings.Contains(err.Error(), "private-test-token") {
 			t.Fatalf("expected safe transport error, got %v", err)
 		}
 	})
@@ -273,7 +275,7 @@ func TestHuxleyClientHandlesTimeoutAndCancellation(t *testing.T) {
 	httpClient.Timeout = 20 * time.Millisecond
 	client := services.NewHuxleyClient(provider.URL, "private-test-token", httpClient)
 	_, err := client.FetchTrains(context.Background(), "KEL", "LST", 5)
-	if !errors.Is(err, services.ErrCommuteTimeout) || strings.Contains(err.Error(), "private-test-token") {
+	if !errors.Is(err, commuteapp.ErrCommuteTimeout) || strings.Contains(err.Error(), "private-test-token") {
 		t.Fatalf("expected safe timeout, got %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

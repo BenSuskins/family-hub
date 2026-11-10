@@ -31,6 +31,7 @@ flowchart LR
 | Chore domain | Resolution, recurrence, overdue and assignment rules | `server/internal/domain/chores/` |
 | Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
+| Integration applications | Calendar feed, weather, rail and departure operations | `server/internal/application/calendar/`, `commute/`, `weather/` |
 | Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
@@ -58,8 +59,16 @@ operations and SQLite implements the storage interfaces. Inventory stock changes
 use a compare-and-swap update so concurrent changes are not lost. Shopping
 restock commits its shopping and inventory changes in one SQLite transaction.
 Shared fake and SQLite contracts cover stock changes and shopping restocks.
-These features still use shared model types. Other features remain in the older
-structure, and some handlers call repositories directly.
+Calendar feed caching and range selection use a storage port and a feed port;
+the iCal adapter provides safe HTTP fetching and parsing. Rail and weather
+operations own their caches and call provider interfaces. Departure estimates
+use calendar and driving interfaces. Startup connects these operations to the
+SQLite and external provider adapters. Application tests use provider fakes;
+existing HTTP and provider tests cover the adapters.
+
+These features still use shared model types. Recipe extraction and calendar
+subscription administration remain in the older structure, and some handlers
+call repositories directly.
 
 ## Member request flow
 

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
@@ -31,7 +33,7 @@ func TestCommuteAPIUsesRouteAndCount(t *testing.T) {
 			}))
 			t.Cleanup(provider.Close)
 			client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
-			handler := NewCommuteHandler(services.NewCommuteService(client, nil))
+			handler := NewCommuteHandler(commuteapp.New(client, nil))
 			recorder := serveCommute(handler, test.target)
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("expected 200: %d %s", recorder.Code, recorder.Body.String())
@@ -54,7 +56,7 @@ func TestCommuteAPIUsesRouteAndCount(t *testing.T) {
 }
 
 func TestCommuteAPIRejectsInvalidParameters(t *testing.T) {
-	service := services.NewCommuteService(services.NewHuxleyClient("", "", nil), nil)
+	service := commuteapp.New(services.NewHuxleyClient("", "", nil), nil)
 	handler := NewCommuteHandler(service)
 	for _, target := range []string{
 		"/api/commute/trains/from/AB/to/LST",
@@ -89,7 +91,7 @@ func TestCommuteAPICachesByRouteAndCountThenErrorsAfterExpiry(t *testing.T) {
 	}))
 	t.Cleanup(provider.Close)
 	client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
-	handler := NewCommuteHandler(services.NewCommuteService(client, func() time.Time { return now }))
+	handler := NewCommuteHandler(commuteapp.New(client, func() time.Time { return now }))
 	request := func(target string) *httptest.ResponseRecorder { return serveCommute(handler, target) }
 	base := "/api/commute/trains/from/KEL/to/LST"
 	first := request(base)
@@ -145,7 +147,7 @@ func TestCommuteAPIReturnsProviderErrors(t *testing.T) {
 			httpClient := provider.Client()
 			httpClient.Timeout = 20 * time.Millisecond
 			client := services.NewHuxleyClient(provider.URL, test.token, httpClient)
-			handler := NewCommuteHandler(services.NewCommuteService(client, nil))
+			handler := NewCommuteHandler(commuteapp.New(client, nil))
 			recorder := serveCommute(handler, "/api/commute/trains/from/KEL/to/LST")
 			if recorder.Code != test.expectedStatus || strings.Contains(recorder.Body.String(), "private-test-token") {
 				t.Fatalf("expected safe error %d, got %d %s", test.expectedStatus, recorder.Code, recorder.Body.String())

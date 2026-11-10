@@ -11,19 +11,10 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
+	commute "github.com/bensuskins/family-hub/internal/application/commute"
 	"github.com/bensuskins/family-hub/internal/models"
-)
-
-const MaxCommuteTrains = 10
-
-var (
-	ErrCommuteUnavailable    = errors.New("train provider is not configured")
-	ErrCommuteProvider       = errors.New("train provider is unavailable")
-	ErrCommuteTimeout        = errors.New("train provider timed out")
-	ErrInvalidCommuteRequest = errors.New("invalid commute route or count")
 )
 
 type HuxleyClient struct {
@@ -71,19 +62,19 @@ type huxleyCallingPoint struct {
 }
 
 func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destinationCode string, count int) (models.CommuteBoard, error) {
-	originCode, originValid := normalizeCommuteStationCode(originCode)
-	destinationCode, destinationValid := normalizeCommuteStationCode(destinationCode)
-	if !originValid || !destinationValid || count < 1 || count > MaxCommuteTrains {
-		return models.CommuteBoard{}, ErrInvalidCommuteRequest
+	originCode, originValid := commute.NormalizeStationCode(originCode)
+	destinationCode, destinationValid := commute.NormalizeStationCode(destinationCode)
+	if !originValid || !destinationValid || count < 1 || count > commute.MaxCommuteTrains {
+		return models.CommuteBoard{}, commute.ErrInvalidCommuteRequest
 	}
 	if client.token == "" {
-		return models.CommuteBoard{}, ErrCommuteUnavailable
+		return models.CommuteBoard{}, commute.ErrCommuteUnavailable
 	}
 	origin := models.CommuteStation{Code: originCode}
 	destination := models.CommuteStation{Code: destinationCode}
 	endpoint, err := url.Parse(fmt.Sprintf("%s/departures/%s/to/%s/%d", client.baseURL, origin.Code, destination.Code, count))
 	if err != nil || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
-		return models.CommuteBoard{}, ErrCommuteProvider
+		return models.CommuteBoard{}, commute.ErrCommuteProvider
 	}
 	query := endpoint.Query()
 	query.Set("expand", "true")
@@ -92,7 +83,7 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destina
 	endpoint.RawQuery = query.Encode()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return models.CommuteBoard{}, ErrCommuteProvider
+		return models.CommuteBoard{}, commute.ErrCommuteProvider
 	}
 	response, err := client.client.Do(request)
 	if err != nil {
@@ -100,7 +91,7 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destina
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return models.CommuteBoard{}, ErrCommuteProvider
+		return models.CommuteBoard{}, commute.ErrCommuteProvider
 	}
 	const maximumBodyBytes = 2 * 1024 * 1024
 	data, err := io.ReadAll(io.LimitReader(response.Body, maximumBodyBytes+1))
@@ -109,7 +100,7 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destina
 	}
 	var source huxleyBoard
 	if len(data) > maximumBodyBytes || json.Unmarshal(data, &source) != nil || source.GeneratedAt.IsZero() {
-		return models.CommuteBoard{}, ErrCommuteProvider
+		return models.CommuteBoard{}, commute.ErrCommuteProvider
 	}
 	board := models.CommuteBoard{
 		Origin: origin, Destination: destination,
@@ -161,29 +152,16 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destina
 	return board, nil
 }
 
-func normalizeCommuteStationCode(value string) (string, bool) {
-	value = strings.ToUpper(strings.TrimSpace(value))
-	if len(value) != 3 {
-		return "", false
-	}
-	for _, character := range value {
-		if character < 'A' || character > 'Z' {
-			return "", false
-		}
-	}
-	return value, true
-}
-
 func commuteRequestError(err error) error {
 	if errors.Is(err, context.Canceled) {
 		return context.Canceled
 	}
 	var networkError net.Error
 	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &networkError) && networkError.Timeout()) {
-		return ErrCommuteTimeout
+		return commute.ErrCommuteTimeout
 	}
 	// HTTP errors can contain the request URL and its access token.
-	return ErrCommuteProvider
+	return commute.ErrCommuteProvider
 }
 
 func optionalCommuteText(value string) *string {
@@ -236,53 +214,4 @@ func commuteDepartureOrder(scheduled *string, generatedAt time.Time) int {
 	}
 	currentMinute := generatedAt.Hour()*60 + generatedAt.Minute()
 	return (commuteMinutes(*scheduled)-currentMinute+2160)%1440 - 720
-}
-
-type commuteCacheKey struct {
-	origin      string
-	destination string
-	count       int
-}
-
-type commuteCacheEntry struct {
-	board     models.CommuteBoard
-	expiresAt time.Time
-}
-
-type CommuteService struct {
-	client *HuxleyClient
-	now    func() time.Time
-	mutex  sync.Mutex
-	cache  map[commuteCacheKey]commuteCacheEntry
-}
-
-func NewCommuteService(client *HuxleyClient, now func() time.Time) *CommuteService {
-	if now == nil {
-		now = time.Now
-	}
-	return &CommuteService{client: client, now: now, cache: make(map[commuteCacheKey]commuteCacheEntry)}
-}
-
-func (service *CommuteService) FetchTrains(ctx context.Context, origin, destination string, count int) (models.CommuteBoard, error) {
-	origin, originValid := normalizeCommuteStationCode(origin)
-	destination, destinationValid := normalizeCommuteStationCode(destination)
-	if !originValid || !destinationValid || count < 1 || count > MaxCommuteTrains {
-		return models.CommuteBoard{}, ErrInvalidCommuteRequest
-	}
-	key := commuteCacheKey{origin: origin, destination: destination, count: count}
-	service.mutex.Lock()
-	entry, exists := service.cache[key]
-	service.mutex.Unlock()
-	if exists && service.now().Before(entry.expiresAt) {
-		return entry.board, nil
-	}
-	board, err := service.client.FetchTrains(ctx, origin, destination, count)
-	if err != nil {
-		return models.CommuteBoard{}, err
-	}
-	board.FetchedAt = service.now().UTC()
-	service.mutex.Lock()
-	service.cache[key] = commuteCacheEntry{board: board, expiresAt: board.FetchedAt.Add(30 * time.Second)}
-	service.mutex.Unlock()
-	return board, nil
 }

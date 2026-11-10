@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bensuskins/family-hub/internal/models"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
+	weatherapp "github.com/bensuskins/family-hub/internal/application/weather"
+	"github.com/bensuskins/family-hub/internal/models"
 )
 
 func TestWeatherForecastAdviceAndExpiry(t *testing.T) {
@@ -29,7 +32,7 @@ func TestWeatherForecastAdviceAndExpiry(t *testing.T) {
 	}))
 	defer server.Close()
 	now := time.Unix(1792324800, 0)
-	provider := NewOpenMeteo(server.Client(), server.URL, func() time.Time { return now })
+	provider := weatherapp.New(NewOpenMeteo(server.Client(), server.URL, func() time.Time { return now }), func() time.Time { return now })
 	latitude, longitude := 51.8, 0.7
 	home := models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London"}
 	forecast, err := provider.Forecast(context.Background(), home)
@@ -58,7 +61,7 @@ type fakeDrivingProvider struct{}
 
 func (fakeDrivingProvider) DrivingSeconds(_ context.Context, _ models.HomeInfo, destination string) (int, error) {
 	if destination == "School" {
-		return 0, ErrUnresolvedDestination
+		return 0, commuteapp.ErrUnresolvedDestination
 	}
 	return 1200, nil
 }
@@ -73,7 +76,7 @@ func TestDeparturesSelectStartTimeAndSubtractMargin(t *testing.T) {
 		{ID: "started", Location: "10 Main Street", StartTime: now.Add(-time.Minute)},
 	}
 	latitude, longitude := 51.8, 0.7
-	service := NewDepartureService(fakeDepartureCalendar{events}, fakeDrivingProvider{}, func() time.Time { return now })
+	service := commuteapp.NewDepartureService(fakeDepartureCalendar{events}, fakeDrivingProvider{}, func() time.Time { return now })
 	result, err := service.Departures(context.Background(), models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London", ArrivalMarginMinutes: 10})
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +138,7 @@ func TestGoogleDrivingContract(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error")
 				}
-				if errors.Is(err, ErrUnresolvedDestination) != example.unresolved {
+				if errors.Is(err, commuteapp.ErrUnresolvedDestination) != example.unresolved {
 					t.Fatalf("wrong error: %v", err)
 				}
 				if strings.Contains(err.Error(), "do-not-expose-key") {
@@ -157,7 +160,7 @@ func TestDeparturesRespectLocalDayAcrossClockChanges(t *testing.T) {
 		day := now.In(local)
 		end := time.Date(day.Year(), day.Month(), day.Day()+1, 0, 0, 0, 0, local)
 		events := []models.Event{{ID: "today", Location: "10 High Street", StartTime: now.Add(10 * time.Minute)}, {ID: "tomorrow", Location: "10 High Street", StartTime: end.Add(time.Minute)}}
-		service := NewDepartureService(fakeDepartureCalendar{events}, fakeDrivingProvider{}, func() time.Time { return now })
+		service := commuteapp.NewDepartureService(fakeDepartureCalendar{events}, fakeDrivingProvider{}, func() time.Time { return now })
 		result, err := service.Departures(context.Background(), models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London"})
 		if err != nil || len(result.Items) != 1 || result.Items[0].EventID != "today" {
 			t.Fatalf("%s: %+v %v", date, result, err)

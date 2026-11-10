@@ -1,28 +1,18 @@
 package handlers
 
 import (
-	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"time"
 
+	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
-type calendarSubscriptionRefresher interface {
-	ForceRefreshByID(context.Context, string) error
-}
-
-type CalendarSubscriptionsAPIHandler struct {
-	repository repository.ICalSubscriptionRepository
-	refresher  calendarSubscriptionRefresher
-}
+type CalendarSubscriptionsAPIHandler struct{ service *calendarapp.Subscriptions }
 
 type CalendarSubscriptionResponse struct {
 	ID            string     `json:"id"`
@@ -39,12 +29,12 @@ type calendarSubscriptionRequest struct {
 	Color string `json:"color"`
 }
 
-func NewCalendarSubscriptionsAPIHandler(repository repository.ICalSubscriptionRepository, refresher calendarSubscriptionRefresher) *CalendarSubscriptionsAPIHandler {
-	return &CalendarSubscriptionsAPIHandler{repository: repository, refresher: refresher}
+func NewCalendarSubscriptionsAPIHandler(service *calendarapp.Subscriptions) *CalendarSubscriptionsAPIHandler {
+	return &CalendarSubscriptionsAPIHandler{service: service}
 }
 
 func (handler *CalendarSubscriptionsAPIHandler) List(w http.ResponseWriter, r *http.Request) {
-	subscriptions, err := handler.repository.FindAll(r.Context())
+	subscriptions, err := handler.service.List(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load calendars", err)
 		return
@@ -76,14 +66,13 @@ func (handler *CalendarSubscriptionsAPIHandler) Create(w http.ResponseWriter, r 
 		writeJSONError(w, http.StatusBadRequest, "invalid calendar color")
 		return
 	}
-	subscription := models.ICalSubscription{ID: uuid.NewString(), Name: body.Name, URL: body.URL, Color: body.Color}
-	if err := handler.repository.Create(r.Context(), subscription); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to create calendar", err)
-		return
-	}
-	created, err := handler.repository.FindByID(r.Context(), subscription.ID)
+	created, err := handler.service.Create(r.Context(), body.Name, body.URL, body.Color)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to load created calendar", err)
+		if errors.Is(err, calendarapp.ErrReadCreated) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load created calendar", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to create calendar", err)
+		}
 		return
 	}
 	writeJSON(w, http.StatusCreated, calendarSubscriptionResponse(created))
@@ -98,21 +87,20 @@ func (handler *CalendarSubscriptionsAPIHandler) UpdateColor(w http.ResponseWrite
 		writeJSONError(w, http.StatusBadRequest, "invalid calendar color")
 		return
 	}
-	subscription, err := handler.repository.FindByID(r.Context(), chi.URLParam(r, "id"))
+	subscription, err := handler.service.UpdateColor(r.Context(), chi.URLParam(r, "id"), body.Color)
 	if err != nil {
-		writeCalendarLookupError(w, r, err)
+		if errors.Is(err, calendarapp.ErrWrite) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to update calendar color", err)
+		} else {
+			writeCalendarLookupError(w, r, err)
+		}
 		return
 	}
-	if err := handler.repository.UpdateColor(r.Context(), subscription.ID, body.Color); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to update calendar color", err)
-		return
-	}
-	subscription.Color = body.Color
 	writeJSON(w, http.StatusOK, calendarSubscriptionResponse(subscription))
 }
 
 func (handler *CalendarSubscriptionsAPIHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	if err := handler.refresher.ForceRefreshByID(r.Context(), chi.URLParam(r, "id")); err != nil {
+	if err := handler.service.Refresh(r.Context(), chi.URLParam(r, "id")); err != nil {
 		writeCalendarSubscriptionError(w, r, err)
 		return
 	}
@@ -120,13 +108,12 @@ func (handler *CalendarSubscriptionsAPIHandler) Refresh(w http.ResponseWriter, r
 }
 
 func (handler *CalendarSubscriptionsAPIHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if _, err := handler.repository.FindByID(r.Context(), id); err != nil {
-		writeCalendarLookupError(w, r, err)
-		return
-	}
-	if err := handler.repository.Delete(r.Context(), id); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete calendar", err)
+	if err := handler.service.Delete(r.Context(), chi.URLParam(r, "id")); err != nil {
+		if errors.Is(err, calendarapp.ErrWrite) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to delete calendar", err)
+		} else {
+			writeCalendarLookupError(w, r, err)
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -149,7 +136,7 @@ func isValidSubscriptionColor(color string) bool {
 }
 
 func writeCalendarSubscriptionError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, calendarapp.ErrNotFound) {
 		writeJSONError(w, http.StatusNotFound, "calendar not found")
 		return
 	}
@@ -158,7 +145,7 @@ func writeCalendarSubscriptionError(w http.ResponseWriter, r *http.Request, err 
 }
 
 func writeCalendarLookupError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, calendarapp.ErrNotFound) {
 		writeJSONError(w, http.StatusNotFound, "calendar not found")
 		return
 	}

@@ -31,7 +31,7 @@ flowchart LR
 | Chore domain | Resolution, recurrence, overdue and assignment rules | `server/internal/domain/chores/` |
 | Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
-| Integration applications | Calendar feed, weather, rail and departure operations | `server/internal/application/calendar/`, `commute/`, `weather/` |
+| Integration applications | Calendar, recipe import, weather, rail and departure operations | `server/internal/application/calendar/`, `recipes/`, `commute/`, `weather/` |
 | Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
@@ -64,11 +64,14 @@ the iCal adapter provides safe HTTP fetching and parsing. Rail and weather
 operations own their caches and call provider interfaces. Departure estimates
 use calendar and driving interfaces. Startup connects these operations to the
 SQLite and external provider adapters. Application tests use provider fakes;
-existing HTTP and provider tests cover the adapters.
+existing HTTP and provider tests cover the adapters. Calendar subscription
+administration uses an application-owned storage interface. Recipe import owns
+the fallback order and calls source and parser ports; the recipe adapter keeps
+URL validation, HTTP fetching, and format parsing. Shared contracts cover the
+calendar store and core recipe import cases.
 
-These features still use shared model types. Recipe extraction and calendar
-subscription administration remain in the older structure, and some handlers
-call repositories directly.
+Some features still use shared model types, and some handlers call repositories
+directly, including recipe CRUD.
 
 ## Member request flow
 

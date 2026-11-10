@@ -69,11 +69,11 @@ operations live in `internal/application/`. Their rules live in the matching
 commit together. Inventory stock changes use a compare-and-swap update. Shared
 stock and shopping contracts live in `internal/contracttests/`.
 
-**External data** — Calendar feeds, rail, departure estimates, and weather
-use `internal/application/calendar/`, `commute/`, and `weather/`. External
-HTTP and parsing adapters remain in `internal/services/`. The calendar cache
-uses stale data when a refresh fails. Recipe extraction and calendar
-subscription administration have not yet migrated.
+**External data** — Calendar subscriptions and feeds, recipe import, rail,
+departure estimates, and weather use feature packages in
+`internal/application/`. External HTTP and parsing adapters remain in
+`internal/services/`. The calendar cache uses stale data when a refresh fails.
+Recipe CRUD remains in the older structure.
 
 **Services** — Other business logic lives in `internal/services/`. Avoid direct
 repository access from handlers when logic belongs in a service.
@@ -99,7 +99,7 @@ Image and database backup routes return binary data on success.
 | Weather and departures | `handlers/household.go` | `application/weather/`, `application/commute/` | Forecasts and driving estimates |
 | Trains | `handlers/commute.go`, `handlers/display_commute.go` | `application/commute/`, `services/commute.go` | Huxley rail provider |
 | Meals | `handlers/api.go` | `application/meals/` | Weekly planner backed by `meal_plans` |
-| Recipes | `handlers/api.go` | `services/recipe_extractor.go` | URL extraction and API CRUD; share sheet uses JSON routes |
+| Recipes | `handlers/api.go` | `application/recipes/`, `services/recipe_extractor.go` | URL import and API CRUD; share sheet uses JSON routes |
 | Inventory | `handlers/api_inventory.go` | `application/inventory/`, `domain/inventory/` | Areas, items, stock |
 | Shopping | `handlers/shopping.go` | `application/shopping/`, `domain/shopping/` | Shared shopping list |
 | Scratchpad | `handlers/scratchpad.go` | `application/scratchpad/`, `domain/scratchpad/` | Shared drawing |

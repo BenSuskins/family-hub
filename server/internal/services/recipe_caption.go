@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 )
 
 // TikTok and Instagram posts have no structured recipe data — the cook writes
@@ -63,7 +65,7 @@ func cleanSocialCaption(text string) string {
 
 // applyCaption fills in whatever of recipe is still missing from a caption.
 // Existing structured data always wins.
-func applyCaption(recipe *ExtractedRecipe, caption string) {
+func applyCaption(recipe *recipeapp.Recipe, caption string) {
 	if strings.TrimSpace(caption) == "" {
 		return
 	}
@@ -93,7 +95,7 @@ func applyCaption(recipe *ExtractedRecipe, caption string) {
 // parseCaption splits a caption into a recipe. Ingredients and steps are only
 // returned when the caption labels them, because guessing at unlabelled lines
 // produces more noise than it saves.
-func parseCaption(caption string) ExtractedRecipe {
+func parseCaption(caption string) recipeapp.Recipe {
 	lines := captionLines(caption)
 
 	const (
@@ -137,7 +139,7 @@ func parseCaption(caption string) ExtractedRecipe {
 		}
 	}
 
-	parsed := ExtractedRecipe{
+	parsed := recipeapp.Recipe{
 		Title:       captionTitle(titleCandidates),
 		Ingredients: ingredients,
 		Steps:       steps,

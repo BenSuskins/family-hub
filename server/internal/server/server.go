@@ -7,6 +7,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
 	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
 	weatherapp "github.com/bensuskins/family-hub/internal/application/weather"
@@ -52,14 +54,15 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(settingsRepo)))
 	icalFetcher := calendarapp.New(icalSubRepo, services.NewICalAdapter(nil), nil)
-	recipeExtractor := services.NewRecipeExtractor()
+	recipeAdapter := services.NewRecipeExtractor()
+	recipeExtractor := recipeapp.New(recipeAdapter, recipeAdapter)
 	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
 	commuteHandler := handlers.NewCommuteHandler(commuteService)
 	displayPairingHandler := handlers.NewDisplayPairingHandler(repository.NewDisplayPairingRepository(database), tokenRepo)
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(repository.NewDisplayPairingRepository(database), settingsRepo, commuteService)
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
-	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(icalSubRepo, icalFetcher)
+	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)
 	providerClient := services.NewSafeHTTPClient(10 * time.Second)

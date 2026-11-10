@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"github.com/bensuskins/family-hub/internal/services"
 )
 
@@ -15,7 +17,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 	tests := []struct {
 		name string
 		html string
-		want services.ExtractedRecipe
+		want recipeapp.Recipe
 	}{
 		{
 			name: "JSON-LD top-level Recipe",
@@ -33,7 +35,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"recipeYield": "4",
 				"image": "https://example.com/pancakes.jpg"
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Pancakes",
 				Ingredients: []string{"2 cups flour", "1 cup milk", "2 eggs"},
 				Steps:       []string{"Mix dry ingredients.", "Add wet ingredients.", "Cook on griddle."},
@@ -56,7 +58,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 					}
 				]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Soup",
 				Ingredients: []string{"1 onion", "2 carrots"},
 				Steps:       []string{"Chop vegetables.", "Simmer for 30 minutes."},
@@ -67,7 +69,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 			html: `<html><head><script type="application/ld+json">[
 				{"@type": "Recipe", "name": "Toast", "recipeIngredient": ["2 slices bread"]}
 			]</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Toast",
 				Ingredients: []string{"2 slices bread"},
 			},
@@ -96,7 +98,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 					}
 				]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title: "Layered Cake",
 				Steps: []string{
 					"Cream butter and sugar.",
@@ -113,7 +115,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Quick Salad",
 				"recipeInstructions": "Chop lettuce.\nAdd tomatoes.\nDrizzle dressing."
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title: "Quick Salad",
 				Steps: []string{"Chop lettuce.", "Add tomatoes.", "Drizzle dressing."},
 			},
@@ -125,7 +127,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Simple Recipe",
 				"recipeInstructions": ["Step one.", "Step two.", "Step three."]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title: "Simple Recipe",
 				Steps: []string{"Step one.", "Step two.", "Step three."},
 			},
@@ -138,7 +140,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"prepTime": "PT1H30M",
 				"cookTime": "PT2H"
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Slow Roast",
 				PrepTime: "1 hr 30 mins",
 				CookTime: "2 hrs",
@@ -151,7 +153,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Cookies",
 				"recipeYield": 24
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Cookies",
 				Servings: intPtr(24),
 			},
@@ -163,7 +165,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Stew",
 				"recipeYield": "6 servings"
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Stew",
 				Servings: intPtr(6),
 			},
@@ -175,7 +177,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Pizza",
 				"recipeYield": ["8 slices"]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Pizza",
 				Servings: intPtr(8),
 			},
@@ -187,7 +189,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Risotto",
 				"image": {"@type": "ImageObject", "url": "https://example.com/risotto.jpg"}
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Risotto",
 				ImageURL: "https://example.com/risotto.jpg",
 			},
@@ -199,7 +201,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Tacos",
 				"image": ["https://example.com/tacos1.jpg", "https://example.com/tacos2.jpg"]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Tacos",
 				ImageURL: "https://example.com/tacos1.jpg",
 			},
@@ -211,7 +213,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Multi-Type Recipe",
 				"recipeIngredient": ["flour"]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Multi-Type Recipe",
 				Ingredients: []string{"flour"},
 			},
@@ -219,7 +221,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 		{
 			name: "no recipe data falls back to the document title",
 			html: `<html><head><title>Blog Post</title></head><body><p>Hello world</p></body></html>`,
-			want: services.ExtractedRecipe{Title: "Blog Post"},
+			want: recipeapp.Recipe{Title: "Blog Post"},
 		},
 		{
 			name: "Open Graph fallback supplies title and image",
@@ -227,7 +229,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				<meta property="og:title" content="Sticky Toffee Pudding">
 				<meta property="og:image" content="https://cdn.example.com/pudding.jpg">
 			</head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:    "Sticky Toffee Pudding",
 				ImageURL: "https://cdn.example.com/pudding.jpg",
 			},
@@ -239,7 +241,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				<meta property="og:image" content="https://cdn.example.com/reel.jpg">
 				<meta property="og:description" content="120K likes, 2,100 comments - joe_cooks on January 3, 2026: &quot;Marry Me Chicken 🍗 Serves 4 Ingredients: 4 chicken thighs 200ml double cream 100g sun-dried tomatoes Method: 1. Sear the chicken. 2. Add the cream and simmer. #dinner #recipe&quot;">
 			</head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Marry Me Chicken",
 				Ingredients: []string{"4 chicken thighs 200ml double cream 100g sun-dried tomatoes"},
 				Steps:       []string{"Sear the chicken.", "Add the cream and simmer."},
@@ -253,7 +255,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				<meta property="og:title" content="Best Ever Brownies">
 				<meta property="og:description" content="These fudgy brownies are the result of ten years of testing. Read on for my tips and tricks.">
 			</head><body></body></html>`,
-			want: services.ExtractedRecipe{Title: "Best Ever Brownies"},
+			want: recipeapp.Recipe{Title: "Best Ever Brownies"},
 		},
 		{
 			name: "VideoObject JSON-LD supplies title and thumbnail",
@@ -263,7 +265,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"thumbnailUrl": ["https://cdn.example.com/video.jpg"],
 				"description": "One Pot Sausage Pasta\nIngredients:\n6 sausages\n400g pasta\nMethod:\n1. Brown the sausages.\n2. Add the pasta and stock."
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "One Pot Sausage Pasta",
 				Ingredients: []string{"6 sausages", "400g pasta"},
 				Steps:       []string{"Brown the sausages.", "Add the pasta and stock."},
@@ -284,7 +286,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 					<meta itemprop="recipeYield" content="4" />
 				</div>
 			</body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Microdata Soup",
 				Ingredients: []string{"1 onion", "2 potatoes"},
 				Steps:       []string{"Boil everything together."},
@@ -301,7 +303,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 				"name": "Test",
 				"recipeIngredient": ["1 cup flour &amp; sugar", "2 &quot;large&quot; eggs"]
 			}</script></head><body></body></html>`,
-			want: services.ExtractedRecipe{
+			want: recipeapp.Recipe{
 				Title:       "Test",
 				Ingredients: []string{`1 cup flour & sugar`, `2 "large" eggs`},
 			},
@@ -317,7 +319,7 @@ func TestRecipeExtractor_Extract(t *testing.T) {
 			defer server.Close()
 
 			extractor := services.NewRecipeExtractorForTest(server.Client())
-			got, err := extractor.Extract(context.Background(), server.URL)
+			got, err := recipeapp.New(extractor, extractor).Import(context.Background(), server.URL)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

@@ -3,21 +3,15 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
 
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
-
-type ICalSubscriptionRepository interface {
-	FindAll(ctx context.Context) ([]models.ICalSubscription, error)
-	FindByID(ctx context.Context, id string) (models.ICalSubscription, error)
-	Create(ctx context.Context, sub models.ICalSubscription) error
-	UpdateCache(ctx context.Context, id string, data string, fetchedAt time.Time) error
-	UpdateColor(ctx context.Context, id string, color string) error
-	Delete(ctx context.Context, id string) error
-}
 
 type SQLiteICalSubscriptionRepository struct {
 	database *sql.DB
@@ -54,6 +48,9 @@ func (repository *SQLiteICalSubscriptionRepository) FindByID(ctx context.Context
 		`SELECT id, name, url, color, cached_data, last_fetched_at, created_at
 		FROM ical_subscriptions WHERE id = ?`, id,
 	).Scan(&sub.ID, &sub.Name, &sub.URL, &sub.Color, &sub.CachedData, &sub.LastFetchedAt, &sub.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.ICalSubscription{}, calendarapp.ErrNotFound
+	}
 	if err != nil {
 		return models.ICalSubscription{}, fmt.Errorf("finding ical subscription by id: %w", err)
 	}

@@ -313,3 +313,15 @@ func TestOpenAPIHouseholdDataContract(t *testing.T) {
 		t.Fatalf("home: %d %s", home.Code, home.Body.String())
 	}
 }
+
+func TestOpenAPICalendarSubscriptionsContract(t *testing.T) {
+	fixture := newContractFixture(t)
+	listed := fixture.request(t, http.MethodGet, "/api/calendars", "admin", "", true)
+	if listed.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", listed.Code, listed.Body.String())
+	}
+	missing := fixture.request(t, http.MethodPatch, "/api/calendars/missing/color", "admin", `{"color":"blue"}`, true)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing calendar: %d %s", missing.Code, missing.Body.String())
+	}
+}

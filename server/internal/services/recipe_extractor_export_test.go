@@ -1,6 +1,8 @@
 package services
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // NewRecipeExtractorForTest builds a RecipeExtractor wired for use with
 // httptest servers: it skips URL validation (so loopback addresses work)

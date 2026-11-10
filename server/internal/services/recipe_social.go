@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"golang.org/x/net/html"
 )
 
@@ -99,37 +101,37 @@ func (extractor *RecipeExtractor) oembedEndpointFor(rawURL string) (string, bool
 // extractViaOEmbed asks the platform for the post's caption and thumbnail. The
 // caption doubles as the recipe body on TikTok, so it is run through the same
 // caption parser as an Open Graph description.
-func (extractor *RecipeExtractor) extractViaOEmbed(ctx context.Context, endpoint, rawURL string) (ExtractedRecipe, bool) {
+func (extractor *RecipeExtractor) extractViaOEmbed(ctx context.Context, endpoint, rawURL string) (recipeapp.Recipe, bool) {
 	requestURL := endpoint + "?url=" + url.QueryEscape(rawURL)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 	request.Header.Set("User-Agent", defaultUserAgent)
 	request.Header.Set("Accept", "application/json")
 
 	response, err := extractor.client.Do(request)
 	if err != nil {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	var payload oembedResponse
 	if err := json.NewDecoder(io.LimitReader(response.Body, 512*1024)).Decode(&payload); err != nil {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	caption := cleanSocialCaption(payload.Title)
 	if caption == "" && payload.ThumbnailURL == "" {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
-	recipe := ExtractedRecipe{ImageURL: payload.ThumbnailURL}
+	recipe := recipeapp.Recipe{ImageURL: payload.ThumbnailURL}
 	applyCaption(&recipe, caption)
 	if recipe.Title == "" {
 		recipe.Title = payload.AuthorName
@@ -280,7 +282,7 @@ func resolveURL(baseURL, reference string) string {
 
 // extractFromVideoJSONLD handles pages whose only structured data describes a
 // video (common on TikTok, Instagram Reels and YouTube).
-func extractFromVideoJSONLD(document *html.Node) (ExtractedRecipe, bool) {
+func extractFromVideoJSONLD(document *html.Node) (recipeapp.Recipe, bool) {
 	var scripts []string
 	findJSONLDScripts(document, &scripts)
 
@@ -294,7 +296,7 @@ func extractFromVideoJSONLD(document *html.Node) (ExtractedRecipe, bool) {
 			continue
 		}
 
-		recipe := ExtractedRecipe{
+		recipe := recipeapp.Recipe{
 			Title:    htmlDecode(stringField(video, "name")),
 			ImageURL: videoThumbnail(video),
 		}
@@ -306,7 +308,7 @@ func extractFromVideoJSONLD(document *html.Node) (ExtractedRecipe, bool) {
 		}
 	}
 
-	return ExtractedRecipe{}, false
+	return recipeapp.Recipe{}, false
 }
 
 func videoThumbnail(video map[string]any) string {
@@ -358,15 +360,15 @@ func objectHasType(dict map[string]any, wanted string) bool {
 // Instagram's post page is a login wall for signed-out clients, but its embed
 // page is server rendered and public. It carries the caption and the poster
 // image, which is everything we can hope for from a Reel.
-func (extractor *RecipeExtractor) extractViaCaptionEmbed(ctx context.Context, rawURL string) (ExtractedRecipe, bool) {
+func (extractor *RecipeExtractor) extractViaCaptionEmbed(ctx context.Context, rawURL string) (recipeapp.Recipe, bool) {
 	origin, ok := extractor.captionEmbedOriginFor(rawURL)
 	if !ok {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	embedPath, ok := captionEmbedPath(rawURL)
 	if !ok {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	// origin is one of our own constants and ends in "/", and embedPath is
@@ -374,12 +376,12 @@ func (extractor *RecipeExtractor) extractViaCaptionEmbed(ctx context.Context, ra
 	// off the platform by the shared link.
 	embedURL := origin + embedPath
 	if err := extractor.validateURL(embedURL); err != nil {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	document, _, err := extractor.fetchDocument(ctx, embedURL)
 	if err != nil {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
 	return parseCaptionEmbed(document)
@@ -414,14 +416,14 @@ func captionEmbedPath(rawURL string) (string, bool) {
 	return match[1] + "/" + match[2] + "/embed/captioned/", true
 }
 
-func parseCaptionEmbed(document *html.Node) (ExtractedRecipe, bool) {
-	recipe := ExtractedRecipe{ImageURL: embeddedMediaImage(document)}
+func parseCaptionEmbed(document *html.Node) (recipeapp.Recipe, bool) {
+	recipe := recipeapp.Recipe{ImageURL: embeddedMediaImage(document)}
 
 	if caption := embeddedCaption(document); caption != "" {
 		applyCaption(&recipe, cleanSocialCaption(caption))
 	}
 	if recipe.Title == "" && recipe.ImageURL == "" {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 	return recipe, true
 }

@@ -11,18 +11,10 @@ import (
 	"strings"
 	"time"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"golang.org/x/net/html"
 )
-
-type ExtractedRecipe struct {
-	Title       string   `json:"title"`
-	Ingredients []string `json:"ingredients"`
-	Steps       []string `json:"steps"`
-	PrepTime    string   `json:"prepTime,omitempty"`
-	CookTime    string   `json:"cookTime,omitempty"`
-	Servings    *int     `json:"servings,omitempty"`
-	ImageURL    string   `json:"imageURL,omitempty"`
-}
 
 type RecipeExtractor struct {
 	client              *http.Client
@@ -38,63 +30,6 @@ func NewRecipeExtractor() *RecipeExtractor {
 		oembedProviders:     defaultOEmbedProviders(),
 		captionEmbedOrigins: defaultCaptionEmbedOrigins(),
 	}
-}
-
-// Extract pulls whatever recipe data a URL will give up, in descending order of
-// reliability: structured data (JSON-LD, then microdata), then a platform
-// oEmbed endpoint, then the page's Open Graph tags and caption text. Social
-// video posts only ever reach the last two, which is why a title and an image
-// alone count as a successful extraction.
-func (extractor *RecipeExtractor) Extract(ctx context.Context, rawURL string) (ExtractedRecipe, error) {
-	if err := extractor.validateURL(rawURL); err != nil {
-		return ExtractedRecipe{}, err
-	}
-
-	targetURL := extractor.resolveShortLink(ctx, rawURL)
-
-	document, finalURL, err := extractor.fetchDocument(ctx, targetURL)
-	if err != nil {
-		// A login wall or a bot block still leaves the oEmbed endpoint, which
-		// is the usual path for a TikTok link.
-		if recipe, found := extractor.extractViaOEmbedFor(ctx, targetURL); found {
-			return recipe, nil
-		}
-		if recipe, found := extractor.extractViaCaptionEmbed(ctx, targetURL); found {
-			return recipe, nil
-		}
-		return ExtractedRecipe{}, err
-	}
-
-	recipe, found := extractStructuredRecipe(document)
-	if found && len(recipe.Ingredients) > 0 && len(recipe.Steps) > 0 {
-		recipe.ImageURL = resolveURL(finalURL, recipe.ImageURL)
-		return recipe, nil
-	}
-
-	if oembedRecipe, ok := extractor.extractViaOEmbedFor(ctx, finalURL); ok {
-		mergeRecipe(&recipe, oembedRecipe)
-	}
-
-	if videoRecipe, ok := extractFromVideoJSONLD(document); ok {
-		mergeRecipe(&recipe, videoRecipe)
-	}
-
-	if embedRecipe, ok := extractor.extractViaCaptionEmbed(ctx, finalURL); ok {
-		mergeRecipe(&recipe, embedRecipe)
-	}
-
-	metadata := extractMetadata(document)
-	if recipe.Title == "" {
-		recipe.Title = cleanSocialCaption(metadata.Title)
-	}
-	if recipe.ImageURL == "" {
-		recipe.ImageURL = metadata.ImageURL
-	}
-	applyCaption(&recipe, cleanSocialCaption(firstNonEmpty(metadata.Description, metadata.Title)))
-
-	recipe.ImageURL = resolveURL(finalURL, recipe.ImageURL)
-
-	return recipe, nil
 }
 
 func (extractor *RecipeExtractor) fetchDocument(ctx context.Context, rawURL string) (*html.Node, string, error) {
@@ -130,52 +65,27 @@ func (extractor *RecipeExtractor) fetchDocument(ctx context.Context, rawURL stri
 	return document, finalURL, nil
 }
 
-func (extractor *RecipeExtractor) extractViaOEmbedFor(ctx context.Context, rawURL string) (ExtractedRecipe, bool) {
+func (extractor *RecipeExtractor) extractViaOEmbedFor(ctx context.Context, rawURL string) (recipeapp.Recipe, bool) {
 	endpoint, ok := extractor.oembedEndpointFor(rawURL)
 	if !ok {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 	return extractor.extractViaOEmbed(ctx, endpoint, rawURL)
 }
 
-func extractStructuredRecipe(document *html.Node) (ExtractedRecipe, bool) {
+func extractStructuredRecipe(document *html.Node) (recipeapp.Recipe, bool) {
 	if recipe, found := extractFromJSONLD(document); found {
 		return recipe, true
 	}
 	if recipe, found := extractFromMicrodata(document); found {
 		return recipe, true
 	}
-	return ExtractedRecipe{}, false
-}
-
-// mergeRecipe copies fields from addition into recipe wherever recipe is empty.
-func mergeRecipe(recipe *ExtractedRecipe, addition ExtractedRecipe) {
-	if recipe.Title == "" {
-		recipe.Title = addition.Title
-	}
-	if len(recipe.Ingredients) == 0 {
-		recipe.Ingredients = addition.Ingredients
-	}
-	if len(recipe.Steps) == 0 {
-		recipe.Steps = addition.Steps
-	}
-	if recipe.ImageURL == "" {
-		recipe.ImageURL = addition.ImageURL
-	}
-	if recipe.PrepTime == "" {
-		recipe.PrepTime = addition.PrepTime
-	}
-	if recipe.CookTime == "" {
-		recipe.CookTime = addition.CookTime
-	}
-	if recipe.Servings == nil {
-		recipe.Servings = addition.Servings
-	}
+	return recipeapp.Recipe{}, false
 }
 
 // --- JSON-LD extraction ---
 
-func extractFromJSONLD(document *html.Node) (ExtractedRecipe, bool) {
+func extractFromJSONLD(document *html.Node) (recipeapp.Recipe, bool) {
 	var scripts []string
 	findJSONLDScripts(document, &scripts)
 
@@ -188,7 +98,7 @@ func extractFromJSONLD(document *html.Node) (ExtractedRecipe, bool) {
 			return parseRecipeMap(recipeMap), true
 		}
 	}
-	return ExtractedRecipe{}, false
+	return recipeapp.Recipe{}, false
 }
 
 func findJSONLDScripts(node *html.Node, results *[]string) {
@@ -241,8 +151,8 @@ func isRecipeType(dict map[string]any) bool {
 	return false
 }
 
-func parseRecipeMap(recipe map[string]any) ExtractedRecipe {
-	result := ExtractedRecipe{
+func parseRecipeMap(recipe map[string]any) recipeapp.Recipe {
+	result := recipeapp.Recipe{
 		Title:       stringField(recipe, "name"),
 		Ingredients: extractIngredients(recipe),
 		Steps:       extractSteps(recipe),
@@ -382,15 +292,6 @@ func extractServings(recipe map[string]any) *int {
 
 var digitsRegex = regexp.MustCompile(`\d+`)
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func firstInt(text string) int {
 	match := digitsRegex.FindString(text)
 	if match == "" {
@@ -446,7 +347,7 @@ func FormatDuration(iso string) string {
 
 // --- Microdata extraction ---
 
-func extractFromMicrodata(document *html.Node) (ExtractedRecipe, bool) {
+func extractFromMicrodata(document *html.Node) (recipeapp.Recipe, bool) {
 	var ingredients []string
 	var steps []string
 	var title string
@@ -519,10 +420,10 @@ func extractFromMicrodata(document *html.Node) (ExtractedRecipe, bool) {
 
 	found := len(ingredients) > 0 || len(steps) > 0 || title != ""
 	if !found {
-		return ExtractedRecipe{}, false
+		return recipeapp.Recipe{}, false
 	}
 
-	return ExtractedRecipe{
+	return recipeapp.Recipe{
 		Title:       title,
 		Ingredients: ingredients,
 		Steps:       steps,

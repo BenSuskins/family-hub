@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -30,7 +32,7 @@ func (fake *calendarRefreshFake) ForceRefreshByID(_ context.Context, id string) 
 func TestCalendarSubscriptionAPIRequiresAdmin(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	user := models.User{ID: "member", Role: models.RoleMember}
-	handler := NewCalendarSubscriptionsAPIHandler(repository.NewICalSubscriptionRepository(database), &calendarRefreshFake{})
+	handler := NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(repository.NewICalSubscriptionRepository(database), &calendarRefreshFake{}, nil))
 	request := httptest.NewRequest(http.MethodGet, "/api/calendars", nil)
 	recorder := httptest.NewRecorder()
 	handlerRouter(handler, user).ServeHTTP(recorder, request)
@@ -49,7 +51,7 @@ func TestCalendarSubscriptionAPIListsWithoutCachedData(t *testing.T) {
 	if err := repo.UpdateCache(context.Background(), "school", cached, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	handler := NewCalendarSubscriptionsAPIHandler(repo, &calendarRefreshFake{})
+	handler := NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(repo, &calendarRefreshFake{}, nil))
 	recorder := httptest.NewRecorder()
 	handlerRouter(handler, models.User{ID: "admin", Role: models.RoleAdmin}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/calendars", nil))
 	if recorder.Code != http.StatusOK {
@@ -70,7 +72,7 @@ func TestCalendarSubscriptionAPIListsWithoutCachedData(t *testing.T) {
 func TestCalendarSubscriptionAPICreatesAndRejectsInvalidFeed(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	repo := repository.NewICalSubscriptionRepository(database)
-	handler := NewCalendarSubscriptionsAPIHandler(repo, &calendarRefreshFake{})
+	handler := NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(repo, &calendarRefreshFake{}, nil))
 	router := handlerRouter(handler, models.User{ID: "admin", Role: models.RoleAdmin})
 
 	request := httptest.NewRequest(http.MethodPost, "/api/calendars", bytes.NewBufferString(`{"name":"School","url":"https://example.com/calendar.ics","color":"teal"}`))
@@ -104,7 +106,7 @@ func TestCalendarSubscriptionAPIUpdatesColorRefreshesAndDeletes(t *testing.T) {
 		t.Fatal(err)
 	}
 	refresher := &calendarRefreshFake{}
-	handler := NewCalendarSubscriptionsAPIHandler(repo, refresher)
+	handler := NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(repo, refresher, nil))
 	router := handlerRouter(handler, models.User{ID: "admin", Role: models.RoleAdmin})
 
 	request := httptest.NewRequest(http.MethodPatch, "/api/calendars/school/color", strings.NewReader(`{"color":"rose"}`))

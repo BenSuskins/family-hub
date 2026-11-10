@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
@@ -38,7 +40,7 @@ type APIHandler struct {
 	inventoryService   *inventoryapp.Service
 	stockService       *inventoryapp.StockService
 	icalFetcher        *calendarapp.Service
-	recipeExtractor    *services.RecipeExtractor
+	recipeExtractor    *recipeapp.Service
 	oidcUserInfoURL    string
 	oidcUserInfoClient *http.Client
 	clientID           string
@@ -70,7 +72,7 @@ func NewAPIHandler(
 	recipeRepo repository.RecipeRepository,
 	inventoryRepo repository.InventoryRepository,
 	icalFetcher *calendarapp.Service,
-	recipeExtractor *services.RecipeExtractor,
+	recipeExtractor *recipeapp.Service,
 	oidcUserInfoURL string,
 	clientID string,
 	oidcIssuer string,
@@ -940,14 +942,22 @@ func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	recipe, err := handler.recipeExtractor.Extract(r.Context(), body.URL)
+	recipe, err := handler.recipeExtractor.Import(r.Context(), body.URL)
 	if err != nil {
 		slog.Error("extracting recipe", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusUnprocessableEntity, "error_type", fmt.Sprintf("%T", err))
 		writeJSONError(w, http.StatusUnprocessableEntity, "failed to extract recipe from URL")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, recipe)
+	writeJSON(w, http.StatusOK, struct {
+		Title       string   `json:"title"`
+		Ingredients []string `json:"ingredients"`
+		Steps       []string `json:"steps"`
+		PrepTime    string   `json:"prepTime,omitempty"`
+		CookTime    string   `json:"cookTime,omitempty"`
+		Servings    *int     `json:"servings,omitempty"`
+		ImageURL    string   `json:"imageURL,omitempty"`
+	}{recipe.Title, recipe.Ingredients, recipe.Steps, recipe.PrepTime, recipe.CookTime, recipe.Servings, recipe.ImageURL})
 }
 
 func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) {

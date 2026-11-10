@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"github.com/bensuskins/family-hub/internal/services"
 )
 
@@ -55,7 +57,7 @@ func TestRecipeExtractor_OEmbedFallback(t *testing.T) {
 				WithOEmbedProvider(host, server.URL+"/oembed")
 
 			videoURL := server.URL + "/@tacoguy/video/123"
-			got, err := extractor.Extract(context.Background(), videoURL)
+			got, err := recipeapp.New(extractor, extractor).Import(context.Background(), videoURL)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -88,7 +90,7 @@ func TestRecipeExtractor_TitleAndImageOnly(t *testing.T) {
 	extractor := services.NewRecipeExtractorForTest(server.Client()).
 		WithOEmbedProvider(hostOfTestServer(t, server.URL), server.URL+"/oembed")
 
-	got, err := extractor.Extract(context.Background(), server.URL+"/@cook/video/9")
+	got, err := recipeapp.New(extractor, extractor).Import(context.Background(), server.URL+"/@cook/video/9")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +113,7 @@ func TestRecipeExtractor_ResolvesRelativeImageURL(t *testing.T) {
 	defer server.Close()
 
 	extractor := services.NewRecipeExtractorForTest(server.Client())
-	got, err := extractor.Extract(context.Background(), server.URL+"/recipes/toad")
+	got, err := recipeapp.New(extractor, extractor).Import(context.Background(), server.URL+"/recipes/toad")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -161,7 +163,7 @@ func TestRecipeExtractor_InstagramEmbedFallback(t *testing.T) {
 	extractor := services.NewRecipeExtractorForTest(server.Client()).
 		WithCaptionEmbedOrigin(hostOfTestServer(t, server.URL), server.URL+"/")
 
-	got, err := extractor.Extract(context.Background(), server.URL+"/reel/ABC123/")
+	got, err := recipeapp.New(extractor, extractor).Import(context.Background(), server.URL+"/reel/ABC123/")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

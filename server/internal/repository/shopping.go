@@ -7,12 +7,10 @@ import (
 	"strings"
 	"time"
 
+	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
-
-var ErrShoppingConflict = errors.New("shopping item changed; refresh and try again")
-var ErrShoppingInvalid = errors.New("invalid shopping change")
 
 type ShoppingRepository interface {
 	FindAll(context.Context) ([]models.ShoppingItem, error)
@@ -52,10 +50,7 @@ func (repository *SQLiteShoppingRepository) FindAll(ctx context.Context) ([]mode
 	return items, rows.Err()
 }
 func (repository *SQLiteShoppingRepository) Create(ctx context.Context, name string, inventoryID *string) (models.ShoppingItem, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || len(name) > 200 {
-		return models.ShoppingItem{}, ErrShoppingInvalid
-	}
+
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return models.ShoppingItem{}, err
@@ -64,7 +59,7 @@ func (repository *SQLiteShoppingRepository) Create(ctx context.Context, name str
 	if inventoryID != nil {
 		var inventoryName string
 		if err := transaction.QueryRowContext(ctx, "SELECT name FROM inventory_items WHERE id=?", *inventoryID).Scan(&inventoryName); err != nil {
-			return models.ShoppingItem{}, err
+			return models.ShoppingItem{}, shoppingError(err)
 		}
 		existing, err := scanShopping(transaction.QueryRowContext(ctx, "SELECT "+shoppingColumns+" FROM shopping_items WHERE inventory_item_id=? AND purchased=0", *inventoryID))
 		if err == nil {
@@ -93,27 +88,16 @@ func (repository *SQLiteShoppingRepository) Update(ctx context.Context, id strin
 	defer transaction.Rollback()
 	item, err := scanShopping(transaction.QueryRowContext(ctx, "SELECT "+shoppingColumns+" FROM shopping_items WHERE id=?", id))
 	if err != nil {
+		return item, shoppingError(err)
+	}
+	var createPurchase bool
+	item, createPurchase, err = shoppingdomain.ApplyChange(item, change, uuid.NewString())
+	if err != nil {
 		return item, err
 	}
-	if item.Version != change.Version {
-		return item, ErrShoppingConflict
-	}
-	if change.Name != nil {
-		item.Name = strings.TrimSpace(*change.Name)
-		if item.Name == "" || len(item.Name) > 200 {
-			return item, ErrShoppingInvalid
-		}
-	}
-	if change.Purchased != nil && item.Purchased != *change.Purchased {
-		item.Purchased = *change.Purchased
-		item.Restocked = false
-		item.PurchaseID = nil
-		if item.Purchased {
-			identifier := uuid.NewString()
-			item.PurchaseID = &identifier
-			if _, err := transaction.ExecContext(ctx, "INSERT INTO shopping_purchases(id,shopping_item_id) VALUES(?,?)", identifier, id); err != nil {
-				return item, err
-			}
+	if createPurchase {
+		if _, err := transaction.ExecContext(ctx, "INSERT INTO shopping_purchases(id,shopping_item_id) VALUES(?,?)", *item.PurchaseID, id); err != nil {
+			return item, err
 		}
 	}
 	result, err := transaction.ExecContext(ctx, "UPDATE shopping_items SET name=?,purchased=?,purchase_id=?,restocked=?,version=version+1 WHERE id=? AND version=?", item.Name, item.Purchased, item.PurchaseID, item.Restocked, id, item.Version)
@@ -122,7 +106,7 @@ func (repository *SQLiteShoppingRepository) Update(ctx context.Context, id strin
 	}
 	changed, _ := result.RowsAffected()
 	if changed != 1 {
-		return item, ErrShoppingConflict
+		return item, shoppingdomain.ErrConflict
 	}
 	item.Version++
 	return item, transaction.Commit()
@@ -134,7 +118,7 @@ func (repository *SQLiteShoppingRepository) Delete(ctx context.Context, id strin
 	}
 	count, _ := result.RowsAffected()
 	if count == 0 {
-		return sql.ErrNoRows
+		return shoppingdomain.ErrNotFound
 	}
 	return nil
 }
@@ -150,30 +134,25 @@ func (repository *SQLiteShoppingRepository) Restock(ctx context.Context, id stri
 	defer transaction.Rollback()
 	item, err := scanShopping(transaction.QueryRowContext(ctx, "SELECT "+shoppingColumns+" FROM shopping_items WHERE id=?", id))
 	if err != nil {
+		return item, shoppingError(err)
+	}
+	alreadyRestocked, err := shoppingdomain.CheckRestock(item, request)
+	if err != nil {
 		return item, err
 	}
-	if !item.Purchased || item.PurchaseID == nil || *item.PurchaseID != request.PurchaseID {
-		return item, ErrShoppingConflict
-	}
-	if item.Restocked {
+	if alreadyRestocked {
 		return item, nil
-	}
-	if item.InventoryItemID == nil {
-		return item, ErrShoppingInvalid
 	}
 	var mode string
 	if err := transaction.QueryRowContext(ctx, "SELECT tracking_mode FROM inventory_items WHERE id=?", *item.InventoryItemID).Scan(&mode); err != nil {
+		return item, shoppingError(err)
+	}
+	if err := shoppingdomain.ValidateRestock(mode, request); err != nil {
 		return item, err
 	}
 	if mode == models.TrackingModeCount {
-		if request.Quantity == nil || request.Level != nil || *request.Quantity <= 0 || *request.Quantity > 1000000 {
-			return item, ErrShoppingInvalid
-		}
 		_, err = transaction.ExecContext(ctx, "UPDATE inventory_items SET quantity=quantity+?,updated_at=? WHERE id=?", *request.Quantity, time.Now(), *item.InventoryItemID)
 	} else {
-		if request.Level == nil || request.Quantity != nil || *request.Level < 0 || *request.Level > 100 {
-			return item, ErrShoppingInvalid
-		}
 		_, err = transaction.ExecContext(ctx, "UPDATE inventory_items SET level=?,updated_at=? WHERE id=?", *request.Level, time.Now(), *item.InventoryItemID)
 	}
 	if err != nil {
@@ -185,7 +164,7 @@ func (repository *SQLiteShoppingRepository) Restock(ctx context.Context, id stri
 	}
 	count, _ := result.RowsAffected()
 	if count != 1 {
-		return item, ErrShoppingConflict
+		return item, shoppingdomain.ErrConflict
 	}
 	if _, err := transaction.ExecContext(ctx, "UPDATE shopping_items SET restocked=1,version=version+1 WHERE id=?", id); err != nil {
 		return item, err
@@ -195,8 +174,11 @@ func (repository *SQLiteShoppingRepository) Restock(ctx context.Context, id stri
 	return item, transaction.Commit()
 }
 func shoppingError(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return shoppingdomain.ErrNotFound
+	}
 	if err != nil && (strings.Contains(err.Error(), "UNIQUE constraint") || strings.Contains(err.Error(), "locked")) {
-		return ErrShoppingConflict
+		return shoppingdomain.ErrConflict
 	}
 	return err
 }

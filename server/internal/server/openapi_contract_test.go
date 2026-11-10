@@ -256,3 +256,60 @@ func TestOpenAPIChoreDefinitionLifecycleContract(t *testing.T) {
 		t.Fatalf("history: %d %s", history.Code, history.Body.String())
 	}
 }
+
+func TestOpenAPIHouseholdDataContract(t *testing.T) {
+	fixture := newContractFixture(t)
+	areaResponse := fixture.request(t, http.MethodPost, "/api/inventory/areas", "member", `{"name":"Pantry"}`, true)
+	if areaResponse.Code != http.StatusCreated {
+		t.Fatalf("area: %d %s", areaResponse.Code, areaResponse.Body.String())
+	}
+	var area models.InventoryArea
+	if err := json.Unmarshal(areaResponse.Body.Bytes(), &area); err != nil {
+		t.Fatal(err)
+	}
+	itemResponse := fixture.request(t, http.MethodPost, "/api/inventory/areas/"+area.ID+"/items", "member", `{"name":"Milk","trackingMode":"count","quantity":5}`, true)
+	if itemResponse.Code != http.StatusCreated {
+		t.Fatalf("item: %d %s", itemResponse.Code, itemResponse.Body.String())
+	}
+	var stock models.InventoryItem
+	if err := json.Unmarshal(itemResponse.Body.Bytes(), &stock); err != nil {
+		t.Fatal(err)
+	}
+	updated := fixture.request(t, http.MethodPatch, "/api/inventory/items/"+stock.ID+"/stock", "member", `{"quantityDelta":2}`, true)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("stock: %d %s", updated.Code, updated.Body.String())
+	}
+	shoppingBody := fmt.Sprintf(`{"name":"Milk","inventoryItemID":%q}`, stock.ID)
+	shoppingResponse := fixture.request(t, http.MethodPost, "/api/shopping/items", "member", shoppingBody, true)
+	if shoppingResponse.Code != http.StatusCreated {
+		t.Fatalf("shopping: %d %s", shoppingResponse.Code, shoppingResponse.Body.String())
+	}
+	var shopping models.ShoppingItem
+	if err := json.Unmarshal(shoppingResponse.Body.Bytes(), &shopping); err != nil {
+		t.Fatal(err)
+	}
+	purchaseBody := fmt.Sprintf(`{"purchased":true,"version":%d}`, shopping.Version)
+	purchased := fixture.request(t, http.MethodPatch, "/api/shopping/items/"+shopping.ID, "member", purchaseBody, true)
+	if purchased.Code != http.StatusOK {
+		t.Fatalf("purchase: %d %s", purchased.Code, purchased.Body.String())
+	}
+	if err := json.Unmarshal(purchased.Body.Bytes(), &shopping); err != nil {
+		t.Fatal(err)
+	}
+	if shopping.PurchaseID == nil {
+		t.Fatal("purchase ID missing")
+	}
+	restockBody := fmt.Sprintf(`{"purchaseID":%q,"quantity":2}`, *shopping.PurchaseID)
+	restocked := fixture.request(t, http.MethodPost, "/api/shopping/items/"+shopping.ID+"/restock", "member", restockBody, true)
+	if restocked.Code != http.StatusOK {
+		t.Fatalf("restock: %d %s", restocked.Code, restocked.Body.String())
+	}
+	drawing := fixture.request(t, http.MethodPut, "/api/scratchpad", "member", `{"strokes":[{"color":"#3c654c","points":[{"x":0.2,"y":0.3}]}]}`, true)
+	if drawing.Code != http.StatusOK {
+		t.Fatalf("drawing: %d %s", drawing.Code, drawing.Body.String())
+	}
+	home := fixture.request(t, http.MethodPatch, "/api/home-info", "admin", `{"latitude":51.5,"longitude":-0.1,"timezone":"Europe/London","arrivalMarginMinutes":10}`, true)
+	if home.Code != http.StatusOK {
+		t.Fatalf("home: %d %s", home.Code, home.Body.String())
+	}
+}

@@ -14,6 +14,8 @@ import (
 	"time"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
@@ -29,9 +31,10 @@ type APIHandler struct {
 	tokenRepo          repository.APITokenRepository
 	settingsRepo       repository.SettingsRepository
 	choreService       *choreapp.ChoreService
-	mealPlanRepo       repository.MealPlanRepository
+	mealService        *mealapp.Service
 	recipeRepo         repository.RecipeRepository
-	inventoryRepo      repository.InventoryRepository
+	inventoryService   *inventoryapp.Service
+	stockService       *inventoryapp.StockService
 	icalFetcher        *services.ICalFetcher
 	recipeExtractor    *services.RecipeExtractor
 	oidcUserInfoURL    string
@@ -70,6 +73,10 @@ func NewAPIHandler(
 	clientID string,
 	oidcIssuer string,
 ) *APIHandler {
+	var mealService *mealapp.Service
+	if mealPlanRepo != nil {
+		mealService = mealapp.New(mealPlanRepo)
+	}
 	return &APIHandler{
 		userRepo:           userRepo,
 		categoryRepo:       categoryRepo,
@@ -77,9 +84,10 @@ func NewAPIHandler(
 		tokenRepo:          tokenRepo,
 		settingsRepo:       settingsRepo,
 		choreService:       choreService,
-		mealPlanRepo:       mealPlanRepo,
+		mealService:        mealService,
 		recipeRepo:         recipeRepo,
-		inventoryRepo:      inventoryRepo,
+		inventoryService:   inventoryapp.New(inventoryRepo),
+		stockService:       inventoryapp.NewStockService(inventoryRepo),
 		icalFetcher:        icalFetcher,
 		recipeExtractor:    recipeExtractor,
 		oidcUserInfoURL:    oidcUserInfoURL,
@@ -324,10 +332,10 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 
 	mealsThisWeek := []models.MealPlan{}
 	todayMeals := []models.MealPlan{}
-	if handler.mealPlanRepo != nil {
+	if handler.mealService != nil {
 		startOfToday := now.Truncate(24 * time.Hour)
 		sevenDaysOut := startOfToday.AddDate(0, 0, 7)
-		meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+		meals, err := handler.mealService.FindAll(ctx, mealapp.Filter{
 			DateFrom: startOfToday.Format(DateFormat),
 			DateTo:   sevenDaysOut.Format(DateFormat),
 		})
@@ -338,7 +346,7 @@ func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request
 		if meals != nil {
 			mealsThisWeek = meals
 		}
-		loadedTodayMeals, err := handler.mealPlanRepo.FindByDate(ctx, now.Format(DateFormat))
+		loadedTodayMeals, err := handler.mealService.FindByDate(ctx, now.Format(DateFormat))
 		if err != nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load today's meals", err)
 			return
@@ -454,7 +462,7 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 
 	weekEnd := weekStart.AddDate(0, 0, 6)
 
-	meals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+	meals, err := handler.mealService.FindAll(ctx, mealapp.Filter{
 		DateFrom: weekStart.Format(DateFormat),
 		DateTo:   weekEnd.Format(DateFormat),
 	})
@@ -577,8 +585,8 @@ func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) 
 
 	var meals []models.MealPlan
 	mealsAvailable := true
-	if handler.mealPlanRepo != nil {
-		fetchedMeals, err := handler.mealPlanRepo.FindAll(ctx, repository.MealPlanFilter{
+	if handler.mealService != nil {
+		fetchedMeals, err := handler.mealService.FindAll(ctx, mealapp.Filter{
 			DateFrom: start.Format(DateFormat),
 			DateTo:   end.AddDate(0, 0, -1).Format(DateFormat),
 		})
@@ -673,17 +681,15 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		meal.RecipeID = &body.RecipeID
 	}
 
-	if err := handler.mealPlanRepo.Upsert(ctx, meal); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to save meal", err)
-		return
-	}
-
-	saved, err := handler.mealPlanRepo.FindByDateAndType(ctx, body.Date, models.MealType(body.MealType))
+	saved, err := handler.mealService.Save(ctx, meal)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to retrieve saved meal", err)
+		if errors.Is(err, mealapp.ErrSave) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to save meal", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to retrieve saved meal", err)
+		}
 		return
 	}
-
 	writeJSON(w, http.StatusOK, saved)
 }
 
@@ -698,7 +704,7 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler.mealPlanRepo.Delete(ctx, date, models.MealType(mealType)); err != nil {
+	if err := handler.mealService.Delete(ctx, date, models.MealType(mealType)); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete meal", err)
 		return
 	}
@@ -1028,7 +1034,7 @@ func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := handler.mealPlanRepo.ClearRecipeID(ctx, recipeID); err != nil {
+	if err := handler.mealService.ClearRecipeID(ctx, recipeID); err != nil {
 		slog.Error("clearing recipe from meal plans via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusNoContent, "error", err)
 	}
 

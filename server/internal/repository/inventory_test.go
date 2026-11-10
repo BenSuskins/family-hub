@@ -290,3 +290,35 @@ func TestInventoryRepository_LevelClampsToHundred(t *testing.T) {
 		t.Errorf("expected level clamped to 0 on update, got %d", updated.Level)
 	}
 }
+
+func TestModifyStockRetriesWhenAnotherWriteWins(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	users := repository.NewUserRepository(db)
+	repo := repository.NewInventoryRepository(db)
+	ctx := context.Background()
+	user := createTestUser(t, users)
+	area, err := repo.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := repo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Rice", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempts := 0
+	saved, err := repo.ModifyStock(ctx, item.ID, func(current models.InventoryItem) (models.InventoryItem, error) {
+		attempts++
+		if attempts == 1 {
+			concurrent := current
+			concurrent.Quantity += 5
+			if err := repo.UpdateItem(ctx, concurrent); err != nil {
+				return models.InventoryItem{}, err
+			}
+		}
+		current.Quantity++
+		return current, nil
+	})
+	if err != nil || attempts != 2 || saved.Quantity != 11 {
+		t.Fatalf("saved=%+v attempts=%d err=%v", saved, attempts, err)
+	}
+}

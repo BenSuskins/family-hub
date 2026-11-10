@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"testing"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -136,7 +137,7 @@ func TestMealPlanRepository_FindAll_DateRange(t *testing.T) {
 		Name: "After range", CreatedByUserID: user.ID,
 	})
 
-	meals, err := mealRepo.FindAll(ctx, repository.MealPlanFilter{
+	meals, err := mealRepo.FindAll(ctx, mealapp.Filter{
 		DateFrom: "2025-06-15",
 		DateTo:   "2025-06-16",
 	})

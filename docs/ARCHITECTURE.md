@@ -29,6 +29,8 @@ flowchart LR
 | Go API | Chi router, authentication, JSON and media routes | `server/internal/server/`, `server/internal/handlers/` |
 | Chore application | Chore operations, transaction and storage ports | `server/internal/application/chores/` |
 | Chore domain | Resolution, recurrence, overdue and assignment rules | `server/internal/domain/chores/` |
+| Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
+| Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
 | Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
@@ -48,9 +50,16 @@ Chore completion and skipping use immutable resolution transitions. Recurrence,
 overdue checks, and assignee rotation use domain rules in
 `server/internal/domain/chores/`. A transaction groups chore, assignment, and
 series writes. Shared tests exercise the in-memory fake and SQLite adapters,
-including rollback, concurrent completion, recurrence and rotation. Other
-features have not yet moved to this architecture; some handlers call
-repositories directly. Chore storage still uses shared model types.
+including rollback, concurrent completion, recurrence and rotation.
+
+Meals, inventory, shopping, scratchpad, and home settings also use feature-owned
+application operations and storage interfaces. Their HTTP handlers call those
+operations and SQLite implements the storage interfaces. Inventory stock changes
+use a compare-and-swap update so concurrent changes are not lost. Shopping
+restock commits its shopping and inventory changes in one SQLite transaction.
+Shared fake and SQLite contracts cover stock changes and shopping restocks.
+These features still use shared model types. Other features remain in the older
+structure, and some handlers call repositories directly.
 
 ## Member request flow
 

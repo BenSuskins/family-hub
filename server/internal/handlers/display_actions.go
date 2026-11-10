@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/go-chi/chi/v5"
 )
@@ -82,13 +83,13 @@ func (handler *APIHandler) SaveDisplayMeal(writer http.ResponseWriter, request *
 		writeJSONError(writer, http.StatusBadRequest, "mealType must be breakfast, lunch, or dinner")
 		return
 	}
-	if err := handler.mealPlanRepo.Upsert(request.Context(), meal); err != nil {
-		writeAPIError(writer, request, http.StatusInternalServerError, "failed to save meal", err)
-		return
-	}
-	saved, err := handler.mealPlanRepo.FindByDateAndType(request.Context(), meal.Date, meal.MealType)
+	saved, err := handler.mealService.Save(request.Context(), meal)
 	if err != nil {
-		writeAPIError(writer, request, http.StatusInternalServerError, "failed to retrieve saved meal", err)
+		if errors.Is(err, mealapp.ErrSave) {
+			writeAPIError(writer, request, http.StatusInternalServerError, "failed to save meal", err)
+		} else {
+			writeAPIError(writer, request, http.StatusInternalServerError, "failed to retrieve saved meal", err)
+		}
 		return
 	}
 	writeJSON(writer, http.StatusOK, saved)

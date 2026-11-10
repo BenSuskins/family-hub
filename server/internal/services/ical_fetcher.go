@@ -6,104 +6,34 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
 	ical "github.com/arran4/golang-ical"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
-type ICalFetcher struct {
-	subRepo  repository.ICalSubscriptionRepository
-	cacheTTL time.Duration
-	client   *http.Client
-}
+type ICalAdapter struct{ client *http.Client }
 
-func NewICalFetcher(subRepo repository.ICalSubscriptionRepository) *ICalFetcher {
-	return &ICalFetcher{
-		subRepo:  subRepo,
-		cacheTTL: 30 * time.Minute,
-		client:   NewSafeHTTPClient(10 * time.Second),
+func NewICalAdapter(client *http.Client) *ICalAdapter {
+	if client == nil {
+		client = NewSafeHTTPClient(10 * time.Second)
 	}
-}
-
-func (fetcher *ICalFetcher) ForceRefreshByID(ctx context.Context, id string) error {
-	sub, err := fetcher.subRepo.FindByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("finding subscription: %w", err)
-	}
-	data, err := fetcher.fetchURL(sub.URL)
-	if err != nil {
-		return fmt.Errorf("fetching url: %w", err)
-	}
-	return fetcher.subRepo.UpdateCache(ctx, sub.ID, data, time.Now())
-}
-
-func (fetcher *ICalFetcher) FetchForRange(ctx context.Context, start, end time.Time) ([]models.Event, error) {
-	subs, err := fetcher.subRepo.FindAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("loading subscriptions: %w", err)
-	}
-
-	var events []models.Event
-	for _, sub := range subs {
-		subEvents, err := fetcher.fetchSubscription(ctx, sub)
-		if err != nil {
-			slog.Warn("skipping ical subscription", "name", sub.Name, "error", err)
-			continue
-		}
-		for _, event := range subEvents {
-			inRange := !event.StartTime.Before(start) && event.StartTime.Before(end)
-			if event.EndTime != nil && event.EndTime.After(event.StartTime) {
-				inRange = event.StartTime.Before(end) && event.EndTime.After(start)
-			}
-			if inRange {
-				events = append(events, event)
-			}
-		}
-	}
-
-	sort.Slice(events, func(i, j int) bool {
-		return events[i].StartTime.Before(events[j].StartTime)
-	})
-
-	return events, nil
-}
-
-func (fetcher *ICalFetcher) fetchSubscription(ctx context.Context, sub models.ICalSubscription) ([]models.Event, error) {
-	needsFetch := sub.LastFetchedAt == nil || time.Since(*sub.LastFetchedAt) > fetcher.cacheTTL
-
-	if needsFetch {
-		data, err := fetcher.fetchURL(sub.URL)
-		if err != nil {
-			slog.Warn("fetching ical url", "url", sub.URL, "error", err)
-		} else {
-			now := time.Now()
-			if updateErr := fetcher.subRepo.UpdateCache(ctx, sub.ID, data, now); updateErr != nil {
-				slog.Error("updating ical cache", "error", updateErr)
-			}
-			sub.CachedData = &data
-			sub.LastFetchedAt = &now
-		}
-	}
-
-	if sub.CachedData == nil {
-		return nil, fmt.Errorf("no cached data for subscription %q", sub.Name)
-	}
-
-	return parseICalData(*sub.CachedData, sub.ID, sub.Color)
+	return &ICalAdapter{client: client}
 }
 
 const maxICalBodyBytes = 10 * 1024 * 1024 // 10 MB
 
-func (fetcher *ICalFetcher) fetchURL(rawURL string) (string, error) {
+func (fetcher *ICalAdapter) Fetch(ctx context.Context, rawURL string) (string, error) {
 	if err := ValidateExternalURL(rawURL); err != nil {
 		return "", fmt.Errorf("blocked URL: %w", err)
 	}
 
-	resp, err := fetcher.client.Get(rawURL)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("http get: %w", err)
+	}
+	resp, err := fetcher.client.Do(request)
 	if err != nil {
 		return "", fmt.Errorf("http get: %w", err)
 	}
@@ -120,7 +50,7 @@ func (fetcher *ICalFetcher) fetchURL(rawURL string) (string, error) {
 	return string(data), nil
 }
 
-func parseICalData(data string, subscriptionID string, subscriptionColor string) ([]models.Event, error) {
+func (fetcher *ICalAdapter) Parse(data string, subscriptionID string, subscriptionColor string) ([]models.Event, error) {
 	cal, err := ical.ParseCalendar(strings.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("parsing ical: %w", err)

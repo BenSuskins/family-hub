@@ -9,7 +9,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -19,9 +18,6 @@ type OpenMeteo struct {
 	client   *http.Client
 	endpoint string
 	now      func() time.Time
-	mutex    sync.Mutex
-	cached   models.Weather
-	cacheKey string
 }
 
 func NewOpenMeteo(client *http.Client, endpoint string, now func() time.Time) *OpenMeteo {
@@ -29,16 +25,10 @@ func NewOpenMeteo(client *http.Client, endpoint string, now func() time.Time) *O
 }
 
 func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (models.Weather, error) {
-	provider.mutex.Lock()
-	defer provider.mutex.Unlock()
 	if home.Latitude == nil || home.Longitude == nil {
 		return models.Weather{}, errors.New("home location missing")
 	}
-	key := fmt.Sprintf("%f:%f:%s", *home.Latitude, *home.Longitude, home.Timezone)
 	now := provider.now()
-	if key == provider.cacheKey && now.Sub(provider.cached.FetchedAt) < 15*time.Minute {
-		return provider.cached, nil
-	}
 	parameters := url.Values{
 		"latitude": {fmt.Sprint(*home.Latitude)}, "longitude": {fmt.Sprint(*home.Longitude)},
 		"timezone": {home.Timezone}, "timeformat": {"unixtime"}, "forecast_days": {"7"},
@@ -139,7 +129,6 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 	if len(forecast.Advice) == 0 {
 		forecast.Advice = append(forecast.Advice, "No weather precautions for the next six hours.")
 	}
-	provider.cached, provider.cacheKey = forecast, key
 	return forecast, nil
 }
 

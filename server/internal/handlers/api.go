@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
+
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
@@ -35,7 +37,7 @@ type APIHandler struct {
 	recipeRepo         repository.RecipeRepository
 	inventoryService   *inventoryapp.Service
 	stockService       *inventoryapp.StockService
-	icalFetcher        *services.ICalFetcher
+	icalFetcher        *calendarapp.Service
 	recipeExtractor    *services.RecipeExtractor
 	oidcUserInfoURL    string
 	oidcUserInfoClient *http.Client
@@ -67,7 +69,7 @@ func NewAPIHandler(
 	mealPlanRepo repository.MealPlanRepository,
 	recipeRepo repository.RecipeRepository,
 	inventoryRepo repository.InventoryRepository,
-	icalFetcher *services.ICalFetcher,
+	icalFetcher *calendarapp.Service,
 	recipeExtractor *services.RecipeExtractor,
 	oidcUserInfoURL string,
 	clientID string,

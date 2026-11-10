@@ -6,20 +6,21 @@ import (
 	"net/http"
 	"time"
 
+	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 )
 
 type DisplayCommuteHandler struct {
 	pairings repository.DisplayPairingRepository
 	settings repository.SettingsRepository
-	service  *services.CommuteService
+	service  *commuteapp.CommuteService
 }
 
-func NewDisplayCommuteHandler(pairings repository.DisplayPairingRepository, settings repository.SettingsRepository, service *services.CommuteService) *DisplayCommuteHandler {
+func NewDisplayCommuteHandler(pairings repository.DisplayPairingRepository, settings repository.SettingsRepository, service *commuteapp.CommuteService) *DisplayCommuteHandler {
 	return &DisplayCommuteHandler{pairings: pairings, settings: settings, service: service}
 }
 

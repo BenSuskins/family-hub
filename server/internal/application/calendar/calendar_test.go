@@ -38,8 +38,8 @@ func TestStaleCacheRemainsAvailableWhenFeedFails(t *testing.T) {
 	feed := &feedFake{events: []models.Event{{ID: "in", StartTime: now}, {ID: "out", StartTime: now.Add(3 * time.Hour)}}}
 	service := calendar.New(store, feed, func() time.Time { return now })
 	events, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour))
-	if err != nil || feed.fetched != 1 || len(events) != 1 || events[0].ID != "in" {
-		t.Fatalf("events=%+v fetches=%d error=%v", events, feed.fetched, err)
+	if err != nil || len(events) != 1 || events[0].ID != "in" {
+		t.Fatalf("events=%+v error=%v", events, err)
 	}
 }
 

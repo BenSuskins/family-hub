@@ -232,7 +232,7 @@ These routes accept only a display-scoped Bearer token. The token cannot authent
 | `GET /api/display/scratchpad` | Read the shared drawing. | Wall display | Display token |
 | `PUT /api/display/scratchpad` | Save a shared drawing with the fixed palette and normalized points. | Wall display | Display token |
 
-All routes use the same JSON shapes as their member API equivalents. Calendar accepts `view=week|day|month` and the corresponding `date` or `month` query parameters. Scratchpad saves have a 1 MiB request limit.
+All routes use the same JSON shapes as their member API equivalents. Calendar feed cache behavior also applies to display calendar and departure routes. Calendar accepts `view=week|day|month` and the corresponding `date` or `month` query parameters. Scratchpad saves have a 1 MiB request limit.
 
 ```bash
 curl -s "$BASE_URL/api/display/dashboard" -H "Authorization: Bearer $DISPLAY_TOKEN" | jq
@@ -635,6 +635,10 @@ curl -s -o /dev/null -w "%{http_code}\n" $BASE_URL/api/recipes/<recipeID>/image 
 - **Usecase:** Unified view: chores + iCal events + meals for the range.
   Periods use UTC dates, with an inclusive start and an exclusive end.
   Events include any overlap with the period. Month results include the full last day.
+  When a feed cache is more than 30 minutes old, the response uses the cached
+  events and starts a background refresh. A later request sees the refreshed
+  events. If refresh fails, the old cache remains available. A feed without a
+  cache is fetched before the response.
 - **Callers:** iOS app calendar tab; iOS app home screen and the Today widget
   both use `view=day` for today's events.
 - **Security:** API token.
@@ -938,7 +942,9 @@ curl -s "$BASE_URL/api/weather" -H "Authorization: Bearer $API_TOKEN"
 Return `status`, `items`, and `selectedEventID`. Each item contains `eventID`,
 `title`, `destination`, `startTime`, `leaveAt`, `drivingSeconds`, and `fetchedAt`.
 Times use RFC 3339. Select today's next eligible event by start time in the home
-timezone. `selectedEventID` is null when there are no eligible events.
+timezone. `selectedEventID` is null when there are no eligible events. Calendar
+feeds use the cache and background refresh behavior described under
+`GET /api/calendar`.
 
 Use current traffic-aware Google driving estimates from home. Subtract the
 arrival margin from the event start. Skip all-day, started, online, unresolved,

@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
-
-var ErrPairingUnavailable = errors.New("pairing challenge is invalid, expired, or already used")
 
 type PairedDisplay struct {
 	ID                 string                           `json:"id"`
@@ -60,7 +60,7 @@ func (repository *SQLiteDisplayPairingRepository) ApproveChallenge(ctx context.C
 		return fmt.Errorf("checking display pairing approval: %w", err)
 	}
 	if count != 1 {
-		return ErrPairingUnavailable
+		return displayapp.ErrPairingUnavailable
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (repository *SQLiteDisplayPairingRepository) ClaimChallenge(ctx context.Con
 	var name, userID string
 	err = transaction.QueryRowContext(ctx, `SELECT display_name,approved_by_user_id FROM display_pairing_challenges WHERE id=? AND secret_hash=? AND status='approved' AND expires_at>CURRENT_TIMESTAMP`, id, secretHash).Scan(&name, &userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrPairingUnavailable
+		return displayapp.ErrPairingUnavailable
 	}
 	if err != nil {
 		return fmt.Errorf("reading approved display challenge: %w", err)

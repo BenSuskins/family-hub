@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -18,14 +20,6 @@ import (
 type ReminderSender interface {
 	Send(context.Context, models.NotificationDevice, ChoreReminderSummary, string, time.Time) error
 }
-
-type PushError struct {
-	Reason        string
-	InvalidDevice bool
-	Retry         bool
-}
-
-func (failure *PushError) Error() string { return "push rejected: " + failure.Reason }
 
 type reminderChoreReader interface {
 	FindAll(context.Context, choreapp.ChoreFilter) ([]models.Chore, error)
@@ -170,7 +164,7 @@ func (service *ChoreReminderService) Check(ctx context.Context, now time.Time) e
 			if summary.Count > 0 {
 				err = service.sender.Send(ctx, device, summary, identifier, expires)
 				if err != nil {
-					var pushError *PushError
+					var pushError *notifications.PushError
 					retry = true
 					if errors.As(err, &pushError) {
 						retry = pushError.Retry
@@ -200,7 +194,7 @@ type ChoreReminderSummary struct {
 	Tasks []ChoreReminderTask
 }
 
-func (summary ChoreReminderSummary) Message() PushMessage {
+func (summary ChoreReminderSummary) Message() notifications.PushMessage {
 	assignees := []string{}
 	tasksByAssignee := map[string][]string{}
 	for _, task := range summary.Tasks {
@@ -215,7 +209,7 @@ func (summary ChoreReminderSummary) Message() PushMessage {
 		parts = append(parts, assignee+": "+strings.Join(tasksByAssignee[assignee], ", "))
 	}
 	body := strings.Join(parts, "\n")
-	return PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://today", ThreadID: "chore-reminders"}
+	return notifications.PushMessage{Title: "Chore reminder", Body: body, URL: "familyhub://today", ThreadID: "chore-reminders"}
 }
 
 func ChoreTimezone(settings repository.SettingsRepository) func(context.Context) (string, error) {

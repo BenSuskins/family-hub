@@ -9,24 +9,25 @@ import (
 	"testing"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/bensuskins/family-hub/internal/testutil"
 	"github.com/google/uuid"
 )
 
 type fakeBroadcastSender struct {
-	messages []services.PushMessage
+	messages []notifications.PushMessage
 	attempts map[string]int
 }
 
-func (sender *fakeBroadcastSender) SendMessage(ctx context.Context, device models.NotificationDevice, message services.PushMessage, id string, expires time.Time) error {
+func (sender *fakeBroadcastSender) SendMessage(ctx context.Context, device models.NotificationDevice, message notifications.PushMessage, id string, expires time.Time) error {
 	sender.messages = append(sender.messages, message)
 	sender.attempts[device.ID]++
 	if device.ID == "member" && sender.attempts[device.ID] == 1 {
-		return &services.PushError{Reason: "unavailable", Retry: true}
+		return &notifications.PushError{Reason: "unavailable", Retry: true}
 	}
 	return nil
 }

@@ -7,6 +7,11 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
+	"github.com/google/uuid"
+
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
 	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
@@ -35,8 +40,8 @@ type Server struct {
 	config config.Config
 }
 
-func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender) *Server {
-	var messageSender services.MessageSender
+func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSender) *Server {
+	var messageSender notifications.MessageSender
 	if len(senders) > 0 {
 		messageSender = senders[0]
 	}
@@ -58,7 +63,9 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	recipeExtractor := recipeapp.New(recipeAdapter, recipeAdapter)
 	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
 	commuteHandler := handlers.NewCommuteHandler(commuteService)
-	displayPairingHandler := handlers.NewDisplayPairingHandler(repository.NewDisplayPairingRepository(database), tokenRepo)
+	pairingRepo := repository.NewDisplayPairingRepository(database)
+	pairing := displayapp.NewPairing(pairingRepo, services.NewPairingSecret, repository.HashToken, uuid.NewString, time.Now)
+	displayPairingHandler := handlers.NewDisplayPairingHandler(pairingRepo, pairing)
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(repository.NewDisplayPairingRepository(database), settingsRepo, commuteService)
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
@@ -72,7 +79,7 @@ func New(database *sql.DB, cfg config.Config, senders ...services.MessageSender)
 	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database)))
 	reminderHandler := handlers.NewChoreReminderHandler(settingsRepo, repository.NewNotificationRepository(database), cfg.PushConfigured() || messageSender != nil)
 	binCollectionsHandler := handlers.NewBinCollectionsHandler(settingsRepo, cfg.PushConfigured() || messageSender != nil)
-	broadcastHandler := handlers.NewBroadcastHandler(services.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)
+	broadcastHandler := handlers.NewBroadcastHandler(notifications.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 
 	router := chi.NewRouter()

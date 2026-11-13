@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/database"
@@ -41,7 +43,7 @@ func main() {
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(repository.NewSettingsRepository(db))))
 
 	var reminderSender services.ReminderSender
-	var messageSender services.MessageSender
+	var messageSender notifications.MessageSender
 	if cfg.PushConfigured() {
 		key, err := os.ReadFile(cfg.APNsKeyPath)
 		if err != nil {

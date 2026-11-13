@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -141,10 +143,10 @@ func TestBinReminderMessageGroupsCollectionNames(t *testing.T) {
 }
 
 type fakeBinMessageSender struct {
-	messages []PushMessage
+	messages []notifications.PushMessage
 }
 
-func (sender *fakeBinMessageSender) SendMessage(_ context.Context, _ models.NotificationDevice, message PushMessage, _ string, _ time.Time) error {
+func (sender *fakeBinMessageSender) SendMessage(_ context.Context, _ models.NotificationDevice, message notifications.PushMessage, _ string, _ time.Time) error {
 	sender.messages = append(sender.messages, message)
 	return nil
 }

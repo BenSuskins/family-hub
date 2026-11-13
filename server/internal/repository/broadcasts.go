@@ -5,22 +5,11 @@ import (
 	"database/sql"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
-
-type BroadcastDelivery struct {
-	ID     string
-	Device models.NotificationDevice
-	State  string
-}
-
-type BroadcastRepository interface {
-	Prepare(context.Context, string, string, string, time.Time) (time.Time, error)
-	Deliveries(context.Context, string) ([]BroadcastDelivery, error)
-	Claim(context.Context, string, time.Time) (bool, error)
-	Finish(context.Context, string, string) error
-}
 
 type SQLiteBroadcastRepository struct{ database *sql.DB }
 
@@ -84,15 +73,15 @@ func (repository *SQLiteBroadcastRepository) Prepare(ctx context.Context, identi
 	return time.Unix(createdAt, 0).Add(5 * time.Minute), nil
 }
 
-func (repository *SQLiteBroadcastRepository) Deliveries(ctx context.Context, identifier string) ([]BroadcastDelivery, error) {
+func (repository *SQLiteBroadcastRepository) Deliveries(ctx context.Context, identifier string) ([]notifications.BroadcastDelivery, error) {
 	rows, err := repository.database.QueryContext(ctx, `SELECT b.id,b.state,COALESCE(d.id,''),COALESCE(d.user_id,''),COALESCE(d.token,''),COALESCE(d.environment,'') FROM broadcast_deliveries b LEFT JOIN notification_devices d ON d.id=b.device_id AND (d.api_token_hash IS NULL OR EXISTS(SELECT 1 FROM api_tokens t WHERE t.token_hash=d.api_token_hash AND (t.expires_at IS NULL OR t.expires_at > CURRENT_TIMESTAMP))) WHERE b.broadcast_id=? ORDER BY b.id`, identifier)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	result := []BroadcastDelivery{}
+	result := []notifications.BroadcastDelivery{}
 	for rows.Next() {
-		var delivery BroadcastDelivery
+		var delivery notifications.BroadcastDelivery
 		if err := rows.Scan(&delivery.ID, &delivery.State, &delivery.Device.ID, &delivery.Device.UserID, &delivery.Device.Token, &delivery.Device.Environment); err != nil {
 			return nil, err
 		}
@@ -110,7 +99,7 @@ func (repository *SQLiteBroadcastRepository) Claim(ctx context.Context, identifi
 	return changed > 0, err
 }
 
-func (repository *SQLiteBroadcastRepository) Finish(ctx context.Context, identifier, state string) error {
+func (repository *SQLiteBroadcastRepository) Finish(ctx context.Context, identifier string, state notifications.DeliveryState) error {
 	_, err := repository.database.ExecContext(ctx, `UPDATE broadcast_deliveries SET state=? WHERE id=?`, state, identifier)
 	return err
 }

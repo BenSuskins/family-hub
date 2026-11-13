@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/models"
 )
 
@@ -84,9 +86,9 @@ func (sender *APNsSender) Send(ctx context.Context, device models.NotificationDe
 	return sender.SendMessage(ctx, device, summary.Message(), deliveryID, expires)
 }
 
-func (sender *APNsSender) SendMessage(ctx context.Context, device models.NotificationDevice, message PushMessage, deliveryID string, expires time.Time) error {
+func (sender *APNsSender) SendMessage(ctx context.Context, device models.NotificationDevice, message notifications.PushMessage, deliveryID string, expires time.Time) error {
 	if !time.Now().Before(expires) {
-		return &PushError{Reason: "notification expired"}
+		return &notifications.PushError{Reason: "notification expired"}
 	}
 	authorization, err := sender.authorization(time.Now())
 	if err != nil {
@@ -110,7 +112,7 @@ func (sender *APNsSender) SendMessage(ctx context.Context, device models.Notific
 	request.Header.Set("apns-expiration", strconv.FormatInt(expires.Unix(), 10))
 	response, err := sender.client.Do(request)
 	if err != nil {
-		return &PushError{Reason: "transport failure", Retry: true}
+		return &notifications.PushError{Reason: "transport failure", Retry: true}
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusOK {
@@ -124,5 +126,5 @@ func (sender *APNsSender) SendMessage(ctx context.Context, device models.Notific
 		failure.Reason = "invalid response"
 	}
 	invalid := response.StatusCode == 410 || failure.Reason == "BadDeviceToken" || failure.Reason == "DeviceTokenNotForTopic"
-	return &PushError{Reason: failure.Reason, InvalidDevice: invalid, Retry: response.StatusCode == 429 || response.StatusCode >= 500}
+	return &notifications.PushError{Reason: failure.Reason, InvalidDevice: invalid, Retry: response.StatusCode == 429 || response.StatusCode >= 500}
 }

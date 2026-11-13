@@ -1,23 +1,20 @@
 package handlers
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
-
-const pairingChallengeLifetime = 5 * time.Minute
 
 func validateDisplayCommutePreferences(preferences models.DisplayCommutePreferences) string {
 	if preferences.TrainCount < 1 || preferences.TrainCount > 10 {
@@ -53,27 +50,24 @@ func validateDisplayCommutePreferences(preferences models.DisplayCommutePreferen
 
 type DisplayPairingHandler struct {
 	repository repository.DisplayPairingRepository
-	tokens     repository.APITokenRepository
+	pairing    *displayapp.Pairing
 }
 
-func NewDisplayPairingHandler(pairings repository.DisplayPairingRepository, tokens repository.APITokenRepository) *DisplayPairingHandler {
-	return &DisplayPairingHandler{repository: pairings, tokens: tokens}
+func NewDisplayPairingHandler(pairings repository.DisplayPairingRepository, pairing *displayapp.Pairing) *DisplayPairingHandler {
+	return &DisplayPairingHandler{repository: pairings, pairing: pairing}
 }
 
 func (handler *DisplayPairingHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
-	secretBytes := make([]byte, 32)
-	if _, err := rand.Read(secretBytes); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing code", err)
+	challenge, err := handler.pairing.Create(r.Context())
+	if err != nil {
+		if errors.Is(err, displayapp.ErrSecretGeneration) {
+			writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing code", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing request", err)
+		}
 		return
 	}
-	secret := hex.EncodeToString(secretBytes)
-	id := uuid.NewString()
-	expiresAt := time.Now().UTC().Add(pairingChallengeLifetime)
-	if err := handler.repository.CreateChallenge(r.Context(), id, repository.HashToken(secret), expiresAt); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "could not create pairing request", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{"challengeId": id, "pairingCode": secret, "expiresAt": expiresAt})
+	writeJSON(w, http.StatusCreated, map[string]any{"challengeId": challenge.ID, "pairingCode": challenge.Code, "expiresAt": challenge.ExpiresAt})
 }
 
 func (handler *DisplayPairingHandler) Approve(w http.ResponseWriter, r *http.Request) {
@@ -91,8 +85,8 @@ func (handler *DisplayPairingHandler) Approve(w http.ResponseWriter, r *http.Req
 		return
 	}
 	user := middleware.GetUser(r.Context())
-	err := handler.repository.ApproveChallenge(r.Context(), chi.URLParam(r, "id"), repository.HashToken(request.PairingCode), name, user.ID)
-	if errors.Is(err, repository.ErrPairingUnavailable) {
+	err := handler.pairing.Approve(r.Context(), chi.URLParam(r, "id"), request.PairingCode, name, user.ID)
+	if errors.Is(err, displayapp.ErrPairingUnavailable) {
 		writeJSONError(w, http.StatusConflict, "pairing request expired or already used")
 		return
 	}
@@ -111,20 +105,17 @@ func (handler *DisplayPairingHandler) Claim(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusBadRequest, "invalid pairing request")
 		return
 	}
-	rawTokenBytes := make([]byte, 32)
-	if _, err := rand.Read(rawTokenBytes); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "could not create display credential", err)
-		return
-	}
-	plainToken := hex.EncodeToString(rawTokenBytes)
-	token := models.APIToken{Name: "Wall display", TokenHash: repository.HashToken(plainToken), Scope: models.TokenScopeDisplay}
-	err := handler.repository.ClaimChallenge(r.Context(), chi.URLParam(r, "id"), repository.HashToken(request.PairingCode), token)
-	if errors.Is(err, repository.ErrPairingUnavailable) {
+	plainToken, err := handler.pairing.Claim(r.Context(), chi.URLParam(r, "id"), request.PairingCode)
+	if errors.Is(err, displayapp.ErrPairingUnavailable) {
 		writeJSONError(w, http.StatusConflict, "pairing request is not approved or has already been claimed")
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "could not complete display pairing", err)
+		if errors.Is(err, displayapp.ErrSecretGeneration) {
+			writeAPIError(w, r, http.StatusInternalServerError, "could not create display credential", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "could not complete display pairing", err)
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"token": plainToken})

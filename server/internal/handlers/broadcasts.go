@@ -8,18 +8,18 @@ import (
 	"time"
 	"unicode/utf8"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/google/uuid"
 )
 
 type BroadcastHandler struct {
-	service   *services.BroadcastService
+	service   *notifications.BroadcastService
 	available bool
 }
 
-func NewBroadcastHandler(service *services.BroadcastService, available bool) *BroadcastHandler {
+func NewBroadcastHandler(service *notifications.BroadcastService, available bool) *BroadcastHandler {
 	return &BroadcastHandler{service: service, available: available}
 }
 

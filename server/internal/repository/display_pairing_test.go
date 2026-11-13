@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -25,10 +27,10 @@ func TestDisplayPairingRequiresApprovalAndAllowsOneClaim(t *testing.T) {
 	if err := pairings.CreateChallenge(ctx, "challenge-1", secretHash, time.Now().Add(5*time.Minute)); err != nil {
 		t.Fatalf("creating challenge: %v", err)
 	}
-	if err := pairings.ClaimChallenge(ctx, "challenge-1", secretHash, models.APIToken{TokenHash: repository.HashToken("display-token")}); !errors.Is(err, repository.ErrPairingUnavailable) {
+	if err := pairings.ClaimChallenge(ctx, "challenge-1", secretHash, models.APIToken{TokenHash: repository.HashToken("display-token")}); !errors.Is(err, displayapp.ErrPairingUnavailable) {
 		t.Fatalf("unapproved challenge claim error = %v", err)
 	}
-	if err := pairings.ApproveChallenge(ctx, "challenge-1", repository.HashToken("wrong-secret"), "Kitchen", user.ID); !errors.Is(err, repository.ErrPairingUnavailable) {
+	if err := pairings.ApproveChallenge(ctx, "challenge-1", repository.HashToken("wrong-secret"), "Kitchen", user.ID); !errors.Is(err, displayapp.ErrPairingUnavailable) {
 		t.Fatalf("wrong secret approval error = %v", err)
 	}
 	if err := pairings.ApproveChallenge(ctx, "challenge-1", secretHash, "Kitchen", user.ID); err != nil {
@@ -37,7 +39,7 @@ func TestDisplayPairingRequiresApprovalAndAllowsOneClaim(t *testing.T) {
 	if err := pairings.ClaimChallenge(ctx, "challenge-1", secretHash, models.APIToken{TokenHash: repository.HashToken("display-token")}); err != nil {
 		t.Fatalf("claiming challenge: %v", err)
 	}
-	if err := pairings.ClaimChallenge(ctx, "challenge-1", secretHash, models.APIToken{TokenHash: repository.HashToken("second-token")}); !errors.Is(err, repository.ErrPairingUnavailable) {
+	if err := pairings.ClaimChallenge(ctx, "challenge-1", secretHash, models.APIToken{TokenHash: repository.HashToken("second-token")}); !errors.Is(err, displayapp.ErrPairingUnavailable) {
 		t.Fatalf("second claim error = %v", err)
 	}
 	token, err := tokens.FindByTokenHash(ctx, repository.HashToken("display-token"))
@@ -60,5 +62,35 @@ func TestDisplayPairingRequiresApprovalAndAllowsOneClaim(t *testing.T) {
 	}
 	if _, err := tokens.FindByTokenHash(ctx, repository.HashToken("display-token")); err == nil {
 		t.Fatal("revoking display left its token active")
+	}
+}
+
+func TestDisplayClaimRollsBackAfterTokenConflict(t *testing.T) {
+	database := testutil.NewTestDatabase(t)
+	ctx := context.Background()
+	user, err := repository.NewUserRepository(database).Create(ctx, models.User{OIDCSubject: "rollback-pair", Email: "rollback@example.com", Name: "Admin", Role: models.RoleAdmin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens := repository.NewAPITokenRepository(database)
+	if _, err := tokens.Create(ctx, models.APIToken{Name: "existing", TokenHash: "duplicate", Scope: models.TokenScopeAPI, CreatedByUserID: user.ID}); err != nil {
+		t.Fatal(err)
+	}
+	pairings := repository.NewDisplayPairingRepository(database)
+	if err := pairings.CreateChallenge(ctx, "challenge", "code-hash", time.Now().Add(5*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := pairings.ApproveChallenge(ctx, "challenge", "code-hash", "Kitchen", user.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pairings.ClaimChallenge(ctx, "challenge", "code-hash", models.APIToken{TokenHash: "duplicate"}); err == nil {
+		t.Fatal("expected duplicate token failure")
+	}
+	if err := pairings.ClaimChallenge(ctx, "challenge", "code-hash", models.APIToken{TokenHash: "unique"}); err != nil {
+		t.Fatalf("claim after rollback: %v", err)
+	}
+	displays, err := pairings.List(ctx)
+	if err != nil || len(displays) != 1 {
+		t.Fatalf("displays=%+v err=%v", displays, err)
 	}
 }

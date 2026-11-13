@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
@@ -18,10 +20,10 @@ const binReminderSlot = 2
 type BinReminderService struct {
 	settings repository.SettingsRepository
 	devices  repository.NotificationRepository
-	sender   MessageSender
+	sender   notifications.MessageSender
 }
 
-func NewBinReminderService(settings repository.SettingsRepository, devices repository.NotificationRepository, sender MessageSender) *BinReminderService {
+func NewBinReminderService(settings repository.SettingsRepository, devices repository.NotificationRepository, sender notifications.MessageSender) *BinReminderService {
 	return &BinReminderService{settings: settings, devices: devices, sender: sender}
 }
 
@@ -76,7 +78,7 @@ func (service *BinReminderService) Check(ctx context.Context, now time.Time) err
 		retry := false
 		err = service.sender.SendMessage(ctx, device, message, identifier, scheduled.Add(5*time.Minute))
 		if err != nil {
-			var pushError *PushError
+			var pushError *notifications.PushError
 			retry = true
 			if errors.As(err, &pushError) {
 				retry = pushError.Retry
@@ -95,7 +97,7 @@ func (service *BinReminderService) Check(ctx context.Context, now time.Time) err
 	return errors.Join(failures...)
 }
 
-func BinReminderMessage(collections []models.BinCollection, date time.Time) PushMessage {
+func BinReminderMessage(collections []models.BinCollection, date time.Time) notifications.PushMessage {
 	labels := make([]string, 0, len(collections))
 	seen := map[string]bool{}
 	for _, collection := range collections {
@@ -112,7 +114,7 @@ func BinReminderMessage(collections []models.BinCollection, date time.Time) Push
 	if len(labels) > 0 {
 		body = joinBinNames(labels) + " " + verb + " due tomorrow, " + date.Format("Mon 2 Jan") + "."
 	}
-	return PushMessage{Title: "Bins out tonight", Body: body, URL: "familyhub://today", ThreadID: "bin-reminders"}
+	return notifications.PushMessage{Title: "Bins out tonight", Body: body, URL: "familyhub://today", ThreadID: "bin-reminders"}
 }
 
 func joinBinNames(names []string) string {

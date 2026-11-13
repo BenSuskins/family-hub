@@ -32,6 +32,7 @@ flowchart LR
 | Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
 | Integration applications | Calendar, recipe import, weather, rail and departure operations | `server/internal/application/calendar/`, `recipes/`, `commute/`, `weather/` |
+| Pairing and broadcasts | Challenge operations and broadcast delivery ports | `server/internal/application/displays/`, `notifications/` |
 | Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
@@ -70,8 +71,15 @@ the fallback order and calls source and parser ports; the recipe adapter keeps
 URL validation, HTTP fetching, and format parsing. Shared contracts cover the
 calendar store and core recipe import cases.
 
+Display pairing operations generate credentials through injected functions and
+use a storage port. The SQLite claim transaction writes the display, token, and
+challenge state together. Broadcast operations prepare and claim delivery state
+before invoking the APNs sender. Shared fake and SQLite contracts cover
+concurrent claims, and tests cover rollback and send ordering.
+
 Some features still use shared model types, and some handlers call repositories
-directly, including recipe CRUD.
+directly, including recipe CRUD and display settings. Identity exchange and
+reminder workflows remain in the older structure.
 
 ## Member request flow
 

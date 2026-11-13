@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -101,7 +103,7 @@ func TestChoreReminderSkipsCompletedChoresOnRetryAndExpires(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender := &fakeReminderSender{sendError: &PushError{Reason: "unavailable", Retry: true}}
+	sender := &fakeReminderSender{sendError: &notifications.PushError{Reason: "unavailable", Retry: true}}
 	service := NewChoreReminderService(settings, chores, devices, sender)
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	if err := service.Check(ctx, now); err == nil {
@@ -276,10 +278,10 @@ type partialReminderSender struct{ attempts map[string]int }
 func (sender *partialReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, identifier string, expires time.Time) error {
 	sender.attempts[device.ID]++
 	if device.ID == "retry" && sender.attempts[device.ID] == 1 {
-		return &PushError{Reason: "unavailable", Retry: true}
+		return &notifications.PushError{Reason: "unavailable", Retry: true}
 	}
 	if device.ID == "invalid" {
-		return &PushError{Reason: "Unregistered", InvalidDevice: true}
+		return &notifications.PushError{Reason: "Unregistered", InvalidDevice: true}
 	}
 	return nil
 }

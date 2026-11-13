@@ -1,4 +1,4 @@
-package services
+package notifications
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
 type PushMessage struct {
@@ -20,13 +19,46 @@ type MessageSender interface {
 	SendMessage(context.Context, models.NotificationDevice, PushMessage, string, time.Time) error
 }
 
+type PushError struct {
+	Reason        string
+	InvalidDevice bool
+	Retry         bool
+}
+
+func (failure *PushError) Error() string { return "push rejected: " + failure.Reason }
+
+type DeliveryState string
+
+const (
+	DeliveryPending  DeliveryState = "pending"
+	DeliverySending  DeliveryState = "sending"
+	DeliveryAccepted DeliveryState = "accepted"
+	DeliveryRetry    DeliveryState = "retry"
+	DeliveryFailed   DeliveryState = "failed"
+)
+
+type BroadcastDelivery struct {
+	ID     string
+	Device models.NotificationDevice
+	State  DeliveryState
+}
+type BroadcastStore interface {
+	Prepare(context.Context, string, string, string, time.Time) (time.Time, error)
+	Deliveries(context.Context, string) ([]BroadcastDelivery, error)
+	Claim(context.Context, string, time.Time) (bool, error)
+	Finish(context.Context, string, DeliveryState) error
+}
+type DeviceInvalidator interface {
+	Invalidate(context.Context, models.NotificationDevice) error
+}
+
 type BroadcastService struct {
-	broadcasts repository.BroadcastRepository
-	devices    repository.NotificationRepository
+	broadcasts BroadcastStore
+	devices    DeviceInvalidator
 	sender     MessageSender
 }
 
-func NewBroadcastService(broadcasts repository.BroadcastRepository, devices repository.NotificationRepository, sender MessageSender) *BroadcastService {
+func NewBroadcastService(broadcasts BroadcastStore, devices DeviceInvalidator, sender MessageSender) *BroadcastService {
 	return &BroadcastService{broadcasts: broadcasts, devices: devices, sender: sender}
 }
 
@@ -51,13 +83,13 @@ func (service *BroadcastService) Send(ctx context.Context, identifier, userID, m
 			continue
 		}
 		err = service.sender.SendMessage(ctx, delivery.Device, PushMessage{Title: "Family message", Body: message, URL: "familyhub://today", ThreadID: "family-broadcasts"}, delivery.ID, expires)
-		state := "accepted"
+		state := DeliveryAccepted
 		if err != nil {
-			state = "retry"
+			state = DeliveryRetry
 			var failure *PushError
 			if errors.As(err, &failure) {
 				if !failure.Retry {
-					state = "failed"
+					state = DeliveryFailed
 				}
 				if failure.InvalidDevice {
 					if err := service.devices.Invalidate(ctx, delivery.Device); err != nil {
@@ -76,7 +108,7 @@ func (service *BroadcastService) Send(ctx context.Context, identifier, userID, m
 	}
 	result := models.BroadcastResult{}
 	for _, delivery := range deliveries {
-		if delivery.State == "accepted" {
+		if delivery.State == DeliveryAccepted {
 			result.Accepted++
 		} else {
 			result.Failed++

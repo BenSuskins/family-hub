@@ -4,21 +4,22 @@ go 1.27.0
 
 require (
 	github.com/arran4/golang-ical v0.3.8
+	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/httprate v0.16.1
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/uuid v1.6.0
 	golang.org/x/image v0.47.0
-	golang.org/x/net v0.61.0
-	modernc.org/sqlite v1.61.0
+	golang.org/x/net v0.62.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
-	github.com/getkin/kin-openapi v0.152.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/oasdiff/yaml v0.1.1 // indirect

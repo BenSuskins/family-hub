@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 )
 
-func NewPairingSecret() (string, error) {
+func NewCredentialSecret() (string, error) {
 	value := make([]byte, 32)
 	if _, err := rand.Read(value); err != nil {
 		return "", err

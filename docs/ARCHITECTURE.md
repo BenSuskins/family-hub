@@ -32,6 +32,7 @@ flowchart LR
 | Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
 | Integration applications | Calendar, recipe import, weather, rail and departure operations | `server/internal/application/calendar/`, `recipes/`, `commute/`, `weather/` |
+| Identity | OIDC exchange and account setup operations and ports | `server/internal/application/identity/` |
 | Pairing and broadcasts | Challenge operations and broadcast delivery ports | `server/internal/application/displays/`, `notifications/` |
 | Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
@@ -77,9 +78,15 @@ challenge state together. Broadcast operations prepare and claim delivery state
 before invoking the APNs sender. Shared fake and SQLite contracts cover
 concurrent claims, and tests cover rollback and send ordering.
 
+Identity exchange calls an OIDC provider port and user and token storage ports.
+The HTTP adapter limits response size and request duration. Existing accounts
+retain their roles, and each client replaces only its own token. The legacy
+first-user role selection and token replacement are separate storage operations;
+follow-up reviews track their concurrency and failure behavior.
+
 Some features still use shared model types, and some handlers call repositories
-directly, including recipe CRUD and display settings. Identity exchange and
-reminder workflows remain in the older structure.
+directly, including recipe CRUD and display settings. Reminder workflows remain
+in the older structure.
 
 ## Member request flow
 

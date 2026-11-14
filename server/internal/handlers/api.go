@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
+
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
 	calendarapp "github.com/bensuskins/family-hub/internal/application/calendar"
@@ -29,36 +31,25 @@ import (
 )
 
 type APIHandler struct {
-	userRepo           repository.UserRepository
-	categoryRepo       repository.CategoryRepository
-	assignmentRepo     repository.ChoreAssignmentRepository
-	tokenRepo          repository.APITokenRepository
-	settingsRepo       repository.SettingsRepository
-	choreService       *choreapp.ChoreService
-	mealService        *mealapp.Service
-	recipeRepo         repository.RecipeRepository
-	inventoryService   *inventoryapp.Service
-	stockService       *inventoryapp.StockService
-	icalFetcher        *calendarapp.Service
-	recipeExtractor    *recipeapp.Service
-	oidcUserInfoURL    string
-	oidcUserInfoClient *http.Client
-	clientID           string
-	oidcIssuer         string
-}
-
-type oidcUserInfo struct {
-	Sub               string `json:"sub"`
-	Email             string `json:"email"`
-	Name              string `json:"name"`
-	PreferredUsername string `json:"preferred_username"`
-	Picture           string `json:"picture"`
+	userRepo         repository.UserRepository
+	categoryRepo     repository.CategoryRepository
+	assignmentRepo   repository.ChoreAssignmentRepository
+	tokenRepo        repository.APITokenRepository
+	settingsRepo     repository.SettingsRepository
+	choreService     *choreapp.ChoreService
+	mealService      *mealapp.Service
+	recipeRepo       repository.RecipeRepository
+	inventoryService *inventoryapp.Service
+	stockService     *inventoryapp.StockService
+	icalFetcher      *calendarapp.Service
+	recipeExtractor  *recipeapp.Service
+	identity         *identityapp.Service
+	clientID         string
+	oidcIssuer       string
 }
 
 const (
-	maxJSONRequestBytes  int64 = 10 << 20
-	maxOIDCResponseBytes int64 = 1 << 20
-	oidcUserInfoTimeout        = 10 * time.Second
+	maxJSONRequestBytes int64 = 10 << 20
 )
 
 func NewAPIHandler(
@@ -73,7 +64,7 @@ func NewAPIHandler(
 	inventoryRepo repository.InventoryRepository,
 	icalFetcher *calendarapp.Service,
 	recipeExtractor *recipeapp.Service,
-	oidcUserInfoURL string,
+	identity *identityapp.Service,
 	clientID string,
 	oidcIssuer string,
 ) *APIHandler {
@@ -82,22 +73,21 @@ func NewAPIHandler(
 		mealService = mealapp.New(mealPlanRepo)
 	}
 	return &APIHandler{
-		userRepo:           userRepo,
-		categoryRepo:       categoryRepo,
-		assignmentRepo:     assignmentRepo,
-		tokenRepo:          tokenRepo,
-		settingsRepo:       settingsRepo,
-		choreService:       choreService,
-		mealService:        mealService,
-		recipeRepo:         recipeRepo,
-		inventoryService:   inventoryapp.New(inventoryRepo),
-		stockService:       inventoryapp.NewStockService(inventoryRepo),
-		icalFetcher:        icalFetcher,
-		recipeExtractor:    recipeExtractor,
-		oidcUserInfoURL:    oidcUserInfoURL,
-		oidcUserInfoClient: &http.Client{Timeout: oidcUserInfoTimeout},
-		clientID:           clientID,
-		oidcIssuer:         oidcIssuer,
+		userRepo:         userRepo,
+		categoryRepo:     categoryRepo,
+		assignmentRepo:   assignmentRepo,
+		tokenRepo:        tokenRepo,
+		settingsRepo:     settingsRepo,
+		choreService:     choreService,
+		mealService:      mealService,
+		recipeRepo:       recipeRepo,
+		inventoryService: inventoryapp.New(inventoryRepo),
+		stockService:     inventoryapp.NewStockService(inventoryRepo),
+		icalFetcher:      icalFetcher,
+		recipeExtractor:  recipeExtractor,
+		identity:         identity,
+		clientID:         clientID,
+		oidcIssuer:       oidcIssuer,
 	}
 }
 
@@ -109,120 +99,38 @@ func (handler *APIHandler) ClientConfig(w http.ResponseWriter, r *http.Request) 
 }
 
 func (handler *APIHandler) ExchangeToken(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
 	authHeader := r.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
 		writeJSONError(w, http.StatusUnauthorized, "missing bearer token")
 		return
 	}
-	oidcToken := strings.TrimPrefix(authHeader, "Bearer ")
-
-	req, err := http.NewRequestWithContext(ctx, "GET", handler.oidcUserInfoURL, nil)
+	result, err := handler.identity.Exchange(r.Context(), strings.TrimPrefix(authHeader, "Bearer "), r.URL.Query().Get("client"))
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "internal error", err)
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+oidcToken)
-
-	resp, err := handler.oidcUserInfoClient.Do(req)
-	if err != nil {
-		writeAPIError(w, r, http.StatusBadGateway, "identity provider unavailable", err)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests {
-			writeAPIError(w, r, http.StatusBadGateway, "identity provider unavailable", fmt.Errorf("identity provider returned HTTP %d", resp.StatusCode))
-		} else {
+		switch {
+		case errors.Is(err, identityapp.ErrInvalidToken):
 			writeJSONError(w, http.StatusUnauthorized, "invalid token")
-		}
-		return
-	}
-
-	userInfo, err := decodeOIDCUserInfo(resp.Body)
-	if err != nil {
-		writeAPIError(w, r, http.StatusBadGateway, "invalid identity provider response", err)
-		return
-	}
-
-	user, err := handler.userRepo.FindByOIDCSubject(ctx, userInfo.Sub)
-	if errors.Is(err, sql.ErrNoRows) {
-		name := userInfo.Name
-		if name == "" {
-			name = userInfo.PreferredUsername
-		}
-		if name == "" {
-			name = userInfo.Email
-		}
-
-		count, err := handler.userRepo.Count(ctx)
-		if err != nil {
+		case errors.Is(err, identityapp.ErrProviderRequest):
+			writeAPIError(w, r, http.StatusInternalServerError, "internal error", err)
+		case errors.Is(err, identityapp.ErrProviderUnavailable):
+			writeAPIError(w, r, http.StatusBadGateway, "identity provider unavailable", err)
+		case errors.Is(err, identityapp.ErrProviderResponse):
+			writeAPIError(w, r, http.StatusBadGateway, "invalid identity provider response", err)
+		case errors.Is(err, identityapp.ErrLookup):
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to look up user", err)
+		case errors.Is(err, identityapp.ErrCount):
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to determine user role", err)
-			return
-		}
-		role := models.RoleMember
-		if count == 0 {
-			role = models.RoleAdmin
-		}
-
-		user, err = handler.userRepo.Create(ctx, models.User{
-			OIDCSubject: userInfo.Sub,
-			Email:       userInfo.Email,
-			Name:        name,
-			AvatarURL:   userInfo.Picture,
-			Role:        role,
-		})
-		if err != nil {
+		case errors.Is(err, identityapp.ErrCreateUser):
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to create user", err)
-			return
-		}
-	} else if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to look up user", err)
-		return
-	}
-
-	client := r.URL.Query().Get("client")
-	tokenName := "iOS App"
-	if client == "web" {
-		tokenName = "Web App"
-	}
-
-	// Each client replaces only its own token so signing in on the web does not
-	// invalidate the native app session.
-	existing, err := handler.tokenRepo.FindByUserIDAndName(ctx, user.ID, tokenName)
-	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to replace client token", err)
-		return
-	}
-	for _, t := range existing {
-		if err := handler.tokenRepo.Delete(ctx, t.ID); err != nil {
+		case errors.Is(err, identityapp.ErrReplaceToken):
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to replace client token", err)
-			return
+		case errors.Is(err, identityapp.ErrGenerateToken):
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to generate token", err)
+		default:
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to create token", err)
 		}
-	}
-
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to generate token", err)
 		return
 	}
-	plainToken := hex.EncodeToString(tokenBytes)
-
-	if _, err := handler.tokenRepo.Create(ctx, models.APIToken{
-		Name:            tokenName,
-		TokenHash:       repository.HashToken(plainToken),
-		Scope:           models.TokenScopeAPI,
-		CreatedByUserID: user.ID,
-	}); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to create token", err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"token": plainToken,
-		"user":  user,
-	})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"token": result.Token, "user": result.User})
 }
 
 func (handler *APIHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -1325,22 +1233,4 @@ func decodeJSONBodyWithLimit(w http.ResponseWriter, r *http.Request, dest interf
 		return false
 	}
 	return true
-}
-
-func decodeOIDCUserInfo(responseBody io.Reader) (oidcUserInfo, error) {
-	var userInfo oidcUserInfo
-	body, err := io.ReadAll(io.LimitReader(responseBody, maxOIDCResponseBytes+1))
-	if err != nil {
-		return userInfo, err
-	}
-	if int64(len(body)) > maxOIDCResponseBytes {
-		return userInfo, errors.New("OIDC user-info response exceeds size limit")
-	}
-	if err := json.Unmarshal(body, &userInfo); err != nil {
-		return userInfo, err
-	}
-	if userInfo.Sub == "" {
-		return userInfo, errors.New("OIDC user-info response has no subject")
-	}
-	return userInfo, nil
 }

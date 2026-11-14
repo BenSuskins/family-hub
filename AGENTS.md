@@ -84,7 +84,9 @@ The SQLite claim completes before a notification is sent.
 **Services** — Other business logic lives in `internal/services/`. Avoid direct
 repository access from handlers when logic belongs in a service.
 
-**Authentication** — `POST /api/auth/exchange` exchanges a one-time OIDC bearer
+**Authentication** — Identity exchange and account setup live in
+`internal/application/identity/`; `internal/services/oidc_provider.go` calls
+the OIDC user-info endpoint. `POST /api/auth/exchange` exchanges an OIDC bearer
 token for a Family Hub API token. All other authenticated routes require
 `Authorization: Bearer <token>`. Admin routes also require the admin role.
 The API does not issue web sessions. An opt-in setting serves the API explorer.

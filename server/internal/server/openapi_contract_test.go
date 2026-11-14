@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 )
 
 type contractFixture struct {
+	database      *sql.DB
 	application   *Server
 	specification *openapi3.T
 	router        routers.Router
@@ -62,7 +64,7 @@ func newContractFixture(t *testing.T) *contractFixture {
 			}
 		}
 	}
-	return &contractFixture{application: New(database, config.Config{APIDocsEnabled: true}), specification: specification, router: contractRouter}
+	return &contractFixture{database: database, application: New(database, config.Config{APIDocsEnabled: true}), specification: specification, router: contractRouter}
 }
 
 func (fixture *contractFixture) request(t *testing.T, method, path, token, body string, validateRequest bool) *httptest.ResponseRecorder {
@@ -323,5 +325,23 @@ func TestOpenAPICalendarSubscriptionsContract(t *testing.T) {
 	missing := fixture.request(t, http.MethodPatch, "/api/calendars/missing/color", "admin", `{"color":"blue"}`, true)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("missing calendar: %d %s", missing.Code, missing.Body.String())
+	}
+}
+
+func TestOpenAPIIdentityExchangeContract(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Authorization") != "Bearer oidc" {
+			writer.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"sub":"contract-identity","email":"identity@example.com","name":"Family"}`))
+	}))
+	defer provider.Close()
+	fixture := newContractFixture(t)
+	fixture.application = New(fixture.database, config.Config{APIDocsEnabled: true, OIDCUserInfoURL: provider.URL})
+	response := fixture.request(t, http.MethodPost, "/api/auth/exchange?client=web", "oidc", "", true)
+	if response.Code != http.StatusOK {
+		t.Fatalf("exchange: %d %s", response.Code, response.Body.String())
 	}
 }

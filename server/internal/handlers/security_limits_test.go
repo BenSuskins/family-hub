@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
+	"github.com/bensuskins/family-hub/internal/services"
 )
 
 func TestDecodeJSONBodyWithLimit(t *testing.T) {
@@ -42,26 +45,13 @@ func TestDecodeJSONBodyWithLimit(t *testing.T) {
 	}
 }
 
-func TestDecodeOIDCUserInfoEnforcesResponseLimit(t *testing.T) {
-	valid := `{"sub":"user-1"}`
-	if userInfo, err := decodeOIDCUserInfo(strings.NewReader(valid)); err != nil || userInfo.Sub != "user-1" {
-		t.Fatalf("expected valid user info, got %#v, %v", userInfo, err)
-	}
-
-	oversized := `{"sub":"user-1","padding":"` + strings.Repeat("x", int(maxOIDCResponseBytes)) + `"}`
-	if _, err := decodeOIDCUserInfo(strings.NewReader(oversized)); err == nil {
-		t.Fatal("expected oversized user-info response to fail")
-	}
-}
-
 func TestExchangeTokenUsesBoundedHTTPTimeout(t *testing.T) {
 	provider := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 		<-request.Context().Done()
 	}))
 	defer provider.Close()
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, provider.URL, "", "")
-	handler.oidcUserInfoClient = &http.Client{Timeout: 10 * time.Millisecond}
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, identityapp.New(services.NewOIDCProvider(provider.URL, &http.Client{Timeout: 10 * time.Millisecond}), nil, nil, nil, nil), "", "")
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/exchange", nil)
 	request.Header.Set("Authorization", "Bearer oidc-token")
 	response := httptest.NewRecorder()

@@ -7,6 +7,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
+
 	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
 	"github.com/google/uuid"
 
@@ -64,11 +66,12 @@ func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSe
 	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
 	commuteHandler := handlers.NewCommuteHandler(commuteService)
 	pairingRepo := repository.NewDisplayPairingRepository(database)
-	pairing := displayapp.NewPairing(pairingRepo, services.NewPairingSecret, repository.HashToken, uuid.NewString, time.Now)
+	pairing := displayapp.NewPairing(pairingRepo, services.NewCredentialSecret, repository.HashToken, uuid.NewString, time.Now)
 	displayPairingHandler := handlers.NewDisplayPairingHandler(pairingRepo, pairing)
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(repository.NewDisplayPairingRepository(database), settingsRepo, commuteService)
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
-	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, cfg.OIDCUserInfoURL, cfg.OIDCClientID, cfg.OIDCIssuer)
+	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, nil), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
+	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -54,6 +55,14 @@ func (repository *SQLiteUserRepository) FindByOIDCSubject(ctx context.Context, s
 		return models.User{}, fmt.Errorf("finding user by oidc subject: %w", err)
 	}
 	return user, nil
+}
+
+func (repository *SQLiteUserRepository) Lookup(ctx context.Context, subject string) (models.User, bool, error) {
+	user, err := repository.FindByOIDCSubject(ctx, subject)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.User{}, false, nil
+	}
+	return user, err == nil, err
 }
 
 func (repository *SQLiteUserRepository) FindAll(ctx context.Context) ([]models.User, error) {

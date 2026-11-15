@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
@@ -35,6 +40,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	rootContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	srv, workers, err := compose(rootContext, db, cfg, time.Now)
+	if err != nil {
+		slog.Error("configuring server", "error", err)
+		os.Exit(1)
+	}
+	if err := serve(rootContext, srv, workers, 30*time.Second); err != nil {
+		slog.Error("server error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func compose(ctx context.Context, db *sql.DB, cfg config.Config, now func() time.Time) (*server.Server, []worker, error) {
 	userRepo := repository.NewUserRepository(db)
 
 	choreRepo := repository.NewChoreRepository(db)
@@ -47,65 +66,22 @@ func main() {
 	if cfg.PushConfigured() {
 		key, err := os.ReadFile(cfg.APNsKeyPath)
 		if err != nil {
-			slog.Error("reading APNs signing key failed")
-			os.Exit(1)
+			return nil, nil, errors.New("reading APNs signing key failed")
 		}
 		sender, err := services.NewAPNsSender(cfg.APNsKeyID, cfg.APNsTeamID, cfg.APNsTopic, key, nil)
 		if err != nil {
-			slog.Error("configuring APNs", "error", err)
-			os.Exit(1)
+			return nil, nil, fmt.Errorf("configuring APNs: %w", err)
 		}
 		reminderSender = sender
 		messageSender = sender
 	}
 	reminderService := notifications.NewChoreReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
-	go runChoreReminders(reminderService)
 	binReminderService := notifications.NewBinReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), repository.NewNotificationRepository(db), messageSender)
-	go runBinReminders(binReminderService)
-	go runOverdueChecker(choreService)
-
-	srv := server.New(db, cfg, messageSender)
-	if err := srv.Start(); err != nil {
-		slog.Error("server error", "error", err)
-		os.Exit(1)
+	srv := server.NewWithContext(ctx, db, cfg, messageSender)
+	workers := []worker{
+		{name: "sending chore reminders", interval: 30 * time.Second, timeout: 25 * time.Second, run: func(ctx context.Context) error { return reminderService.Check(ctx, now()) }},
+		{name: "sending bin reminders", interval: 30 * time.Second, timeout: 25 * time.Second, run: func(ctx context.Context) error { return binReminderService.Check(ctx, now()) }},
+		{name: "updating overdue chores", interval: 5 * time.Minute, run: choreService.UpdateOverdueChores},
 	}
-}
-
-func runBinReminders(service *notifications.BinReminderService) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		if err := service.Check(ctx, time.Now()); err != nil {
-			slog.Error("sending bin reminders", "error", err)
-		}
-		cancel()
-		<-ticker.C
-	}
-}
-
-func runOverdueChecker(choreService *choreapp.ChoreService) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		ctx := context.Background()
-		if err := choreService.UpdateOverdueChores(ctx); err != nil {
-			slog.Error("updating overdue chores", "error", err)
-		}
-		<-ticker.C
-	}
-}
-
-func runChoreReminders(service *notifications.ChoreReminderService) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		if err := service.Check(ctx, time.Now()); err != nil {
-			slog.Error("sending chore reminders", "error", err)
-		}
-		cancel()
-		<-ticker.C
-	}
+	return srv, workers, nil
 }

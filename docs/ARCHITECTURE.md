@@ -88,8 +88,14 @@ first-user role selection and token replacement are separate storage operations;
 follow-up reviews track their concurrency and failure behavior.
 
 Some features still use shared model types, and some handlers call repositories
-directly, including recipe CRUD. Reminder settings parsing remains in an adapter;
-worker shutdown is not yet coordinated.
+directly, including recipe CRUD. Reminder settings parsing remains in an adapter.
+
+Startup composes the HTTP server and workers in `server/main.go`. A signal
+cancels the worker context and in-flight calendar refreshes. The server stops
+accepting requests and drains active requests and workers for up to 30 seconds;
+it closes active HTTP connections if the deadline expires. Chore and bin
+reminders run every 30 seconds, and the overdue checker runs every five minutes.
+The database restore adapter retains its separate restart path.
 
 ## Member request flow
 

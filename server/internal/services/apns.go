@@ -82,7 +82,7 @@ func (sender *APNsSender) authorization(now time.Time) (string, error) {
 	return sender.providerToken, nil
 }
 
-func (sender *APNsSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, deliveryID string, expires time.Time) error {
+func (sender *APNsSender) Send(ctx context.Context, device models.NotificationDevice, summary notifications.ChoreReminderSummary, deliveryID string, expires time.Time) error {
 	return sender.SendMessage(ctx, device, summary.Message(), deliveryID, expires)
 }
 

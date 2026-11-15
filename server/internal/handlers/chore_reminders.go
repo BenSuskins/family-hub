@@ -2,31 +2,29 @@ package handlers
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
 type ChoreReminderHandler struct {
-	settings      repository.SettingsRepository
-	devices       repository.NotificationRepository
+	service       *notifications.ReminderManagement
 	pushAvailable bool
 }
 
-func NewChoreReminderHandler(settings repository.SettingsRepository, devices repository.NotificationRepository, pushAvailable bool) *ChoreReminderHandler {
-	return &ChoreReminderHandler{settings: settings, devices: devices, pushAvailable: pushAvailable}
+func NewChoreReminderHandler(service *notifications.ReminderManagement, pushAvailable bool) *ChoreReminderHandler {
+	return &ChoreReminderHandler{service: service, pushAvailable: pushAvailable}
 }
 
 func (handler *ChoreReminderHandler) Settings(w http.ResponseWriter, r *http.Request) {
-	settings, err := services.LoadChoreReminders(r.Context(), handler.settings)
+	settings, err := handler.service.Settings(r.Context())
 	if err != nil {
 		writeAPIError(w, r, 500, "failed to load chore reminders", err)
 		return
@@ -58,12 +56,7 @@ func (handler *ChoreReminderHandler) Update(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, 503, "push notifications are not configured on the server")
 		return
 	}
-	value, err := json.Marshal(body)
-	if err != nil {
-		writeAPIError(w, r, 500, "failed to encode chore reminders", err)
-		return
-	}
-	if err := handler.settings.Set(r.Context(), "chore_reminders", string(value)); err != nil {
+	if err := handler.service.SaveSettings(r.Context(), body.Enabled, body.Times); err != nil {
 		writeAPIError(w, r, 500, "failed to save chore reminders", err)
 		return
 	}
@@ -77,9 +70,10 @@ func (handler *ChoreReminderHandler) Register(w http.ResponseWriter, r *http.Req
 	}
 	device.ID = chi.URLParam(r, "id")
 	device.UserID = middleware.GetUser(r.Context()).ID
+	var bearer *string
 	if authorization := r.Header.Get("Authorization"); strings.HasPrefix(authorization, "Bearer ") {
-		hash := repository.HashToken(strings.TrimPrefix(authorization, "Bearer "))
-		device.APITokenHash = &hash
+		value := strings.TrimPrefix(authorization, "Bearer ")
+		bearer = &value
 	}
 	token, err := hex.DecodeString(device.Token)
 	if len(device.ID) == 0 || len(device.ID) > 128 || err != nil || len(token) < 16 || len(token) > 256 || (device.Environment != "sandbox" && device.Environment != "production") {
@@ -87,7 +81,7 @@ func (handler *ChoreReminderHandler) Register(w http.ResponseWriter, r *http.Req
 		return
 	}
 	device.Token = hex.EncodeToString(token)
-	if err := handler.devices.Register(r.Context(), device); err != nil {
+	if err := handler.service.Register(r.Context(), device, bearer); err != nil {
 		if errors.Is(err, models.ErrDeviceOwnership) {
 			writeJSONError(w, 409, "device is registered to another user")
 			return
@@ -100,7 +94,7 @@ func (handler *ChoreReminderHandler) Register(w http.ResponseWriter, r *http.Req
 }
 
 func (handler *ChoreReminderHandler) Remove(w http.ResponseWriter, r *http.Request) {
-	if err := handler.devices.Remove(r.Context(), chi.URLParam(r, "id"), middleware.GetUser(r.Context()).ID); err != nil {
+	if err := handler.service.Remove(r.Context(), chi.URLParam(r, "id"), middleware.GetUser(r.Context()).ID); err != nil {
 		writeAPIError(w, r, 500, "failed to remove notification device", err)
 		return
 	}

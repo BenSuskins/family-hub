@@ -345,3 +345,41 @@ func TestOpenAPIIdentityExchangeContract(t *testing.T) {
 		t.Fatalf("exchange: %d %s", response.Code, response.Body.String())
 	}
 }
+
+func TestOpenAPIDisplayAndReminderContract(t *testing.T) {
+	fixture := newContractFixture(t)
+	challenge := fixture.request(t, http.MethodPost, "/api/display-pairing/challenges", "", "", true)
+	if challenge.Code != http.StatusCreated {
+		t.Fatalf("challenge: %d %s", challenge.Code, challenge.Body.String())
+	}
+	var data struct {
+		ID   string `json:"challengeId"`
+		Code string `json:"pairingCode"`
+	}
+	if err := json.Unmarshal(challenge.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"pairingCode":%q,"name":"Kitchen"}`, data.Code)
+	approved := fixture.request(t, http.MethodPost, "/api/display-pairing/challenges/"+data.ID+"/approve", "admin", body, true)
+	if approved.Code != http.StatusOK {
+		t.Fatalf("approve: %d %s", approved.Code, approved.Body.String())
+	}
+	claimed := fixture.request(t, http.MethodPost, "/api/display-pairing/challenges/"+data.ID+"/claim", "", fmt.Sprintf(`{"pairingCode":%q}`, data.Code), true)
+	if claimed.Code != http.StatusOK {
+		t.Fatalf("claim: %d %s", claimed.Code, claimed.Body.String())
+	}
+	var credentials struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(claimed.Body.Bytes(), &credentials); err != nil {
+		t.Fatal(err)
+	}
+	settings := fixture.request(t, http.MethodGet, "/api/display/settings", credentials.Token, "", true)
+	if settings.Code != http.StatusOK {
+		t.Fatalf("settings: %d %s", settings.Code, settings.Body.String())
+	}
+	reminders := fixture.request(t, http.MethodPatch, "/api/chore-reminders", "admin", `{"enabled":false,"times":["09:00","18:00"]}`, true)
+	if reminders.Code != http.StatusOK {
+		t.Fatalf("reminders: %d %s", reminders.Code, reminders.Body.String())
+	}
+}

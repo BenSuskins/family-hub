@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -49,12 +47,12 @@ func validateDisplayCommutePreferences(preferences models.DisplayCommutePreferen
 }
 
 type DisplayPairingHandler struct {
-	repository repository.DisplayPairingRepository
-	pairing    *displayapp.Pairing
+	settings *displayapp.Settings
+	pairing  *displayapp.Pairing
 }
 
-func NewDisplayPairingHandler(pairings repository.DisplayPairingRepository, pairing *displayapp.Pairing) *DisplayPairingHandler {
-	return &DisplayPairingHandler{repository: pairings, pairing: pairing}
+func NewDisplayPairingHandler(settings *displayapp.Settings, pairing *displayapp.Pairing) *DisplayPairingHandler {
+	return &DisplayPairingHandler{settings: settings, pairing: pairing}
 }
 
 func (handler *DisplayPairingHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
@@ -122,16 +120,20 @@ func (handler *DisplayPairingHandler) Claim(w http.ResponseWriter, r *http.Reque
 }
 
 func (handler *DisplayPairingHandler) List(w http.ResponseWriter, r *http.Request) {
-	displays, err := handler.repository.List(r.Context())
+	displays, err := handler.settings.List(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not load paired displays", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, displays)
+	responses := make([]displayResponse, 0, len(displays))
+	for _, item := range displays {
+		responses = append(responses, mapDisplay(item))
+	}
+	writeJSON(w, http.StatusOK, responses)
 }
 
 func (handler *DisplayPairingHandler) Revoke(w http.ResponseWriter, r *http.Request) {
-	if err := handler.repository.Revoke(r.Context(), chi.URLParam(r, "id")); errors.Is(err, sql.ErrNoRows) {
+	if err := handler.settings.Revoke(r.Context(), chi.URLParam(r, "id")); errors.Is(err, displayapp.ErrDisplayNotFound) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 		return
 	} else if err != nil {
@@ -158,7 +160,7 @@ func (handler *DisplayPairingHandler) UpdateSections(w http.ResponseWriter, r *h
 		}
 		seen[section] = true
 	}
-	if err := handler.repository.UpdateSections(r.Context(), chi.URLParam(r, "id"), body.EnabledSections); errors.Is(err, sql.ErrNoRows) {
+	if err := handler.settings.UpdateSections(r.Context(), chi.URLParam(r, "id"), body.EnabledSections); errors.Is(err, displayapp.ErrDisplayNotFound) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not update display settings", err)
@@ -179,7 +181,7 @@ func (handler *DisplayPairingHandler) UpdateName(w http.ResponseWriter, r *http.
 		writeJSONError(w, http.StatusBadRequest, "display name must be between 1 and 60 bytes")
 		return
 	}
-	if err := handler.repository.UpdateDetails(r.Context(), chi.URLParam(r, "id"), name); errors.Is(err, sql.ErrNoRows) {
+	if err := handler.settings.UpdateDetails(r.Context(), chi.URLParam(r, "id"), name); errors.Is(err, displayapp.ErrDisplayNotFound) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not update display name", err)
@@ -199,7 +201,7 @@ func (handler *DisplayPairingHandler) UpdateCommutePreferences(w http.ResponseWr
 	}
 	preferences.HomeStationCode = models.NormalizeDisplayStationCode(preferences.HomeStationCode)
 	preferences.WorkStationCode = models.NormalizeDisplayStationCode(preferences.WorkStationCode)
-	if err := handler.repository.UpdateCommutePreferences(r.Context(), chi.URLParam(r, "id"), preferences); errors.Is(err, sql.ErrNoRows) {
+	if err := handler.settings.UpdateCommutePreferences(r.Context(), chi.URLParam(r, "id"), preferences); errors.Is(err, displayapp.ErrDisplayNotFound) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 	} else if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not update display commute settings", err)
@@ -209,7 +211,7 @@ func (handler *DisplayPairingHandler) UpdateCommutePreferences(w http.ResponseWr
 }
 
 func (handler *DisplayPairingHandler) CommutePreferences(w http.ResponseWriter, r *http.Request) {
-	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
+	display, err := handler.settings.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not load display commute settings", err)
 		return
@@ -218,8 +220,8 @@ func (handler *DisplayPairingHandler) CommutePreferences(w http.ResponseWriter, 
 }
 
 func (handler *DisplayPairingHandler) AdminCommutePreferences(w http.ResponseWriter, r *http.Request) {
-	display, err := handler.repository.FindByID(r.Context(), chi.URLParam(r, "id"))
-	if errors.Is(err, sql.ErrNoRows) {
+	display, err := handler.settings.FindByID(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, displayapp.ErrDisplayNotFound) {
 		writeJSONError(w, http.StatusNotFound, "display not found")
 		return
 	}
@@ -231,10 +233,23 @@ func (handler *DisplayPairingHandler) AdminCommutePreferences(w http.ResponseWri
 }
 
 func (handler *DisplayPairingHandler) Settings(w http.ResponseWriter, r *http.Request) {
-	display, err := handler.repository.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
+	display, err := handler.settings.FindByTokenID(r.Context(), middleware.GetDisplayTokenID(r.Context()))
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "could not load display settings", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, display)
+	writeJSON(w, http.StatusOK, mapDisplay(display))
+}
+
+type displayResponse struct {
+	ID                 string                           `json:"id"`
+	Name               string                           `json:"name"`
+	PairedByUserID     string                           `json:"pairedByUserId"`
+	CreatedAt          time.Time                        `json:"createdAt"`
+	EnabledSections    []string                         `json:"enabledSections"`
+	CommutePreferences models.DisplayCommutePreferences `json:"commutePreferences"`
+}
+
+func mapDisplay(item displayapp.Display) displayResponse {
+	return displayResponse{ID: item.ID, Name: item.Name, PairedByUserID: item.PairedByUserID, CreatedAt: item.CreatedAt, EnabledSections: item.EnabledSections, CommutePreferences: item.CommutePreferences}
 }

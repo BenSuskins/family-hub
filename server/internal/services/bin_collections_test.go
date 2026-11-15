@@ -133,7 +133,7 @@ func TestBinReminderMessageGroupsCollectionNames(t *testing.T) {
 		{Name: "Garden bin"},
 	}
 	date := time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC)
-	message := BinReminderMessage(collections, date)
+	message := notifications.BinReminderMessage(collections, date)
 	if message.Title != "Bins out tonight" || message.Body != "Food caddy and garden bin are due tomorrow, Wed 28 Oct." {
 		t.Fatalf("unexpected reminder: %+v", message)
 	}
@@ -171,7 +171,7 @@ func TestBinReminderSendsOnceAtSevenToRegisteredDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender := &fakeBinMessageSender{}
-	service := NewBinReminderService(settings, devices, sender)
+	service := notifications.NewBinReminderService(NewReminderConfig(settings), devices, sender)
 	location, err := time.LoadLocation("Europe/London")
 	if err != nil {
 		t.Fatal(err)

@@ -14,28 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type PairedDisplay struct {
-	ID                 string                           `json:"id"`
-	Name               string                           `json:"name"`
-	PairedByUserID     string                           `json:"pairedByUserId"`
-	CreatedAt          time.Time                        `json:"createdAt"`
-	EnabledSections    []string                         `json:"enabledSections"`
-	CommutePreferences models.DisplayCommutePreferences `json:"commutePreferences"`
-}
-
-type DisplayPairingRepository interface {
-	CreateChallenge(context.Context, string, string, time.Time) error
-	ApproveChallenge(context.Context, string, string, string, string) error
-	ClaimChallenge(context.Context, string, string, models.APIToken) error
-	List(context.Context) ([]PairedDisplay, error)
-	UpdateSections(context.Context, string, []string) error
-	UpdateDetails(context.Context, string, string) error
-	UpdateCommutePreferences(context.Context, string, models.DisplayCommutePreferences) error
-	FindByTokenID(context.Context, string) (PairedDisplay, error)
-	FindByID(context.Context, string) (PairedDisplay, error)
-	Revoke(context.Context, string) error
-}
-
 type SQLiteDisplayPairingRepository struct{ database *sql.DB }
 
 func NewDisplayPairingRepository(database *sql.DB) *SQLiteDisplayPairingRepository {
@@ -100,15 +78,15 @@ func (repository *SQLiteDisplayPairingRepository) ClaimChallenge(ctx context.Con
 	return nil
 }
 
-func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]PairedDisplay, error) {
+func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]displayapp.Display, error) {
 	rows, err := repository.database.QueryContext(ctx, `SELECT id,name,COALESCE(paired_by_user_id,''),created_at,enabled_sections,commute_preferences FROM paired_displays ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing paired displays: %w", err)
 	}
 	defer rows.Close()
-	var displays []PairedDisplay
+	var displays []displayapp.Display
 	for rows.Next() {
-		var display PairedDisplay
+		var display displayapp.Display
 		var sections, commute string
 		if err := rows.Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections, &commute); err != nil {
 			return nil, fmt.Errorf("scanning paired display: %w", err)
@@ -125,7 +103,7 @@ func (repository *SQLiteDisplayPairingRepository) List(ctx context.Context) ([]P
 		return nil, fmt.Errorf("reading paired displays: %w", err)
 	}
 	if displays == nil {
-		displays = []PairedDisplay{}
+		displays = []displayapp.Display{}
 	}
 	return displays, nil
 }
@@ -140,7 +118,7 @@ func (repository *SQLiteDisplayPairingRepository) UpdateDetails(ctx context.Cont
 		return fmt.Errorf("checking display name update: %w", err)
 	}
 	if count == 0 {
-		return sql.ErrNoRows
+		return displayapp.ErrDisplayNotFound
 	}
 	return nil
 }
@@ -159,7 +137,7 @@ func (repository *SQLiteDisplayPairingRepository) UpdateCommutePreferences(ctx c
 		return fmt.Errorf("checking display commute update: %w", err)
 	}
 	if count == 0 {
-		return sql.ErrNoRows
+		return displayapp.ErrDisplayNotFound
 	}
 	return nil
 }
@@ -178,32 +156,35 @@ func (repository *SQLiteDisplayPairingRepository) UpdateSections(ctx context.Con
 		return fmt.Errorf("checking display update: %w", err)
 	}
 	if count == 0 {
-		return sql.ErrNoRows
+		return displayapp.ErrDisplayNotFound
 	}
 	return nil
 }
 
-func (repository *SQLiteDisplayPairingRepository) FindByTokenID(ctx context.Context, tokenID string) (PairedDisplay, error) {
+func (repository *SQLiteDisplayPairingRepository) FindByTokenID(ctx context.Context, tokenID string) (displayapp.Display, error) {
 	return repository.find(ctx, `WHERE api_token_id=?`, tokenID)
 }
 
-func (repository *SQLiteDisplayPairingRepository) FindByID(ctx context.Context, id string) (PairedDisplay, error) {
+func (repository *SQLiteDisplayPairingRepository) FindByID(ctx context.Context, id string) (displayapp.Display, error) {
 	return repository.find(ctx, `WHERE id=?`, id)
 }
 
-func (repository *SQLiteDisplayPairingRepository) find(ctx context.Context, where string, value string) (PairedDisplay, error) {
-	var display PairedDisplay
+func (repository *SQLiteDisplayPairingRepository) find(ctx context.Context, where string, value string) (displayapp.Display, error) {
+	var display displayapp.Display
 	var sections string
 	var commute string
 	err := repository.database.QueryRowContext(ctx, `SELECT id,name,COALESCE(paired_by_user_id,''),created_at,enabled_sections,commute_preferences FROM paired_displays `+where, value).Scan(&display.ID, &display.Name, &display.PairedByUserID, &display.CreatedAt, &sections, &commute)
+	if errors.Is(err, sql.ErrNoRows) {
+		return displayapp.Display{}, displayapp.ErrDisplayNotFound
+	}
 	if err != nil {
-		return PairedDisplay{}, err
+		return displayapp.Display{}, err
 	}
 	if err := json.Unmarshal([]byte(sections), &display.EnabledSections); err != nil {
-		return PairedDisplay{}, fmt.Errorf("decoding paired display sections: %w", err)
+		return displayapp.Display{}, fmt.Errorf("decoding paired display sections: %w", err)
 	}
 	if err := json.Unmarshal([]byte(commute), &display.CommutePreferences); err != nil {
-		return PairedDisplay{}, fmt.Errorf("decoding paired display commute settings: %w", err)
+		return displayapp.Display{}, fmt.Errorf("decoding paired display commute settings: %w", err)
 	}
 	return display, nil
 }
@@ -216,7 +197,7 @@ func (repository *SQLiteDisplayPairingRepository) Revoke(ctx context.Context, id
 	defer transaction.Rollback()
 	var tokenID string
 	if err := transaction.QueryRowContext(ctx, `SELECT api_token_id FROM paired_displays WHERE id=?`, id).Scan(&tokenID); errors.Is(err, sql.ErrNoRows) {
-		return sql.ErrNoRows
+		return displayapp.ErrDisplayNotFound
 	} else if err != nil {
 		return fmt.Errorf("finding display token: %w", err)
 	}

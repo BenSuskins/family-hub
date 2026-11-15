@@ -75,11 +75,12 @@ departure estimates, and weather use feature packages in
 `internal/services/`. The calendar cache uses stale data when a refresh fails.
 Recipe CRUD remains in the older structure.
 
-**Pairing and broadcasts** — Challenge creation, approval, and claim live in
+**Displays and notifications** — Pairing and display settings live in
 `internal/application/displays/`. SQLite commits a claimed display and token
-together. Broadcast preparation, claims, and delivery orchestration live in
-`internal/application/notifications/`; APNs remains in `internal/services/`.
-The SQLite claim completes before a notification is sent.
+together. Broadcasts, reminder delivery, and device registration live in
+`internal/application/notifications/`; APNs and reminder configuration
+adapters remain in `internal/services/`. The SQLite delivery claim completes
+before a notification is sent.
 
 **Services** — Other business logic lives in `internal/services/`. Avoid direct
 repository access from handlers when logic belongs in a service.
@@ -112,7 +113,8 @@ Image and database backup routes return binary data on success.
 | Shopping | `handlers/shopping.go` | `application/shopping/`, `domain/shopping/` | Shared shopping list |
 | Scratchpad | `handlers/scratchpad.go` | `application/scratchpad/`, `domain/scratchpad/` | Shared drawing |
 | Home settings | `handlers/household.go` | `application/household/`, `domain/household/` | Location and time zone |
-| Display pairing | `handlers/display_pairing.go` | `application/displays/` | Claim creates a display and token atomically |
+| Displays | `handlers/display_pairing.go` | `application/displays/` | Claim creates a display and token atomically |
+| Reminders | `handlers/chore_reminders.go` | `application/notifications/` | Chore and bin reminders use SQLite delivery claims |
 | Broadcasts | `handlers/broadcasts.go` | `application/notifications/` | Claim delivery before sending |
 | Admin | `handlers/api.go`, `handlers/backup.go` | — | Users, categories, tokens, settings, backup/restore |
 

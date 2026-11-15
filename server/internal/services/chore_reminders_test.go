@@ -14,11 +14,11 @@ import (
 
 type fakeReminderSender struct {
 	counts    []int
-	summaries []ChoreReminderSummary
+	summaries []notifications.ChoreReminderSummary
 	sendError error
 }
 
-func (sender *fakeReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, deliveryID string, expires time.Time) error {
+func (sender *fakeReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary notifications.ChoreReminderSummary, deliveryID string, expires time.Time) error {
 	sender.counts = append(sender.counts, summary.Count)
 	sender.summaries = append(sender.summaries, summary)
 	return sender.sendError
@@ -62,7 +62,7 @@ func TestChoreReminderSendsFamilyCountOncePerSlotAcrossRestart(t *testing.T) {
 	sender := &fakeReminderSender{}
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	for range 2 {
-		service := NewChoreReminderService(settings, chores, devices, sender, users)
+		service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender, users)
 		if err := service.Check(ctx, now); err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func TestChoreReminderSendsFamilyCountOncePerSlotAcrossRestart(t *testing.T) {
 	if len(sender.counts) != 1 || sender.counts[0] != 4 {
 		t.Fatalf("notifications: %v", sender.counts)
 	}
-	service := NewChoreReminderService(settings, chores, devices, sender, users)
+	service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender, users)
 	if err := service.Check(ctx, now.Add(6*time.Hour+30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestChoreReminderSkipsCompletedChoresOnRetryAndExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender := &fakeReminderSender{sendError: &notifications.PushError{Reason: "unavailable", Retry: true}}
-	service := NewChoreReminderService(settings, chores, devices, sender)
+	service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender)
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	if err := service.Check(ctx, now); err == nil {
 		t.Fatal("missing delivery error")
@@ -166,7 +166,7 @@ func TestChoreReminderUsesHouseholdDateAndDaylightSaving(t *testing.T) {
 				t.Fatal(err)
 			}
 			sender := &fakeReminderSender{}
-			service := NewChoreReminderService(settings, chores, devices, sender)
+			service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender)
 			if err := service.Check(ctx, now.Add(-time.Second)); err != nil {
 				t.Fatal(err)
 			}
@@ -201,7 +201,7 @@ func TestChoreReminderSkipsDisabledAndEmptySchedules(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender := &fakeReminderSender{}
-	service := NewChoreReminderService(settings, chores, devices, sender)
+	service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender)
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	if err := service.Check(ctx, now); err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestChoreReminderRetriesOnlyFailedDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender := &partialReminderSender{attempts: map[string]int{}}
-	service := NewChoreReminderService(settings, chores, devices, sender)
+	service := notifications.NewChoreReminderService(NewReminderConfig(settings), chores, devices, sender)
 	now := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	if err := service.Check(ctx, now); err == nil {
 		t.Fatal("missing failure")
@@ -275,7 +275,7 @@ func TestChoreReminderRetriesOnlyFailedDevices(t *testing.T) {
 
 type partialReminderSender struct{ attempts map[string]int }
 
-func (sender *partialReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary ChoreReminderSummary, identifier string, expires time.Time) error {
+func (sender *partialReminderSender) Send(ctx context.Context, device models.NotificationDevice, summary notifications.ChoreReminderSummary, identifier string, expires time.Time) error {
 	sender.attempts[device.ID]++
 	if device.ID == "retry" && sender.attempts[device.ID] == 1 {
 		return &notifications.PushError{Reason: "unavailable", Retry: true}
@@ -287,7 +287,7 @@ func (sender *partialReminderSender) Send(ctx context.Context, device models.Not
 }
 
 func TestReminderGroupsAllChoresByAssignee(t *testing.T) {
-	summary := ChoreReminderSummary{Count: 7, Tasks: []ChoreReminderTask{
+	summary := notifications.ChoreReminderSummary{Count: 7, Tasks: []notifications.ChoreReminderTask{
 		{Assignee: "Ben", Name: "Empty bins"},
 		{Assignee: "Alex", Name: "Dishwasher"},
 		{Assignee: "Ben", Name: "Vacuum"},

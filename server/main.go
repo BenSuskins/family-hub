@@ -42,7 +42,7 @@ func main() {
 	seriesRepo := repository.NewChoreSeriesRepository(db)
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(repository.NewSettingsRepository(db))))
 
-	var reminderSender services.ReminderSender
+	var reminderSender notifications.ReminderSender
 	var messageSender notifications.MessageSender
 	if cfg.PushConfigured() {
 		key, err := os.ReadFile(cfg.APNsKeyPath)
@@ -58,9 +58,9 @@ func main() {
 		reminderSender = sender
 		messageSender = sender
 	}
-	reminderService := services.NewChoreReminderService(repository.NewSettingsRepository(db), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
+	reminderService := notifications.NewChoreReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
 	go runChoreReminders(reminderService)
-	binReminderService := services.NewBinReminderService(repository.NewSettingsRepository(db), repository.NewNotificationRepository(db), messageSender)
+	binReminderService := notifications.NewBinReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), repository.NewNotificationRepository(db), messageSender)
 	go runBinReminders(binReminderService)
 	go runOverdueChecker(choreService)
 
@@ -71,7 +71,7 @@ func main() {
 	}
 }
 
-func runBinReminders(service *services.BinReminderService) {
+func runBinReminders(service *notifications.BinReminderService) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -97,7 +97,7 @@ func runOverdueChecker(choreService *choreapp.ChoreService) {
 	}
 }
 
-func runChoreReminders(service *services.ChoreReminderService) {
+func runChoreReminders(service *notifications.ChoreReminderService) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {

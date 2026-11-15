@@ -370,3 +370,7 @@ func scanChores(rows *sql.Rows) ([]models.Chore, error) {
 	}
 	return chores, rows.Err()
 }
+
+func (repository *SQLiteChoreRepository) ReminderChores(ctx context.Context) ([]models.Chore, error) {
+	return repository.FindAll(ctx, choreapp.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
+}

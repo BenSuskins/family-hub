@@ -33,8 +33,8 @@ flowchart LR
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
 | Integration applications | Calendar, recipe import, weather, rail and departure operations | `server/internal/application/calendar/`, `recipes/`, `commute/`, `weather/` |
 | Identity | OIDC exchange and account setup operations and ports | `server/internal/application/identity/` |
-| Pairing and broadcasts | Challenge operations and broadcast delivery ports | `server/internal/application/displays/`, `notifications/` |
-| Services | Reminder workflows, external URL guards and provider clients | `server/internal/services/` |
+| Displays and notifications | Pairing, settings, broadcasts and reminder delivery ports | `server/internal/application/displays/`, `notifications/` |
+| Services | Reminder configuration adapters, external URL guards and provider clients | `server/internal/services/` |
 | Repositories | SQLite adapters and interfaces for other features | `server/internal/repository/` |
 | Database | SQLite connection and startup migrations | `server/internal/database/` |
 | iOS app and extensions | Native household client, widgets, Watch app, and shared models | `ios/` |
@@ -75,8 +75,11 @@ calendar store and core recipe import cases.
 Display pairing operations generate credentials through injected functions and
 use a storage port. The SQLite claim transaction writes the display, token, and
 challenge state together. Broadcast operations prepare and claim delivery state
-before invoking the APNs sender. Shared fake and SQLite contracts cover
-concurrent claims, and tests cover rollback and send ordering.
+before invoking the APNs sender. Display settings use application operations
+and map HTTP responses in handlers. Chore and bin reminder operations claim
+each delivery before sending and retain retry and invalid-device handling.
+Shared fake and SQLite contracts cover concurrent claims and settings, and
+tests cover rollback and send ordering.
 
 Identity exchange calls an OIDC provider port and user and token storage ports.
 The HTTP adapter limits response size and request duration. Existing accounts
@@ -85,8 +88,8 @@ first-user role selection and token replacement are separate storage operations;
 follow-up reviews track their concurrency and failure behavior.
 
 Some features still use shared model types, and some handlers call repositories
-directly, including recipe CRUD and display settings. Reminder workflows remain
-in the older structure.
+directly, including recipe CRUD. Reminder settings parsing remains in an adapter;
+worker shutdown is not yet coordinated.
 
 ## Member request flow
 

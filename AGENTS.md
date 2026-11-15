@@ -82,6 +82,11 @@ together. Broadcasts, reminder delivery, and device registration live in
 adapters remain in `internal/services/`. The SQLite delivery claim completes
 before a notification is sent.
 
+**Startup and shutdown** — `server/main.go` composes the HTTP server and
+workers. `server/lifecycle.go` cancels workers and drains HTTP on shutdown.
+Calendar background refreshes use the server lifetime. Keep worker intervals
+and the bounded shutdown behavior when changing startup.
+
 **Services** — Other business logic lives in `internal/services/`. Avoid direct
 repository access from handlers when logic belongs in a service.
 

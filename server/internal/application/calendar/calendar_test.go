@@ -36,7 +36,7 @@ func TestStaleCacheRemainsAvailableWhenFeedFails(t *testing.T) {
 	last := now.Add(-time.Hour)
 	store := &storeFake{subscriptions: []models.ICalSubscription{{ID: "a", CachedData: &cached, LastFetchedAt: &last}}}
 	feed := &feedFake{events: []models.Event{{ID: "in", StartTime: now}, {ID: "out", StartTime: now.Add(3 * time.Hour)}}}
-	service := calendar.New(store, feed, func() time.Time { return now })
+	service := calendar.New(context.Background(), store, feed, func() time.Time { return now })
 	events, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour))
 	if err != nil || len(events) != 1 || events[0].ID != "in" {
 		t.Fatalf("events=%+v error=%v", events, err)
@@ -49,7 +49,7 @@ func TestFreshCacheDoesNotFetchFeed(t *testing.T) {
 	last := now.Add(-29 * time.Minute)
 	store := &storeFake{subscriptions: []models.ICalSubscription{{ID: "a", CachedData: &cached, LastFetchedAt: &last}}}
 	feed := &feedFake{events: []models.Event{{ID: "event", StartTime: now}}}
-	service := calendar.New(store, feed, func() time.Time { return now })
+	service := calendar.New(context.Background(), store, feed, func() time.Time { return now })
 	events, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour))
 	if err != nil || feed.fetched != 0 || len(events) != 1 {
 		t.Fatalf("events=%+v fetches=%d error=%v", events, feed.fetched, err)

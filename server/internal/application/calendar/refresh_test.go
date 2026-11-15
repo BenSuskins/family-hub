@@ -67,7 +67,7 @@ func TestStaleFeedReturnsImmediatelyAndRefreshesOnce(t *testing.T) {
 	last := now.Add(-time.Hour)
 	store := &refreshStore{sub: models.ICalSubscription{ID: "a", CachedData: &old, LastFetchedAt: &last}, updated: make(chan struct{}, 4)}
 	feed := &refreshFeed{started: make(chan struct{}), release: make(chan struct{}), now: now}
-	service := calendar.New(store, feed, func() time.Time { return now })
+	service := calendar.New(context.Background(), store, feed, func() time.Time { return now })
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	result := make(chan []models.Event, 1)
@@ -115,7 +115,7 @@ func TestForceRefreshWaitsForBackgroundRefresh(t *testing.T) {
 	last := now.Add(-time.Hour)
 	store := &refreshStore{sub: models.ICalSubscription{ID: "a", CachedData: &old, LastFetchedAt: &last}, updated: make(chan struct{}, 4)}
 	feed := &refreshFeed{started: make(chan struct{}), release: make(chan struct{}), now: now}
-	service := calendar.New(store, feed, func() time.Time { return now })
+	service := calendar.New(context.Background(), store, feed, func() time.Time { return now })
 	if _, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
@@ -140,5 +140,39 @@ func TestForceRefreshWaitsForBackgroundRefresh(t *testing.T) {
 	defer feed.mu.Unlock()
 	if feed.calls != 2 {
 		t.Fatalf("fetches=%d", feed.calls)
+	}
+}
+
+func TestShutdownCancelsBackgroundRefreshAndStopsScheduling(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	old := "old"
+	last := now.Add(-time.Hour)
+	store := &refreshStore{sub: models.ICalSubscription{ID: "a", CachedData: &old, LastFetchedAt: &last}, updated: make(chan struct{}, 2)}
+	feed := &refreshFeed{started: make(chan struct{}), release: make(chan struct{}), now: now}
+	root, cancel := context.WithCancel(context.Background())
+	service := calendar.New(root, store, feed, func() time.Time { return now })
+	if _, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	<-feed.started
+	cancel()
+	ctx, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	if err := service.Shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.FetchForRange(context.Background(), now, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	feed.mu.Lock()
+	calls := feed.calls
+	feed.mu.Unlock()
+	if calls != 1 {
+		t.Fatalf("refresh calls after shutdown=%d", calls)
+	}
+	select {
+	case <-store.updated:
+		t.Fatal("cancelled refresh updated cache")
+	default:
 	}
 }

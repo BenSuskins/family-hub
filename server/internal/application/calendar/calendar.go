@@ -27,13 +27,18 @@ type Service struct {
 	cacheTTL     time.Duration
 	refreshMutex sync.Mutex
 	refreshing   map[string]chan struct{}
+	lifecycle    context.Context
+	cancel       context.CancelFunc
+	stopping     bool
+	background   sync.WaitGroup
 }
 
-func New(store Store, feed Feed, now func() time.Time) *Service {
+func New(ctx context.Context, store Store, feed Feed, now func() time.Time) *Service {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{subRepo: store, feed: feed, now: now, cacheTTL: 30 * time.Minute, refreshing: make(map[string]chan struct{})}
+	lifecycle, cancel := context.WithCancel(ctx)
+	return &Service{subRepo: store, feed: feed, now: now, cacheTTL: 30 * time.Minute, refreshing: make(map[string]chan struct{}), lifecycle: lifecycle, cancel: cancel}
 }
 func (fetcher *Service) ForceRefreshByID(ctx context.Context, id string) error {
 	sub, err := fetcher.subRepo.FindByID(ctx, id)
@@ -41,7 +46,10 @@ func (fetcher *Service) ForceRefreshByID(ctx context.Context, id string) error {
 		return fmt.Errorf("finding subscription: %w", err)
 	}
 	for {
-		done, started := fetcher.beginRefresh(sub.ID)
+		done, started, allowed := fetcher.beginRefresh(sub.ID, false)
+		if !allowed {
+			return context.Canceled
+		}
 		if started {
 			defer fetcher.endRefresh(sub.ID)
 			return fetcher.refresh(ctx, sub)
@@ -89,12 +97,13 @@ func (fetcher *Service) fetchSubscription(ctx context.Context, sub models.ICalSu
 	needsFetch := sub.LastFetchedAt == nil || fetcher.now().Sub(*sub.LastFetchedAt) > fetcher.cacheTTL
 
 	if needsFetch && sub.CachedData != nil {
-		if _, started := fetcher.beginRefresh(sub.ID); started {
+		if _, started, _ := fetcher.beginRefresh(sub.ID, true); started {
 			go func() {
+				defer fetcher.background.Done()
 				defer fetcher.endRefresh(sub.ID)
-				refreshContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				refreshContext, cancel := context.WithTimeout(fetcher.lifecycle, 30*time.Second)
 				defer cancel()
-				if err := fetcher.refresh(refreshContext, sub); err != nil {
+				if err := fetcher.refresh(refreshContext, sub); err != nil && fetcher.lifecycle.Err() == nil {
 					slog.Warn("refreshing ical subscription", "name", sub.Name, "error", err)
 				}
 			}()
@@ -127,15 +136,21 @@ func (fetcher *Service) refresh(ctx context.Context, sub models.ICalSubscription
 	return fetcher.subRepo.UpdateCache(ctx, sub.ID, data, fetcher.now())
 }
 
-func (fetcher *Service) beginRefresh(id string) (<-chan struct{}, bool) {
+func (fetcher *Service) beginRefresh(id string, background bool) (<-chan struct{}, bool, bool) {
 	fetcher.refreshMutex.Lock()
 	defer fetcher.refreshMutex.Unlock()
+	if fetcher.stopping || fetcher.lifecycle.Err() != nil {
+		return nil, false, false
+	}
 	if done, ok := fetcher.refreshing[id]; ok {
-		return done, false
+		return done, false, true
 	}
 	done := make(chan struct{})
 	fetcher.refreshing[id] = done
-	return done, true
+	if background {
+		fetcher.background.Add(1)
+	}
+	return done, true, true
 }
 
 func (fetcher *Service) endRefresh(id string) {
@@ -143,4 +158,19 @@ func (fetcher *Service) endRefresh(id string) {
 	defer fetcher.refreshMutex.Unlock()
 	close(fetcher.refreshing[id])
 	delete(fetcher.refreshing, id)
+}
+
+func (fetcher *Service) Shutdown(ctx context.Context) error {
+	fetcher.refreshMutex.Lock()
+	fetcher.stopping = true
+	fetcher.cancel()
+	fetcher.refreshMutex.Unlock()
+	done := make(chan struct{})
+	go func() { fetcher.background.Wait(); close(done) }()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

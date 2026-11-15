@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -38,11 +40,15 @@ import (
 )
 
 type Server struct {
-	router *chi.Mux
-	config config.Config
+	router     *chi.Mux
+	httpServer *http.Server
+	calendar   *calendarapp.Service
 }
 
 func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSender) *Server {
+	return NewWithContext(context.Background(), database, cfg, senders...)
+}
+func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, senders ...notifications.MessageSender) *Server {
 	var messageSender notifications.MessageSender
 	if len(senders) > 0 {
 		messageSender = senders[0]
@@ -60,7 +66,7 @@ func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSe
 	icalSubRepo := repository.NewICalSubscriptionRepository(database)
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(settingsRepo)))
-	icalFetcher := calendarapp.New(icalSubRepo, services.NewICalAdapter(nil), nil)
+	icalFetcher := calendarapp.New(ctx, icalSubRepo, services.NewICalAdapter(nil), nil)
 	recipeAdapter := services.NewRecipeExtractor()
 	recipeExtractor := recipeapp.New(recipeAdapter, recipeAdapter)
 	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
@@ -242,11 +248,16 @@ func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSe
 		r.Get("/api/display/recipes/{id}", apiHandler.GetRecipe)
 	})
 
-	return &Server{router: router, config: cfg}
+	return &Server{router: router, httpServer: &http.Server{Addr: ":" + cfg.Port, Handler: router}, calendar: icalFetcher}
 }
 
 func (server *Server) Start() error {
-	address := ":" + server.config.Port
-	slog.Info("starting server", "address", address)
-	return http.ListenAndServe(address, server.router)
+	slog.Info("starting server", "address", server.httpServer.Addr)
+	return server.httpServer.ListenAndServe()
 }
+func (server *Server) Shutdown(ctx context.Context) error {
+	httpError := server.httpServer.Shutdown(ctx)
+	calendarError := server.calendar.Shutdown(ctx)
+	return errors.Join(httpError, calendarError)
+}
+func (server *Server) Close() error { return server.httpServer.Close() }

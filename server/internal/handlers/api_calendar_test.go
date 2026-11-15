@@ -55,7 +55,7 @@ func TestCalendarIncludesTheLastDayAndOverlappingEvents(t *testing.T) {
 	}
 	handler := &APIHandler{
 		choreService: choreapp.NewChoreService(chores, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)),
-		icalFetcher:  calendarapp.New(subscriptions, services.NewICalAdapter(nil), nil),
+		icalFetcher:  calendarapp.New(context.Background(), subscriptions, services.NewICalAdapter(nil), nil),
 		mealService:  mealapp.New(meals),
 	}
 	response := httptest.NewRecorder()

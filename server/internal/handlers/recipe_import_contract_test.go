@@ -39,7 +39,7 @@ func (recipeImportFake) ApplyCaption(recipe recipeapp.Recipe, _ string) recipeap
 func (recipeImportFake) ResolveURL(_ string, value string) string { return value }
 func TestRecipeImportResponseUsesExistingJSONFields(t *testing.T) {
 	provider := recipeImportFake{}
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, recipeapp.New(provider, provider), nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, recipeapp.New(provider, provider), nil, "", "")
 	response := httptest.NewRecorder()
 	handler.ExtractRecipe(response, httptest.NewRequest(http.MethodPost, "/api/recipes/extract", strings.NewReader(`{"url":"https://example.com/recipe"}`)))
 	if response.Code != http.StatusOK {

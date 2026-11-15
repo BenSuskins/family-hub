@@ -34,7 +34,7 @@ API token into the shared app group so extensions can read them. See
 
 ## Architecture
 
-Chores, meals, inventory, shopping, scratchpad, and home settings flow through feature application operations to SQLite adapters. Other features can call repositories from handlers.
+Chores, household data, recipes, user administration, categories, tokens, and settings flow through feature application operations to SQLite adapters. Some other handlers still call repositories directly.
 
 ```
 server/
@@ -123,7 +123,7 @@ Image and database backup routes return binary data on success.
 | Displays | `handlers/display_pairing.go` | `application/displays/` | Claim creates a display and token atomically |
 | Reminders | `handlers/chore_reminders.go` | `application/notifications/` | Chore and bin reminders use SQLite delivery claims |
 | Broadcasts | `handlers/broadcasts.go` | `application/notifications/` | Claim delivery before sending |
-| Admin | `handlers/api.go`, `handlers/backup.go` | — | Users, categories, tokens, settings, backup/restore |
+| Admin | `handlers/api.go`, `handlers/backup.go` | `application/users/`, `categories/`, `identity/`, `household/` | User, category, token and settings operations; backup/restore remain infrastructure |
 
 ## Gotchas
 

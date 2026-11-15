@@ -6,17 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bensuskins/family-hub/internal/models"
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
 	"github.com/google/uuid"
 )
-
-type CategoryRepository interface {
-	FindByID(ctx context.Context, id string) (models.Category, error)
-	FindAll(ctx context.Context) ([]models.Category, error)
-	Create(ctx context.Context, category models.Category) (models.Category, error)
-	Update(ctx context.Context, id string, name string) error
-	Delete(ctx context.Context, id string) error
-}
 
 type SQLiteCategoryRepository struct {
 	database *sql.DB
@@ -26,18 +18,21 @@ func NewCategoryRepository(database *sql.DB) *SQLiteCategoryRepository {
 	return &SQLiteCategoryRepository{database: database}
 }
 
-func (repository *SQLiteCategoryRepository) FindByID(ctx context.Context, id string) (models.Category, error) {
-	var category models.Category
+func (repository *SQLiteCategoryRepository) FindByID(ctx context.Context, id string) (categoryapp.Category, error) {
+	var category categoryapp.Category
 	err := repository.database.QueryRowContext(ctx,
 		"SELECT id, name, created_by_user_id, created_at FROM categories WHERE id = ?", id,
 	).Scan(&category.ID, &category.Name, &category.CreatedByUserID, &category.CreatedAt)
+	if err == sql.ErrNoRows {
+		return categoryapp.Category{}, categoryapp.ErrNotFound
+	}
 	if err != nil {
-		return models.Category{}, fmt.Errorf("finding category by id: %w", err)
+		return categoryapp.Category{}, fmt.Errorf("finding category by id: %w", err)
 	}
 	return category, nil
 }
 
-func (repository *SQLiteCategoryRepository) FindAll(ctx context.Context) ([]models.Category, error) {
+func (repository *SQLiteCategoryRepository) FindAll(ctx context.Context) ([]categoryapp.Category, error) {
 	rows, err := repository.database.QueryContext(ctx,
 		"SELECT id, name, created_by_user_id, created_at FROM categories ORDER BY name",
 	)
@@ -46,9 +41,9 @@ func (repository *SQLiteCategoryRepository) FindAll(ctx context.Context) ([]mode
 	}
 	defer rows.Close()
 
-	var categories []models.Category
+	var categories []categoryapp.Category
 	for rows.Next() {
-		var category models.Category
+		var category categoryapp.Category
 		if err := rows.Scan(&category.ID, &category.Name, &category.CreatedByUserID, &category.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning category: %w", err)
 		}
@@ -57,7 +52,7 @@ func (repository *SQLiteCategoryRepository) FindAll(ctx context.Context) ([]mode
 	return categories, rows.Err()
 }
 
-func (repository *SQLiteCategoryRepository) Create(ctx context.Context, category models.Category) (models.Category, error) {
+func (repository *SQLiteCategoryRepository) Create(ctx context.Context, category categoryapp.Category) (categoryapp.Category, error) {
 	if category.ID == "" {
 		category.ID = uuid.New().String()
 	}
@@ -68,7 +63,7 @@ func (repository *SQLiteCategoryRepository) Create(ctx context.Context, category
 		category.ID, category.Name, category.CreatedByUserID, category.CreatedAt,
 	)
 	if err != nil {
-		return models.Category{}, fmt.Errorf("creating category: %w", err)
+		return categoryapp.Category{}, fmt.Errorf("creating category: %w", err)
 	}
 	return category, nil
 }

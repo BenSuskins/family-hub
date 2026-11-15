@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +11,10 @@ import (
 	"strings"
 	"time"
 
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
+	householdapp "github.com/bensuskins/family-hub/internal/application/household"
 	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
+	userapp "github.com/bensuskins/family-hub/internal/application/users"
 
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
@@ -31,11 +32,12 @@ import (
 )
 
 type APIHandler struct {
-	userRepo         repository.UserRepository
-	categoryRepo     repository.CategoryRepository
+	users            *userapp.Service
+	categories       *categoryapp.Service
 	assignmentRepo   repository.ChoreAssignmentRepository
-	tokenRepo        repository.APITokenRepository
+	tokens           *identityapp.TokenAdministration
 	settingsRepo     repository.SettingsRepository
+	generalSettings  *householdapp.Service
 	choreService     *choreapp.ChoreService
 	mealService      *mealapp.Service
 	recipes          *recipeapp.Catalogue
@@ -53,11 +55,12 @@ const (
 )
 
 func NewAPIHandler(
-	userRepo repository.UserRepository,
-	categoryRepo repository.CategoryRepository,
+	users *userapp.Service,
+	categories *categoryapp.Service,
 	assignmentRepo repository.ChoreAssignmentRepository,
-	tokenRepo repository.APITokenRepository,
+	tokens *identityapp.TokenAdministration,
 	settingsRepo repository.SettingsRepository,
+	generalSettings *householdapp.Service,
 	choreService *choreapp.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipes *recipeapp.Catalogue,
@@ -73,11 +76,12 @@ func NewAPIHandler(
 		mealService = mealapp.New(mealPlanRepo)
 	}
 	return &APIHandler{
-		userRepo:         userRepo,
-		categoryRepo:     categoryRepo,
+		users:            users,
+		categories:       categories,
 		assignmentRepo:   assignmentRepo,
-		tokenRepo:        tokenRepo,
+		tokens:           tokens,
 		settingsRepo:     settingsRepo,
+		generalSettings:  generalSettings,
 		choreService:     choreService,
 		mealService:      mealService,
 		recipes:          recipes,
@@ -178,32 +182,32 @@ func (handler *APIHandler) GetChore(w http.ResponseWriter, r *http.Request) {
 
 func (handler *APIHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	users, err := handler.userRepo.FindAll(ctx)
+	users, err := handler.users.List(ctx)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load users", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	writeJSON(w, http.StatusOK, mapUsers(users))
 }
 
 func (handler *APIHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, err := handler.userRepo.FindByID(ctx, chi.URLParam(r, "id"))
+	user, err := handler.users.Find(ctx, chi.URLParam(r, "id"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "user not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, user)
+	writeJSON(w, http.StatusOK, mapUser(user))
 }
 
 func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	categories, err := handler.categoryRepo.FindAll(ctx)
+	categories, err := handler.categories.List(ctx)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load categories", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, categories)
+	writeJSON(w, http.StatusOK, mapCategories(categories))
 }
 
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
@@ -301,36 +305,23 @@ func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawToken, err := generateToken()
+	created, err := handler.tokens.Create(ctx, name, user.ID)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to generate token", err)
+		message := "failed to create token"
+		if errors.Is(err, identityapp.ErrGenerateToken) {
+			message = "failed to generate token"
+		}
+		writeAPIError(w, r, http.StatusInternalServerError, message, err)
 		return
 	}
-	token := models.APIToken{
-		Name:            name,
-		Scope:           models.TokenScopeAPI,
-		TokenHash:       repository.HashToken(rawToken),
-		CreatedByUserID: user.ID,
-	}
-
-	created, err := handler.tokenRepo.Create(ctx, token)
-	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to create token", err)
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"id":    created.ID,
-		"name":  created.Name,
-		"token": rawToken,
-	})
+	writeJSON(w, http.StatusCreated, map[string]interface{}{"id": created.ID, "name": created.Name, "token": created.Token})
 }
 
 func (handler *APIHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
-	if err := handler.tokenRepo.Delete(ctx, id); err != nil {
+	if err := handler.tokens.Delete(ctx, id); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete token", err)
 		return
 	}
@@ -902,24 +893,23 @@ func (handler *APIHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	dataURI := encodeDataURI(contentType, imageBytes)
-	if err := handler.userRepo.UpdateAvatar(ctx, user.ID, dataURI); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to save avatar", err)
-		return
-	}
-
-	updated, err := handler.userRepo.FindByID(ctx, user.ID)
+	updated, err := handler.users.SaveAvatar(ctx, user.ID, dataURI)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		if errors.Is(err, userapp.ErrReload) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to save avatar", err)
+		}
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, mapUser(updated))
 }
 
 func (handler *APIHandler) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	if err := handler.userRepo.ClearAvatar(ctx, user.ID); err != nil {
+	if err := handler.users.RemoveAvatar(ctx, user.ID); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to remove avatar", err)
 		return
 	}
@@ -931,67 +921,46 @@ func (handler *APIHandler) PromoteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := chi.URLParam(r, "id")
 
-	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleAdmin); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to promote user", err)
-		return
-	}
-
-	updated, err := handler.userRepo.FindByID(ctx, userID)
+	updated, err := handler.users.ChangeRole(ctx, userID, userapp.RoleAdmin)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		if errors.Is(err, userapp.ErrReload) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to promote user", err)
+		}
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, mapUser(updated))
 }
 
 func (handler *APIHandler) DemoteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := chi.URLParam(r, "id")
 
-	if err := handler.userRepo.UpdateRole(ctx, userID, models.RoleMember); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to demote user", err)
-		return
-	}
-
-	updated, err := handler.userRepo.FindByID(ctx, userID)
+	updated, err := handler.users.ChangeRole(ctx, userID, userapp.RoleMember)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		if errors.Is(err, userapp.ErrReload) {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to reload user", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to demote user", err)
+		}
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, mapUser(updated))
 }
 
 func (handler *APIHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	familyName, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyFamilyName)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to load family name setting", err)
+	settings, err := handler.generalSettings.GeneralSettings(ctx)
+	if err != nil {
+		message := "failed to load family name setting"
+		if errors.Is(err, householdapp.ErrMealWeekSetting) {
+			message = "failed to load meal week setting"
+		}
+		writeAPIError(w, r, http.StatusInternalServerError, message, err)
 		return
 	}
-	if errors.Is(err, sql.ErrNoRows) {
-		familyName = "Family"
-	}
-	mealWeekStart, err := handler.settingsRepo.Get(ctx, repository.SettingsKeyMealWeekStart)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to load meal week setting", err)
-		return
-	}
-	if errors.Is(err, sql.ErrNoRows) || !validMealWeekStart(mealWeekStart) {
-		mealWeekStart = "friday"
-	}
-	writeJSON(w, http.StatusOK, map[string]string{
-		"meal_week_start": mealWeekStart,
-		"family_name":     familyName,
-	})
-}
-
-func validMealWeekStart(value string) bool {
-	switch value {
-	case "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday":
-		return true
-	default:
-		return false
-	}
+	writeJSON(w, http.StatusOK, map[string]string{"meal_week_start": settings.MealWeekStart, "family_name": settings.FamilyName})
 }
 
 func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
@@ -1002,10 +971,10 @@ func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	updates := make(map[string]string)
-	for _, key := range []string{repository.SettingsKeyFamilyName, repository.SettingsKeyMealWeekStart} {
+	for _, key := range []string{householdapp.FamilyNameKey, householdapp.MealWeekStartKey} {
 		if raw, supplied := body[key]; supplied {
 			var value string
-			if err := json.Unmarshal(raw, &value); err != nil || value == "" || (key == repository.SettingsKeyMealWeekStart && !validMealWeekStart(value)) {
+			if err := json.Unmarshal(raw, &value); err != nil || value == "" || (key == householdapp.MealWeekStartKey && !householdapp.ValidMealWeekStart(value)) {
 				writeJSONError(w, http.StatusBadRequest, "invalid "+key)
 				return
 			}
@@ -1016,11 +985,9 @@ func (handler *APIHandler) PatchSettings(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusBadRequest, "at least one setting is required")
 		return
 	}
-	for key, value := range updates {
-		if err := handler.settingsRepo.Set(ctx, key, value); err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to update settings", err)
-			return
-		}
+	if err := handler.generalSettings.UpdateGeneralSettings(ctx, updates); err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "failed to update settings", err)
+		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -1041,15 +1008,12 @@ func (handler *APIHandler) CreateCategory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	created, err := handler.categoryRepo.Create(ctx, models.Category{
-		Name:            body.Name,
-		CreatedByUserID: user.ID,
-	})
+	created, err := handler.categories.Create(ctx, body.Name, user.ID)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to create category", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, created)
+	writeJSON(w, http.StatusCreated, mapCategory(created))
 }
 
 func (handler *APIHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
@@ -1067,24 +1031,23 @@ func (handler *APIHandler) UpdateCategory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := handler.categoryRepo.Update(ctx, categoryID, body.Name); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to update category", err)
-		return
-	}
-
-	category, err := handler.categoryRepo.FindByID(ctx, categoryID)
+	category, err := handler.categories.Update(ctx, categoryID, body.Name)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to reload category", err)
+		message := "failed to update category"
+		if errors.Is(err, categoryapp.ErrReload) {
+			message = "failed to reload category"
+		}
+		writeAPIError(w, r, http.StatusInternalServerError, message, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, category)
+	writeJSON(w, http.StatusOK, mapCategory(category))
 }
 
 func (handler *APIHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	categoryID := chi.URLParam(r, "id")
 
-	if err := handler.categoryRepo.Delete(ctx, categoryID); err != nil {
+	if err := handler.categories.Delete(ctx, categoryID); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete category", err)
 		return
 	}
@@ -1093,23 +1056,15 @@ func (handler *APIHandler) DeleteCategory(w http.ResponseWriter, r *http.Request
 
 func (handler *APIHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	tokens, err := handler.tokenRepo.FindAll(ctx)
+	tokens, err := handler.tokens.List(ctx)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load tokens", err)
 		return
 	}
 	if tokens == nil {
-		tokens = []models.APIToken{}
+		tokens = []identityapp.TokenRecord{}
 	}
-	writeJSON(w, http.StatusOK, tokens)
-}
-
-func generateToken() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
+	writeJSON(w, http.StatusOK, mapTokens(tokens))
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

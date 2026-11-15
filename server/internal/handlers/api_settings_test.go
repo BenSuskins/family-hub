@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	householdapp "github.com/bensuskins/family-hub/internal/application/household"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 func TestMealWeekSettings(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
-	handler := &APIHandler{settingsRepo: repository.NewSettingsRepository(database)}
+	handler := &APIHandler{generalSettings: householdapp.New(repository.NewSettingsRepository(database))}
 	read := func() map[string]string {
 		t.Helper()
 		response := httptest.NewRecorder()

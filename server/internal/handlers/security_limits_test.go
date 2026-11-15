@@ -51,7 +51,7 @@ func TestExchangeTokenUsesBoundedHTTPTimeout(t *testing.T) {
 	}))
 	defer provider.Close()
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, identityapp.New(services.NewOIDCProvider(provider.URL, &http.Client{Timeout: 10 * time.Millisecond}), nil, nil, nil, nil), "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, identityapp.New(services.NewOIDCProvider(provider.URL, &http.Client{Timeout: 10 * time.Millisecond}), nil, nil, nil, nil), nil, "", "")
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/exchange", nil)
 	request.Header.Set("Authorization", "Bearer oidc-token")
 	response := httptest.NewRecorder()

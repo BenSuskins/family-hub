@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bensuskins/family-hub/internal/application/bins"
 	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -160,10 +161,10 @@ func TestBinReminderSendsOnceAtSevenToRegisteredDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := repository.NewSettingsRepository(database)
-	if err := SaveBinSchedule(ctx, settings, []models.BinCollection{
+	if err := NewBinScheduleAdapter(settings).Save(ctx, bins.Schedule{Collections: []bins.Collection{
 		{Date: "2026-10-28", Type: "food_caddy", Name: "Food caddy"},
 		{Date: "2026-10-28", Type: "garden", Name: "Garden bin"},
-	}, true, time.Now()); err != nil {
+	}, Enabled: true, UploadedAt: time.Now().UTC().Format(time.RFC3339)}); err != nil {
 		t.Fatal(err)
 	}
 	devices := repository.NewNotificationRepository(database)

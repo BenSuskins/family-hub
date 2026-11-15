@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/bensuskins/family-hub/internal/application/bins"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -19,7 +22,7 @@ import (
 
 func TestBinScheduleUploadRequiresAdmin(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
-	handler := NewBinCollectionsHandler(repository.NewSettingsRepository(database), true)
+	handler := NewBinCollectionsHandler(bins.New(services.NewBinScheduleAdapter(repository.NewSettingsRepository(database)), services.BinCalendarParser{}, true, time.Now))
 	router := binCollectionsRouter(handler, models.User{ID: "member", Role: models.RoleMember})
 	request, _ := binScheduleUploadRequest(t, "calendar.ics", testBinScheduleICS)
 	recorder := httptest.NewRecorder()
@@ -32,7 +35,7 @@ func TestBinScheduleUploadRequiresAdmin(t *testing.T) {
 func TestBinScheduleUploadReplacesScheduleOnlyAfterValidation(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	settings := repository.NewSettingsRepository(database)
-	handler := NewBinCollectionsHandler(settings, true)
+	handler := NewBinCollectionsHandler(bins.New(services.NewBinScheduleAdapter(settings), services.BinCalendarParser{}, true, time.Now))
 	router := binCollectionsRouter(handler, models.User{ID: "admin", Role: models.RoleAdmin})
 	request, _ := binScheduleUploadRequest(t, "route.ics", testBinScheduleICS)
 	recorder := httptest.NewRecorder()

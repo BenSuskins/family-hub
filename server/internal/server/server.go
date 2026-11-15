@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	binsapp "github.com/bensuskins/family-hub/internal/application/bins"
 	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
+	dashboardapp "github.com/bensuskins/family-hub/internal/application/dashboard"
 	"log/slog"
 	"net/http"
 	"time"
@@ -83,7 +85,9 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, nil), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
 	recipeCatalogue := recipeapp.NewCatalogue(recipeRepo, recipeRepo, mealapp.New(mealPlanRepo))
-	apiHandler := handlers.NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), assignmentRepo, identityapp.NewTokenAdministration(tokenRepo, services.NewCredentialSecret, repository.HashToken), settingsRepo, householdapp.New(settingsRepo), choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
+	binService := binsapp.New(services.NewBinScheduleAdapter(settingsRepo), services.BinCalendarParser{}, cfg.PushConfigured() || messageSender != nil, time.Now)
+	dashboard := dashboardapp.New(services.NewDashboardLocation(settingsRepo), services.NewDashboardBins(binService), services.NewDashboardChores(choreService), services.NewDashboardMeals(mealapp.New(mealPlanRepo)), time.Now)
+	apiHandler := handlers.NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), assignmentRepo, identityapp.NewTokenAdministration(tokenRepo, services.NewCredentialSecret, repository.HashToken), settingsRepo, householdapp.New(settingsRepo), choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, dashboard, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)
@@ -93,7 +97,7 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	departureService := commuteapp.NewDepartureService(icalFetcher, drivingProvider, time.Now)
 	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database)))
 	reminderHandler := handlers.NewChoreReminderHandler(notifications.NewReminderManagement(services.NewReminderConfig(settingsRepo), settingsRepo, repository.NewNotificationRepository(database), repository.HashToken), cfg.PushConfigured() || messageSender != nil)
-	binCollectionsHandler := handlers.NewBinCollectionsHandler(settingsRepo, cfg.PushConfigured() || messageSender != nil)
+	binCollectionsHandler := handlers.NewBinCollectionsHandler(binService)
 	broadcastHandler := handlers.NewBroadcastHandler(notifications.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 

@@ -156,24 +156,3 @@ func LoadBinSchedule(ctx context.Context, settings repository.SettingsRepository
 	}
 	return schedule, nil
 }
-
-func SaveBinSchedule(ctx context.Context, settings repository.SettingsRepository, collections []models.BinCollection, enabled bool, now time.Time) error {
-	value, err := json.Marshal(models.BinSchedule{Collections: collections, Enabled: enabled, UploadedAt: now.UTC().Format(time.RFC3339)})
-	if err != nil {
-		return err
-	}
-	return settings.Set(ctx, binScheduleSetting, string(value))
-}
-
-func UpdateBinScheduleEnabled(ctx context.Context, settings repository.SettingsRepository, enabled bool) (models.BinSchedule, error) {
-	schedule, err := LoadBinSchedule(ctx, settings)
-	if err != nil {
-		return schedule, err
-	}
-	schedule.Enabled = enabled
-	value, err := json.Marshal(schedule)
-	if err != nil {
-		return schedule, err
-	}
-	return schedule, settings.Set(ctx, binScheduleSetting, string(value))
-}

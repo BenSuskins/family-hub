@@ -32,6 +32,7 @@ flowchart LR
 | Household applications | Meal, inventory, shopping, scratchpad and home settings operations and storage ports | `server/internal/application/` |
 | Household domain | Inventory, shopping, scratchpad and home settings rules | `server/internal/domain/` |
 | Integration applications | Calendar, recipe import, weather, rail and departure operations | `server/internal/application/calendar/`, `recipes/`, `commute/`, `weather/` |
+| Dashboard and bins | Dashboard read orchestration, bin schedule and parser ports | `server/internal/application/dashboard/`, `bins/` |
 | Identity | OIDC exchange, account setup and token administration operations and ports | `server/internal/application/identity/` |
 | Displays and notifications | Pairing, settings, broadcasts and reminder delivery ports | `server/internal/application/displays/`, `notifications/` |
 | Services | Reminder configuration adapters, external URL guards and provider clients | `server/internal/services/` |
@@ -74,6 +75,13 @@ use separate storage, media-write and meal-unlink capabilities. HTTP and SQLite
 adapters map recipe values explicitly; the domain provides legacy instruction
 and timer rules. Shared contracts cover calendar storage, core recipe import,
 and recipe catalogue storage.
+
+Dashboard operations combine chores, meals, household time zone and bin
+schedules through consumer-owned ports. Bin operations validate imports, save
+schedules and manage reminders through parser and storage ports. Adapters in
+`server/internal/services/` connect these capabilities at startup. Shared
+fake and SQLite contracts cover bin schedule storage; router tests cover the
+HTTP responses and access rules.
 
 Display pairing operations generate credentials through injected functions and
 use a storage port. The SQLite claim transaction writes the display, token, and

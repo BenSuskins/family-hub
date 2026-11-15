@@ -1,42 +1,37 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"net/http"
-	"time"
 
-	"github.com/bensuskins/family-hub/internal/models"
-	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
+	"github.com/bensuskins/family-hub/internal/application/bins"
 )
 
 const maxBinScheduleBytes = 1 << 20
 
-type BinCollectionsHandler struct {
-	settings      repository.SettingsRepository
-	pushAvailable bool
-}
+type BinCollectionsHandler struct{ service *bins.Service }
 
-func NewBinCollectionsHandler(settings repository.SettingsRepository, pushAvailable bool) *BinCollectionsHandler {
-	return &BinCollectionsHandler{settings: settings, pushAvailable: pushAvailable}
+func NewBinCollectionsHandler(service *bins.Service) *BinCollectionsHandler {
+	return &BinCollectionsHandler{service: service}
 }
 
 func (handler *BinCollectionsHandler) Get(w http.ResponseWriter, r *http.Request) {
-	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
+	schedule, err := handler.service.Get(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
+	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.service.PushAvailable()))
 }
 
 func (handler *BinCollectionsHandler) GetForDisplay(w http.ResponseWriter, r *http.Request) {
-	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
+	schedule, err := handler.service.Get(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"collections": schedule.Collections})
+	writeJSON(w, http.StatusOK, map[string]any{"collections": binCollectionResponses(schedule.Collections)})
 }
 
 func (handler *BinCollectionsHandler) Upload(w http.ResponseWriter, r *http.Request) {
@@ -61,21 +56,20 @@ func (handler *BinCollectionsHandler) Upload(w http.ResponseWriter, r *http.Requ
 		writeJSONError(w, http.StatusBadRequest, "ICS calendar file must be under 1 MB")
 		return
 	}
-	collections, err := services.ParseBinSchedule(string(data), time.Now())
+	schedule, err := handler.service.Upload(r.Context(), string(data))
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "calendar has no upcoming bin collections or is not a valid ICS file")
+		switch {
+		case errors.Is(err, bins.ErrParse):
+			writeJSONError(w, http.StatusBadRequest, "calendar has no upcoming bin collections or is not a valid ICS file")
+		case errors.Is(err, bins.ErrSave):
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to save bin schedule", err)
+		default:
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load saved bin schedule", err)
+		}
 		return
 	}
-	if err := services.SaveBinSchedule(r.Context(), handler.settings, collections, handler.pushAvailable, time.Now()); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to save bin schedule", err)
-		return
-	}
-	schedule, err := services.LoadBinSchedule(r.Context(), handler.settings)
-	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to load saved bin schedule", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
+
+	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.service.PushAvailable()))
 }
 
 func (handler *BinCollectionsHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -85,27 +79,22 @@ func (handler *BinCollectionsHandler) Update(w http.ResponseWriter, r *http.Requ
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	if body.Enabled && !handler.pushAvailable {
-		writeJSONError(w, http.StatusServiceUnavailable, "push notifications are not configured on the server")
-		return
-	}
-	if body.Enabled {
-		existing, err := services.LoadBinSchedule(r.Context(), handler.settings)
-		if err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
-			return
-		}
-		if len(existing.Collections) == 0 {
-			writeJSONError(w, http.StatusBadRequest, "upload a bin collection calendar before enabling reminders")
-			return
-		}
-	}
-	schedule, err := services.UpdateBinScheduleEnabled(r.Context(), handler.settings, body.Enabled)
+	schedule, err := handler.service.SetEnabled(r.Context(), body.Enabled)
 	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to update bin reminders", err)
+		switch {
+		case errors.Is(err, bins.ErrPushUnavailable):
+			writeJSONError(w, http.StatusServiceUnavailable, "push notifications are not configured on the server")
+		case errors.Is(err, bins.ErrNoCollections):
+			writeJSONError(w, http.StatusBadRequest, "upload a bin collection calendar before enabling reminders")
+		case errors.Is(err, bins.ErrLoad):
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
+		default:
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to update bin reminders", err)
+		}
 		return
 	}
-	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.pushAvailable))
+
+	writeJSON(w, http.StatusOK, binScheduleResponse(schedule, handler.service.PushAvailable()))
 }
 
 type binScheduleAPIResponse struct {
@@ -115,6 +104,23 @@ type binScheduleAPIResponse struct {
 	PushAvailable   bool   `json:"push_available"`
 }
 
-func binScheduleResponse(schedule models.BinSchedule, pushAvailable bool) binScheduleAPIResponse {
+func binScheduleResponse(schedule bins.Schedule, pushAvailable bool) binScheduleAPIResponse {
 	return binScheduleAPIResponse{Enabled: schedule.Enabled, UploadedAt: schedule.UploadedAt, CollectionCount: len(schedule.Collections), PushAvailable: pushAvailable}
+}
+
+type binCollectionResponse struct {
+	Date string `json:"date"`
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
+func binCollectionResponses(collections []bins.Collection) []binCollectionResponse {
+	if collections == nil {
+		return nil
+	}
+	result := make([]binCollectionResponse, len(collections))
+	for index, collection := range collections {
+		result[index] = binCollectionResponse{Date: collection.Date, Type: collection.Type, Name: collection.Name}
+	}
+	return result
 }

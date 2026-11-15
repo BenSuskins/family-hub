@@ -12,6 +12,7 @@ import (
 	"time"
 
 	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
+	dashboardapp "github.com/bensuskins/family-hub/internal/application/dashboard"
 	householdapp "github.com/bensuskins/family-hub/internal/application/household"
 	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
 	userapp "github.com/bensuskins/family-hub/internal/application/users"
@@ -27,7 +28,6 @@ import (
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
 	"github.com/bensuskins/family-hub/internal/repository"
-	"github.com/bensuskins/family-hub/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -38,6 +38,7 @@ type APIHandler struct {
 	tokens           *identityapp.TokenAdministration
 	settingsRepo     repository.SettingsRepository
 	generalSettings  *householdapp.Service
+	dashboard        *dashboardapp.Service
 	choreService     *choreapp.ChoreService
 	mealService      *mealapp.Service
 	recipes          *recipeapp.Catalogue
@@ -68,6 +69,7 @@ func NewAPIHandler(
 	icalFetcher *calendarapp.Service,
 	recipeExtractor *recipeapp.Service,
 	identity *identityapp.Service,
+	dashboard *dashboardapp.Service,
 	clientID string,
 	oidcIssuer string,
 ) *APIHandler {
@@ -90,6 +92,7 @@ func NewAPIHandler(
 		icalFetcher:      icalFetcher,
 		recipeExtractor:  recipeExtractor,
 		identity:         identity,
+		dashboard:        dashboard,
 		clientID:         clientID,
 		oidcIssuer:       oidcIssuer,
 	}
@@ -211,77 +214,23 @@ func (handler *APIHandler) ListCategories(w http.ResponseWriter, r *http.Request
 }
 
 func (handler *APIHandler) DashboardStats(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	now := time.Now()
-	binCollectionsTomorrow := []models.BinCollection{}
-	if handler.settingsRepo != nil {
-		location, err := services.HouseholdLocation(ctx, handler.settingsRepo)
-		if err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to load household time zone", err)
-			return
-		}
-		schedule, err := services.LoadBinSchedule(ctx, handler.settingsRepo)
-		if err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to load bin schedule", err)
-			return
-		}
-		tomorrow := now.In(location).AddDate(0, 0, 1).Format(DateFormat)
-		for _, collection := range schedule.Collections {
-			if collection.Date == tomorrow {
-				binCollectionsTomorrow = append(binCollectionsTomorrow, collection)
-			}
-		}
-	}
-
-	choresDueToday, overdueChores, err := handler.choreService.DueTasks(ctx)
+	stats, err := handler.dashboard.Stats(r.Context())
 	if err != nil {
-		writeAPIError(w, r, 500, "failed to load due chores", err)
+		message := "failed to load due chores"
+		switch {
+		case errors.Is(err, dashboardapp.ErrLocation):
+			message = "failed to load household time zone"
+		case errors.Is(err, dashboardapp.ErrBins):
+			message = "failed to load bin schedule"
+		case errors.Is(err, dashboardapp.ErrWeeklyMeals):
+			message = "failed to load weekly meals"
+		case errors.Is(err, dashboardapp.ErrTodayMeals):
+			message = "failed to load today's meals"
+		}
+		writeAPIError(w, r, http.StatusInternalServerError, message, err)
 		return
 	}
-
-	if choresDueToday == nil {
-		choresDueToday = []models.Chore{}
-	}
-	if overdueChores == nil {
-		overdueChores = []models.Chore{}
-	}
-
-	mealsThisWeek := []models.MealPlan{}
-	todayMeals := []models.MealPlan{}
-	if handler.mealService != nil {
-		startOfToday := now.Truncate(24 * time.Hour)
-		sevenDaysOut := startOfToday.AddDate(0, 0, 7)
-		meals, err := handler.mealService.FindAll(ctx, mealapp.Filter{
-			DateFrom: startOfToday.Format(DateFormat),
-			DateTo:   sevenDaysOut.Format(DateFormat),
-		})
-		if err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to load weekly meals", err)
-			return
-		}
-		if meals != nil {
-			mealsThisWeek = meals
-		}
-		loadedTodayMeals, err := handler.mealService.FindByDate(ctx, now.Format(DateFormat))
-		if err != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "failed to load today's meals", err)
-			return
-		}
-		if loadedTodayMeals != nil {
-			todayMeals = loadedTodayMeals
-		}
-	}
-
-	stats := map[string]interface{}{
-		"chores_due_today":         len(choresDueToday),
-		"chores_overdue":           len(overdueChores),
-		"chores_due_today_list":    choresDueToday,
-		"chores_overdue_list":      overdueChores,
-		"meals_this_week":          len(mealsThisWeek),
-		"today_meals":              todayMeals,
-		"bin_collections_tomorrow": binCollectionsTomorrow,
-	}
-	writeJSON(w, http.StatusOK, stats)
+	writeJSON(w, http.StatusOK, mapDashboard(stats))
 }
 
 func (handler *APIHandler) CreateToken(w http.ResponseWriter, r *http.Request) {

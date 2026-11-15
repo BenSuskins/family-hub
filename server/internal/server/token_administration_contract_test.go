@@ -93,7 +93,7 @@ func (emptyManagedTokenStore) DeleteManagedToken(context.Context, string) error 
 
 func TestEmptyTokenListJSON(t *testing.T) {
 	service := identityapp.NewTokenAdministration(emptyManagedTokenStore{}, nil, nil)
-	handler := handlers.NewAPIHandler(nil, nil, nil, service, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "")
+	handler := handlers.NewAPIHandler(nil, nil, nil, service, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", "")
 	response := httptest.NewRecorder()
 	handler.ListTokens(response, httptest.NewRequest(http.MethodGet, "/api/tokens", nil))
 	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != "[]" {

@@ -123,6 +123,7 @@ Image and database backup routes return binary data on success.
 | Displays | `handlers/display_pairing.go` | `application/displays/` | Claim creates a display and token atomically |
 | Reminders | `handlers/chore_reminders.go` | `application/notifications/` | Chore and bin reminders use SQLite delivery claims |
 | Broadcasts | `handlers/broadcasts.go` | `application/notifications/` | Claim delivery before sending |
+| Dashboard and bins | `handlers/api.go`, `handlers/bin_collections.go` | `application/dashboard/`, `application/bins/` | Dashboard reads and bin calendar management |
 | Admin | `handlers/api.go`, `handlers/backup.go` | `application/users/`, `categories/`, `identity/`, `household/` | User, category, token and settings operations; backup/restore remain infrastructure |
 
 ## Gotchas

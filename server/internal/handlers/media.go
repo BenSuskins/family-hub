@@ -1,17 +1,20 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
+type recipeImageReader interface {
+	FindImageData(context.Context, string) (string, error)
+}
 type ImageHandler struct {
-	recipeRepo repository.RecipeRepository
+	recipeRepo recipeImageReader
 }
 
-func NewImageHandler(recipeRepo repository.RecipeRepository) *ImageHandler {
+func NewImageHandler(recipeRepo recipeImageReader) *ImageHandler {
 	return &ImageHandler{recipeRepo: recipeRepo}
 }
 

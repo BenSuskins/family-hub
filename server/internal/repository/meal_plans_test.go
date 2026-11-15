@@ -2,8 +2,10 @@ package repository_test
 
 import (
 	"context"
-	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	"testing"
+
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -187,9 +189,9 @@ func TestMealPlanRepository_ClearRecipeID_PreservesName(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	recipe, _ := recipeRepo.Create(ctx, models.Recipe{
+	recipe, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Test Recipe", Instructions: "Cook it", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
 	mealRepo.Upsert(ctx, models.MealPlan{
@@ -239,9 +241,9 @@ func TestMealPlanRepository_WithRecipeID(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	recipe, _ := recipeRepo.Create(ctx, models.Recipe{
+	recipe, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Linked Recipe", Instructions: "Cook it", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
 	mealRepo.Upsert(ctx, models.MealPlan{

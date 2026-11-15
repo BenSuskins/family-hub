@@ -73,7 +73,9 @@ stock and shopping contracts live in `internal/contracttests/`.
 departure estimates, and weather use feature packages in
 `internal/application/`. External HTTP and parsing adapters remain in
 `internal/services/`. The calendar cache uses stale data when a refresh fails.
-Recipe CRUD remains in the older structure.
+Recipe catalogue operations live in `internal/application/recipes/`; legacy
+instruction and timer rules live in `internal/domain/recipes/`. The image
+handler remains a media adapter.
 
 **Displays and notifications** — Pairing and display settings live in
 `internal/application/displays/`. SQLite commits a claimed display and token
@@ -113,7 +115,7 @@ Image and database backup routes return binary data on success.
 | Weather and departures | `handlers/household.go` | `application/weather/`, `application/commute/` | Forecasts and driving estimates |
 | Trains | `handlers/commute.go`, `handlers/display_commute.go` | `application/commute/`, `services/commute.go` | Huxley rail provider |
 | Meals | `handlers/api.go` | `application/meals/` | Weekly planner backed by `meal_plans` |
-| Recipes | `handlers/api.go` | `application/recipes/`, `services/recipe_extractor.go` | URL import and API CRUD; share sheet uses JSON routes |
+| Recipes | `handlers/api.go` | `application/recipes/`, `domain/recipes/`, `services/recipe_extractor.go` | URL import and API CRUD; share sheet uses JSON routes |
 | Inventory | `handlers/api_inventory.go` | `application/inventory/`, `domain/inventory/` | Areas, items, stock |
 | Shopping | `handlers/shopping.go` | `application/shopping/`, `domain/shopping/` | Shared shopping list |
 | Scratchpad | `handlers/scratchpad.go` | `application/scratchpad/`, `domain/scratchpad/` | Shared drawing |

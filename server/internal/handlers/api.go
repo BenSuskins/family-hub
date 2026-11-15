@@ -38,7 +38,7 @@ type APIHandler struct {
 	settingsRepo     repository.SettingsRepository
 	choreService     *choreapp.ChoreService
 	mealService      *mealapp.Service
-	recipeRepo       repository.RecipeRepository
+	recipes          *recipeapp.Catalogue
 	inventoryService *inventoryapp.Service
 	stockService     *inventoryapp.StockService
 	icalFetcher      *calendarapp.Service
@@ -60,7 +60,7 @@ func NewAPIHandler(
 	settingsRepo repository.SettingsRepository,
 	choreService *choreapp.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
-	recipeRepo repository.RecipeRepository,
+	recipes *recipeapp.Catalogue,
 	inventoryRepo repository.InventoryRepository,
 	icalFetcher *calendarapp.Service,
 	recipeExtractor *recipeapp.Service,
@@ -80,7 +80,7 @@ func NewAPIHandler(
 		settingsRepo:     settingsRepo,
 		choreService:     choreService,
 		mealService:      mealService,
-		recipeRepo:       recipeRepo,
+		recipes:          recipes,
 		inventoryService: inventoryapp.New(inventoryRepo),
 		stockService:     inventoryapp.NewStockService(inventoryRepo),
 		icalFetcher:      icalFetcher,
@@ -532,36 +532,29 @@ func availabilityStatus(available bool) string {
 }
 
 func (handler *APIHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	recipes, err := handler.recipeRepo.FindAll(ctx)
+	items, err := handler.recipes.List(r.Context())
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipes", err)
 		return
 	}
-	if recipes == nil {
-		recipes = []models.Recipe{}
+	responses := make([]recipeResponse, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, mapRecipeResponse(item))
 	}
-	writeJSON(w, http.StatusOK, recipes)
+	writeJSON(w, http.StatusOK, responses)
 }
 
 func (handler *APIHandler) GetRecipe(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	recipe, err := handler.recipeRepo.FindByID(ctx, chi.URLParam(r, "id"))
+	item, err := handler.recipes.Detail(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, recipeapp.ErrNotFound) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
 		}
 		return
 	}
-	// Recipes predating the steps column keep their method in Instructions;
-	// fall back so they remain cookable in the iOS clients.
-	if len(recipe.Steps) == 0 && recipe.Instructions != "" {
-		recipe.Steps = services.SplitIntoSteps(recipe.Instructions)
-	}
-	recipe.StepDurations = services.StepDurations(recipe.Steps)
-	writeJSON(w, http.StatusOK, recipe)
+	writeJSON(w, http.StatusOK, mapRecipeResponse(item))
 }
 
 func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
@@ -786,56 +779,25 @@ func (handler *APIHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	user := middleware.GetUser(ctx)
 
-	var body struct {
-		Title       string                   `json:"title"`
-		Steps       []string                 `json:"steps"`
-		Ingredients []models.IngredientGroup `json:"ingredients"`
-		MealType    string                   `json:"mealType,omitempty"`
-		Servings    *int                     `json:"servings,omitempty"`
-		PrepTime    *string                  `json:"prepTime,omitempty"`
-		CookTime    *string                  `json:"cookTime,omitempty"`
-		SourceURL   *string                  `json:"sourceURL,omitempty"`
-		ImageData   *string                  `json:"imageData,omitempty"`
-	}
+	var body recipeRequest
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-
 	if body.Title == "" {
 		writeJSONError(w, http.StatusBadRequest, "title is required")
 		return
 	}
-
-	recipe := models.Recipe{
-		Title:           body.Title,
-		Steps:           body.Steps,
-		Ingredients:     body.Ingredients,
-		Servings:        body.Servings,
-		PrepTime:        body.PrepTime,
-		CookTime:        body.CookTime,
-		SourceURL:       body.SourceURL,
-		CreatedByUserID: user.ID,
-	}
-	if body.MealType != "" {
-		mt := models.RecipeMealType(body.MealType)
-		recipe.MealType = &mt
-	}
-
-	created, err := handler.recipeRepo.Create(ctx, recipe)
+	recipe := body.recipe()
+	recipe.CreatedByUserID = user.ID
+	created, err := handler.recipes.Create(ctx, recipe, body.ImageData)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to create recipe", err)
 		return
 	}
-
-	if body.ImageData != nil && *body.ImageData != "" {
-		if err := handler.recipeRepo.UpdateImage(ctx, created.ID, *body.ImageData); err != nil {
-			slog.Error("saving recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusCreated, "error", err)
-		} else {
-			created.HasImage = true
-		}
+	if created.ImageError != nil {
+		slog.Error("saving recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusCreated, "error", created.ImageError)
 	}
-
-	writeJSON(w, http.StatusCreated, created)
+	writeJSON(w, http.StatusCreated, mapRecipeResponse(created.Recipe))
 }
 
 func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request) {
@@ -871,98 +833,57 @@ func (handler *APIHandler) ExtractRecipe(w http.ResponseWriter, r *http.Request)
 func (handler *APIHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	recipeID := chi.URLParam(r, "id")
-
-	existing, err := handler.recipeRepo.FindByID(ctx, recipeID)
+	existing, err := handler.recipes.PrepareUpdate(ctx, recipeID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, recipeapp.ErrNotFound) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
 		} else {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
 		}
 		return
 	}
-
-	var body struct {
-		Title       string                   `json:"title"`
-		Steps       []string                 `json:"steps"`
-		Ingredients []models.IngredientGroup `json:"ingredients"`
-		MealType    string                   `json:"mealType,omitempty"`
-		Servings    *int                     `json:"servings,omitempty"`
-		PrepTime    *string                  `json:"prepTime,omitempty"`
-		CookTime    *string                  `json:"cookTime,omitempty"`
-		SourceURL   *string                  `json:"sourceURL,omitempty"`
-		ImageData   *string                  `json:"imageData,omitempty"`
-	}
+	var body recipeRequest
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-
 	if body.Title == "" {
 		writeJSONError(w, http.StatusBadRequest, "title is required")
 		return
 	}
-
-	existing.Title = body.Title
-	existing.Steps = body.Steps
-	existing.Ingredients = body.Ingredients
-	existing.Servings = body.Servings
-	existing.PrepTime = body.PrepTime
-	existing.CookTime = body.CookTime
-	existing.SourceURL = body.SourceURL
-	if body.MealType != "" {
-		mt := models.RecipeMealType(body.MealType)
-		existing.MealType = &mt
-	} else {
-		existing.MealType = nil
-	}
-
-	if err := handler.recipeRepo.Update(ctx, existing); err != nil {
+	updated, err := handler.recipes.Update(ctx, existing, body.recipe(), body.ImageData)
+	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to update recipe", err)
 		return
 	}
-
-	if body.ImageData != nil {
-		if *body.ImageData == "" {
-			if err := handler.recipeRepo.ClearImage(ctx, recipeID); err != nil {
-				slog.Error("clearing recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-			}
-		} else {
-			if err := handler.recipeRepo.UpdateImage(ctx, recipeID, *body.ImageData); err != nil {
-				slog.Error("updating recipe image via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-			}
+	if updated.ImageError != nil {
+		message := "updating recipe image via API"
+		if body.ImageData != nil && *body.ImageData == "" {
+			message = "clearing recipe image via API"
 		}
+		slog.Error(message, "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", updated.ImageError)
 	}
-
-	updated, err := handler.recipeRepo.FindByID(ctx, recipeID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, existing)
-		return
+	response := mapRecipeResponse(updated.Recipe)
+	if updated.ReloadFallback {
+		normalizeLegacyRecipeFallback(&response)
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (handler *APIHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	recipeID := chi.URLParam(r, "id")
-
-	if _, err := handler.recipeRepo.FindByID(ctx, recipeID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	result, err := handler.recipes.Delete(r.Context(), chi.URLParam(r, "id"))
+	if result.MealUnlinkError != nil {
+		slog.Error("clearing recipe from meal plans via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusNoContent, "error", result.MealUnlinkError)
+	}
+	if err != nil {
+		if errors.Is(err, recipeapp.ErrNotFound) {
 			writeJSONError(w, http.StatusNotFound, "recipe not found")
-		} else {
+		} else if errors.Is(err, recipeapp.ErrLookup) {
 			writeAPIError(w, r, http.StatusInternalServerError, "failed to load recipe", err)
+		} else {
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to delete recipe", err)
 		}
 		return
 	}
-
-	if err := handler.mealService.ClearRecipeID(ctx, recipeID); err != nil {
-		slog.Error("clearing recipe from meal plans via API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusNoContent, "error", err)
-	}
-
-	if err := handler.recipeRepo.Delete(ctx, recipeID); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete recipe", err)
-		return
-	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 

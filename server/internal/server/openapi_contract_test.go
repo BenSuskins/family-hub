@@ -383,3 +383,48 @@ func TestOpenAPIDisplayAndReminderContract(t *testing.T) {
 		t.Fatalf("reminders: %d %s", reminders.Code, reminders.Body.String())
 	}
 }
+
+func TestOpenAPIRecipeCatalogueContract(t *testing.T) {
+	fixture := newContractFixture(t)
+	created := fixture.request(t, http.MethodPost, "/api/recipes", "member", `{"title":"Soup","steps":["Cook 10 minutes"],"ingredients":[{"name":"Main","items":["Water"]}]}`, true)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", created.Code, created.Body.String())
+	}
+	var item models.Recipe
+	if err := json.Unmarshal(created.Body.Bytes(), &item); err != nil {
+		t.Fatal(err)
+	}
+	if item.ID == "" {
+		t.Fatal("missing recipe ID")
+	}
+	list := fixture.request(t, http.MethodGet, "/api/recipes", "member", "", true)
+	if list.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", list.Code, list.Body.String())
+	}
+	detail := fixture.request(t, http.MethodGet, "/api/recipes/"+item.ID, "member", "", true)
+	if detail.Code != http.StatusOK {
+		t.Fatalf("detail: %d %s", detail.Code, detail.Body.String())
+	}
+	updated := fixture.request(t, http.MethodPut, "/api/recipes/"+item.ID, "member", `{"title":"Stew","steps":["Simmer"],"ingredients":[]}`, true)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update: %d %s", updated.Code, updated.Body.String())
+	}
+	mealBody := fmt.Sprintf(`{"date":"2026-01-01","mealType":"dinner","name":"Stew","recipeID":%q}`, item.ID)
+	meal := fixture.request(t, http.MethodPost, "/api/meals", "member", mealBody, true)
+	if meal.Code != http.StatusOK {
+		t.Fatalf("meal: %d %s", meal.Code, meal.Body.String())
+	}
+	deleted := fixture.request(t, http.MethodDelete, "/api/recipes/"+item.ID, "member", "", true)
+	if deleted.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", deleted.Code, deleted.Body.String())
+	}
+	meals := fixture.request(t, http.MethodGet, "/api/meals?week=2026-01-01", "member", "", true)
+	var plans []models.MealPlan
+	if err := json.Unmarshal(meals.Body.Bytes(), &plans); err != nil {
+		t.Fatal(err)
+	}
+	if meals.Code != http.StatusOK || len(plans) != 1 || plans[0].RecipeID != nil {
+		t.Fatalf("meal after deletion: %d %s", meals.Code, meals.Body.String())
+	}
+
+}

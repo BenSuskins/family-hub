@@ -9,6 +9,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
+
 	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
 
 	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
@@ -78,7 +80,8 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	displayCommuteHandler := handlers.NewDisplayCommuteHandler(displaySettings, settingsRepo, commuteService)
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, nil), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
-	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeRepo, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
+	recipeCatalogue := recipeapp.NewCatalogue(recipeRepo, recipeRepo, mealapp.New(mealPlanRepo))
+	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)

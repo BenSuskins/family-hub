@@ -69,8 +69,11 @@ SQLite and external provider adapters. Application tests use provider fakes;
 existing HTTP and provider tests cover the adapters. Calendar subscription
 administration uses an application-owned storage interface. Recipe import owns
 the fallback order and calls source and parser ports; the recipe adapter keeps
-URL validation, HTTP fetching, and format parsing. Shared contracts cover the
-calendar store and core recipe import cases.
+URL validation, HTTP fetching, and format parsing. Recipe catalogue operations
+use separate storage, media-write and meal-unlink capabilities. HTTP and SQLite
+adapters map recipe values explicitly; the domain provides legacy instruction
+and timer rules. Shared contracts cover calendar storage, core recipe import,
+and recipe catalogue storage.
 
 Display pairing operations generate credentials through injected functions and
 use a storage port. The SQLite claim transaction writes the display, token, and
@@ -88,7 +91,8 @@ first-user role selection and token replacement are separate storage operations;
 follow-up reviews track their concurrency and failure behavior.
 
 Some features still use shared model types, and some handlers call repositories
-directly, including recipe CRUD. Reminder settings parsing remains in an adapter.
+directly, including user, category and general settings operations. Reminder
+settings parsing remains in an adapter.
 
 Startup composes the HTTP server and workers in `server/main.go`. A signal
 cancels the worker context and in-flight calendar refreshes. The server stops

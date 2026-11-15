@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
 
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
@@ -375,12 +377,12 @@ func TestListRecipes_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	_, _ = recipeRepo.Create(ctx, models.Recipe{
+	_, _ = recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Pasta Bake",
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -413,12 +415,12 @@ func TestGetRecipe_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Fish Pie",
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes/{id}", handler.GetRecipe)
@@ -440,7 +442,7 @@ func TestGetRecipe_API(t *testing.T) {
 
 // getRecipeJSON creates a recipe, fetches it through the API handler and
 // returns the decoded response.
-func getRecipeJSON(t *testing.T, seed models.Recipe) models.Recipe {
+func getRecipeJSON(t *testing.T, seed recipeapp.SavedRecipe) models.Recipe {
 	t.Helper()
 
 	database := testutil.NewTestDatabase(t)
@@ -464,7 +466,7 @@ func getRecipeJSON(t *testing.T, seed models.Recipe) models.Recipe {
 		t.Fatalf("creating recipe: %v", err)
 	}
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 	router := chi.NewRouter()
 	router.Get("/api/recipes/{id}", handler.GetRecipe)
 
@@ -486,7 +488,7 @@ func getRecipeJSON(t *testing.T, seed models.Recipe) models.Recipe {
 // Recipes predating the steps column keep their method in Instructions. The API
 // splits that blob into steps so those recipes work on iPhone and Apple Watch.
 func TestGetRecipe_API_FallsBackToInstructions(t *testing.T) {
-	recipe := getRecipeJSON(t, models.Recipe{
+	recipe := getRecipeJSON(t, recipeapp.SavedRecipe{
 		Title:        "Legacy Stew",
 		Instructions: "Brown the beef\nAdd stock\nSimmer for 90 minutes",
 	})
@@ -503,7 +505,7 @@ func TestGetRecipe_API_FallsBackToInstructions(t *testing.T) {
 }
 
 func TestGetRecipe_API_DoesNotOverrideRealSteps(t *testing.T) {
-	recipe := getRecipeJSON(t, models.Recipe{
+	recipe := getRecipeJSON(t, recipeapp.SavedRecipe{
 		Title:        "Modern Stew",
 		Instructions: "ignore me\nand me",
 		Steps:        []string{"Brown the beef"},
@@ -515,7 +517,7 @@ func TestGetRecipe_API_DoesNotOverrideRealSteps(t *testing.T) {
 }
 
 func TestGetRecipe_API_PopulatesStepDurations(t *testing.T) {
-	recipe := getRecipeJSON(t, models.Recipe{
+	recipe := getRecipeJSON(t, recipeapp.SavedRecipe{
 		Title: "Timed Pasta",
 		Steps: []string{"Chop the garlic", "Boil for 11 minutes", "Serve"},
 	})
@@ -546,13 +548,13 @@ func TestListRecipes_API_OmitsStepDurations(t *testing.T) {
 		Name:        "List User",
 		Role:        models.RoleMember,
 	})
-	recipeRepo.Create(ctx, models.Recipe{
+	recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Timed Pasta",
 		Steps:           []string{"Boil for 11 minutes"},
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 	request := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
 	recorder := httptest.NewRecorder()
 	handler.ListRecipes(recorder, request)
@@ -572,7 +574,7 @@ func TestListRecipes_API_Empty(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -618,7 +620,7 @@ func TestGetRecipe_API_NotFound(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes/{id}", handler.GetRecipe)
@@ -826,15 +828,15 @@ func TestListRecipes_NilIngredientItemsAreEmptyArray(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	_, _ = recipeRepo.Create(ctx, models.Recipe{
+	_, _ = recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Recipe With Group",
 		CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{
+		Ingredients: []recipeapp.IngredientGroup{
 			{Name: "Main", Items: nil},
 		},
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/recipes", handler.ListRecipes)
@@ -994,7 +996,7 @@ func TestCreateRecipe_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -1041,7 +1043,7 @@ func TestCreateRecipe_API_MissingTitle(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -1073,7 +1075,7 @@ func TestCreateRecipe_API_WithImage(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/recipes", func(w http.ResponseWriter, r *http.Request) {
@@ -1116,12 +1118,12 @@ func TestUpdateRecipe_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Old Title",
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
@@ -1150,7 +1152,7 @@ func TestUpdateRecipe_API_NotFound(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	recipeRepo := repository.NewRecipeRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
@@ -1179,12 +1181,12 @@ func TestUpdateRecipe_API_ImageHandling(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Img Recipe",
 		CreatedByUserID: user.ID,
 	})
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, recipeapp.NewCatalogue(recipeRepo, recipeRepo, nil), nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)

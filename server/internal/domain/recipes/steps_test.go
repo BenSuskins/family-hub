@@ -1,9 +1,9 @@
-package services_test
+package recipes_test
 
 import (
 	"testing"
 
-	"github.com/bensuskins/family-hub/internal/services"
+	"github.com/bensuskins/family-hub/internal/domain/recipes"
 )
 
 func TestSplitIntoSteps(t *testing.T) {
@@ -24,7 +24,7 @@ func TestSplitIntoSteps(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := services.SplitIntoSteps(testCase.text)
+			got := recipes.SplitIntoSteps(testCase.text)
 			if len(got) != len(testCase.want) {
 				t.Fatalf("got %d steps %q, want %d %q", len(got), got, len(testCase.want), testCase.want)
 			}
@@ -71,7 +71,7 @@ func TestParseStepDuration(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := services.ParseStepDuration(testCase.step)
+			got := recipes.ParseStepDuration(testCase.step)
 			switch {
 			case testCase.want == nil && got != nil:
 				t.Fatalf("got %d seconds, want no timer", *got)
@@ -86,14 +86,14 @@ func TestParseStepDuration(t *testing.T) {
 
 func TestStepDurations(t *testing.T) {
 	t.Run("nil for no steps", func(t *testing.T) {
-		if got := services.StepDurations(nil); got != nil {
+		if got := recipes.StepDurations(nil); got != nil {
 			t.Errorf("got %v, want nil", got)
 		}
 	})
 
 	t.Run("aligns positionally with steps", func(t *testing.T) {
 		steps := []string{"Chop the onions", "Simmer for 20 minutes", "Serve"}
-		got := services.StepDurations(steps)
+		got := recipes.StepDurations(steps)
 
 		if len(got) != len(steps) {
 			t.Fatalf("got %d durations, want %d", len(got), len(steps))

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -22,10 +24,10 @@ func TestRecipeRepository_CreateAndFindByID(t *testing.T) {
 	cookTime := "30 min"
 	sourceURL := "https://example.com/recipe"
 
-	recipe := models.Recipe{
+	recipe := recipeapp.SavedRecipe{
 		Title:        "Pasta Carbonara",
 		Instructions: "Cook the pasta.\nMake the sauce.",
-		Ingredients: []models.IngredientGroup{
+		Ingredients: []recipeapp.IngredientGroup{
 			{Name: "Pasta", Items: []string{"400g spaghetti", "Salt"}},
 			{Name: "Sauce", Items: []string{"4 eggs", "200g pancetta", "100g parmesan"}},
 		},
@@ -91,10 +93,10 @@ func TestRecipeRepository_CreateWithNilOptionalFields(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	recipe := models.Recipe{
+	recipe := recipeapp.SavedRecipe{
 		Title:           "Simple Recipe",
 		Instructions:    "Just cook it.",
-		Ingredients:     []models.IngredientGroup{{Name: "Main", Items: []string{"Food"}}},
+		Ingredients:     []recipeapp.IngredientGroup{{Name: "Main", Items: []string{"Food"}}},
 		CreatedByUserID: user.ID,
 	}
 
@@ -132,13 +134,13 @@ func TestRecipeRepository_FindAll(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	recipeRepo.Create(ctx, models.Recipe{
+	recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Zebra Cake", Instructions: "Bake it.", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 	})
-	recipeRepo.Create(ctx, models.Recipe{
+	recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Apple Pie", Instructions: "Bake it.", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
 	recipes, err := recipeRepo.FindAll(ctx)
@@ -164,13 +166,13 @@ func TestRecipeRepository_Update(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Original", Instructions: "Old instructions", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{{Name: "Main", Items: []string{"item1"}}},
+		Ingredients: []recipeapp.IngredientGroup{{Name: "Main", Items: []string{"item1"}}},
 	})
 
 	created.Title = "Updated"
-	created.Ingredients = []models.IngredientGroup{{Name: "New Group", Items: []string{"new item"}}}
+	created.Ingredients = []recipeapp.IngredientGroup{{Name: "New Group", Items: []string{"new item"}}}
 	servings := 6
 	created.Servings = &servings
 
@@ -201,9 +203,9 @@ func TestRecipeRepository_Delete(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "To Delete", Instructions: "Delete me", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
 	if err := recipeRepo.Delete(ctx, created.ID); err != nil {
@@ -232,9 +234,9 @@ func TestRecipeRepository_CategoryFK_OnDeleteSetNull(t *testing.T) {
 		t.Fatalf("creating category: %v", err)
 	}
 
-	created, err := recipeRepo.Create(ctx, models.Recipe{
+	created, err := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Categorized Recipe", Instructions: "Cook it", CreatedByUserID: user.ID,
-		Ingredients: []models.IngredientGroup{},
+		Ingredients: []recipeapp.IngredientGroup{},
 		CategoryID:  &category.ID,
 	})
 	if err != nil {
@@ -269,7 +271,7 @@ func TestRecipeRepository_JSONRoundtrip_EmptyIngredients(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, err := recipeRepo.Create(ctx, models.Recipe{
+	created, err := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "No Ingredients", Instructions: "Magic", CreatedByUserID: user.ID,
 	})
 	if err != nil {
@@ -295,8 +297,8 @@ func TestRecipeRepository_ImageMethods(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
-		Title: "Photo Recipe", Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
+		Title: "Photo Recipe", Ingredients: []recipeapp.IngredientGroup{}, CreatedByUserID: user.ID,
 	})
 
 	// no image initially
@@ -351,12 +353,12 @@ func TestRecipeRepository_MealTypeAndSteps(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	mealType := models.RecipeMealTypeDinner
-	created, err := recipeRepo.Create(ctx, models.Recipe{
+	mealType := string(models.RecipeMealTypeDinner)
+	created, err := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title:           "Roast Chicken",
 		Steps:           []string{"Preheat oven to 200C.", "Season the chicken.", "Roast for 90 minutes."},
 		MealType:        &mealType,
-		Ingredients:     []models.IngredientGroup{{Name: "Main", Items: []string{"1 whole chicken"}}},
+		Ingredients:     []recipeapp.IngredientGroup{{Name: "Main", Items: []string{"1 whole chicken"}}},
 		CreatedByUserID: user.ID,
 	})
 	if err != nil {
@@ -367,7 +369,7 @@ func TestRecipeRepository_MealTypeAndSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding recipe: %v", err)
 	}
-	if found.MealType == nil || *found.MealType != models.RecipeMealTypeDinner {
+	if found.MealType == nil || *found.MealType != string(models.RecipeMealTypeDinner) {
 		t.Errorf("expected meal type dinner, got %v", found.MealType)
 	}
 	if len(found.Steps) != 3 {
@@ -386,11 +388,11 @@ func TestRecipeRepository_FindAll_IncludesMealTypeAndHasImage(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	mealType := models.RecipeMealTypeBreakfast
-	recipeRepo.Create(ctx, models.Recipe{
+	mealType := string(models.RecipeMealTypeBreakfast)
+	recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Pancakes", MealType: &mealType,
 		Steps:       []string{"Mix batter.", "Cook on griddle."},
-		Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+		Ingredients: []recipeapp.IngredientGroup{}, CreatedByUserID: user.ID,
 	})
 
 	recipes, err := recipeRepo.FindAll(ctx)
@@ -400,7 +402,7 @@ func TestRecipeRepository_FindAll_IncludesMealTypeAndHasImage(t *testing.T) {
 	if len(recipes) == 0 {
 		t.Fatal("expected at least 1 recipe")
 	}
-	if recipes[0].MealType == nil || *recipes[0].MealType != models.RecipeMealTypeBreakfast {
+	if recipes[0].MealType == nil || *recipes[0].MealType != string(models.RecipeMealTypeBreakfast) {
 		t.Errorf("expected breakfast, got %v", recipes[0].MealType)
 	}
 	if recipes[0].HasImage {
@@ -416,13 +418,13 @@ func TestRecipeRepository_Update_PreservesInstructionsUpdatesSteps(t *testing.T)
 
 	user := createTestUser(t, userRepo)
 
-	created, _ := recipeRepo.Create(ctx, models.Recipe{
+	created, _ := recipeRepo.Create(ctx, recipeapp.SavedRecipe{
 		Title: "Legacy Recipe", Instructions: "Old free text instructions.",
-		Ingredients: []models.IngredientGroup{}, CreatedByUserID: user.ID,
+		Ingredients: []recipeapp.IngredientGroup{}, CreatedByUserID: user.ID,
 	})
 
 	created.Steps = []string{"Step one.", "Step two."}
-	mealType := models.RecipeMealTypeLunch
+	mealType := string(models.RecipeMealTypeLunch)
 	created.MealType = &mealType
 
 	if err := recipeRepo.Update(ctx, created); err != nil {
@@ -436,7 +438,7 @@ func TestRecipeRepository_Update_PreservesInstructionsUpdatesSteps(t *testing.T)
 	if len(found.Steps) != 2 {
 		t.Errorf("expected 2 steps, got %d", len(found.Steps))
 	}
-	if found.MealType == nil || *found.MealType != models.RecipeMealTypeLunch {
+	if found.MealType == nil || *found.MealType != string(models.RecipeMealTypeLunch) {
 		t.Errorf("expected lunch, got %v", found.MealType)
 	}
 }

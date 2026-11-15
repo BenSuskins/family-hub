@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
@@ -56,7 +58,7 @@ func serveRecipeImage(t *testing.T, dataURI, query string, headers map[string]st
 		t.Fatalf("creating user: %v", err)
 	}
 
-	created, err := recipeRepo.Create(ctx, models.Recipe{Title: "Photo", CreatedByUserID: user.ID})
+	created, err := recipeRepo.Create(ctx, recipeapp.SavedRecipe{Title: "Photo", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating recipe: %v", err)
 	}

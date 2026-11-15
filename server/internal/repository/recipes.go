@@ -11,17 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type RecipeRepository interface {
-	FindByID(ctx context.Context, id string) (models.Recipe, error)
-	FindAll(ctx context.Context) ([]models.Recipe, error)
-	Create(ctx context.Context, recipe models.Recipe) (models.Recipe, error)
-	Update(ctx context.Context, recipe models.Recipe) error
-	Delete(ctx context.Context, id string) error
-	FindImageData(ctx context.Context, id string) (string, error)
-	UpdateImage(ctx context.Context, id string, imageData string) error
-	ClearImage(ctx context.Context, id string) error
-}
-
 type SQLiteRecipeRepository struct {
 	database *sql.DB
 }
@@ -30,7 +19,7 @@ func NewRecipeRepository(database *sql.DB) *SQLiteRecipeRepository {
 	return &SQLiteRecipeRepository{database: database}
 }
 
-func (repository *SQLiteRecipeRepository) FindByID(ctx context.Context, id string) (models.Recipe, error) {
+func (repository *SQLiteRecipeRepository) findByID(ctx context.Context, id string) (models.Recipe, error) {
 	var recipe models.Recipe
 	var ingredientsJSON string
 	var stepsJSON string
@@ -70,7 +59,7 @@ func (repository *SQLiteRecipeRepository) FindByID(ctx context.Context, id strin
 	return recipe, nil
 }
 
-func (repository *SQLiteRecipeRepository) FindAll(ctx context.Context) ([]models.Recipe, error) {
+func (repository *SQLiteRecipeRepository) findAll(ctx context.Context) ([]models.Recipe, error) {
 	rows, err := repository.database.QueryContext(ctx,
 		`SELECT id, title, ingredients, servings, prep_time, cook_time,
 			source_url, category_id, meal_type,
@@ -115,7 +104,7 @@ func (repository *SQLiteRecipeRepository) FindAll(ctx context.Context) ([]models
 	return recipes, rows.Err()
 }
 
-func (repository *SQLiteRecipeRepository) Create(ctx context.Context, recipe models.Recipe) (models.Recipe, error) {
+func (repository *SQLiteRecipeRepository) create(ctx context.Context, recipe models.Recipe) (models.Recipe, error) {
 	if recipe.ID == "" {
 		recipe.ID = uuid.New().String()
 	}
@@ -143,7 +132,7 @@ func (repository *SQLiteRecipeRepository) Create(ctx context.Context, recipe mod
 	return recipe, nil
 }
 
-func (repository *SQLiteRecipeRepository) Update(ctx context.Context, recipe models.Recipe) error {
+func (repository *SQLiteRecipeRepository) update(ctx context.Context, recipe models.Recipe) error {
 	recipe.UpdatedAt = time.Now()
 
 	ingredientsJSON, stepsJSON, mealTypeStr, err := marshalRecipeFields(recipe)
@@ -165,7 +154,7 @@ func (repository *SQLiteRecipeRepository) Update(ctx context.Context, recipe mod
 	return nil
 }
 
-func (repository *SQLiteRecipeRepository) Delete(ctx context.Context, id string) error {
+func (repository *SQLiteRecipeRepository) delete(ctx context.Context, id string) error {
 	_, err := repository.database.ExecContext(ctx, "DELETE FROM recipes WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("deleting recipe: %w", err)

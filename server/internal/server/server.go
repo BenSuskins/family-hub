@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
 	"log/slog"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 
 	identityapp "github.com/bensuskins/family-hub/internal/application/identity"
+	userapp "github.com/bensuskins/family-hub/internal/application/users"
 
 	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
 	"github.com/google/uuid"
@@ -81,7 +83,7 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
 	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, nil), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
 	recipeCatalogue := recipeapp.NewCatalogue(recipeRepo, recipeRepo, mealapp.New(mealPlanRepo))
-	apiHandler := handlers.NewAPIHandler(userRepo, categoryRepo, assignmentRepo, tokenRepo, settingsRepo, choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
+	apiHandler := handlers.NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), assignmentRepo, identityapp.NewTokenAdministration(tokenRepo, services.NewCredentialSecret, repository.HashToken), settingsRepo, householdapp.New(settingsRepo), choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)

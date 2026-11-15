@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
 	"github.com/bensuskins/family-hub/internal/models"
@@ -227,7 +228,7 @@ func TestRecipeRepository_CategoryFK_OnDeleteSetNull(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	category, err := categoryRepo.Create(ctx, models.Category{
+	category, err := categoryRepo.Create(ctx, categoryapp.Category{
 		Name: "Dinner", CreatedByUserID: user.ID,
 	})
 	if err != nil {

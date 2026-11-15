@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
+	userapp "github.com/bensuskins/family-hub/internal/application/users"
 	"net/http"
 	"strings"
 
@@ -18,7 +18,7 @@ type displayPerson struct {
 }
 
 func (handler *APIHandler) ListDisplayPeople(writer http.ResponseWriter, request *http.Request) {
-	users, err := handler.userRepo.FindAll(request.Context())
+	users, err := handler.users.List(request.Context())
 	if err != nil {
 		writeAPIError(writer, request, http.StatusInternalServerError, "could not load household members", err)
 		return
@@ -41,7 +41,7 @@ func (handler *APIHandler) CompleteDisplayChore(writer http.ResponseWriter, requ
 		writeJSONError(writer, http.StatusBadRequest, "a household member is required")
 		return
 	}
-	if _, err := handler.userRepo.FindByID(request.Context(), body.UserID); errors.Is(err, sql.ErrNoRows) {
+	if _, err := handler.users.Find(request.Context(), body.UserID); errors.Is(err, userapp.ErrNotFound) {
 		writeJSONError(writer, http.StatusBadRequest, "choose a current household member")
 		return
 	} else if err != nil {

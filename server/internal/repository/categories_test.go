@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bensuskins/family-hub/internal/models"
+	"github.com/bensuskins/family-hub/internal/application/categories"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
@@ -17,7 +17,7 @@ func TestCategoryRepository_CreateAndFindAll(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	category, err := categoryRepo.Create(ctx, models.Category{
+	category, err := categoryRepo.Create(ctx, categories.Category{
 		Name:            "Kitchen",
 		CreatedByUserID: user.ID,
 	})
@@ -48,7 +48,7 @@ func TestCategoryRepository_Update(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, _ := categoryRepo.Create(ctx, models.Category{
+	created, _ := categoryRepo.Create(ctx, categories.Category{
 		Name: "Old Name", CreatedByUserID: user.ID,
 	})
 
@@ -70,7 +70,7 @@ func TestCategoryRepository_Delete(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, _ := categoryRepo.Create(ctx, models.Category{
+	created, _ := categoryRepo.Create(ctx, categories.Category{
 		Name: "To Delete", CreatedByUserID: user.ID,
 	})
 

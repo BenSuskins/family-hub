@@ -286,7 +286,11 @@ func TestOpenAPIHouseholdDataContract(t *testing.T) {
 	if shoppingResponse.Code != http.StatusCreated {
 		t.Fatalf("shopping: %d %s", shoppingResponse.Code, shoppingResponse.Body.String())
 	}
-	var shopping models.ShoppingItem
+	var shopping struct {
+		ID         string  `json:"id"`
+		Version    int     `json:"version"`
+		PurchaseID *string `json:"purchaseID"`
+	}
 	if err := json.Unmarshal(shoppingResponse.Body.Bytes(), &shopping); err != nil {
 		t.Fatal(err)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 func TestShoppingMissingReturnsDomainError(t *testing.T) {
-	repo := repository.NewShoppingRepository(testutil.NewTestDatabase(t))
+	repo := repository.NewShoppingRepository(testutil.NewTestDatabase(t), repository.NewShoppingInventory)
 	if err := repo.Delete(context.Background(), "missing"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v", err)
 	}

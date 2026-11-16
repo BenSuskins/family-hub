@@ -38,6 +38,12 @@ func TestDomainAndApplicationDependencies(t *testing.T) {
 				if layer == "domain" && strings.Contains(name, "/internal/application/") {
 					prohibited = true
 				}
+				if layer == "application" && strings.Contains(name, "/internal/application/") {
+					t.Errorf("%s imports another application package %s", path, name)
+				}
+				if strings.Contains(path, string(filepath.Separator)+"shopping"+string(filepath.Separator)) && strings.HasSuffix(name, "/internal/models") {
+					t.Errorf("%s imports shared transport models %s", path, name)
+				}
 				if prohibited {
 					t.Errorf("%s imports adapter or transport package %s", path, name)
 				}

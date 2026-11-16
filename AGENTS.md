@@ -66,8 +66,9 @@ The SQLite adapter implements the ports. Shared adapter contracts live in
 **Household data** — Meal, inventory, shopping, scratchpad, and home settings
 operations live in `internal/application/`. Their rules live in the matching
 `internal/domain/` packages when needed. Shopping restock and inventory writes
-commit together. Inventory stock changes use a compare-and-swap update. Shared
-stock and shopping contracts live in `internal/contracttests/`.
+commit together through a shopping-owned transaction and transaction-scoped
+inventory capability. Inventory stock changes use a compare-and-swap update.
+Shared stock and shopping contracts live in `internal/contracttests/`.
 
 **External data** — Calendar subscriptions and feeds, recipe import, rail,
 departure estimates, and weather use feature packages in

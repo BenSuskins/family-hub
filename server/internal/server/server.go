@@ -95,7 +95,7 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	weatherProvider := weatherapp.New(services.NewOpenMeteo(providerClient, "https://api.open-meteo.com/v1/forecast", time.Now), time.Now)
 	drivingProvider := services.NewGoogleDriving(providerClient, cfg.GoogleMapsAPIKey, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")
 	departureService := commuteapp.NewDepartureService(icalFetcher, drivingProvider, time.Now)
-	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database)))
+	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now))
 	reminderHandler := handlers.NewChoreReminderHandler(notifications.NewReminderManagement(services.NewReminderConfig(settingsRepo), settingsRepo, repository.NewNotificationRepository(database), repository.HashToken), cfg.PushConfigured() || messageSender != nil)
 	binCollectionsHandler := handlers.NewBinCollectionsHandler(binService)
 	broadcastHandler := handlers.NewBroadcastHandler(notifications.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)

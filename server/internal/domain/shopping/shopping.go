@@ -3,9 +3,27 @@ package shopping
 import (
 	"errors"
 	"strings"
-
-	"github.com/bensuskins/family-hub/internal/models"
 )
+
+type Item struct {
+	ID              string
+	Name            string
+	InventoryItemID *string
+	Purchased       bool
+	PurchaseID      *string
+	Restocked       bool
+	Version         int
+}
+type Change struct {
+	Name      *string
+	Purchased *bool
+	Version   int
+}
+type Restock struct {
+	PurchaseID string
+	Quantity   *int
+	Level      *int
+}
 
 var (
 	ErrConflict = errors.New("shopping item changed; refresh and try again")
@@ -20,7 +38,7 @@ func NormalizeName(name string) (string, error) {
 	}
 	return name, nil
 }
-func ApplyChange(item models.ShoppingItem, change models.ShoppingChange, purchaseID string) (models.ShoppingItem, bool, error) {
+func ApplyChange(item Item, change Change, purchaseID string) (Item, bool, error) {
 	if item.InventoryItemID != nil {
 		value := *item.InventoryItemID
 		item.InventoryItemID = &value
@@ -51,8 +69,8 @@ func ApplyChange(item models.ShoppingItem, change models.ShoppingChange, purchas
 	}
 	return item, createPurchase, nil
 }
-func ValidateRestock(mode string, request models.ShoppingRestock) error {
-	if mode == models.TrackingModeCount {
+func ValidateRestock(mode string, request Restock) error {
+	if mode == "count" {
 		if request.Quantity == nil || request.Level != nil || *request.Quantity <= 0 || *request.Quantity > 1000000 {
 			return ErrInvalid
 		}
@@ -64,7 +82,7 @@ func ValidateRestock(mode string, request models.ShoppingRestock) error {
 	return nil
 }
 
-func CheckRestock(item models.ShoppingItem, request models.ShoppingRestock) (bool, error) {
+func CheckRestock(item Item, request Restock) (bool, error) {
 	if !item.Purchased || item.PurchaseID == nil || *item.PurchaseID != request.PurchaseID {
 		return false, ErrConflict
 	}

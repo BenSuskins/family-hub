@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"fmt"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"testing"
 	"time"
 
@@ -24,14 +25,14 @@ func TestRestockAndStockChangePreserveBothUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
 	shopping := shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now)
 	stock := inventoryapp.NewStockService(inventory)
 	for iteration := range 8 {
-		item, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: fmt.Sprintf("Item %d", iteration), TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+		item, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: fmt.Sprintf("Item %d", iteration), TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +52,7 @@ func TestRestockAndStockChangePreserveBothUpdates(t *testing.T) {
 		go func() { <-start; _, err := shopping.Restock(ctx, entry.ID, request); results <- err }()
 		go func() {
 			<-start
-			_, err := stock.Update(ctx, item.ID, models.InventoryStockChange{QuantityDelta: &delta})
+			_, err := stock.Update(ctx, item.ID, inventorydomain.StockChange{QuantityDelta: &delta})
 			results <- err
 		}()
 		close(start)

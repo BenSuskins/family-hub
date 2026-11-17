@@ -14,9 +14,10 @@ import (
 	"testing"
 	"time"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
 	"github.com/go-chi/chi/v5"
@@ -26,11 +27,11 @@ func TestInventoryStock_AdjustsCountAndPreservesDetails(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	repo := repository.NewInventoryRepository(database)
 	user := newInventoryTestUser(t, repository.NewUserRepository(database))
-	area, err := repo.CreateArea(context.Background(), models.InventoryArea{Name: "Cupboard", CreatedByUserID: user.ID})
+	area, err := repo.CreateArea(context.Background(), inventorydomain.Area{Name: "Cupboard", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := repo.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Pods", Quantity: 12, Unit: "pods", LowAt: 3, CreatedByUserID: user.ID})
+	item, err := repo.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Pods", Quantity: 12, Unit: "pods", LowAt: 3, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +42,7 @@ func TestInventoryStock_AdjustsCountAndPreservesDetails(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
 	}
-	var saved models.InventoryItem
+	var saved inventorydomain.Item
 	if err := json.NewDecoder(recorder.Body).Decode(&saved); err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +55,11 @@ func TestInventoryStock_ValidationAndConcurrentChanges(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	repo := repository.NewInventoryRepository(database)
 	user := newInventoryTestUser(t, repository.NewUserRepository(database))
-	area, err := repo.CreateArea(context.Background(), models.InventoryArea{Name: "Kitchen", CreatedByUserID: user.ID})
+	area, err := repo.CreateArea(context.Background(), inventorydomain.Area{Name: "Kitchen", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := repo.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Tins", Quantity: 5, CreatedByUserID: user.ID})
+	item, err := repo.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Tins", Quantity: 5, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +77,7 @@ func TestInventoryStock_ValidationAndConcurrentChanges(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatal(recorder.Body.String())
 	}
-	var saved models.InventoryItem
+	var saved inventorydomain.Item
 	if err := json.Unmarshal(recorder.Body.Bytes(), &saved); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +108,7 @@ func TestInventoryStock_ValidationAndConcurrentChanges(t *testing.T) {
 	if code := doRequest(t, router, http.MethodPatch, "/api/inventory/items/missing/stock", `{"quantity":1}`).Code; code != http.StatusNotFound {
 		t.Fatalf("missing item: %d", code)
 	}
-	level, err := repo.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Soap", TrackingMode: models.TrackingModeLevel, Level: 50, CreatedByUserID: user.ID})
+	level, err := repo.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Soap", TrackingMode: inventorydomain.TrackingModeLevel, Level: 50, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,11 +183,11 @@ func TestInventoryStock_RejectsCountOverflow(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	repo := repository.NewInventoryRepository(database)
 	user := newInventoryTestUser(t, repository.NewUserRepository(database))
-	area, err := repo.CreateArea(context.Background(), models.InventoryArea{Name: "Kitchen", CreatedByUserID: user.ID})
+	area, err := repo.CreateArea(context.Background(), inventorydomain.Area{Name: "Kitchen", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := repo.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Tins", Quantity: math.MaxInt, CreatedByUserID: user.ID})
+	item, err := repo.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Tins", Quantity: math.MaxInt, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

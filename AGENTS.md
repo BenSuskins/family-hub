@@ -67,7 +67,8 @@ The SQLite adapter implements the ports. Shared adapter contracts live in
 operations live in `internal/application/`. Their rules live in the matching
 `internal/domain/` packages when needed. Shopping restock and inventory writes
 commit together through a shopping-owned transaction and transaction-scoped
-inventory capability. Inventory stock changes use a compare-and-swap update.
+inventory capability. Inventory stock changes use an immutable domain transition
+and a compare-and-swap update; SQLite preserves legacy stored values.
 Shared stock and shopping contracts live in `internal/contracttests/`.
 
 **External data** — Calendar subscriptions and feeds, recipe import, rail,

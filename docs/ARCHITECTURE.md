@@ -59,7 +59,9 @@ including rollback, concurrent completion, recurrence and rotation.
 Meals, inventory, shopping, scratchpad, and home settings also use feature-owned
 application operations and storage interfaces. Their HTTP handlers call those
 operations and SQLite implements the storage interfaces. Inventory stock changes
-use a compare-and-swap update so concurrent changes are not lost. Shopping
+use an immutable domain transition and a compare-and-swap update so concurrent
+changes are not lost. HTTP and SQLite map inventory values at their boundaries;
+SQLite restores legacy stock without rewriting it. Shopping
 owns the transaction operations for purchase and restock. A transaction-scoped
 inventory capability commits stock, purchase claims and shopping state together.
 Startup connects SQLite adapters to those ports. Shared fake and SQLite contracts

@@ -8,24 +8,40 @@ import (
 	"time"
 
 	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/google/uuid"
 )
 
-type InventoryRepository interface {
-	// Areas
-	FindAllAreas(ctx context.Context) ([]models.InventoryArea, error)
-	FindAreaByID(ctx context.Context, id string) (models.InventoryArea, error)
-	CreateArea(ctx context.Context, area models.InventoryArea) (models.InventoryArea, error)
-	UpdateArea(ctx context.Context, area models.InventoryArea) error
-	DeleteArea(ctx context.Context, id string) error
+type inventoryItemRecord struct {
+	ID, AreaID, Name, TrackingMode string
+	Quantity, Level                int
+	Unit                           string
+	LowAt                          int
+	CreatedByUserID                string
+	CreatedAt, UpdatedAt           time.Time
+}
 
-	// Items
-	FindItemByID(ctx context.Context, id string) (models.InventoryItem, error)
-	CreateItem(ctx context.Context, item models.InventoryItem) (models.InventoryItem, error)
-	UpdateItem(ctx context.Context, item models.InventoryItem) error
-	DeleteItem(ctx context.Context, id string) error
-	ModifyStock(ctx context.Context, id string, change func(models.InventoryItem) (models.InventoryItem, error)) (models.InventoryItem, error)
+func inventoryItemFromRecord(record inventoryItemRecord) inventorydomain.Item {
+	return inventorydomain.Item{ID: record.ID, AreaID: record.AreaID, Name: record.Name, TrackingMode: record.TrackingMode, Quantity: record.Quantity, Level: record.Level, Unit: record.Unit, LowAt: record.LowAt, CreatedByUserID: record.CreatedByUserID, CreatedAt: record.CreatedAt, UpdatedAt: record.UpdatedAt}
+}
+func inventoryItemToRecord(item inventorydomain.Item) inventoryItemRecord {
+	return inventoryItemRecord{ID: item.ID, AreaID: item.AreaID, Name: item.Name, TrackingMode: item.TrackingMode, Quantity: item.Quantity, Level: item.Level, Unit: item.Unit, LowAt: item.LowAt, CreatedByUserID: item.CreatedByUserID, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt}
+}
+
+type inventoryAreaRecord struct {
+	ID, Name, Icon, Tint, CreatedByUserID string
+	CreatedAt, UpdatedAt                  time.Time
+}
+
+func inventoryAreaFromRecord(record inventoryAreaRecord) inventorydomain.Area {
+	return inventorydomain.Area{ID: record.ID, Name: record.Name, Icon: record.Icon, Tint: record.Tint, CreatedByUserID: record.CreatedByUserID, CreatedAt: record.CreatedAt, UpdatedAt: record.UpdatedAt}
+}
+func inventoryAreaToRecord(area inventorydomain.Area) inventoryAreaRecord {
+	return inventoryAreaRecord{ID: area.ID, Name: area.Name, Icon: area.Icon, Tint: area.Tint, CreatedByUserID: area.CreatedByUserID, CreatedAt: area.CreatedAt, UpdatedAt: area.UpdatedAt}
+}
+func scanInventoryArea(row interface{ Scan(...any) error }) (inventorydomain.Area, error) {
+	var record inventoryAreaRecord
+	err := row.Scan(&record.ID, &record.Name, &record.Icon, &record.Tint, &record.CreatedByUserID, &record.CreatedAt, &record.UpdatedAt)
+	return inventoryAreaFromRecord(record), err
 }
 
 type SQLiteInventoryRepository struct {
@@ -38,7 +54,7 @@ func NewInventoryRepository(database *sql.DB) *SQLiteInventoryRepository {
 
 // FindAllAreas returns every area with its items nested. Items are loaded in a
 // single query and attached to their area to avoid an N+1.
-func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) ([]models.InventoryArea, error) {
+func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) ([]inventorydomain.Area, error) {
 	rows, err := repository.database.QueryContext(ctx,
 		`SELECT id, name, icon, tint, created_by_user_id, created_at, updated_at
 		FROM inventory_areas ORDER BY name ASC`,
@@ -48,17 +64,14 @@ func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) (
 	}
 	defer rows.Close()
 
-	var areas []models.InventoryArea
+	var areas []inventorydomain.Area
 	index := map[string]int{}
 	for rows.Next() {
-		var area models.InventoryArea
-		if err := rows.Scan(
-			&area.ID, &area.Name, &area.Icon, &area.Tint,
-			&area.CreatedByUserID, &area.CreatedAt, &area.UpdatedAt,
-		); err != nil {
+		area, err := scanInventoryArea(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scanning inventory area: %w", err)
 		}
-		area.Items = []models.InventoryItem{}
+		area.Items = []inventorydomain.Item{}
 		index[area.ID] = len(areas)
 		areas = append(areas, area)
 	}
@@ -80,7 +93,7 @@ func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) (
 	defer itemRows.Close()
 
 	for itemRows.Next() {
-		var item models.InventoryItem
+		var item inventorydomain.Item
 		if err := scanItem(itemRows, &item); err != nil {
 			return nil, err
 		}
@@ -92,31 +105,27 @@ func (repository *SQLiteInventoryRepository) FindAllAreas(ctx context.Context) (
 }
 
 // FindAreaByID returns a single area with its items nested.
-func (repository *SQLiteInventoryRepository) FindAreaByID(ctx context.Context, id string) (models.InventoryArea, error) {
-	var area models.InventoryArea
-	err := repository.database.QueryRowContext(ctx,
+func (repository *SQLiteInventoryRepository) FindAreaByID(ctx context.Context, id string) (inventorydomain.Area, error) {
+	area, err := scanInventoryArea(repository.database.QueryRowContext(ctx,
 		`SELECT id, name, icon, tint, created_by_user_id, created_at, updated_at
-		FROM inventory_areas WHERE id = ?`, id,
-	).Scan(
-		&area.ID, &area.Name, &area.Icon, &area.Tint,
-		&area.CreatedByUserID, &area.CreatedAt, &area.UpdatedAt,
-	)
+        FROM inventory_areas WHERE id = ?`, id,
+	))
 	if errors.Is(err, sql.ErrNoRows) {
-		return models.InventoryArea{}, inventorydomain.ErrAreaNotFound
+		return inventorydomain.Area{}, inventorydomain.ErrAreaNotFound
 	}
 	if err != nil {
-		return models.InventoryArea{}, fmt.Errorf("finding inventory area by id: %w", err)
+		return inventorydomain.Area{}, fmt.Errorf("finding inventory area by id: %w", err)
 	}
 
 	items, err := repository.findItemsByArea(ctx, id)
 	if err != nil {
-		return models.InventoryArea{}, err
+		return inventorydomain.Area{}, err
 	}
 	area.Items = items
 	return area, nil
 }
 
-func (repository *SQLiteInventoryRepository) CreateArea(ctx context.Context, area models.InventoryArea) (models.InventoryArea, error) {
+func (repository *SQLiteInventoryRepository) CreateArea(ctx context.Context, area inventorydomain.Area) (inventorydomain.Area, error) {
 	if area.ID == "" {
 		area.ID = uuid.New().String()
 	}
@@ -130,25 +139,27 @@ func (repository *SQLiteInventoryRepository) CreateArea(ctx context.Context, are
 	area.CreatedAt = now
 	area.UpdatedAt = now
 
+	record := inventoryAreaToRecord(area)
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO inventory_areas (id, name, icon, tint, created_by_user_id, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		area.ID, area.Name, area.Icon, area.Tint, area.CreatedByUserID, area.CreatedAt, area.UpdatedAt,
+		record.ID, record.Name, record.Icon, record.Tint, record.CreatedByUserID, record.CreatedAt, record.UpdatedAt,
 	)
 	if err != nil {
-		return models.InventoryArea{}, fmt.Errorf("creating inventory area: %w", err)
+		return inventorydomain.Area{}, fmt.Errorf("creating inventory area: %w", err)
 	}
 	if area.Items == nil {
-		area.Items = []models.InventoryItem{}
+		area.Items = []inventorydomain.Item{}
 	}
 	return area, nil
 }
 
-func (repository *SQLiteInventoryRepository) UpdateArea(ctx context.Context, area models.InventoryArea) error {
+func (repository *SQLiteInventoryRepository) UpdateArea(ctx context.Context, area inventorydomain.Area) error {
 	area.UpdatedAt = time.Now()
+	record := inventoryAreaToRecord(area)
 	_, err := repository.database.ExecContext(ctx,
 		`UPDATE inventory_areas SET name = ?, icon = ?, tint = ?, updated_at = ? WHERE id = ?`,
-		area.Name, area.Icon, area.Tint, area.UpdatedAt, area.ID,
+		record.Name, record.Icon, record.Tint, record.UpdatedAt, record.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("updating inventory area: %w", err)
@@ -164,25 +175,21 @@ func (repository *SQLiteInventoryRepository) DeleteArea(ctx context.Context, id 
 	return nil
 }
 
-func (repository *SQLiteInventoryRepository) FindItemByID(ctx context.Context, id string) (models.InventoryItem, error) {
-	var item models.InventoryItem
-	err := repository.database.QueryRowContext(ctx,
+func (repository *SQLiteInventoryRepository) FindItemByID(ctx context.Context, id string) (inventorydomain.Item, error) {
+	item, err := readInventoryItem(repository.database.QueryRowContext(ctx,
 		`SELECT id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at
-		FROM inventory_items WHERE id = ?`, id,
-	).Scan(
-		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
-		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
-	)
+        FROM inventory_items WHERE id = ?`, id,
+	))
 	if errors.Is(err, sql.ErrNoRows) {
-		return models.InventoryItem{}, inventorydomain.ErrItemNotFound
+		return inventorydomain.Item{}, inventorydomain.ErrItemNotFound
 	}
 	if err != nil {
-		return models.InventoryItem{}, fmt.Errorf("finding inventory item by id: %w", err)
+		return inventorydomain.Item{}, fmt.Errorf("finding inventory item by id: %w", err)
 	}
 	return item, nil
 }
 
-func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, item models.InventoryItem) (models.InventoryItem, error) {
+func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, item inventorydomain.Item) (inventorydomain.Item, error) {
 	if item.ID == "" {
 		item.ID = uuid.New().String()
 	}
@@ -191,24 +198,26 @@ func (repository *SQLiteInventoryRepository) CreateItem(ctx context.Context, ite
 	item.CreatedAt = now
 	item.UpdatedAt = now
 
+	record := inventoryItemToRecord(item)
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO inventory_items (id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.AreaID, item.Name, item.TrackingMode, item.Quantity, item.Level, item.Unit, item.LowAt,
-		item.CreatedByUserID, item.CreatedAt, item.UpdatedAt,
+		record.ID, record.AreaID, record.Name, record.TrackingMode, record.Quantity, record.Level, record.Unit, record.LowAt,
+		record.CreatedByUserID, record.CreatedAt, record.UpdatedAt,
 	)
 	if err != nil {
-		return models.InventoryItem{}, fmt.Errorf("creating inventory item: %w", err)
+		return inventorydomain.Item{}, fmt.Errorf("creating inventory item: %w", err)
 	}
 	return item, nil
 }
 
-func (repository *SQLiteInventoryRepository) UpdateItem(ctx context.Context, item models.InventoryItem) error {
+func (repository *SQLiteInventoryRepository) UpdateItem(ctx context.Context, item inventorydomain.Item) error {
 	item = inventorydomain.NormalizeItem(item)
 	item.UpdatedAt = time.Now()
+	record := inventoryItemToRecord(item)
 	_, err := repository.database.ExecContext(ctx,
 		`UPDATE inventory_items SET name = ?, tracking_mode = ?, quantity = ?, level = ?, unit = ?, low_at = ?, updated_at = ? WHERE id = ?`,
-		item.Name, item.TrackingMode, item.Quantity, item.Level, item.Unit, item.LowAt, item.UpdatedAt, item.ID,
+		record.Name, record.TrackingMode, record.Quantity, record.Level, record.Unit, record.LowAt, record.UpdatedAt, record.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("updating inventory item: %w", err)
@@ -224,7 +233,7 @@ func (repository *SQLiteInventoryRepository) DeleteItem(ctx context.Context, id 
 	return nil
 }
 
-func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context, areaID string) ([]models.InventoryItem, error) {
+func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context, areaID string) ([]inventorydomain.Item, error) {
 	rows, err := repository.database.QueryContext(ctx,
 		`SELECT id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at
 		FROM inventory_items WHERE area_id = ? ORDER BY name ASC`, areaID,
@@ -234,9 +243,9 @@ func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context
 	}
 	defer rows.Close()
 
-	items := []models.InventoryItem{}
+	items := []inventorydomain.Item{}
 	for rows.Next() {
-		var item models.InventoryItem
+		var item inventorydomain.Item
 		if err := scanItem(rows, &item); err != nil {
 			return nil, err
 		}
@@ -245,40 +254,49 @@ func (repository *SQLiteInventoryRepository) findItemsByArea(ctx context.Context
 	return items, rows.Err()
 }
 
-func scanItem(rows interface{ Scan(...any) error }, item *models.InventoryItem) error {
-	if err := rows.Scan(
-		&item.ID, &item.AreaID, &item.Name, &item.TrackingMode, &item.Quantity, &item.Level, &item.Unit, &item.LowAt,
-		&item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt,
-	); err != nil {
+func readInventoryItem(row interface{ Scan(...any) error }) (inventorydomain.Item, error) {
+	var record inventoryItemRecord
+	err := row.Scan(&record.ID, &record.AreaID, &record.Name, &record.TrackingMode, &record.Quantity, &record.Level, &record.Unit, &record.LowAt, &record.CreatedByUserID, &record.CreatedAt, &record.UpdatedAt)
+	return inventoryItemFromRecord(record), err
+}
+func scanItem(rows interface{ Scan(...any) error }, item *inventorydomain.Item) error {
+	record, err := readInventoryItem(rows)
+	if err != nil {
 		return fmt.Errorf("scanning inventory item: %w", err)
 	}
+	*item = record
 	return nil
 }
 
-func (repository *SQLiteInventoryRepository) ModifyStock(ctx context.Context, id string, change func(models.InventoryItem) (models.InventoryItem, error)) (models.InventoryItem, error) {
+func (repository *SQLiteInventoryRepository) ModifyStock(ctx context.Context, id string, change func(inventorydomain.Stock) (inventorydomain.Stock, error)) (inventorydomain.Item, error) {
 	for {
 		if err := ctx.Err(); err != nil {
-			return models.InventoryItem{}, err
+			return inventorydomain.Item{}, err
 		}
 		current, err := repository.FindItemByID(ctx, id)
 		if err != nil {
-			return models.InventoryItem{}, err
+			return inventorydomain.Item{}, err
 		}
-		updated, err := change(current)
+		stock, err := inventorydomain.RestoreStock(current)
 		if err != nil {
-			return models.InventoryItem{}, err
+			stock = inventorydomain.RestoreLegacyStock(current)
 		}
+		updated, err := change(stock)
+		if err != nil {
+			return inventorydomain.Item{}, err
+		}
+		next := inventoryItemToRecord(updated.Snapshot())
 		row := repository.database.QueryRowContext(ctx,
 			`UPDATE inventory_items SET quantity = ?, level = ?, updated_at = ?
     WHERE id = ? AND tracking_mode = ? AND quantity = ? AND level = ?
     RETURNING id, area_id, name, tracking_mode, quantity, level, unit, low_at, created_by_user_id, created_at, updated_at`,
-			updated.Quantity, updated.Level, time.Now(), id, current.TrackingMode, current.Quantity, current.Level)
-		var saved models.InventoryItem
+			next.Quantity, next.Level, time.Now(), id, current.TrackingMode, current.Quantity, current.Level)
+		var saved inventorydomain.Item
 		if err := scanItem(row, &saved); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
-			return models.InventoryItem{}, err
+			return inventorydomain.Item{}, err
 		}
 		return saved, nil
 	}

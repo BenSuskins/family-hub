@@ -3,8 +3,6 @@ package inventory
 import (
 	"errors"
 	"math"
-
-	"github.com/bensuskins/family-hub/internal/models"
 )
 
 var (
@@ -13,7 +11,7 @@ var (
 	ErrAreaNotFound       = errors.New("inventory area not found")
 )
 
-func ValidateStockChange(change models.InventoryStockChange) error {
+func ValidateStockChange(change StockChange) error {
 	count := 0
 	for _, value := range []*int64{change.Quantity, change.QuantityDelta, change.Level} {
 		if value != nil {
@@ -26,24 +24,24 @@ func ValidateStockChange(change models.InventoryStockChange) error {
 	return nil
 }
 
-func ApplyStock(item models.InventoryItem, change models.InventoryStockChange) (models.InventoryItem, error) {
+func ApplyStock(item Item, change StockChange) (Item, error) {
 	if err := ValidateStockChange(change); err != nil {
-		return models.InventoryItem{}, err
+		return Item{}, err
 	}
 	switch {
 	case change.Quantity != nil:
-		if item.TrackingMode != models.TrackingModeCount {
-			return models.InventoryItem{}, ErrInvalidStockChange
+		if item.TrackingMode != TrackingModeCount {
+			return Item{}, ErrInvalidStockChange
 		}
 		item.Quantity = int(*change.Quantity)
 	case change.QuantityDelta != nil:
-		if item.TrackingMode != models.TrackingModeCount {
-			return models.InventoryItem{}, ErrInvalidStockChange
+		if item.TrackingMode != TrackingModeCount {
+			return Item{}, ErrInvalidStockChange
 		}
 		delta := *change.QuantityDelta
 		quantity := int64(item.Quantity)
 		if delta > 0 && quantity > math.MaxInt64-delta {
-			return models.InventoryItem{}, ErrInvalidStockChange
+			return Item{}, ErrInvalidStockChange
 		}
 		if delta < 0 && (quantity <= 0 || delta < -quantity) {
 			item.Quantity = 0
@@ -55,8 +53,8 @@ func ApplyStock(item models.InventoryItem, change models.InventoryStockChange) (
 			item.Quantity = int(result)
 		}
 	case change.Level != nil:
-		if item.TrackingMode != models.TrackingModeLevel {
-			return models.InventoryItem{}, ErrInvalidStockChange
+		if item.TrackingMode != TrackingModeLevel {
+			return Item{}, ErrInvalidStockChange
 		}
 		item.Level = int(*change.Level)
 	}
@@ -67,13 +65,13 @@ func ApplyStock(item models.InventoryItem, change models.InventoryStockChange) (
 // quantity and low_at are never negative, level is bounded to 0–100, and in
 // level mode low_at is read as a percentage so it is bounded to 0–100 too. An
 // unrecognized tracking mode falls back to count.
-func NormalizeItem(item models.InventoryItem) models.InventoryItem {
-	if item.TrackingMode != models.TrackingModeLevel {
-		item.TrackingMode = models.TrackingModeCount
+func NormalizeItem(item Item) Item {
+	if item.TrackingMode != TrackingModeLevel {
+		item.TrackingMode = TrackingModeCount
 	}
 	item.Quantity = atLeast(item.Quantity, 0)
 	item.Level = clamp(item.Level, 0, 100)
-	if item.TrackingMode == models.TrackingModeLevel {
+	if item.TrackingMode == TrackingModeLevel {
 		item.LowAt = clamp(item.LowAt, 0, 100)
 	} else {
 		item.LowAt = atLeast(item.LowAt, 0)

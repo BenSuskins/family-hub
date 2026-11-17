@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
+
 	app "github.com/bensuskins/family-hub/internal/application/shopping"
 	domain "github.com/bensuskins/family-hub/internal/domain/shopping"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -20,7 +22,7 @@ import (
 type fakeShoppingState struct {
 	items     map[string]domain.Item
 	created   map[string]string
-	stocks    map[string]models.InventoryItem
+	stocks    map[string]inventorydomain.Item
 	purchases map[string]fakePurchase
 }
 type fakePurchase struct {
@@ -37,8 +39,8 @@ type shoppingTransaction struct {
 	failAt string
 }
 
-func newShoppingFake(stock ...models.InventoryItem) *shoppingFake {
-	state := fakeShoppingState{items: map[string]domain.Item{}, created: map[string]string{}, stocks: map[string]models.InventoryItem{}, purchases: map[string]fakePurchase{}}
+func newShoppingFake(stock ...inventorydomain.Item) *shoppingFake {
+	state := fakeShoppingState{items: map[string]domain.Item{}, created: map[string]string{}, stocks: map[string]inventorydomain.Item{}, purchases: map[string]fakePurchase{}}
 	for _, item := range stock {
 		state.stocks[item.ID] = item
 	}
@@ -56,7 +58,7 @@ func copyShopping(item domain.Item) domain.Item {
 	return item
 }
 func cloneShoppingState(source fakeShoppingState) fakeShoppingState {
-	result := fakeShoppingState{items: map[string]domain.Item{}, created: map[string]string{}, stocks: map[string]models.InventoryItem{}, purchases: map[string]fakePurchase{}}
+	result := fakeShoppingState{items: map[string]domain.Item{}, created: map[string]string{}, stocks: map[string]inventorydomain.Item{}, purchases: map[string]fakePurchase{}}
 	for id, item := range source.items {
 		result.items[id] = copyShopping(item)
 	}
@@ -286,7 +288,7 @@ func (tx *shoppingTransaction) ApplyRestock(ctx context.Context, id, mode string
 	if !ok {
 		return nil
 	}
-	if mode == models.TrackingModeCount {
+	if mode == inventorydomain.TrackingModeCount {
 		stock.Quantity += *quantity
 	} else {
 		stock.Level = *level
@@ -298,7 +300,7 @@ func (tx *shoppingTransaction) ApplyRestock(ctx context.Context, id, mode string
 type shoppingFixture struct {
 	service     *app.Service
 	inventoryID string
-	stock       func() (models.InventoryItem, error)
+	stock       func() (inventorydomain.Item, error)
 }
 
 func TestShoppingRestockContract(t *testing.T) {
@@ -311,19 +313,19 @@ func TestShoppingRestockContract(t *testing.T) {
 				t.Fatal(err)
 			}
 			inventory := repository.NewInventoryRepository(database)
-			area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+			area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 			if err != nil {
 				t.Fatal(err)
 			}
-			item, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Milk", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+			item, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 			if err != nil {
 				t.Fatal(err)
 			}
-			return shoppingFixture{app.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now), item.ID, func() (models.InventoryItem, error) { return inventory.FindItemByID(ctx, item.ID) }}
+			return shoppingFixture{app.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now), item.ID, func() (inventorydomain.Item, error) { return inventory.FindItemByID(ctx, item.ID) }}
 		},
 		"fake": func(t *testing.T) shoppingFixture {
-			fake := newShoppingFake(models.InventoryItem{ID: "stock", Name: "Milk", TrackingMode: models.TrackingModeCount, Quantity: 5})
-			return shoppingFixture{app.New(fake, uuid.NewString, time.Now), "stock", func() (models.InventoryItem, error) {
+			fake := newShoppingFake(inventorydomain.Item{ID: "stock", Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5})
+			return shoppingFixture{app.New(fake, uuid.NewString, time.Now), "stock", func() (inventorydomain.Item, error) {
 				fake.mutex.Lock()
 				defer fake.mutex.Unlock()
 				return fake.state.stocks["stock"], nil
@@ -400,7 +402,7 @@ type transactionFixture struct {
 	store             app.Store
 	service           *app.Service
 	firstID, secondID string
-	stock             func(string) (models.InventoryItem, error)
+	stock             func(string) (inventorydomain.Item, error)
 	fail              func(string) error
 	clearFailure      func() error
 	purchases         func(string) (int, bool, error)
@@ -411,8 +413,8 @@ type transactionFixture struct {
 func transactionFixtureFor(t *testing.T, backend string) transactionFixture {
 	t.Helper()
 	if backend == "fake" {
-		fake := newShoppingFake(models.InventoryItem{ID: "one", Name: "Milk", TrackingMode: models.TrackingModeCount, Quantity: 5}, models.InventoryItem{ID: "two", Name: "Bread", TrackingMode: models.TrackingModeCount, Quantity: 2})
-		return transactionFixture{store: fake, service: app.New(fake, uuid.NewString, time.Now), firstID: "one", secondID: "two", stock: func(id string) (models.InventoryItem, error) {
+		fake := newShoppingFake(inventorydomain.Item{ID: "one", Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5}, inventorydomain.Item{ID: "two", Name: "Bread", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 2})
+		return transactionFixture{store: fake, service: app.New(fake, uuid.NewString, time.Now), firstID: "one", secondID: "two", stock: func(id string) (inventorydomain.Item, error) {
 			fake.mutex.Lock()
 			defer fake.mutex.Unlock()
 			return fake.state.stocks[id], nil
@@ -425,7 +427,7 @@ func transactionFixtureFor(t *testing.T, backend string) transactionFixture {
 			fake.mutex.Lock()
 			defer fake.mutex.Unlock()
 			stock := fake.state.stocks[id]
-			stock.TrackingMode = models.TrackingModeLevel
+			stock.TrackingMode = inventorydomain.TrackingModeLevel
 			stock.Level = 20
 			fake.state.stocks[id] = stock
 			return nil
@@ -457,20 +459,20 @@ func transactionFixtureFor(t *testing.T, backend string) transactionFixture {
 		t.Fatal(err)
 	}
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Milk", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+	first, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Bread", TrackingMode: models.TrackingModeCount, Quantity: 2, CreatedByUserID: user.ID})
+	second, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Bread", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 2, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
 	store := repository.NewShoppingRepository(database, repository.NewShoppingInventory)
-	return transactionFixture{store: store, service: app.New(store, uuid.NewString, time.Now), firstID: first.ID, secondID: second.ID, stock: func(id string) (models.InventoryItem, error) { return inventory.FindItemByID(ctx, id) }, fail: func(stage string) error {
+	return transactionFixture{store: store, service: app.New(store, uuid.NewString, time.Now), firstID: first.ID, secondID: second.ID, stock: func(id string) (inventorydomain.Item, error) { return inventory.FindItemByID(ctx, id) }, fail: func(stage string) error {
 		table := "shopping_items"
 		if stage == "claim" {
 			table = "shopping_purchases"
@@ -478,7 +480,7 @@ func transactionFixtureFor(t *testing.T, backend string) transactionFixture {
 		_, err := database.ExecContext(ctx, "CREATE TRIGGER fail_contract BEFORE UPDATE ON "+table+" BEGIN SELECT RAISE(ABORT, 'injected transaction failure'); END")
 		return err
 	}, clearFailure: func() error { _, err := database.ExecContext(ctx, "DROP TRIGGER fail_contract"); return err }, setLevel: func(id string) error {
-		_, err := database.ExecContext(ctx, "UPDATE inventory_items SET tracking_mode=?, level=? WHERE id=?", models.TrackingModeLevel, 20, id)
+		_, err := database.ExecContext(ctx, "UPDATE inventory_items SET tracking_mode=?, level=? WHERE id=?", inventorydomain.TrackingModeLevel, 20, id)
 		return err
 	}, legacy: func(id string) error {
 		_, err := database.ExecContext(ctx, "UPDATE shopping_items SET purchased=1, purchase_id=NULL WHERE id=?", id)

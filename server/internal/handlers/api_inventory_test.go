@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
+
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
@@ -74,7 +76,7 @@ func TestCreateInventoryArea_API(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 
-	var area models.InventoryArea
+	var area inventorydomain.Area
 	json.NewDecoder(recorder.Body).Decode(&area)
 	if area.Name != "Laundry cupboard" || area.Icon != "drop" || area.Tint != "blue" {
 		t.Errorf("unexpected area: %+v", area)
@@ -137,7 +139,7 @@ func TestInventory_FullFlow(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create area: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
-	var area models.InventoryArea
+	var area inventorydomain.Area
 	json.NewDecoder(rec.Body).Decode(&area)
 
 	// Add item
@@ -146,15 +148,15 @@ func TestInventory_FullFlow(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create item: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
-	var item models.InventoryItem
+	var item inventorydomain.Item
 	json.NewDecoder(rec.Body).Decode(&item)
-	if item.AreaID != area.ID || item.TrackingMode != models.TrackingModeCount || item.Quantity != 12 || item.LowAt != 8 {
+	if item.AreaID != area.ID || item.TrackingMode != inventorydomain.TrackingModeCount || item.Quantity != 12 || item.LowAt != 8 {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 
 	// List nests the item under its area
 	rec = doRequest(t, router, http.MethodGet, "/api/inventory", "")
-	var areas []models.InventoryArea
+	var areas []inventorydomain.Area
 	json.NewDecoder(rec.Body).Decode(&areas)
 	if len(areas) != 1 || len(areas[0].Items) != 1 {
 		t.Fatalf("expected 1 area with 1 item, got %+v", areas)
@@ -166,7 +168,7 @@ func TestInventory_FullFlow(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update item: expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	var updated models.InventoryItem
+	var updated inventorydomain.Item
 	json.NewDecoder(rec.Body).Decode(&updated)
 	if updated.Quantity != 3 {
 		t.Errorf("expected quantity 3, got %d", updated.Quantity)
@@ -178,9 +180,9 @@ func TestInventory_FullFlow(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create level item: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
-	var levelItem models.InventoryItem
+	var levelItem inventorydomain.Item
 	json.NewDecoder(rec.Body).Decode(&levelItem)
-	if levelItem.TrackingMode != models.TrackingModeLevel || levelItem.Level != 40 || levelItem.LowAt != 20 {
+	if levelItem.TrackingMode != inventorydomain.TrackingModeLevel || levelItem.Level != 40 || levelItem.LowAt != 20 {
 		t.Errorf("unexpected level item: %+v", levelItem)
 	}
 

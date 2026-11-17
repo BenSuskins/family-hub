@@ -221,45 +221,6 @@ type MealPlan struct {
 	UpdatedAt       time.Time
 }
 
-// InventoryArea is a physical storage area in the home (e.g. "Laundry
-// cupboard") holding stocked items. Icon and Tint are presentation hints chosen
-// by the client from a fixed set; the server stores them verbatim.
-type InventoryArea struct {
-	ID              string
-	Name            string
-	Icon            string
-	Tint            string
-	Items           []InventoryItem // populated on list/get
-	CreatedByUserID string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
-// Tracking modes for an InventoryItem. A count item is measured in whole units
-// (Quantity); a level item is measured as a 0–100 fill percentage (Level).
-const (
-	TrackingModeCount = "count"
-	TrackingModeLevel = "level"
-)
-
-// InventoryItem is a stocked consumable within an area. TrackingMode selects how
-// stock is measured: in count mode an item is "low" when Quantity <= LowAt; in
-// level mode when Level <= LowAt (LowAt read as a percentage). The low flag is
-// derived by clients, not stored.
-type InventoryItem struct {
-	ID              string
-	AreaID          string
-	Name            string
-	TrackingMode    string
-	Quantity        int
-	Level           int
-	Unit            string
-	LowAt           int
-	CreatedByUserID string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
 type ICalSubscription struct {
 	ID            string
 	Name          string

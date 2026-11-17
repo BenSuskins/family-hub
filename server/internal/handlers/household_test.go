@@ -9,10 +9,12 @@ import (
 	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
 	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -79,7 +81,7 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHouseholdHandler(householdapp.New(repository.NewSettingsRepository(database)), nil, nil, shoppingapp.New(repository.NewShoppingRepository(database)))
+	handler := NewHouseholdHandler(householdapp.New(repository.NewSettingsRepository(database)), nil, nil, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now))
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,14 +89,14 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 		})
 	})
 	handler.RegisterShopping(router)
-	call := func(method, path, body string, status int) models.ShoppingItem {
+	call := func(method, path, body string, status int) shoppingResponse {
 		t.Helper()
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(method, path, strings.NewReader(body)))
 		if response.Code != status {
 			t.Fatalf("%s %s: got %d: %s", method, path, response.Code, response.Body.String())
 		}
-		var item models.ShoppingItem
+		var item shoppingResponse
 		if status == 200 || status == 201 {
 			if err := json.Unmarshal(response.Body.Bytes(), &item); err != nil {
 				t.Fatal(err)
@@ -139,13 +141,13 @@ func TestConcurrentRestockChangesStockOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shopping := repository.NewShoppingRepository(database)
+	shopping := shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now)
 	item, err := shopping.Create(context.Background(), "Soap", &stock.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	purchased := true
-	item, err = shopping.Update(context.Background(), item.ID, models.ShoppingChange{Purchased: &purchased, Version: item.Version})
+	item, err = shopping.Update(context.Background(), item.ID, shoppingdomain.Change{Purchased: &purchased, Version: item.Version})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +155,7 @@ func TestConcurrentRestockChangesStockOnce(t *testing.T) {
 	failures := make(chan error, 8)
 	for index := 0; index < 8; index++ {
 		go func() {
-			_, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Quantity: &quantity})
+			_, err := shopping.Restock(context.Background(), item.ID, shoppingdomain.Restock{PurchaseID: *item.PurchaseID, Quantity: &quantity})
 			failures <- err
 		}()
 	}
@@ -180,32 +182,32 @@ func TestShoppingLevelRestockAndRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shopping := repository.NewShoppingRepository(database)
+	shopping := shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now)
 	item, err := shopping.Create(context.Background(), stock.Name, &stock.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	purchased := true
-	item, err = shopping.Update(context.Background(), item.ID, models.ShoppingChange{Purchased: &purchased, Version: item.Version})
+	item, err = shopping.Update(context.Background(), item.ID, shoppingdomain.Change{Purchased: &purchased, Version: item.Version})
 	if err != nil {
 		t.Fatal(err)
 	}
 	quantity := 2
-	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Quantity: &quantity}); !errors.Is(err, shoppingdomain.ErrInvalid) {
+	if _, err := shopping.Restock(context.Background(), item.ID, shoppingdomain.Restock{PurchaseID: *item.PurchaseID, Quantity: &quantity}); !errors.Is(err, shoppingdomain.ErrInvalid) {
 		t.Fatalf("level item accepted quantity: %v", err)
 	}
 	invalid := 101
-	if _, err := shopping.Restock(context.Background(), item.ID, models.ShoppingRestock{PurchaseID: *item.PurchaseID, Level: &invalid}); !errors.Is(err, shoppingdomain.ErrInvalid) {
+	if _, err := shopping.Restock(context.Background(), item.ID, shoppingdomain.Restock{PurchaseID: *item.PurchaseID, Level: &invalid}); !errors.Is(err, shoppingdomain.ErrInvalid) {
 		t.Fatalf("invalid percentage: %v", err)
 	}
 	level := 80
-	request := models.ShoppingRestock{PurchaseID: *item.PurchaseID, Level: &level}
+	request := shoppingdomain.Restock{PurchaseID: *item.PurchaseID, Level: &level}
 	item, err = shopping.Restock(context.Background(), item.ID, request)
 	if err != nil {
 		t.Fatal(err)
 	}
 	purchased = false
-	item, err = shopping.Update(context.Background(), item.ID, models.ShoppingChange{Purchased: &purchased, Version: item.Version})
+	item, err = shopping.Update(context.Background(), item.ID, shoppingdomain.Change{Purchased: &purchased, Version: item.Version})
 	if err != nil {
 		t.Fatal(err)
 	}

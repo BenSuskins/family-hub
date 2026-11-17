@@ -51,25 +51,3 @@ type Departures struct {
 	Items           []Departure `json:"items"`
 	SelectedEventID *string     `json:"selectedEventID"`
 }
-
-type ShoppingItem struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	InventoryItemID *string `json:"inventoryItemID"`
-	Purchased       bool    `json:"purchased"`
-	PurchaseID      *string `json:"purchaseID"`
-	Restocked       bool    `json:"restocked"`
-	Version         int     `json:"version"`
-}
-
-type ShoppingChange struct {
-	Name      *string `json:"name"`
-	Purchased *bool   `json:"purchased"`
-	Version   int     `json:"version"`
-}
-
-type ShoppingRestock struct {
-	PurchaseID string `json:"purchaseID"`
-	Quantity   *int   `json:"quantity"`
-	Level      *int   `json:"level"`
-}

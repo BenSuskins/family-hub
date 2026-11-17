@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"database/sql"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ type shoppingRollbackFixture struct {
 	shopping  *app.Service
 	inventory *repository.SQLiteInventoryRepository
 	item      domain.Item
-	stock     models.InventoryItem
+	stock     inventorydomain.Item
 }
 
 func newShoppingRollbackFixture(t *testing.T) shoppingRollbackFixture {
@@ -33,11 +34,11 @@ func newShoppingRollbackFixture(t *testing.T) shoppingRollbackFixture {
 		t.Fatal(err)
 	}
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stock, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Milk", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+	stock, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

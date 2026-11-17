@@ -65,7 +65,10 @@ func NewAPIHandler(
 	choreService *choreapp.ChoreService,
 	mealPlanRepo repository.MealPlanRepository,
 	recipes *recipeapp.Catalogue,
-	inventoryRepo repository.InventoryRepository,
+	inventoryRepo interface {
+		inventoryapp.Store
+		inventoryapp.StockStore
+	},
 	icalFetcher *calendarapp.Service,
 	recipeExtractor *recipeapp.Service,
 	identity *identityapp.Service,

@@ -2,9 +2,10 @@ package repository_test
 
 import (
 	"context"
+	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"testing"
 
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
@@ -17,7 +18,7 @@ func TestInventoryRepository_AreaCRUD(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, err := invRepo.CreateArea(ctx, models.InventoryArea{
+	created, err := invRepo.CreateArea(ctx, inventorydomain.Area{
 		Name:            "Laundry cupboard",
 		Icon:            "drop",
 		Tint:            "blue",
@@ -71,7 +72,7 @@ func TestInventoryRepository_CreateAreaDefaults(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	created, err := invRepo.CreateArea(ctx, models.InventoryArea{
+	created, err := invRepo.CreateArea(ctx, inventorydomain.Area{
 		Name:            "Shed",
 		CreatedByUserID: user.ID,
 	})
@@ -90,12 +91,12 @@ func TestInventoryRepository_ItemCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	area, err := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Bathroom", CreatedByUserID: user.ID})
+	area, err := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Bathroom", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating area: %v", err)
 	}
 
-	item, err := invRepo.CreateItem(ctx, models.InventoryItem{
+	item, err := invRepo.CreateItem(ctx, inventorydomain.Item{
 		AreaID:          area.ID,
 		Name:            "Toilet roll",
 		Quantity:        12,
@@ -114,7 +115,7 @@ func TestInventoryRepository_ItemCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding item: %v", err)
 	}
-	if found.TrackingMode != models.TrackingModeCount || found.Quantity != 12 || found.Unit != "rolls" || found.LowAt != 8 {
+	if found.TrackingMode != inventorydomain.TrackingModeCount || found.Quantity != 12 || found.Unit != "rolls" || found.LowAt != 8 {
 		t.Errorf("unexpected item: %+v", found)
 	}
 
@@ -146,16 +147,16 @@ func TestInventoryRepository_FindAllAreasNestsItems(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	laundry, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
-	pantry, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	laundry, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Laundry", CreatedByUserID: user.ID})
+	pantry, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: laundry.ID, Name: "Pods", Quantity: 45, Unit: "pods", LowAt: 20, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, inventorydomain.Item{AreaID: laundry.ID, Name: "Pods", Quantity: 45, Unit: "pods", LowAt: 20, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Pasta", Quantity: 6, Unit: "packs", LowAt: 3, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, inventorydomain.Item{AreaID: pantry.ID, Name: "Pasta", Quantity: 6, Unit: "packs", LowAt: 3, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
-	if _, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: pantry.ID, Name: "Olive oil", Quantity: 1, Unit: "bottles", LowAt: 2, CreatedByUserID: user.ID}); err != nil {
+	if _, err := invRepo.CreateItem(ctx, inventorydomain.Item{AreaID: pantry.ID, Name: "Olive oil", Quantity: 1, Unit: "bottles", LowAt: 2, CreatedByUserID: user.ID}); err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
 
@@ -167,7 +168,7 @@ func TestInventoryRepository_FindAllAreasNestsItems(t *testing.T) {
 		t.Fatalf("expected 2 areas, got %d", len(areas))
 	}
 
-	byName := map[string]models.InventoryArea{}
+	byName := map[string]inventorydomain.Area{}
 	for _, a := range areas {
 		byName[a.Name] = a
 	}
@@ -186,8 +187,8 @@ func TestInventoryRepository_DeleteAreaCascadesItems(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Cleaning closet", CreatedByUserID: user.ID})
-	item, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Bin bags", Quantity: 40, Unit: "bags", LowAt: 20, CreatedByUserID: user.ID})
+	area, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Cleaning closet", CreatedByUserID: user.ID})
+	item, err := invRepo.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Bin bags", Quantity: 40, Unit: "bags", LowAt: 20, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
@@ -207,9 +208,9 @@ func TestInventoryRepository_QuantityClampsAtZero(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Shed", CreatedByUserID: user.ID})
+	area, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Shed", CreatedByUserID: user.ID})
 
-	created, err := invRepo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Screws", Quantity: -5, LowAt: -1, CreatedByUserID: user.ID})
+	created, err := invRepo.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Screws", Quantity: -5, LowAt: -1, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatalf("creating item: %v", err)
 	}
@@ -234,12 +235,12 @@ func TestInventoryRepository_LevelItem(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
+	area, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Laundry", CreatedByUserID: user.ID})
 
-	created, err := invRepo.CreateItem(ctx, models.InventoryItem{
+	created, err := invRepo.CreateItem(ctx, inventorydomain.Item{
 		AreaID:          area.ID,
 		Name:            "Fabric softener",
-		TrackingMode:    models.TrackingModeLevel,
+		TrackingMode:    inventorydomain.TrackingModeLevel,
 		Level:           40,
 		LowAt:           20,
 		CreatedByUserID: user.ID,
@@ -252,7 +253,7 @@ func TestInventoryRepository_LevelItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding level item: %v", err)
 	}
-	if found.TrackingMode != models.TrackingModeLevel || found.Level != 40 || found.LowAt != 20 {
+	if found.TrackingMode != inventorydomain.TrackingModeLevel || found.Level != 40 || found.LowAt != 20 {
 		t.Errorf("level item not persisted: %+v", found)
 	}
 }
@@ -264,12 +265,12 @@ func TestInventoryRepository_LevelClampsToHundred(t *testing.T) {
 	ctx := context.Background()
 
 	user := createTestUser(t, userRepo)
-	area, _ := invRepo.CreateArea(ctx, models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
+	area, _ := invRepo.CreateArea(ctx, inventorydomain.Area{Name: "Laundry", CreatedByUserID: user.ID})
 
-	created, err := invRepo.CreateItem(ctx, models.InventoryItem{
+	created, err := invRepo.CreateItem(ctx, inventorydomain.Item{
 		AreaID:          area.ID,
 		Name:            "Bleach",
-		TrackingMode:    models.TrackingModeLevel,
+		TrackingMode:    inventorydomain.TrackingModeLevel,
 		Level:           150,
 		LowAt:           200,
 		CreatedByUserID: user.ID,
@@ -297,28 +298,58 @@ func TestModifyStockRetriesWhenAnotherWriteWins(t *testing.T) {
 	repo := repository.NewInventoryRepository(db)
 	ctx := context.Background()
 	user := createTestUser(t, users)
-	area, err := repo.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := repo.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := repo.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Rice", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+	item, err := repo.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Rice", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
 	attempts := 0
-	saved, err := repo.ModifyStock(ctx, item.ID, func(current models.InventoryItem) (models.InventoryItem, error) {
+	saved, err := repo.ModifyStock(ctx, item.ID, func(current inventorydomain.Stock) (inventorydomain.Stock, error) {
 		attempts++
 		if attempts == 1 {
-			concurrent := current
+			concurrent := current.Snapshot()
 			concurrent.Quantity += 5
 			if err := repo.UpdateItem(ctx, concurrent); err != nil {
-				return models.InventoryItem{}, err
+				return inventorydomain.Stock{}, err
 			}
 		}
-		current.Quantity++
-		return current, nil
+		delta := int64(1)
+		return current.Change(inventorydomain.StockChange{QuantityDelta: &delta})
 	})
 	if err != nil || attempts != 2 || saved.Quantity != 11 {
 		t.Fatalf("saved=%+v attempts=%d err=%v", saved, attempts, err)
+	}
+}
+
+func TestModifyStockPreservesLegacyValues(t *testing.T) {
+	db := testutil.NewTestDatabase(t)
+	ctx := context.Background()
+	user := createTestUser(t, repository.NewUserRepository(db))
+	repo := repository.NewInventoryRepository(db)
+	area, err := repo.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := repo.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Milk", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 4, CreatedByUserID: user.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE inventory_items SET low_at = -3 WHERE id = ?`, item.ID); err != nil {
+		t.Fatal(err)
+	}
+	delta := int64(2)
+	result, err := inventoryapp.NewStockService(repo).Update(ctx, item.ID, inventorydomain.StockChange{QuantityDelta: &delta})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Quantity != 6 || result.LowAt != -3 {
+		t.Fatalf("legacy values changed: %+v", result)
+	}
+	persisted, err := repo.FindItemByID(ctx, item.ID)
+	if err != nil || persisted.Quantity != 6 || persisted.LowAt != -3 {
+		t.Fatalf("persisted legacy values: %+v, %v", persisted, err)
 	}
 }

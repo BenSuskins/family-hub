@@ -6,38 +6,38 @@ import (
 	"testing"
 
 	app "github.com/bensuskins/family-hub/internal/application/inventory"
-	"github.com/bensuskins/family-hub/internal/models"
+	domain "github.com/bensuskins/family-hub/internal/domain/inventory"
 )
 
 type inventoryFake struct {
-	area                  models.InventoryArea
+	area                  domain.Area
 	readError, writeError error
 }
 
-func (fake *inventoryFake) FindAllAreas(context.Context) ([]models.InventoryArea, error) {
-	return []models.InventoryArea{fake.area}, nil
+func (fake *inventoryFake) FindAllAreas(context.Context) ([]domain.Area, error) {
+	return []domain.Area{fake.area}, nil
 }
-func (fake *inventoryFake) FindAreaByID(context.Context, string) (models.InventoryArea, error) {
+func (fake *inventoryFake) FindAreaByID(context.Context, string) (domain.Area, error) {
 	return fake.area, fake.readError
 }
-func (fake *inventoryFake) CreateArea(context.Context, models.InventoryArea) (models.InventoryArea, error) {
-	return models.InventoryArea{}, nil
+func (fake *inventoryFake) CreateArea(context.Context, domain.Area) (domain.Area, error) {
+	return domain.Area{}, nil
 }
-func (fake *inventoryFake) UpdateArea(_ context.Context, area models.InventoryArea) error {
+func (fake *inventoryFake) UpdateArea(_ context.Context, area domain.Area) error {
 	fake.area = area
 	return fake.writeError
 }
 func (fake *inventoryFake) DeleteArea(context.Context, string) error { return nil }
-func (fake *inventoryFake) FindItemByID(context.Context, string) (models.InventoryItem, error) {
-	return models.InventoryItem{}, nil
+func (fake *inventoryFake) FindItemByID(context.Context, string) (domain.Item, error) {
+	return domain.Item{}, nil
 }
-func (fake *inventoryFake) CreateItem(context.Context, models.InventoryItem) (models.InventoryItem, error) {
-	return models.InventoryItem{}, nil
+func (fake *inventoryFake) CreateItem(context.Context, domain.Item) (domain.Item, error) {
+	return domain.Item{}, nil
 }
-func (fake *inventoryFake) UpdateItem(context.Context, models.InventoryItem) error { return nil }
-func (fake *inventoryFake) DeleteItem(context.Context, string) error               { return nil }
+func (fake *inventoryFake) UpdateItem(context.Context, domain.Item) error { return nil }
+func (fake *inventoryFake) DeleteItem(context.Context, string) error      { return nil }
 func TestAreaUpdatePreservesFallbackAndCopies(t *testing.T) {
-	store := &inventoryFake{area: models.InventoryArea{ID: "pantry", Items: []models.InventoryItem{{Name: "Milk"}}}}
+	store := &inventoryFake{area: domain.Area{ID: "pantry", Items: []domain.Item{{Name: "Milk"}}}}
 	service := app.New(store)
 	areas, err := service.FindAllAreas(context.Background())
 	if err != nil {
@@ -48,7 +48,7 @@ func TestAreaUpdatePreservesFallbackAndCopies(t *testing.T) {
 		t.Fatal("snapshot changed storage")
 	}
 	store.readError = errors.New("read failed")
-	saved, err := service.SaveArea(context.Background(), models.InventoryArea{ID: "pantry", Name: "Pantry"})
+	saved, err := service.SaveArea(context.Background(), domain.Area{ID: "pantry", Name: "Pantry"})
 	if err != nil || saved.Name != "Pantry" {
 		t.Fatalf("fallback %+v: %v", saved, err)
 	}

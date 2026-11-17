@@ -6,7 +6,6 @@ import (
 
 	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"github.com/bensuskins/family-hub/internal/middleware"
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -36,10 +35,7 @@ func (handler *APIHandler) ListInventory(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load inventory", err)
 		return
 	}
-	if areas == nil {
-		areas = []models.InventoryArea{}
-	}
-	writeJSON(w, http.StatusOK, areas)
+	writeJSON(w, http.StatusOK, inventoryAreaResponses(areas))
 }
 
 func (handler *APIHandler) CreateInventoryArea(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +51,7 @@ func (handler *APIHandler) CreateInventoryArea(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	created, err := handler.inventoryService.CreateArea(ctx, models.InventoryArea{
+	created, err := handler.inventoryService.CreateArea(ctx, inventorydomain.Area{
 		Name:            body.Name,
 		Icon:            body.Icon,
 		Tint:            body.Tint,
@@ -65,7 +61,7 @@ func (handler *APIHandler) CreateInventoryArea(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to create area", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, created)
+	writeJSON(w, http.StatusCreated, inventoryAreaResponseFor(created))
 }
 
 func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +100,7 @@ func (handler *APIHandler) UpdateInventoryArea(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to update area", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, inventoryAreaResponseFor(updated))
 }
 
 func (handler *APIHandler) DeleteInventoryArea(w http.ResponseWriter, r *http.Request) {
@@ -150,7 +146,7 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	created, err := handler.inventoryService.CreateItem(ctx, models.InventoryItem{
+	created, err := handler.inventoryService.CreateItem(ctx, inventorydomain.Item{
 		AreaID:          areaID,
 		Name:            body.Name,
 		TrackingMode:    body.TrackingMode,
@@ -164,7 +160,7 @@ func (handler *APIHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to create item", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, created)
+	writeJSON(w, http.StatusCreated, inventoryItemResponseFor(created))
 }
 
 func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +198,7 @@ func (handler *APIHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to update item", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, updated)
+	writeJSON(w, http.StatusOK, inventoryItemResponseFor(updated))
 }
 
 func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Request) {
@@ -226,11 +222,15 @@ func (handler *APIHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Re
 }
 
 func (handler *APIHandler) UpdateInventoryStock(w http.ResponseWriter, r *http.Request) {
-	var change models.InventoryStockChange
-	if !decodeJSONBody(w, r, &change) {
+	var body struct {
+		Quantity      *int64 `json:"quantity"`
+		QuantityDelta *int64 `json:"quantityDelta"`
+		Level         *int64 `json:"level"`
+	}
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	item, err := handler.stockService.Update(r.Context(), chi.URLParam(r, "id"), change)
+	item, err := handler.stockService.Update(r.Context(), chi.URLParam(r, "id"), inventorydomain.StockChange{Quantity: body.Quantity, QuantityDelta: body.QuantityDelta, Level: body.Level})
 	if err != nil {
 		switch {
 		case errors.Is(err, inventorydomain.ErrItemNotFound):
@@ -242,5 +242,5 @@ func (handler *APIHandler) UpdateInventoryStock(w http.ResponseWriter, r *http.R
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, item)
+	writeJSON(w, http.StatusOK, inventoryItemResponseFor(item))
 }

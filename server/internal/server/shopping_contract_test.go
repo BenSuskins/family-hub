@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/bensuskins/family-hub/internal/models"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 )
 
 func TestOpenAPIShoppingTransitionsContract(t *testing.T) {
@@ -35,7 +35,7 @@ func TestOpenAPIShoppingTransitionsContract(t *testing.T) {
 	if areaResponse.Code != http.StatusCreated {
 		t.Fatalf("area: %d %s", areaResponse.Code, areaResponse.Body.String())
 	}
-	var area models.InventoryArea
+	var area inventorydomain.Area
 	if err := json.Unmarshal(areaResponse.Body.Bytes(), &area); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestOpenAPIShoppingTransitionsContract(t *testing.T) {
 	if stockResponse.Code != http.StatusCreated {
 		t.Fatalf("stock: %d %s", stockResponse.Code, stockResponse.Body.String())
 	}
-	var stock models.InventoryItem
+	var stock inventorydomain.Item
 	if err := json.Unmarshal(stockResponse.Body.Bytes(), &stock); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestOpenAPIShoppingTransitionsContract(t *testing.T) {
 	if inventory.Code != http.StatusOK {
 		t.Fatalf("inventory: %d %s", inventory.Code, inventory.Body.String())
 	}
-	var areas []models.InventoryArea
+	var areas []inventorydomain.Area
 	if err := json.Unmarshal(inventory.Body.Bytes(), &areas); err != nil || len(areas) != 1 || len(areas[0].Items) != 1 || areas[0].Items[0].Quantity != 7 {
 		t.Fatalf("inventory after repeated restock: %s, %v", inventory.Body.String(), err)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	app "github.com/bensuskins/family-hub/internal/application/inventory"
 	domain "github.com/bensuskins/family-hub/internal/domain/inventory"
@@ -15,24 +16,31 @@ import (
 
 type stockFake struct {
 	mutex sync.Mutex
-	item  models.InventoryItem
+	item  domain.Item
 }
 
-func (fake *stockFake) ModifyStock(ctx context.Context, id string, change func(models.InventoryItem) (models.InventoryItem, error)) (models.InventoryItem, error) {
+func (fake *stockFake) ModifyStock(ctx context.Context, id string, change func(domain.Stock) (domain.Stock, error)) (domain.Item, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	if err := ctx.Err(); err != nil {
-		return models.InventoryItem{}, err
+		return domain.Item{}, err
 	}
 	if id != fake.item.ID {
-		return models.InventoryItem{}, domain.ErrItemNotFound
+		return domain.Item{}, domain.ErrItemNotFound
 	}
-	updated, err := change(fake.item)
+	stock, err := domain.RestoreStock(fake.item)
 	if err != nil {
-		return models.InventoryItem{}, err
+		stock = domain.RestoreLegacyStock(fake.item)
 	}
-	fake.item = updated
-	return updated, nil
+	updated, err := change(stock)
+	if err != nil {
+		return domain.Item{}, err
+	}
+	snapshot := updated.Snapshot()
+	fake.item.Quantity = snapshot.Quantity
+	fake.item.Level = snapshot.Level
+	fake.item.UpdatedAt = time.Now()
+	return fake.item, nil
 }
 func TestStockOperationContract(t *testing.T) {
 	factories := map[string]func(*testing.T) (*app.StockService, string){
@@ -44,18 +52,18 @@ func TestStockOperationContract(t *testing.T) {
 				t.Fatal(err)
 			}
 			store := repository.NewInventoryRepository(database)
-			area, err := store.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+			area, err := store.CreateArea(ctx, domain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 			if err != nil {
 				t.Fatal(err)
 			}
-			item, err := store.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Rice", TrackingMode: models.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
+			item, err := store.CreateItem(ctx, domain.Item{AreaID: area.ID, Name: "Rice", TrackingMode: domain.TrackingModeCount, Quantity: 5, CreatedByUserID: user.ID})
 			if err != nil {
 				t.Fatal(err)
 			}
 			return app.NewStockService(store), item.ID
 		},
 		"fake": func(t *testing.T) (*app.StockService, string) {
-			return app.NewStockService(&stockFake{item: models.InventoryItem{ID: "item", Name: "Rice", TrackingMode: models.TrackingModeCount, Quantity: 5}}), "item"
+			return app.NewStockService(&stockFake{item: domain.Item{ID: "item", Name: "Rice", TrackingMode: domain.TrackingModeCount, Quantity: 5}}), "item"
 		},
 	}
 	for name, factory := range factories {
@@ -68,7 +76,7 @@ func TestStockOperationContract(t *testing.T) {
 			for range 20 {
 				go func() {
 					<-start
-					_, err := service.Update(ctx, id, models.InventoryStockChange{QuantityDelta: &delta})
+					_, err := service.Update(ctx, id, domain.StockChange{QuantityDelta: &delta})
 					results <- err
 				}()
 			}
@@ -79,20 +87,20 @@ func TestStockOperationContract(t *testing.T) {
 				}
 			}
 			zero := int64(0)
-			saved, err := service.Update(ctx, id, models.InventoryStockChange{QuantityDelta: &zero})
-			if err != nil || saved.Quantity != 25 || saved.Name != "Rice" {
+			saved, err := service.Update(ctx, id, domain.StockChange{QuantityDelta: &zero})
+			if err != nil || saved.Quantity != 25 || saved.Name != "Rice" || saved.UpdatedAt.IsZero() {
 				t.Fatalf("concurrent stock: %+v %v", saved, err)
 			}
 			decrease := int64(-100)
-			saved, err = service.Update(ctx, id, models.InventoryStockChange{QuantityDelta: &decrease})
+			saved, err = service.Update(ctx, id, domain.StockChange{QuantityDelta: &decrease})
 			if err != nil || saved.Quantity != 0 {
 				t.Fatalf("clamp: %+v %v", saved, err)
 			}
-			if _, err := service.Update(ctx, "missing", models.InventoryStockChange{QuantityDelta: &delta}); !errors.Is(err, domain.ErrItemNotFound) {
+			if _, err := service.Update(ctx, "missing", domain.StockChange{QuantityDelta: &delta}); !errors.Is(err, domain.ErrItemNotFound) {
 				t.Fatalf("missing: %v", err)
 			}
 			level := int64(50)
-			if _, err := service.Update(ctx, id, models.InventoryStockChange{Level: &level}); !errors.Is(err, domain.ErrInvalidStockChange) {
+			if _, err := service.Update(ctx, id, domain.StockChange{Level: &level}); !errors.Is(err, domain.ErrInvalidStockChange) {
 				t.Fatalf("wrong mode: %v", err)
 			}
 		})

@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 	"testing"
 	"time"
 
@@ -21,11 +22,11 @@ func TestShoppingInventoryUsesCallerTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Rice", TrackingMode: models.TrackingModeCount, Quantity: 4, CreatedByUserID: user.ID})
+	item, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Rice", TrackingMode: inventorydomain.TrackingModeCount, Quantity: 4, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +36,7 @@ func TestShoppingInventoryUsesCallerTransaction(t *testing.T) {
 	}
 	adapter := repository.NewShoppingInventory(transaction)
 	mode, err := adapter.TrackingMode(ctx, item.ID)
-	if err != nil || mode != models.TrackingModeCount {
+	if err != nil || mode != inventorydomain.TrackingModeCount {
 		t.Fatalf("mode %q: %v", mode, err)
 	}
 	if _, err = adapter.TrackingMode(ctx, "missing"); !errors.Is(err, shoppingdomain.ErrNotFound) {
@@ -67,11 +68,11 @@ func TestShoppingInventoryRestockPreservesLegacyModeHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(ctx, models.InventoryArea{Name: "Pantry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(ctx, inventorydomain.Area{Name: "Pantry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, err := inventory.CreateItem(ctx, models.InventoryItem{AreaID: area.ID, Name: "Soap", TrackingMode: models.TrackingModeLevel, Level: 20, CreatedByUserID: user.ID})
+	item, err := inventory.CreateItem(ctx, inventorydomain.Item{AreaID: area.ID, Name: "Soap", TrackingMode: inventorydomain.TrackingModeLevel, Level: 20, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,16 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	householdapp "github.com/bensuskins/family-hub/internal/application/household"
-	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
-	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	householdapp "github.com/bensuskins/family-hub/internal/application/household"
+	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
+	shoppingdomain "github.com/bensuskins/family-hub/internal/domain/shopping"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -73,11 +75,11 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	users := repository.NewUserRepository(database)
 	user := newInventoryTestUser(t, users)
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(context.Background(), models.InventoryArea{Name: "Kitchen", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(context.Background(), inventorydomain.Area{Name: "Kitchen", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stock, err := inventory.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Soap", TrackingMode: "count", Quantity: 1, LowAt: 1, CreatedByUserID: user.ID})
+	stock, err := inventory.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Soap", TrackingMode: "count", Quantity: 1, LowAt: 1, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,11 +135,11 @@ func TestConcurrentRestockChangesStockOnce(t *testing.T) {
 	users := repository.NewUserRepository(database)
 	user := newInventoryTestUser(t, users)
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(context.Background(), models.InventoryArea{Name: "Bathroom", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(context.Background(), inventorydomain.Area{Name: "Bathroom", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stock, err := inventory.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Soap", TrackingMode: "count", Quantity: 2, CreatedByUserID: user.ID})
+	stock, err := inventory.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Soap", TrackingMode: "count", Quantity: 2, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,11 +176,11 @@ func TestShoppingLevelRestockAndRestore(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	user := newInventoryTestUser(t, repository.NewUserRepository(database))
 	inventory := repository.NewInventoryRepository(database)
-	area, err := inventory.CreateArea(context.Background(), models.InventoryArea{Name: "Laundry", CreatedByUserID: user.ID})
+	area, err := inventory.CreateArea(context.Background(), inventorydomain.Area{Name: "Laundry", CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stock, err := inventory.CreateItem(context.Background(), models.InventoryItem{AreaID: area.ID, Name: "Detergent", TrackingMode: "level", Level: 10, CreatedByUserID: user.ID})
+	stock, err := inventory.CreateItem(context.Background(), inventorydomain.Item{AreaID: area.ID, Name: "Detergent", TrackingMode: "level", Level: 10, CreatedByUserID: user.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

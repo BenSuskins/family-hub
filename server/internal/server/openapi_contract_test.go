@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
+
 	"github.com/bensuskins/family-hub/internal/apidocs"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -265,7 +267,7 @@ func TestOpenAPIHouseholdDataContract(t *testing.T) {
 	if areaResponse.Code != http.StatusCreated {
 		t.Fatalf("area: %d %s", areaResponse.Code, areaResponse.Body.String())
 	}
-	var area models.InventoryArea
+	var area inventorydomain.Area
 	if err := json.Unmarshal(areaResponse.Body.Bytes(), &area); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +275,7 @@ func TestOpenAPIHouseholdDataContract(t *testing.T) {
 	if itemResponse.Code != http.StatusCreated {
 		t.Fatalf("item: %d %s", itemResponse.Code, itemResponse.Body.String())
 	}
-	var stock models.InventoryItem
+	var stock inventorydomain.Item
 	if err := json.Unmarshal(itemResponse.Body.Bytes(), &stock); err != nil {
 		t.Fatal(err)
 	}

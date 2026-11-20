@@ -1,19 +1,23 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
 const maxAvatarBytes = 2 * 1024 * 1024 // 2 MB
 
-type ProfileHandler struct {
-	userRepo repository.UserRepository
+type avatarReader interface {
+	FindAvatarData(context.Context, string) (string, error)
 }
 
-func NewProfileHandler(userRepo repository.UserRepository) *ProfileHandler {
+type ProfileHandler struct {
+	userRepo avatarReader
+}
+
+func NewProfileHandler(userRepo avatarReader) *ProfileHandler {
 	return &ProfileHandler{userRepo: userRepo}
 }
 

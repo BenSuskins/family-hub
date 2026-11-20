@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,7 +33,7 @@ import (
 type APIHandler struct {
 	users            *userapp.Service
 	categories       *categoryapp.Service
-	assignmentRepo   repository.ChoreAssignmentRepository
+	calendarView     *calendarapp.ViewService
 	tokens           *identityapp.TokenAdministration
 	settingsRepo     repository.SettingsRepository
 	generalSettings  *householdapp.Service
@@ -58,7 +57,7 @@ const (
 func NewAPIHandler(
 	users *userapp.Service,
 	categories *categoryapp.Service,
-	assignmentRepo repository.ChoreAssignmentRepository,
+	calendarView *calendarapp.ViewService,
 	tokens *identityapp.TokenAdministration,
 	settingsRepo repository.SettingsRepository,
 	generalSettings *householdapp.Service,
@@ -83,7 +82,7 @@ func NewAPIHandler(
 	return &APIHandler{
 		users:            users,
 		categories:       categories,
-		assignmentRepo:   assignmentRepo,
+		calendarView:     calendarView,
 		tokens:           tokens,
 		settingsRepo:     settingsRepo,
 		generalSettings:  generalSettings,
@@ -333,138 +332,37 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	location := time.UTC
-	if handler.settingsRepo != nil {
-		value, err := handler.settingsRepo.Get(ctx, "home_info")
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			slog.Error("loading household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-		}
-		if err == nil {
-			var home models.HomeInfo
-			if err := json.Unmarshal([]byte(value), &home); err != nil {
-				slog.Error("decoding household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-			} else if home.Timezone != "" {
-				if configured, err := time.LoadLocation(home.Timezone); err == nil {
-					location = configured
-				} else {
-					slog.Error("loading household timezone for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-				}
+	query := calendarapp.ViewQuery{View: r.URL.Query().Get("view"), Date: r.URL.Query().Get("date"), Month: r.URL.Query().Get("month")}
+	query.OnFailure = func(source calendarapp.ViewFailureSource, failure error) {
+		switch source {
+		case calendarapp.ViewFailureLocation:
+			message := "loading household timezone for calendar API"
+			if errors.Is(failure, calendarapp.ErrViewLocationDecode) {
+				message = "decoding household timezone for calendar API"
 			}
-		}
-	}
-	now := time.Now().In(location)
-
-	view := r.URL.Query().Get("view")
-	if view == "" {
-		view = "month"
-	}
-
-	var start, end time.Time
-	switch view {
-	case "week":
-		date := now
-		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			d, err := time.ParseInLocation(DateFormat, dateStr, location)
-			if err != nil {
-				writeJSONError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
-				return
-			}
-			date = d
-		}
-		offset := (int(date.Weekday()) + 6) % 7
-		start = time.Date(date.Year(), date.Month(), date.Day()-offset, 0, 0, 0, 0, location)
-		end = start.AddDate(0, 0, 7)
-
-	case "day":
-		date := now
-		if dateStr := r.URL.Query().Get("date"); dateStr != "" {
-			d, err := time.ParseInLocation(DateFormat, dateStr, location)
-			if err != nil {
-				writeJSONError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
-				return
-			}
-			date = d
-		}
-		start = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, location)
-		end = start.AddDate(0, 0, 1)
-
-	default: // "month"
-		monthParam := r.URL.Query().Get("month")
-		if monthParam == "" {
-			monthParam = now.Format("2006-01")
-		}
-		monthStart, err := time.ParseInLocation("2006-01", monthParam, location)
-		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid month format, use YYYY-MM")
-			return
-		}
-		start = monthStart
-		end = monthStart.AddDate(0, 1, 0)
-	}
-
-	lastInstant := end.Add(-time.Nanosecond)
-	chores, err := handler.choreService.FindChores(ctx, choreapp.ChoreFilter{
-		DueAfter:  &start,
-		DueBefore: &lastInstant,
-	})
-	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "failed to load chores", err)
-		return
-	}
-	forecasts, err := handler.choreService.Forecast(ctx, start, end)
-	if err != nil {
-		writeAPIError(w, r, 500, "failed to load chore forecast", err)
-		return
-	}
-	chores = append(chores, forecasts...)
-	if chores == nil {
-		chores = []models.Chore{}
-	}
-
-	var events []models.Event
-	eventsAvailable := true
-	if handler.icalFetcher != nil {
-		fetchedEvents, err := handler.icalFetcher.FetchForRange(ctx, start, end)
-		if err != nil {
+			slog.Error(message, "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", failure)
+		case calendarapp.ViewFailureEvents:
 			observability.RecordDependencyFailure(r, "calendar_feed")
-			slog.Error("fetching calendar events for API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-			eventsAvailable = false
-		} else {
-			events = fetchedEvents
+			slog.Error("fetching calendar events for API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", failure)
+		case calendarapp.ViewFailureMeals:
+			slog.Error("fetching meals for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", failure)
 		}
 	}
-	if events == nil {
-		events = []models.Event{}
-	}
-
-	var meals []models.MealPlan
-	mealsAvailable := true
-	if handler.mealService != nil {
-		fetchedMeals, err := handler.mealService.FindAll(ctx, mealapp.Filter{
-			DateFrom: start.Format(DateFormat),
-			DateTo:   end.AddDate(0, 0, -1).Format(DateFormat),
-		})
-		if err != nil {
-			slog.Error("fetching meals for calendar API", "method", r.Method, "route", observability.RoutePattern(r), "status", http.StatusOK, "error", err)
-			mealsAvailable = false
-		} else {
-			meals = fetchedMeals
+	result, err := handler.calendarView.List(r.Context(), query)
+	if err != nil {
+		switch {
+		case errors.Is(err, calendarapp.ErrViewDate):
+			writeJSONError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+		case errors.Is(err, calendarapp.ErrViewMonth):
+			writeJSONError(w, http.StatusBadRequest, "invalid month format, use YYYY-MM")
+		case errors.Is(err, calendarapp.ErrViewForecast):
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chore forecast", err)
+		default:
+			writeAPIError(w, r, http.StatusInternalServerError, "failed to load chores", err)
 		}
+		return
 	}
-	if meals == nil {
-		meals = []models.MealPlan{}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"chores": chores,
-		"events": events,
-		"meals":  meals,
-		"availability": map[string]string{
-			"events": availabilityStatus(eventsAvailable),
-			"meals":  availabilityStatus(mealsAvailable),
-		},
-	})
+	writeJSON(w, http.StatusOK, mapCalendarView(result))
 }
 
 func availabilityStatus(available bool) string {

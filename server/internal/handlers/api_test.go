@@ -3,13 +3,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/bensuskins/family-hub/internal/application/bins"
-	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bensuskins/family-hub/internal/application/bins"
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
 
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 	userapp "github.com/bensuskins/family-hub/internal/application/users"
@@ -138,7 +139,7 @@ func TestCompleteChore_API(t *testing.T) {
 	})
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
-	handler := NewAPIHandler(userapp.New(userRepo), nil, assignmentRepo, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(userapp.New(userRepo), nil, nil, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -178,7 +179,7 @@ func TestCompleteChore_API_NotFound(t *testing.T) {
 	})
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
-	handler := NewAPIHandler(userapp.New(userRepo), nil, assignmentRepo, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(userapp.New(userRepo), nil, nil, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -219,7 +220,7 @@ func TestCompleteChore_API_AlreadyComplete(t *testing.T) {
 	})
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, repository.NewChoreSeriesRepository(database))
-	handler := NewAPIHandler(userapp.New(userRepo), nil, assignmentRepo, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(userapp.New(userRepo), nil, nil, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -660,6 +661,8 @@ func TestListCalendar_API(t *testing.T) {
 
 	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, choreapp.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, nil, nil, "", "")
 
+	handler.calendarView = services.NewCalendarView(handler.settingsRepo, handler.choreService, handler.icalFetcher, handler.mealService, time.Now)
+
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
 
@@ -689,6 +692,8 @@ func TestListCalendar_API_InvalidMonthParam(t *testing.T) {
 
 	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, choreapp.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, nil, nil, "", "")
 
+	handler.calendarView = services.NewCalendarView(handler.settingsRepo, handler.choreService, handler.icalFetcher, handler.mealService, time.Now)
+
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
 
@@ -707,6 +712,8 @@ func TestListCalendar_API_DefaultsToCurrentMonth(t *testing.T) {
 
 	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, choreapp.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, nil, nil, "", "")
 
+	handler.calendarView = services.NewCalendarView(handler.settingsRepo, handler.choreService, handler.icalFetcher, handler.mealService, time.Now)
+
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
 
@@ -724,6 +731,8 @@ func TestListCalendar_API_EmptyResult(t *testing.T) {
 	choreRepo := repository.NewChoreRepository(database)
 
 	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, choreapp.NewChoreService(choreRepo, repository.NewChoreAssignmentRepository(database), repository.NewUserRepository(database), repository.NewChoreSeriesRepository(database)), nil, nil, nil, nil, nil, nil, nil, "", "")
+
+	handler.calendarView = services.NewCalendarView(handler.settingsRepo, handler.choreService, handler.icalFetcher, handler.mealService, time.Now)
 
 	router := chi.NewRouter()
 	router.Get("/api/calendar", handler.ListCalendar)
@@ -800,7 +809,7 @@ func TestDashboardStatsIncludesCollectionsDueTomorrow(t *testing.T) {
 	}, Enabled: true, UploadedAt: time.Now().UTC().Format(time.RFC3339)}); err != nil {
 		t.Fatal(err)
 	}
-	handler := NewAPIHandler(userapp.New(userRepo), nil, assignmentRepo, nil, settings, nil,
+	handler := NewAPIHandler(userapp.New(userRepo), nil, nil, nil, settings, nil,
 		choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo), nil, nil, nil, nil, nil, nil, nil, "", "")
 	handler.dashboard = testDashboard(handler)
 
@@ -1253,7 +1262,7 @@ func TestCreateChore_API_FullOptions(t *testing.T) {
 	category, _ := categoryRepo.Create(ctx, categoryapp.Category{Name: "Kitchen", CreatedByUserID: user.ID})
 
 	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo)
-	handler := NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), assignmentRepo, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), nil, nil, nil, nil, choreService, nil, nil, nil, nil, nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {

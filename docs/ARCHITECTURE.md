@@ -66,8 +66,10 @@ owns the transaction operations for purchase and restock. A transaction-scoped
 inventory capability commits stock, purchase claims and shopping state together.
 Startup connects SQLite adapters to those ports. Shared fake and SQLite contracts
 cover stock changes, rollback and shopping restocks.
-Calendar feed caching and range selection use a storage port and a feed port;
-the iCal adapter provides safe HTTP fetching and parsing. Rail and weather
+Calendar view operations combine chores, forecasts, feeds and meals through
+consumer-owned ports. Calendar feed caching uses a storage port and a feed port;
+the iCal adapter provides safe HTTP fetching and parsing. Display commute
+operations select scheduled rail boards and retain partial-failure status. Rail and weather
 operations own their caches and call provider interfaces. Departure estimates
 use calendar and driving interfaces. Startup connects these operations to the
 SQLite and external provider adapters. Application tests use provider fakes;

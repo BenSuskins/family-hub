@@ -4877,7 +4877,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CommuteBoard"
+                  "type": "object",
+                  "required": ["status", "boards"],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["setup_required", "available", "partial", "unavailable", "outside_schedule"]
+                    },
+                    "timezone": {"type": "string"},
+                    "boards": {
+                      "type": "array",
+                      "items": {"$ref": "#/components/schemas/CommuteBoard"}
+                    }
+                  }
                 }
               }
             }

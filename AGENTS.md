@@ -74,7 +74,9 @@ Shared stock and shopping contracts live in `internal/contracttests/`.
 **External data** — Calendar subscriptions and feeds, recipe import, rail,
 departure estimates, and weather use feature packages in
 `internal/application/`. External HTTP and parsing adapters remain in
-`internal/services/`. The calendar cache uses stale data when a refresh fails.
+`internal/services/`. Calendar view and display commute operations combine
+feature capabilities through consumer-owned ports. The calendar cache uses stale
+data when a refresh fails.
 Recipe catalogue operations live in `internal/application/recipes/`; legacy
 instruction and timer rules live in `internal/domain/recipes/`. The image
 handler remains a media adapter.

@@ -1,130 +1,83 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
 
-	displayapp "github.com/bensuskins/family-hub/internal/application/displays"
-
 	commuteapp "github.com/bensuskins/family-hub/internal/application/commute"
-
 	"github.com/bensuskins/family-hub/internal/middleware"
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
-	"github.com/bensuskins/family-hub/internal/repository"
 )
 
-type DisplayCommuteHandler struct {
-	pairings *displayapp.Settings
-	settings repository.SettingsRepository
-	service  *commuteapp.CommuteService
-}
+type DisplayCommuteHandler struct{ service *commuteapp.DisplayCommute }
 
-func NewDisplayCommuteHandler(pairings *displayapp.Settings, settings repository.SettingsRepository, service *commuteapp.CommuteService) *DisplayCommuteHandler {
-	return &DisplayCommuteHandler{pairings: pairings, settings: settings, service: service}
+func NewDisplayCommuteHandler(service *commuteapp.DisplayCommute) *DisplayCommuteHandler {
+	return &DisplayCommuteHandler{service}
 }
-
 func (handler *DisplayCommuteHandler) Trains(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Cache-Control", "no-store")
-	display, err := handler.pairings.FindByTokenID(request.Context(), middleware.GetDisplayTokenID(request.Context()))
+
+	logTimezone := func(message string, err error) {
+		slog.Error(message, "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
+	}
+	observer := commuteapp.DisplayObserver{
+		RailFailure: func(failure error) {
+			observability.RecordDependencyFailure(request, "rail")
+			slog.Error("fetching trains for display commute failed", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", failure)
+		},
+		TimezoneReadError:     func(err error) { logTimezone("loading household timezone for display commute", err) },
+		TimezoneDecodeError:   func(err error) { logTimezone("decoding household timezone for display commute", err) },
+		TimezoneLocationError: func(err error) { logTimezone("loading household timezone for display commute", err) },
+	}
+	result, err := handler.service.Trains(request.Context(), middleware.GetDisplayTokenID(request.Context()), observer)
 	if err != nil {
 		writeAPIError(writer, request, http.StatusInternalServerError, "could not load display settings", err)
 		return
 	}
-	preferences := display.CommutePreferences
-	if !models.IsDisplayStationCode(preferences.HomeStationCode) || !models.IsDisplayStationCode(preferences.WorkStationCode) {
-		writeJSON(writer, http.StatusOK, map[string]any{"status": "setup_required", "boards": []models.CommuteBoard{}})
-		return
+
+	boards := make([]displayBoardResponse, len(result.Boards))
+	for i, board := range result.Boards {
+		boards[i] = displayBoardResponseFor(board)
 	}
-	location := displayTimezone(request, handler.settings)
-	now := time.Now().In(location)
-	type directionRoute struct {
-		schedule            models.DisplayCommuteSchedule
-		origin, destination string
+	response := map[string]any{"status": result.Status, "boards": boards}
+	if result.Status != "setup_required" {
+		response["timezone"] = result.Timezone
 	}
-	routes := []directionRoute{
-		{preferences.ToWork, preferences.HomeStationCode, preferences.WorkStationCode},
-		{preferences.ToHome, preferences.WorkStationCode, preferences.HomeStationCode},
-	}
-	boards := make([]models.CommuteBoard, 0, 2)
-	failures := 0
-	for _, route := range routes {
-		if !activeCommuteWindow(route.schedule, now) {
-			continue
-		}
-		board, err := handler.service.FetchTrains(request.Context(), route.origin, route.destination, preferences.TrainCount)
-		if err != nil {
-			observability.RecordDependencyFailure(request, "rail")
-			slog.Error("fetching trains for display commute failed", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
-			failures++
-			continue
-		}
-		boards = append(boards, board)
-	}
-	status := "available"
-	if len(boards) == 0 && failures > 0 {
-		status = "unavailable"
-	}
-	if len(boards) > 0 && failures > 0 {
-		status = "partial"
-	}
-	if len(boards) == 0 && failures == 0 {
-		status = "outside_schedule"
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{"status": status, "timezone": location.String(), "boards": boards})
+	writeJSON(writer, http.StatusOK, response)
 }
 
-func activeCommuteWindow(schedule models.DisplayCommuteSchedule, now time.Time) bool {
-	if !schedule.Enabled {
-		return false
-	}
-	start, startErr := time.Parse("15:04", schedule.Start)
-	end, endErr := time.Parse("15:04", schedule.End)
-	if startErr != nil || endErr != nil || len(schedule.Weekdays) == 0 {
-		return false
-	}
-	weekday := int(now.Weekday()) + 1
-	minute := now.Hour()*60 + now.Minute()
-	startMinute := start.Hour()*60 + start.Minute()
-	endMinute := end.Hour()*60 + end.Minute()
-	selected := func(day int) bool {
-		for _, value := range schedule.Weekdays {
-			if value == day {
-				return true
-			}
-		}
-		return false
-	}
-	if startMinute < endMinute {
-		return selected(weekday) && minute >= startMinute && minute < endMinute
-	}
-	if minute >= startMinute {
-		return selected(weekday)
-	}
-	previous := weekday - 1
-	if previous == 0 {
-		previous = 7
-	}
-	return minute < endMinute && selected(previous)
+type displayStationResponse struct {
+	Code string `json:"code"`
+}
+type displayTrainResponse struct {
+	ServiceID          string  `json:"serviceId"`
+	Operator           string  `json:"operator"`
+	Platform           *string `json:"platform"`
+	Status             string  `json:"status"`
+	ScheduledDeparture *string `json:"scheduledDeparture"`
+	ExpectedDeparture  *string `json:"expectedDeparture"`
+	ScheduledArrival   *string `json:"scheduledArrival"`
+	ExpectedArrival    *string `json:"expectedArrival"`
+	CancellationReason *string `json:"cancellationReason"`
+	DelayReason        *string `json:"delayReason"`
+}
+type displayBoardResponse struct {
+	Origin      displayStationResponse `json:"origin"`
+	Destination displayStationResponse `json:"destination"`
+	GeneratedAt time.Time              `json:"generatedAt"`
+	FetchedAt   time.Time              `json:"fetchedAt"`
+	Timezone    string                 `json:"timezone"`
+	Trains      []displayTrainResponse `json:"trains"`
 }
 
-func displayTimezone(request *http.Request, settings repository.SettingsRepository) *time.Location {
-	var home models.HomeInfo
-	value, err := settings.Get(request.Context(), "home_info")
-	if err != nil {
-		slog.Error("loading household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
-	} else if err := json.Unmarshal([]byte(value), &home); err != nil {
-		slog.Error("decoding household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
+func displayBoardResponseFor(board commuteapp.DisplayBoard) displayBoardResponse {
+	response := displayBoardResponse{Origin: displayStationResponse{board.Origin}, Destination: displayStationResponse{board.Destination}, GeneratedAt: board.GeneratedAt, FetchedAt: board.FetchedAt, Timezone: board.Timezone}
+	if board.Trains != nil {
+		response.Trains = make([]displayTrainResponse, len(board.Trains))
+		for i, train := range board.Trains {
+			response.Trains[i] = displayTrainResponse{train.ServiceID, train.Operator, train.Platform, train.Status, train.ScheduledDeparture, train.ExpectedDeparture, train.ScheduledArrival, train.ExpectedArrival, train.CancellationReason, train.DelayReason}
+		}
 	}
-	if home.Timezone == "" {
-		home.Timezone = "Europe/London"
-	}
-	location, err := time.LoadLocation(home.Timezone)
-	if err != nil {
-		slog.Error("loading household timezone for display commute", "method", request.Method, "route", observability.RoutePattern(request), "status", http.StatusOK, "error", err)
-		return time.UTC
-	}
-	return location
+	return response
 }

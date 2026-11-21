@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
+
 	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -35,7 +37,7 @@ func TestInventoryStock_AdjustsCountAndPreservesDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(repo), inventoryapp.NewStockService(repo), nil, nil, nil, "", "")
 	router := chi.NewRouter()
 	router.Patch("/api/inventory/items/{id}/stock", handler.UpdateInventoryStock)
 	recorder := doRequest(t, router, http.MethodPatch, "/api/inventory/items/"+item.ID+"/stock", `{"quantityDelta":-2}`)
@@ -63,7 +65,7 @@ func TestInventoryStock_ValidationAndConcurrentChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(repo), inventoryapp.NewStockService(repo), nil, nil, nil, "", "")
 	router := chi.NewRouter()
 	router.Patch("/api/inventory/items/{id}/stock", handler.UpdateInventoryStock)
 	path := "/api/inventory/items/" + item.ID + "/stock"
@@ -137,7 +139,7 @@ func TestInventoryStockSwiftContract(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	repo := repository.NewInventoryRepository(database)
 	user := newInventoryTestUser(t, repository.NewUserRepository(database))
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(repo), inventoryapp.NewStockService(repo), nil, nil, nil, "", "")
 	var uncertainRequests atomic.Int32
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
@@ -191,7 +193,7 @@ func TestInventoryStock_RejectsCountOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(repo), inventoryapp.NewStockService(repo), nil, nil, nil, "", "")
 	router := chi.NewRouter()
 	router.Patch("/api/inventory/items/{id}/stock", handler.UpdateInventoryStock)
 	response := doRequest(t, router, http.MethodPatch, "/api/inventory/items/"+item.ID+"/stock", `{"quantityDelta":1}`)

@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	binsapp "github.com/bensuskins/family-hub/internal/application/bins"
-	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
-	dashboardapp "github.com/bensuskins/family-hub/internal/application/dashboard"
 	"log/slog"
 	"net/http"
 	"time"
 	_ "time/tzdata"
+
+	binsapp "github.com/bensuskins/family-hub/internal/application/bins"
+	categoryapp "github.com/bensuskins/family-hub/internal/application/categories"
+	dashboardapp "github.com/bensuskins/family-hub/internal/application/dashboard"
 
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/bensuskins/family-hub/internal/apidocs"
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	householdapp "github.com/bensuskins/family-hub/internal/application/household"
+	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
 	scratchapp "github.com/bensuskins/family-hub/internal/application/scratchpad"
 	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
 	"github.com/bensuskins/family-hub/internal/config"
@@ -51,13 +53,45 @@ type Server struct {
 	calendar   *calendarapp.Service
 }
 
-func New(database *sql.DB, cfg config.Config, senders ...notifications.MessageSender) *Server {
-	return NewWithContext(context.Background(), database, cfg, senders...)
+type Dependencies struct {
+	Now            func() time.Time
+	ICalClient     *http.Client
+	OIDCClient     *http.Client
+	RailClient     *http.Client
+	ProviderClient *http.Client
+	RecipeClient   *http.Client
+	ReminderSender notifications.ReminderSender
+	MessageSender  notifications.MessageSender
 }
-func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, senders ...notifications.MessageSender) *Server {
-	var messageSender notifications.MessageSender
-	if len(senders) > 0 {
-		messageSender = senders[0]
+
+type Worker struct {
+	Name     string
+	Interval time.Duration
+	Timeout  time.Duration
+	Run      func(context.Context) error
+}
+
+func Compose(ctx context.Context, database *sql.DB, cfg config.Config, dependencies Dependencies) (*Server, []Worker) {
+	now := dependencies.Now
+	if now == nil {
+		now = time.Now
+	}
+	messageSender := dependencies.MessageSender
+	icalClient := dependencies.ICalClient
+	if icalClient == nil {
+		icalClient = services.NewSafeHTTPClient(10 * time.Second)
+	}
+	recipeClient := dependencies.RecipeClient
+	if recipeClient == nil {
+		recipeClient = services.NewSafeHTTPClient(15 * time.Second)
+	}
+	oidcClient := dependencies.OIDCClient
+	if oidcClient == nil {
+		oidcClient = &http.Client{Timeout: 10 * time.Second}
+	}
+	railClient := dependencies.RailClient
+	if railClient == nil {
+		railClient = &http.Client{Timeout: 10 * time.Second}
 	}
 	userRepo := repository.NewUserRepository(database)
 	categoryRepo := repository.NewCategoryRepository(database)
@@ -70,35 +104,44 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 	mealPlanRepo := repository.NewMealPlanRepository(database)
 	inventoryRepo := repository.NewInventoryRepository(database)
 	icalSubRepo := repository.NewICalSubscriptionRepository(database)
+	notificationRepo := repository.NewNotificationRepository(database)
+	reminderConfig := services.NewReminderConfig(settingsRepo)
+	mealService := mealapp.New(mealPlanRepo)
+	householdService := householdapp.New(settingsRepo)
+	inventoryService := inventoryapp.New(inventoryRepo)
+	stockService := inventoryapp.NewStockService(inventoryRepo)
 
-	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(settingsRepo)))
-	icalFetcher := calendarapp.New(ctx, icalSubRepo, services.NewICalAdapter(nil), nil)
-	recipeAdapter := services.NewRecipeExtractor()
+	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(settingsRepo)), choreapp.WithChoreClock(now))
+	icalFetcher := calendarapp.New(ctx, icalSubRepo, services.NewICalAdapter(icalClient), now)
+	recipeAdapter := services.NewRecipeExtractor(recipeClient)
 	recipeExtractor := recipeapp.New(recipeAdapter, recipeAdapter)
-	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, nil), nil)
+	commuteService := commuteapp.New(services.NewHuxleyClient(cfg.HuxleyBaseURL, cfg.HuxleyAccessToken, railClient, now), now)
 	commuteHandler := handlers.NewCommuteHandler(commuteService)
 	pairingRepo := repository.NewDisplayPairingRepository(database)
-	pairing := displayapp.NewPairing(pairingRepo, services.NewCredentialSecret, repository.HashToken, uuid.NewString, time.Now)
+	pairing := displayapp.NewPairing(pairingRepo, services.NewCredentialSecret, repository.HashToken, uuid.NewString, now)
 	displaySettings := displayapp.NewSettings(pairingRepo)
 	displayPairingHandler := handlers.NewDisplayPairingHandler(displaySettings, pairing)
-	displayCommuteHandler := handlers.NewDisplayCommuteHandler(commuteapp.NewDisplayCommute(services.NewDisplayCommutePreferences(displaySettings), services.NewDisplayCommuteTimezone(settingsRepo), services.NewDisplayCommuteRail(commuteService), time.Now))
+	displayCommuteHandler := handlers.NewDisplayCommuteHandler(commuteapp.NewDisplayCommute(services.NewDisplayCommutePreferences(displaySettings), services.NewDisplayCommuteTimezone(settingsRepo), services.NewDisplayCommuteRail(commuteService), now))
 	scratchpadHandler := handlers.NewScratchpadHandler(scratchapp.New(repository.NewScratchpadRepository(database)))
-	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, nil), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
-	recipeCatalogue := recipeapp.NewCatalogue(recipeRepo, recipeRepo, mealapp.New(mealPlanRepo))
-	binService := binsapp.New(services.NewBinScheduleAdapter(settingsRepo), services.BinCalendarParser{}, cfg.PushConfigured() || messageSender != nil, time.Now)
-	dashboard := dashboardapp.New(services.NewDashboardLocation(settingsRepo), services.NewDashboardBins(binService), services.NewDashboardChores(choreService), services.NewDashboardMeals(mealapp.New(mealPlanRepo)), time.Now)
-	apiHandler := handlers.NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), services.NewCalendarView(settingsRepo, choreService, icalFetcher, mealapp.New(mealPlanRepo), time.Now), identityapp.NewTokenAdministration(tokenRepo, services.NewCredentialSecret, repository.HashToken), settingsRepo, householdapp.New(settingsRepo), choreService, mealPlanRepo, recipeCatalogue, inventoryRepo, icalFetcher, recipeExtractor, identityService, dashboard, cfg.OIDCClientID, cfg.OIDCIssuer)
+	identityService := identityapp.New(services.NewOIDCProvider(cfg.OIDCUserInfoURL, oidcClient), userRepo, tokenRepo, services.NewCredentialSecret, repository.HashToken)
+	recipeCatalogue := recipeapp.NewCatalogue(recipeRepo, recipeRepo, mealService)
+	binService := binsapp.New(services.NewBinScheduleAdapter(settingsRepo), services.BinCalendarParser{}, cfg.PushConfigured() || messageSender != nil, now)
+	dashboard := dashboardapp.New(services.NewDashboardLocation(settingsRepo), services.NewDashboardBins(binService), services.NewDashboardChores(choreService), services.NewDashboardMeals(mealService), now)
+	apiHandler := handlers.NewAPIHandler(userapp.New(userRepo), categoryapp.New(categoryRepo), services.NewCalendarView(settingsRepo, choreService, icalFetcher, mealService, now), identityapp.NewTokenAdministration(tokenRepo, services.NewCredentialSecret, repository.HashToken), householdService, choreService, mealService, recipeCatalogue, inventoryService, stockService, recipeExtractor, identityService, dashboard, cfg.OIDCClientID, cfg.OIDCIssuer)
 	calendarSubscriptionsHandler := handlers.NewCalendarSubscriptionsAPIHandler(calendarapp.NewSubscriptions(icalSubRepo, icalFetcher, nil))
 	imageHandler := handlers.NewImageHandler(recipeRepo)
 	profileHandler := handlers.NewProfileHandler(userRepo)
-	providerClient := services.NewSafeHTTPClient(10 * time.Second)
-	weatherProvider := weatherapp.New(services.NewOpenMeteo(providerClient, "https://api.open-meteo.com/v1/forecast", time.Now), time.Now)
+	providerClient := dependencies.ProviderClient
+	if providerClient == nil {
+		providerClient = services.NewSafeHTTPClient(10 * time.Second)
+	}
+	weatherProvider := weatherapp.New(services.NewOpenMeteo(providerClient, "https://api.open-meteo.com/v1/forecast", now), now)
 	drivingProvider := services.NewGoogleDriving(providerClient, cfg.GoogleMapsAPIKey, "https://maps.googleapis.com/maps/api/geocode/json", "https://routes.googleapis.com/directions/v2:computeRoutes")
-	departureService := commuteapp.NewDepartureService(icalFetcher, drivingProvider, time.Now)
-	householdHandler := handlers.NewHouseholdHandler(householdapp.New(settingsRepo), weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now))
-	reminderHandler := handlers.NewChoreReminderHandler(notifications.NewReminderManagement(services.NewReminderConfig(settingsRepo), settingsRepo, repository.NewNotificationRepository(database), repository.HashToken), cfg.PushConfigured() || messageSender != nil)
+	departureService := commuteapp.NewDepartureService(icalFetcher, drivingProvider, now)
+	householdHandler := handlers.NewHouseholdHandler(householdService, weatherProvider, departureService, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, now))
+	reminderHandler := handlers.NewChoreReminderHandler(notifications.NewReminderManagement(reminderConfig, settingsRepo, notificationRepo, repository.HashToken), cfg.PushConfigured() || messageSender != nil)
 	binCollectionsHandler := handlers.NewBinCollectionsHandler(binService)
-	broadcastHandler := handlers.NewBroadcastHandler(notifications.NewBroadcastService(repository.NewBroadcastRepository(database), repository.NewNotificationRepository(database), messageSender), messageSender != nil)
+	broadcastHandler := handlers.NewBroadcastHandler(notifications.NewBroadcastService(repository.NewBroadcastRepository(database), notificationRepo, messageSender), messageSender != nil)
 	backupHandler := handlers.NewBackupHandler(database, cfg.DatabasePath)
 
 	router := chi.NewRouter()
@@ -257,7 +300,14 @@ func NewWithContext(ctx context.Context, database *sql.DB, cfg config.Config, se
 		r.Get("/api/display/recipes/{id}", apiHandler.GetRecipe)
 	})
 
-	return &Server{router: router, httpServer: &http.Server{Addr: ":" + cfg.Port, Handler: router}, calendar: icalFetcher}
+	reminders := notifications.NewChoreReminderService(reminderConfig, choreRepo, notificationRepo, dependencies.ReminderSender, userRepo)
+	bins := notifications.NewBinReminderService(reminderConfig, notificationRepo, messageSender)
+	workers := []Worker{
+		{Name: "sending chore reminders", Interval: 30 * time.Second, Timeout: 25 * time.Second, Run: func(ctx context.Context) error { return reminders.Check(ctx, now()) }},
+		{Name: "sending bin reminders", Interval: 30 * time.Second, Timeout: 25 * time.Second, Run: func(ctx context.Context) error { return bins.Check(ctx, now()) }},
+		{Name: "updating overdue chores", Interval: 5 * time.Minute, Run: choreService.UpdateOverdueChores},
+	}
+	return &Server{router: router, httpServer: &http.Server{Addr: ":" + cfg.Port, Handler: router}, calendar: icalFetcher}, workers
 }
 
 func (server *Server) Start() error {
@@ -270,3 +320,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	return errors.Join(httpError, calendarError)
 }
 func (server *Server) Close() error { return server.httpServer.Close() }
+
+func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	server.router.ServeHTTP(w, r)
+}

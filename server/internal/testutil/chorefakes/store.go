@@ -371,14 +371,14 @@ func historyDate(task models.Chore) time.Time {
 	}
 	return task.CreatedAt
 }
-func (store *Store) FindOverdueChores(ctx context.Context) ([]models.Chore, error) {
+func (store *Store) FindOverdueChores(ctx context.Context, now time.Time) ([]models.Chore, error) {
 	tasks, err := store.FindAll(ctx, app.ChoreFilter{Statuses: []models.ChoreStatus{models.ChoreStatusPending, models.ChoreStatusOverdue}})
 	if err != nil {
 		return nil, err
 	}
 	var result []models.Chore
 	for _, task := range tasks {
-		if domain.IsOverdue(task, time.Now()) {
+		if domain.IsOverdue(task, now) {
 			result = append(result, task)
 		}
 	}

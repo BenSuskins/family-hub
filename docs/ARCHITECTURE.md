@@ -48,7 +48,7 @@ forecasting, and assignment. HTTP handlers and the overdue worker call those
 operations. The application defines the storage and transaction interfaces in
 `server/internal/application/chores/ports.go`. SQLite adapters implement them in
 `server/internal/repository/`; startup connects them in `server/internal/server/`
-and `server/main.go`. A timezone function is injected at startup.
+and `server/main.go`. A timezone function and operation clock are injected at startup.
 
 Chore completion and skipping use immutable resolution transitions. Recurrence,
 overdue checks, and assignee rotation use domain rules in
@@ -110,7 +110,9 @@ Shared fake and SQLite contracts cover these storage capabilities. Some features
 still use shared model types, and some handlers call repositories directly.
 Reminder settings parsing remains in an adapter.
 
-Startup composes the HTTP server and workers in `server/main.go`. A signal
+`server/internal/server/` composes shared HTTP and worker dependencies.
+`server/main.go` configures push and starts them. Operation clocks and external
+HTTP clients are injectable; some SQLite adapter timestamps still use wall time. A signal
 cancels the worker context and in-flight calendar refreshes. The server stops
 accepting requests and drains active requests and workers for up to 30 seconds;
 it closes active HTTP connections if the deadline expires. Chore and bin

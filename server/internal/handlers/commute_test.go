@@ -32,7 +32,7 @@ func TestCommuteAPIUsesRouteAndCount(t *testing.T) {
 				writer.Write([]byte(`{"generatedAt":"2026-10-18T08:00:00+01:00","trainServices":null}`))
 			}))
 			t.Cleanup(provider.Close)
-			client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
+			client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client(), nil)
 			handler := NewCommuteHandler(commuteapp.New(client, nil))
 			recorder := serveCommute(handler, test.target)
 			if recorder.Code != http.StatusOK {
@@ -56,7 +56,7 @@ func TestCommuteAPIUsesRouteAndCount(t *testing.T) {
 }
 
 func TestCommuteAPIRejectsInvalidParameters(t *testing.T) {
-	service := commuteapp.New(services.NewHuxleyClient("", "", nil), nil)
+	service := commuteapp.New(services.NewHuxleyClient("", "", nil, nil), nil)
 	handler := NewCommuteHandler(service)
 	for _, target := range []string{
 		"/api/commute/trains/from/AB/to/LST",
@@ -90,7 +90,7 @@ func TestCommuteAPICachesByRouteAndCountThenErrorsAfterExpiry(t *testing.T) {
 		writer.Write([]byte(`{"generatedAt":"2026-10-18T08:00:00+01:00","trainServices":[]}`))
 	}))
 	t.Cleanup(provider.Close)
-	client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client())
+	client := services.NewHuxleyClient(provider.URL, "test-token", provider.Client(), nil)
 	handler := NewCommuteHandler(commuteapp.New(client, func() time.Time { return now }))
 	request := func(target string) *httptest.ResponseRecorder { return serveCommute(handler, target) }
 	base := "/api/commute/trains/from/KEL/to/LST"
@@ -146,7 +146,7 @@ func TestCommuteAPIReturnsProviderErrors(t *testing.T) {
 			t.Cleanup(provider.Close)
 			httpClient := provider.Client()
 			httpClient.Timeout = 20 * time.Millisecond
-			client := services.NewHuxleyClient(provider.URL, test.token, httpClient)
+			client := services.NewHuxleyClient(provider.URL, test.token, httpClient, nil)
 			handler := NewCommuteHandler(commuteapp.New(client, nil))
 			recorder := serveCommute(handler, "/api/commute/trains/from/KEL/to/LST")
 			if recorder.Code != test.expectedStatus || strings.Contains(recorder.Body.String(), "private-test-token") {

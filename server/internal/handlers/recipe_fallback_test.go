@@ -30,7 +30,7 @@ func (*recipeReloadFailureStore) Update(context.Context, app.SavedRecipe) error 
 func (*recipeReloadFailureStore) Delete(context.Context, string) error          { return nil }
 func TestUpdateRecipeReloadFailureKeepsLegacyIngredientArrays(t *testing.T) {
 	store := &recipeReloadFailureStore{}
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, app.NewCatalogue(store, nil, nil), nil, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, app.NewCatalogue(store, nil, nil), nil, nil, nil, nil, nil, "", "")
 	router := chi.NewRouter()
 	router.Put("/api/recipes/{id}", handler.UpdateRecipe)
 	response := httptest.NewRecorder()

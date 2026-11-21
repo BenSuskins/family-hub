@@ -490,7 +490,7 @@ func (service *ChoreService) DeleteSeriesDefinition(ctx context.Context, seriesI
 }
 
 func (service *ChoreService) UpdateOverdueChores(ctx context.Context) error {
-	overdueChores, err := service.choreRepo.FindOverdueChores(ctx)
+	overdueChores, err := service.choreRepo.FindOverdueChores(ctx, service.now())
 	if err != nil {
 		return fmt.Errorf("finding overdue chores: %w", err)
 	}

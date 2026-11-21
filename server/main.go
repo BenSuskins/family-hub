@@ -13,10 +13,8 @@ import (
 
 	notifications "github.com/bensuskins/family-hub/internal/application/notifications"
 
-	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	"github.com/bensuskins/family-hub/internal/config"
 	"github.com/bensuskins/family-hub/internal/database"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/server"
 	"github.com/bensuskins/family-hub/internal/services"
 )
@@ -54,12 +52,6 @@ func main() {
 }
 
 func compose(ctx context.Context, db *sql.DB, cfg config.Config, now func() time.Time) (*server.Server, []worker, error) {
-	userRepo := repository.NewUserRepository(db)
-
-	choreRepo := repository.NewChoreRepository(db)
-	assignmentRepo := repository.NewChoreAssignmentRepository(db)
-	seriesRepo := repository.NewChoreSeriesRepository(db)
-	choreService := choreapp.NewChoreService(choreRepo, assignmentRepo, userRepo, seriesRepo, choreapp.WithChoreTimezone(services.ChoreTimezone(repository.NewSettingsRepository(db))))
 
 	var reminderSender notifications.ReminderSender
 	var messageSender notifications.MessageSender
@@ -75,13 +67,11 @@ func compose(ctx context.Context, db *sql.DB, cfg config.Config, now func() time
 		reminderSender = sender
 		messageSender = sender
 	}
-	reminderService := notifications.NewChoreReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), choreRepo, repository.NewNotificationRepository(db), reminderSender, userRepo)
-	binReminderService := notifications.NewBinReminderService(services.NewReminderConfig(repository.NewSettingsRepository(db)), repository.NewNotificationRepository(db), messageSender)
-	srv := server.NewWithContext(ctx, db, cfg, messageSender)
-	workers := []worker{
-		{name: "sending chore reminders", interval: 30 * time.Second, timeout: 25 * time.Second, run: func(ctx context.Context) error { return reminderService.Check(ctx, now()) }},
-		{name: "sending bin reminders", interval: 30 * time.Second, timeout: 25 * time.Second, run: func(ctx context.Context) error { return binReminderService.Check(ctx, now()) }},
-		{name: "updating overdue chores", interval: 5 * time.Minute, run: choreService.UpdateOverdueChores},
+	srv, composedWorkers := server.Compose(ctx, db, cfg, server.Dependencies{Now: now, ReminderSender: reminderSender, MessageSender: messageSender})
+	workers := make([]worker, len(composedWorkers))
+	for index, job := range composedWorkers {
+		workers[index] = worker{name: job.Name, interval: job.Interval, timeout: job.Timeout, run: job.Run}
 	}
+
 	return srv, workers, nil
 }

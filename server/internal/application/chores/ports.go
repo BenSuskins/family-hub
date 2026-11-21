@@ -42,7 +42,7 @@ type ChoreRepository interface {
 	FindAll(ctx context.Context, filter ChoreFilter) ([]models.Chore, error)
 	Create(ctx context.Context, chore models.Chore) (models.Chore, error)
 	Update(ctx context.Context, chore models.Chore) error
-	FindOverdueChores(ctx context.Context) ([]models.Chore, error)
+	FindOverdueChores(ctx context.Context, now time.Time) ([]models.Chore, error)
 	MarkOverdue(ctx context.Context, choreID string) error
 	SetEligibleAssignees(ctx context.Context, choreID string, userIDs []string) error
 	GetEligibleAssignees(ctx context.Context, choreID string) ([]string, error)

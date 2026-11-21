@@ -26,7 +26,6 @@ import (
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/observability"
-	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -35,7 +34,6 @@ type APIHandler struct {
 	categories       *categoryapp.Service
 	calendarView     *calendarapp.ViewService
 	tokens           *identityapp.TokenAdministration
-	settingsRepo     repository.SettingsRepository
 	generalSettings  *householdapp.Service
 	dashboard        *dashboardapp.Service
 	choreService     *choreapp.ChoreService
@@ -43,7 +41,6 @@ type APIHandler struct {
 	recipes          *recipeapp.Catalogue
 	inventoryService *inventoryapp.Service
 	stockService     *inventoryapp.StockService
-	icalFetcher      *calendarapp.Service
 	recipeExtractor  *recipeapp.Service
 	identity         *identityapp.Service
 	clientID         string
@@ -59,39 +56,29 @@ func NewAPIHandler(
 	categories *categoryapp.Service,
 	calendarView *calendarapp.ViewService,
 	tokens *identityapp.TokenAdministration,
-	settingsRepo repository.SettingsRepository,
 	generalSettings *householdapp.Service,
 	choreService *choreapp.ChoreService,
-	mealPlanRepo repository.MealPlanRepository,
+	mealService *mealapp.Service,
 	recipes *recipeapp.Catalogue,
-	inventoryRepo interface {
-		inventoryapp.Store
-		inventoryapp.StockStore
-	},
-	icalFetcher *calendarapp.Service,
+	inventoryService *inventoryapp.Service,
+	stockService *inventoryapp.StockService,
 	recipeExtractor *recipeapp.Service,
 	identity *identityapp.Service,
 	dashboard *dashboardapp.Service,
 	clientID string,
 	oidcIssuer string,
 ) *APIHandler {
-	var mealService *mealapp.Service
-	if mealPlanRepo != nil {
-		mealService = mealapp.New(mealPlanRepo)
-	}
 	return &APIHandler{
 		users:            users,
 		categories:       categories,
 		calendarView:     calendarView,
 		tokens:           tokens,
-		settingsRepo:     settingsRepo,
 		generalSettings:  generalSettings,
 		choreService:     choreService,
 		mealService:      mealService,
 		recipes:          recipes,
-		inventoryService: inventoryapp.New(inventoryRepo),
-		stockService:     inventoryapp.NewStockService(inventoryRepo),
-		icalFetcher:      icalFetcher,
+		inventoryService: inventoryService,
+		stockService:     stockService,
 		recipeExtractor:  recipeExtractor,
 		identity:         identity,
 		dashboard:        dashboard,

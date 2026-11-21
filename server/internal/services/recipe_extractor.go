@@ -23,9 +23,14 @@ type RecipeExtractor struct {
 	captionEmbedOrigins map[string]string
 }
 
-func NewRecipeExtractor() *RecipeExtractor {
+// NewRecipeExtractor accepts a client that must enforce the same private-network
+// and redirect protections as NewSafeHTTPClient. A nil client uses a safe default.
+func NewRecipeExtractor(client *http.Client) *RecipeExtractor {
+	if client == nil {
+		client = NewSafeHTTPClient(15 * time.Second)
+	}
 	return &RecipeExtractor{
-		client:              NewSafeHTTPClient(15 * time.Second),
+		client:              client,
 		validateURL:         ValidateExternalURL,
 		oembedProviders:     defaultOEmbedProviders(),
 		captionEmbedOrigins: defaultCaptionEmbedOrigins(),

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	inventoryapp "github.com/bensuskins/family-hub/internal/application/inventory"
+
 	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 
 	"github.com/bensuskins/family-hub/internal/middleware"
@@ -35,7 +37,7 @@ func TestListInventory_EmptyIsNotNull(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	invRepo := repository.NewInventoryRepository(database)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, invRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(invRepo), inventoryapp.NewStockService(invRepo), nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Get("/api/inventory", handler.ListInventory)
@@ -58,7 +60,7 @@ func TestCreateInventoryArea_API(t *testing.T) {
 	userRepo := repository.NewUserRepository(database)
 	user := newInventoryTestUser(t, userRepo)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, invRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(invRepo), inventoryapp.NewStockService(invRepo), nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/inventory/areas", func(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +94,7 @@ func TestCreateInventoryArea_API_MissingName(t *testing.T) {
 	userRepo := repository.NewUserRepository(database)
 	user := newInventoryTestUser(t, userRepo)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, invRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(invRepo), inventoryapp.NewStockService(invRepo), nil, nil, nil, "", "")
 
 	router := chi.NewRouter()
 	router.Post("/api/inventory/areas", func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +120,7 @@ func TestInventory_FullFlow(t *testing.T) {
 	userRepo := repository.NewUserRepository(database)
 	user := newInventoryTestUser(t, userRepo)
 
-	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, invRepo, nil, nil, nil, nil, "", "")
+	handler := NewAPIHandler(nil, nil, nil, nil, nil, nil, nil, nil, inventoryapp.New(invRepo), inventoryapp.NewStockService(invRepo), nil, nil, nil, "", "")
 
 	withUser := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {

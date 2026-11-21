@@ -21,7 +21,7 @@ func TestHuxleyLive(t *testing.T) {
 	if baseURL == "" {
 		baseURL = "https://huxley2.azurewebsites.net"
 	}
-	client := services.NewHuxleyClient(baseURL, token, nil)
+	client := services.NewHuxleyClient(baseURL, token, nil, nil)
 	for _, route := range []struct{ origin, destination string }{{"KEL", "LST"}, {"LST", "KEL"}} {
 		t.Run(route.origin+"-"+route.destination, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

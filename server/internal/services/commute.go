@@ -21,15 +21,19 @@ type HuxleyClient struct {
 	baseURL string
 	token   string
 	client  *http.Client
+	now     func() time.Time
 }
 
-func NewHuxleyClient(baseURL, token string, client *http.Client) *HuxleyClient {
+func NewHuxleyClient(baseURL, token string, client *http.Client, now func() time.Time) *HuxleyClient {
+	if now == nil {
+		now = time.Now
+	}
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
 	httpClient := *client
 	httpClient.CheckRedirect = func(request *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }
-	return &HuxleyClient{baseURL: strings.TrimRight(baseURL, "/"), token: strings.TrimSpace(token), client: &httpClient}
+	return &HuxleyClient{baseURL: strings.TrimRight(baseURL, "/"), token: strings.TrimSpace(token), client: &httpClient, now: now}
 }
 
 type huxleyBoard struct {
@@ -104,7 +108,7 @@ func (client *HuxleyClient) FetchTrains(ctx context.Context, originCode, destina
 	}
 	board := models.CommuteBoard{
 		Origin: origin, Destination: destination,
-		GeneratedAt: source.GeneratedAt, FetchedAt: time.Now().UTC(), Timezone: "Europe/London",
+		GeneratedAt: source.GeneratedAt, FetchedAt: client.now().UTC(), Timezone: "Europe/London",
 		Trains: make([]models.CommuteTrain, 0, len(source.TrainServices)),
 	}
 	for _, sourceTrain := range source.TrainServices {

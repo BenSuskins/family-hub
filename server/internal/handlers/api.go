@@ -312,10 +312,10 @@ func (handler *APIHandler) ListMeals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if meals == nil {
-		meals = []models.MealPlan{}
+		meals = []mealapp.Meal{}
 	}
 
-	writeJSON(w, http.StatusOK, meals)
+	writeJSON(w, http.StatusOK, mealResponses(meals))
 }
 
 func (handler *APIHandler) ListCalendar(w http.ResponseWriter, r *http.Request) {
@@ -404,9 +404,9 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meal := models.MealPlan{
+	meal := mealapp.Meal{
 		Date:            body.Date,
-		MealType:        models.MealType(body.MealType),
+		MealType:        mealapp.Type(body.MealType),
 		Name:            body.Name,
 		CreatedByUserID: user.ID,
 	}
@@ -423,7 +423,7 @@ func (handler *APIHandler) SaveMeal(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, saved)
+	writeJSON(w, http.StatusOK, mealResponseFor(saved))
 }
 
 func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
@@ -437,7 +437,7 @@ func (handler *APIHandler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler.mealService.Delete(ctx, date, models.MealType(mealType)); err != nil {
+	if err := handler.mealService.Delete(ctx, date, mealapp.Type(mealType)); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to delete meal", err)
 		return
 	}

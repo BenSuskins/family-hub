@@ -81,7 +81,7 @@ func (adapter calendarMeals) Meals(ctx context.Context, from, to string) ([]cale
 	items, err := adapter.service.FindAll(ctx, mealapp.Filter{DateFrom: from, DateTo: to})
 	return calendarMealValues(items), err
 }
-func calendarMealValues(items []models.MealPlan) []calendarapp.ViewMeal {
+func calendarMealValues(items []mealapp.Meal) []calendarapp.ViewMeal {
 	mapped := dashboardMeals(items)
 	if mapped == nil {
 		return nil

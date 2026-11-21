@@ -74,7 +74,7 @@ func (adapter *DashboardMeals) On(ctx context.Context, date string) ([]dashboard
 	meals, err := adapter.service.FindByDate(ctx, date)
 	return dashboardMeals(meals), err
 }
-func dashboardMeals(meals []models.MealPlan) []dashboardapp.Meal {
+func dashboardMeals(meals []mealapp.Meal) []dashboardapp.Meal {
 	if meals == nil {
 		return nil
 	}

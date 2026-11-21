@@ -26,7 +26,7 @@ import (
 
 func TestHomeInfoAdminAndValidation(t *testing.T) {
 	settings := repository.NewSettingsRepository(testutil.NewTestDatabase(t))
-	handler := NewHouseholdHandler(householdapp.New(settings), nil, nil, nil)
+	handler := NewHouseholdHandler(householdapp.New(settings, settings), nil, nil, nil)
 	for _, example := range []struct {
 		role   models.Role
 		body   string
@@ -69,6 +69,28 @@ func TestHomeInfoAdminAndValidation(t *testing.T) {
 	}
 }
 
+func TestHomeInfoPartialUpdatePreservesStoredFields(t *testing.T) {
+	settings := repository.NewSettingsRepository(testutil.NewTestDatabase(t))
+	if err := settings.Set(context.Background(), "home_info", `{"latitude":51.8,"longitude":0.7,"timezone":"Europe/London","arrivalMarginMinutes":10}`); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHouseholdHandler(householdapp.New(settings, settings), nil, nil, nil)
+	request := httptest.NewRequest(http.MethodPatch, "/api/home-info", strings.NewReader(`{"arrivalMarginMinutes":20}`))
+	request = request.WithContext(context.WithValue(request.Context(), middleware.UserContextKey, models.User{Role: models.RoleAdmin}))
+	response := httptest.NewRecorder()
+	handler.UpdateHomeInfo(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("partial update: %d: %s", response.Code, response.Body.String())
+	}
+	var home models.HomeInfo
+	if err := json.Unmarshal(response.Body.Bytes(), &home); err != nil {
+		t.Fatal(err)
+	}
+	if home.Latitude == nil || *home.Latitude != 51.8 || home.Longitude == nil || *home.Longitude != 0.7 || home.Timezone != "Europe/London" || home.ArrivalMarginMinutes != 20 {
+		t.Fatalf("partial update changed other fields: %+v", home)
+	}
+}
+
 func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
 	database.SetMaxOpenConns(1)
@@ -83,7 +105,7 @@ func TestShoppingPurchaseRestockAndDeletedInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHouseholdHandler(householdapp.New(repository.NewSettingsRepository(database)), nil, nil, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now))
+	handler := NewHouseholdHandler(householdapp.New(repository.NewSettingsRepository(database), repository.NewSettingsRepository(database)), nil, nil, shoppingapp.New(repository.NewShoppingRepository(database, repository.NewShoppingInventory), uuid.NewString, time.Now))
 	router := chi.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

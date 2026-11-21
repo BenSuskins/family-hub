@@ -202,25 +202,6 @@ const (
 	RecipeMealTypeDessert   RecipeMealType = "dessert"
 )
 
-type MealType string
-
-const (
-	MealTypeBreakfast MealType = "breakfast"
-	MealTypeLunch     MealType = "lunch"
-	MealTypeDinner    MealType = "dinner"
-)
-
-type MealPlan struct {
-	Date            string
-	MealType        MealType
-	RecipeID        *string
-	Name            string
-	Notes           string
-	CreatedByUserID string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
 type ICalSubscription struct {
 	ID            string
 	Name          string

@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/bensuskins/family-hub/internal/domain/household"
-	"github.com/bensuskins/family-hub/internal/models"
 )
 
 func TestHomeValidation(t *testing.T) {
 	latitude, longitude := 51.5, -0.1
-	valid := models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London", ArrivalMarginMinutes: 10}
+	valid := household.Home{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London", ArrivalMarginMinutes: 10}
 	if err := household.ValidateHome(valid); err != nil {
 		t.Fatal(err)
 	}

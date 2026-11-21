@@ -3,8 +3,6 @@ package scratchpad
 import (
 	"errors"
 	"math"
-
-	"github.com/bensuskins/family-hub/internal/models"
 )
 
 var (
@@ -13,7 +11,7 @@ var (
 	ErrInvalidPoint   = errors.New("scratchpad point is outside the drawing area")
 )
 
-func Validate(strokes []models.ScratchpadStroke) error {
+func Validate(strokes []Stroke) error {
 	if len(strokes) > 1000 {
 		return ErrTooManyStrokes
 	}

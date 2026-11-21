@@ -58,7 +58,12 @@ including rollback, concurrent completion, recurrence and rotation.
 
 Meals, inventory, shopping, scratchpad, and home settings also use feature-owned
 application operations and storage interfaces. Their HTTP handlers call those
-operations and SQLite implements the storage interfaces. Inventory stock changes
+operations and SQLite implements the storage interfaces. HTTP and SQLite map
+meal, scratchpad, and home settings values at their boundaries. The scratchpad
+domain protects drawing transitions, while storage restores existing drawings
+without rejecting legacy data. Shared fake and SQLite contracts cover these
+storage ports. Weather and departure adapters still use the shared home value.
+Inventory stock changes
 use an immutable domain transition and a compare-and-swap update so concurrent
 changes are not lost. HTTP and SQLite map inventory values at their boundaries;
 SQLite restores legacy stock without rewriting it. Shopping

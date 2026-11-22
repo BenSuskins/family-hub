@@ -107,7 +107,7 @@ func Compose(ctx context.Context, database *sql.DB, cfg config.Config, dependenc
 	notificationRepo := repository.NewNotificationRepository(database)
 	reminderConfig := services.NewReminderConfig(settingsRepo)
 	mealService := mealapp.New(mealPlanRepo)
-	householdService := householdapp.New(settingsRepo)
+	householdService := householdapp.New(settingsRepo, settingsRepo)
 	inventoryService := inventoryapp.New(inventoryRepo)
 	stockService := inventoryapp.NewStockService(inventoryRepo)
 

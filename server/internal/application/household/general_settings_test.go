@@ -10,7 +10,7 @@ import (
 
 func TestGeneralSettingsDefaultsAndLegacyValues(t *testing.T) {
 	store := &settingsFake{values: map[string]string{}}
-	service := app.New(store)
+	service := app.New(store, nil)
 	settings, err := service.GeneralSettings(context.Background())
 	if err != nil || settings.FamilyName != "Family" || settings.MealWeekStart != "friday" {
 		t.Fatalf("defaults: %+v %v", settings, err)
@@ -25,7 +25,7 @@ func TestGeneralSettingsDefaultsAndLegacyValues(t *testing.T) {
 
 func TestUpdateGeneralSettingsValidatesBeforeWriting(t *testing.T) {
 	store := &settingsFake{values: map[string]string{"family_name": "Original"}}
-	service := app.New(store)
+	service := app.New(store, nil)
 	err := service.UpdateGeneralSettings(context.Background(), map[string]string{"family_name": "Changed", "meal_week_start": "Friday"})
 	if !errors.Is(err, app.ErrInvalidGeneralSetting) || store.writes != 0 {
 		t.Fatalf("invalid update: %v writes %d", err, store.writes)
@@ -38,7 +38,7 @@ func TestUpdateGeneralSettingsValidatesBeforeWriting(t *testing.T) {
 
 func TestGeneralSettingsReportsWhichLoadFailed(t *testing.T) {
 	store := &settingsFake{values: map[string]string{}, failure: errors.New("read failed")}
-	_, err := app.New(store).GeneralSettings(context.Background())
+	_, err := app.New(store, nil).GeneralSettings(context.Background())
 	if !errors.Is(err, app.ErrFamilyNameSetting) {
 		t.Fatalf("load: %v", err)
 	}
@@ -59,7 +59,7 @@ func (fake failingGeneralSettings) Set(context.Context, string, string) error { 
 
 func TestGeneralSettingsMealReadError(t *testing.T) {
 	cause := errors.New("read failed")
-	_, err := app.New(failingGeneralSettings{failKey: app.MealWeekStartKey, failure: cause}).GeneralSettings(context.Background())
+	_, err := app.New(failingGeneralSettings{failKey: app.MealWeekStartKey, failure: cause}, nil).GeneralSettings(context.Background())
 	if !errors.Is(err, app.ErrMealWeekSetting) || !errors.Is(err, cause) {
 		t.Fatalf("meal load error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestGeneralSettingsMealReadError(t *testing.T) {
 
 func TestUpdateGeneralSettingsReturnsWriteError(t *testing.T) {
 	cause := errors.New("write failed")
-	err := app.New(failingGeneralSettings{failure: cause}).UpdateGeneralSettings(context.Background(), map[string]string{app.FamilyNameKey: "Name"})
+	err := app.New(failingGeneralSettings{failure: cause}, nil).UpdateGeneralSettings(context.Background(), map[string]string{app.FamilyNameKey: "Name"})
 	if !errors.Is(err, cause) {
 		t.Fatalf("write error: %v", err)
 	}

@@ -14,7 +14,7 @@ import (
 
 func TestMealWeekSettings(t *testing.T) {
 	database := testutil.NewTestDatabase(t)
-	handler := &APIHandler{generalSettings: householdapp.New(repository.NewSettingsRepository(database))}
+	handler := &APIHandler{generalSettings: householdapp.New(repository.NewSettingsRepository(database), nil)}
 	read := func() map[string]string {
 		t.Helper()
 		response := httptest.NewRecorder()

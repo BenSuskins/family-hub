@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
+
 	inventorydomain "github.com/bensuskins/family-hub/internal/domain/inventory"
 
 	"github.com/bensuskins/family-hub/internal/apidocs"
@@ -425,7 +427,7 @@ func TestOpenAPIRecipeCatalogueContract(t *testing.T) {
 		t.Fatalf("delete: %d %s", deleted.Code, deleted.Body.String())
 	}
 	meals := fixture.request(t, http.MethodGet, "/api/meals?week=2026-01-01", "member", "", true)
-	var plans []models.MealPlan
+	var plans []mealapp.Meal
 	if err := json.Unmarshal(meals.Body.Bytes(), &plans); err != nil {
 		t.Fatal(err)
 	}

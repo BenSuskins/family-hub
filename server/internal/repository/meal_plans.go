@@ -3,21 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
-	"github.com/bensuskins/family-hub/internal/models"
 )
-
-type MealPlanRepository interface {
-	FindByDateAndType(ctx context.Context, date string, mealType models.MealType) (models.MealPlan, error)
-	FindAll(ctx context.Context, filter mealapp.Filter) ([]models.MealPlan, error)
-	FindByDate(ctx context.Context, date string) ([]models.MealPlan, error)
-	Upsert(ctx context.Context, meal models.MealPlan) error
-	Delete(ctx context.Context, date string, mealType models.MealType) error
-	ClearRecipeID(ctx context.Context, recipeID string) error
-}
 
 type SQLiteMealPlanRepository struct {
 	database *sql.DB
@@ -27,8 +18,8 @@ func NewMealPlanRepository(database *sql.DB) *SQLiteMealPlanRepository {
 	return &SQLiteMealPlanRepository{database: database}
 }
 
-func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Context, date string, mealType models.MealType) (models.MealPlan, error) {
-	var meal models.MealPlan
+func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Context, date string, mealType mealapp.Type) (mealapp.Meal, error) {
+	var meal mealRecord
 	err := repository.database.QueryRowContext(ctx,
 		`SELECT date, meal_type, recipe_id, name, notes, COALESCE(created_by_user_id,''), created_at, updated_at
 		FROM meal_plans WHERE date = ? AND meal_type = ?`, date, mealType,
@@ -37,12 +28,15 @@ func (repository *SQLiteMealPlanRepository) FindByDateAndType(ctx context.Contex
 		&meal.Notes, &meal.CreatedByUserID, &meal.CreatedAt, &meal.UpdatedAt,
 	)
 	if err != nil {
-		return models.MealPlan{}, fmt.Errorf("finding meal plan: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return mealapp.Meal{}, fmt.Errorf("finding meal plan: %w", mealapp.ErrNotFound)
+		}
+		return mealapp.Meal{}, fmt.Errorf("finding meal plan: %w", err)
 	}
-	return meal, nil
+	return mealFromRecord(meal), nil
 }
 
-func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter mealapp.Filter) ([]models.MealPlan, error) {
+func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter mealapp.Filter) ([]mealapp.Meal, error) {
 	query := `SELECT date, meal_type, recipe_id, name, notes, COALESCE(created_by_user_id,''), created_at, updated_at
 	FROM meal_plans WHERE 1=1`
 
@@ -68,11 +62,12 @@ func (repository *SQLiteMealPlanRepository) FindAll(ctx context.Context, filter 
 	return scanMealPlans(rows)
 }
 
-func (repository *SQLiteMealPlanRepository) FindByDate(ctx context.Context, date string) ([]models.MealPlan, error) {
+func (repository *SQLiteMealPlanRepository) FindByDate(ctx context.Context, date string) ([]mealapp.Meal, error) {
 	return repository.FindAll(ctx, mealapp.Filter{DateFrom: date, DateTo: date})
 }
 
-func (repository *SQLiteMealPlanRepository) Upsert(ctx context.Context, meal models.MealPlan) error {
+func (repository *SQLiteMealPlanRepository) Upsert(ctx context.Context, input mealapp.Meal) error {
+	meal := mealToRecord(input)
 	now := time.Now()
 	_, err := repository.database.ExecContext(ctx,
 		`INSERT INTO meal_plans (date, meal_type, recipe_id, name, notes, created_by_user_id, created_at, updated_at)
@@ -91,7 +86,7 @@ func (repository *SQLiteMealPlanRepository) Upsert(ctx context.Context, meal mod
 	return nil
 }
 
-func (repository *SQLiteMealPlanRepository) Delete(ctx context.Context, date string, mealType models.MealType) error {
+func (repository *SQLiteMealPlanRepository) Delete(ctx context.Context, date string, mealType mealapp.Type) error {
 	_, err := repository.database.ExecContext(ctx,
 		"DELETE FROM meal_plans WHERE date = ? AND meal_type = ?", date, mealType,
 	)
@@ -112,17 +107,39 @@ func (repository *SQLiteMealPlanRepository) ClearRecipeID(ctx context.Context, r
 	return nil
 }
 
-func scanMealPlans(rows *sql.Rows) ([]models.MealPlan, error) {
-	var meals []models.MealPlan
+func scanMealPlans(rows *sql.Rows) ([]mealapp.Meal, error) {
+	var meals []mealapp.Meal
 	for rows.Next() {
-		var meal models.MealPlan
+		var meal mealRecord
 		if err := rows.Scan(
 			&meal.Date, &meal.MealType, &meal.RecipeID, &meal.Name,
 			&meal.Notes, &meal.CreatedByUserID, &meal.CreatedAt, &meal.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning meal plan: %w", err)
 		}
-		meals = append(meals, meal)
+		meals = append(meals, mealFromRecord(meal))
 	}
 	return meals, rows.Err()
+}
+
+type mealRecord struct {
+	Date                         string
+	MealType                     string
+	RecipeID                     *string
+	Name, Notes, CreatedByUserID string
+	CreatedAt, UpdatedAt         time.Time
+}
+
+func mealFromRecord(record mealRecord) mealapp.Meal {
+	return mealapp.Meal{Date: record.Date, MealType: mealapp.Type(record.MealType), RecipeID: copyMealID(record.RecipeID), Name: record.Name, Notes: record.Notes, CreatedByUserID: record.CreatedByUserID, CreatedAt: record.CreatedAt, UpdatedAt: record.UpdatedAt}
+}
+func mealToRecord(meal mealapp.Meal) mealRecord {
+	return mealRecord{Date: meal.Date, MealType: string(meal.MealType), RecipeID: copyMealID(meal.RecipeID), Name: meal.Name, Notes: meal.Notes, CreatedByUserID: meal.CreatedByUserID, CreatedAt: meal.CreatedAt, UpdatedAt: meal.UpdatedAt}
+}
+func copyMealID(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }

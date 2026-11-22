@@ -4,8 +4,6 @@ import (
 	"errors"
 	"math"
 	"time"
-
-	"github.com/bensuskins/family-hub/internal/models"
 )
 
 var (
@@ -13,7 +11,7 @@ var (
 	ErrInvalidTimezone = errors.New("valid timezone required")
 )
 
-func ValidateHome(home models.HomeInfo) error {
+func ValidateHome(home Home) error {
 	if home.Latitude == nil || home.Longitude == nil || math.IsNaN(*home.Latitude) || math.IsNaN(*home.Longitude) || math.Abs(*home.Latitude) > 90 || math.Abs(*home.Longitude) > 180 || home.ArrivalMarginMinutes < 0 || home.ArrivalMarginMinutes > 120 {
 		return ErrInvalidLocation
 	}

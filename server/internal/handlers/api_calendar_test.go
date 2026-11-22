@@ -49,7 +49,7 @@ func TestCalendarIncludesTheLastDayAndOverlappingEvents(t *testing.T) {
 		if _, err := chores.Create(ctx, models.Chore{Name: value, DueDate: &due, CreatedByUserID: user.ID}); err != nil {
 			t.Fatal(err)
 		}
-		if err := meals.Upsert(ctx, models.MealPlan{Date: due.Format(DateFormat), MealType: models.MealType("dinner"), Name: value, CreatedByUserID: user.ID}); err != nil {
+		if err := meals.Upsert(ctx, mealapp.Meal{Date: due.Format(DateFormat), MealType: mealapp.Type("dinner"), Name: value, CreatedByUserID: user.ID}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -66,9 +66,9 @@ func TestCalendarIncludesTheLastDayAndOverlappingEvents(t *testing.T) {
 		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
 	}
 	var calendar struct {
-		Events []models.Event    `json:"events"`
-		Chores []models.Chore    `json:"chores"`
-		Meals  []models.MealPlan `json:"meals"`
+		Events []models.Event `json:"events"`
+		Chores []models.Chore `json:"chores"`
+		Meals  []mealapp.Meal `json:"meals"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &calendar); err != nil {
 		t.Fatal(err)

@@ -255,9 +255,9 @@ func TestListMeals_API(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+	_ = mealPlanRepo.Upsert(ctx, mealapp.Meal{
 		Date:            "2026-03-09",
-		MealType:        models.MealTypeDinner,
+		MealType:        mealapp.Dinner,
 		Name:            "Pasta",
 		CreatedByUserID: user.ID,
 	})
@@ -275,7 +275,7 @@ func TestListMeals_API(t *testing.T) {
 		t.Fatalf("expected 200, got %d", recorder.Code)
 	}
 
-	var meals []models.MealPlan
+	var meals []mealapp.Meal
 	json.NewDecoder(recorder.Body).Decode(&meals)
 	if len(meals) != 1 {
 		t.Errorf("expected 1 meal, got %d", len(meals))
@@ -295,21 +295,21 @@ func TestListMeals_API_UsesWeekParamAsStartDate(t *testing.T) {
 		Role:        models.RoleMember,
 	})
 
-	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+	_ = mealPlanRepo.Upsert(ctx, mealapp.Meal{
 		Date:            "2026-03-13",
-		MealType:        models.MealTypeDinner,
+		MealType:        mealapp.Dinner,
 		Name:            "Friday Pasta",
 		CreatedByUserID: user.ID,
 	})
-	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+	_ = mealPlanRepo.Upsert(ctx, mealapp.Meal{
 		Date:            "2026-03-19",
-		MealType:        models.MealTypeDinner,
+		MealType:        mealapp.Dinner,
 		Name:            "Thursday Pasta",
 		CreatedByUserID: user.ID,
 	})
-	_ = mealPlanRepo.Upsert(ctx, models.MealPlan{
+	_ = mealPlanRepo.Upsert(ctx, mealapp.Meal{
 		Date:            "2026-03-20",
-		MealType:        models.MealTypeDinner,
+		MealType:        mealapp.Dinner,
 		Name:            "Next Friday Pasta",
 		CreatedByUserID: user.ID,
 	})
@@ -327,7 +327,7 @@ func TestListMeals_API_UsesWeekParamAsStartDate(t *testing.T) {
 		t.Fatalf("expected 200, got %d", recorder.Code)
 	}
 
-	var meals []models.MealPlan
+	var meals []mealapp.Meal
 	json.NewDecoder(recorder.Body).Decode(&meals)
 	if len(meals) != 2 {
 		t.Errorf("expected 2 meals (Fri 2026-03-13 through Thu 2026-03-19), got %d", len(meals))

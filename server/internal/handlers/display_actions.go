@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"errors"
-	userapp "github.com/bensuskins/family-hub/internal/application/users"
 	"net/http"
 	"strings"
 
+	userapp "github.com/bensuskins/family-hub/internal/application/users"
+
 	choreapp "github.com/bensuskins/family-hub/internal/application/chores"
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -71,7 +71,7 @@ func (handler *APIHandler) SaveDisplayMeal(writer http.ResponseWriter, request *
 	if !decodeJSONBody(writer, request, &body) {
 		return
 	}
-	meal := models.MealPlan{Date: body.Date, MealType: models.MealType(body.MealType), Name: strings.TrimSpace(body.Name)}
+	meal := mealapp.Meal{Date: body.Date, MealType: mealapp.Type(body.MealType), Name: strings.TrimSpace(body.Name)}
 	if body.RecipeID != "" {
 		meal.RecipeID = &body.RecipeID
 	}
@@ -79,7 +79,7 @@ func (handler *APIHandler) SaveDisplayMeal(writer http.ResponseWriter, request *
 		writeJSONError(writer, http.StatusBadRequest, "date, mealType, and name are required")
 		return
 	}
-	if meal.MealType != models.MealTypeBreakfast && meal.MealType != models.MealTypeLunch && meal.MealType != models.MealTypeDinner {
+	if meal.MealType != mealapp.Breakfast && meal.MealType != mealapp.Lunch && meal.MealType != mealapp.Dinner {
 		writeJSONError(writer, http.StatusBadRequest, "mealType must be breakfast, lunch, or dinner")
 		return
 	}
@@ -92,5 +92,5 @@ func (handler *APIHandler) SaveDisplayMeal(writer http.ResponseWriter, request *
 		}
 		return
 	}
-	writeJSON(writer, http.StatusOK, saved)
+	writeJSON(writer, http.StatusOK, mealResponseFor(saved))
 }

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
+
 	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 )
@@ -49,7 +51,7 @@ func TestOpenAPIDashboardRoutesContract(t *testing.T) {
 	}
 	anchor := time.Now()
 	date := anchor.Format("2006-01-02")
-	if err := repository.NewMealPlanRepository(fixture.database).Upsert(ctx, models.MealPlan{Date: date, MealType: models.MealTypeDinner, Name: "Soup", Notes: "Warm", CreatedByUserID: user.ID}); err != nil {
+	if err := repository.NewMealPlanRepository(fixture.database).Upsert(ctx, mealapp.Meal{Date: date, MealType: mealapp.Dinner, Name: "Soup", Notes: "Warm", CreatedByUserID: user.ID}); err != nil {
 		t.Fatal(err)
 	}
 	location, err := time.LoadLocation("Europe/London")

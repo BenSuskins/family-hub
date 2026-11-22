@@ -58,10 +58,11 @@ func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to load home information", err)
 		return
 	}
-	if !decodeJSONBody(w, r, &home) {
+	body := homeResponseFor(home)
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	updated, err := handler.home.SaveHome(r.Context(), home)
+	updated, err := handler.home.SaveHome(r.Context(), body.home())
 	if err != nil {
 		if errors.Is(err, householddomain.ErrInvalidLocation) || errors.Is(err, householddomain.ErrInvalidTimezone) {
 			writeJSONError(w, http.StatusBadRequest, err.Error())
@@ -70,8 +71,7 @@ func (handler *HouseholdHandler) UpdateHomeInfo(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, http.StatusInternalServerError, "failed to save home information", err)
 		return
 	}
-	home = updated
-	writeJSON(w, http.StatusOK, home)
+	writeJSON(w, http.StatusOK, homeResponseFor(updated))
 }
 
 func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,7 @@ func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusServiceUnavailable, "weather unavailable")
 		return
 	}
-	weather, err := handler.weather.Forecast(r.Context(), home)
+	weather, err := handler.weather.Forecast(r.Context(), providerHome(home))
 	if err != nil {
 		observability.RecordDependencyFailure(r, "weather")
 		writeAPIError(w, r, http.StatusBadGateway, "weather unavailable", err)
@@ -115,11 +115,28 @@ func (handler *HouseholdHandler) Departures(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusServiceUnavailable, "departures unavailable")
 		return
 	}
-	departures, err := handler.departures.Departures(r.Context(), home)
+	departures, err := handler.departures.Departures(r.Context(), providerHome(home))
 	if err != nil {
 		observability.RecordDependencyFailure(r, "departures")
 		writeAPIError(w, r, http.StatusBadGateway, "departures unavailable", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, departures)
+}
+
+type homeResponse struct {
+	Latitude             *float64 `json:"latitude"`
+	Longitude            *float64 `json:"longitude"`
+	Timezone             string   `json:"timezone"`
+	ArrivalMarginMinutes int      `json:"arrivalMarginMinutes"`
+}
+
+func homeResponseFor(home householddomain.Home) homeResponse {
+	return homeResponse{home.Latitude, home.Longitude, home.Timezone, home.ArrivalMarginMinutes}
+}
+func (response homeResponse) home() householddomain.Home {
+	return householddomain.Home{Latitude: response.Latitude, Longitude: response.Longitude, Timezone: response.Timezone, ArrivalMarginMinutes: response.ArrivalMarginMinutes}
+}
+func providerHome(home householddomain.Home) models.HomeInfo {
+	return models.HomeInfo{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone, ArrivalMarginMinutes: home.ArrivalMarginMinutes}
 }

@@ -7,7 +7,6 @@ import (
 	mealapp "github.com/bensuskins/family-hub/internal/application/meals"
 	recipeapp "github.com/bensuskins/family-hub/internal/application/recipes"
 
-	"github.com/bensuskins/family-hub/internal/models"
 	"github.com/bensuskins/family-hub/internal/repository"
 	"github.com/bensuskins/family-hub/internal/testutil"
 )
@@ -20,9 +19,9 @@ func TestMealPlanRepository_UpsertAndFindByDateAndType(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	meal := models.MealPlan{
+	meal := mealapp.Meal{
 		Date:            "2025-06-15",
-		MealType:        models.MealTypeDinner,
+		MealType:        mealapp.Dinner,
 		Name:            "Pasta Carbonara",
 		Notes:           "Use the good parmesan",
 		CreatedByUserID: user.ID,
@@ -32,7 +31,7 @@ func TestMealPlanRepository_UpsertAndFindByDateAndType(t *testing.T) {
 		t.Fatalf("upserting meal: %v", err)
 	}
 
-	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeDinner)
+	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Dinner)
 	if err != nil {
 		t.Fatalf("finding meal: %v", err)
 	}
@@ -52,17 +51,17 @@ func TestMealPlanRepository_UpsertOverwrites(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeLunch,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Lunch,
 		Name: "Original", CreatedByUserID: user.ID,
 	})
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeLunch,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Lunch,
 		Name: "Updated", Notes: "New notes", CreatedByUserID: user.ID,
 	})
 
-	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeLunch)
+	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Lunch)
 	if err != nil {
 		t.Fatalf("finding meal: %v", err)
 	}
@@ -83,16 +82,16 @@ func TestMealPlanRepository_FindByDate_Ordered(t *testing.T) {
 	user := createTestUser(t, userRepo)
 
 	// Insert in wrong order
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Dinner,
 		Name: "Steak", CreatedByUserID: user.ID,
 	})
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeBreakfast,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Breakfast,
 		Name: "Eggs", CreatedByUserID: user.ID,
 	})
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeLunch,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Lunch,
 		Name: "Sandwich", CreatedByUserID: user.ID,
 	})
 
@@ -103,13 +102,13 @@ func TestMealPlanRepository_FindByDate_Ordered(t *testing.T) {
 	if len(meals) != 3 {
 		t.Fatalf("expected 3 meals, got %d", len(meals))
 	}
-	if meals[0].MealType != models.MealTypeBreakfast {
+	if meals[0].MealType != mealapp.Breakfast {
 		t.Errorf("expected breakfast first, got %s", meals[0].MealType)
 	}
-	if meals[1].MealType != models.MealTypeLunch {
+	if meals[1].MealType != mealapp.Lunch {
 		t.Errorf("expected lunch second, got %s", meals[1].MealType)
 	}
-	if meals[2].MealType != models.MealTypeDinner {
+	if meals[2].MealType != mealapp.Dinner {
 		t.Errorf("expected dinner third, got %s", meals[2].MealType)
 	}
 }
@@ -122,20 +121,20 @@ func TestMealPlanRepository_FindAll_DateRange(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-14", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-14", MealType: mealapp.Dinner,
 		Name: "Before range", CreatedByUserID: user.ID,
 	})
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Dinner,
 		Name: "In range", CreatedByUserID: user.ID,
 	})
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-16", MealType: models.MealTypeLunch,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-16", MealType: mealapp.Lunch,
 		Name: "Also in range", CreatedByUserID: user.ID,
 	})
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-17", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-17", MealType: mealapp.Dinner,
 		Name: "After range", CreatedByUserID: user.ID,
 	})
 
@@ -165,16 +164,16 @@ func TestMealPlanRepository_Delete(t *testing.T) {
 
 	user := createTestUser(t, userRepo)
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Dinner,
 		Name: "To Delete", CreatedByUserID: user.ID,
 	})
 
-	if err := mealRepo.Delete(ctx, "2025-06-15", models.MealTypeDinner); err != nil {
+	if err := mealRepo.Delete(ctx, "2025-06-15", mealapp.Dinner); err != nil {
 		t.Fatalf("deleting meal: %v", err)
 	}
 
-	_, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeDinner)
+	_, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Dinner)
 	if err == nil {
 		t.Fatal("expected error finding deleted meal")
 	}
@@ -194,15 +193,15 @@ func TestMealPlanRepository_ClearRecipeID_PreservesName(t *testing.T) {
 		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeDinner,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Dinner,
 		RecipeID: &recipe.ID, Name: "Test Recipe",
 		CreatedByUserID: user.ID,
 	})
 
 	// Also create a meal without this recipe
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeLunch,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Lunch,
 		Name: "Freeform Meal", CreatedByUserID: user.ID,
 	})
 
@@ -211,7 +210,7 @@ func TestMealPlanRepository_ClearRecipeID_PreservesName(t *testing.T) {
 	}
 
 	// The dinner meal should still have the name but no recipe_id
-	dinner, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeDinner)
+	dinner, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Dinner)
 	if err != nil {
 		t.Fatalf("finding dinner: %v", err)
 	}
@@ -223,7 +222,7 @@ func TestMealPlanRepository_ClearRecipeID_PreservesName(t *testing.T) {
 	}
 
 	// The lunch meal should be unaffected
-	lunch, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeLunch)
+	lunch, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Lunch)
 	if err != nil {
 		t.Fatalf("finding lunch: %v", err)
 	}
@@ -246,13 +245,13 @@ func TestMealPlanRepository_WithRecipeID(t *testing.T) {
 		Ingredients: []recipeapp.IngredientGroup{},
 	})
 
-	mealRepo.Upsert(ctx, models.MealPlan{
-		Date: "2025-06-15", MealType: models.MealTypeBreakfast,
+	mealRepo.Upsert(ctx, mealapp.Meal{
+		Date: "2025-06-15", MealType: mealapp.Breakfast,
 		RecipeID: &recipe.ID, Name: "Linked Recipe",
 		CreatedByUserID: user.ID,
 	})
 
-	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", models.MealTypeBreakfast)
+	found, err := mealRepo.FindByDateAndType(ctx, "2025-06-15", mealapp.Breakfast)
 	if err != nil {
 		t.Fatalf("finding meal: %v", err)
 	}

@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bensuskins/family-hub/internal/models"
+	weatherapp "github.com/bensuskins/family-hub/internal/application/weather"
 )
 
 type OpenMeteo struct {
@@ -24,9 +24,9 @@ func NewOpenMeteo(client *http.Client, endpoint string, now func() time.Time) *O
 	return &OpenMeteo{client: client, endpoint: endpoint, now: now}
 }
 
-func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (models.Weather, error) {
+func (provider *OpenMeteo) Forecast(ctx context.Context, home weatherapp.Location) (weatherapp.Forecast, error) {
 	if home.Latitude == nil || home.Longitude == nil {
-		return models.Weather{}, errors.New("home location missing")
+		return weatherapp.Forecast{}, errors.New("home location missing")
 	}
 	now := provider.now()
 	parameters := url.Values{
@@ -38,7 +38,7 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, provider.endpoint+"?"+parameters.Encode(), nil)
 	if err != nil {
-		return models.Weather{}, errors.New("invalid weather endpoint")
+		return weatherapp.Forecast{}, errors.New("invalid weather endpoint")
 	}
 	var data struct {
 		Current struct {
@@ -63,31 +63,31 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 		} `json:"daily"`
 	}
 	if err := readProviderJSON(provider.client, request, &data); err != nil {
-		return models.Weather{}, err
+		return weatherapp.Forecast{}, err
 	}
 	if data.Current.Temperature == nil || data.Current.Code == nil || data.Current.Wind == nil || data.Current.Time == 0 || len(data.Daily.Time) != 7 || len(data.Daily.High) != 7 || len(data.Daily.Low) != 7 || len(data.Daily.Code) != 7 {
-		return models.Weather{}, errors.New("incomplete forecast")
+		return weatherapp.Forecast{}, errors.New("incomplete forecast")
 	}
-	forecastDays := make([]models.WeatherDay, 0, 7)
+	forecastDays := make([]weatherapp.Day, 0, 7)
 	for index, timestamp := range data.Daily.Time {
 		if data.Daily.High[index] == nil || data.Daily.Low[index] == nil || data.Daily.Code[index] == nil {
-			return models.Weather{}, errors.New("incomplete daily forecast")
+			return weatherapp.Forecast{}, errors.New("incomplete daily forecast")
 		}
 		var rainProbability *float64
 		if index < len(data.Daily.Rain) {
 			rainProbability = data.Daily.Rain[index]
 		}
-		forecastDays = append(forecastDays, models.WeatherDay{Date: time.Unix(timestamp, 0), High: *data.Daily.High[index], Low: *data.Daily.Low[index], Code: *data.Daily.Code[index], RainProbability: rainProbability})
+		forecastDays = append(forecastDays, weatherapp.Day{Date: time.Unix(timestamp, 0), High: *data.Daily.High[index], Low: *data.Daily.Low[index], Code: *data.Daily.Code[index], RainProbability: rainProbability})
 	}
 	count := len(data.Hourly.Time)
 	if count == 0 || len(data.Hourly.Temperature) != count || len(data.Hourly.Code) != count || len(data.Hourly.Rain) != count || len(data.Hourly.Wind) != count {
-		return models.Weather{}, errors.New("incomplete hourly forecast")
+		return weatherapp.Forecast{}, errors.New("incomplete hourly forecast")
 	}
-	forecast := models.Weather{Status: "ok", FetchedAt: now, Current: models.WeatherHour{Time: time.Unix(data.Current.Time, 0), Temperature: *data.Current.Temperature, Code: *data.Current.Code, WindSpeed: *data.Current.Wind}, High: *data.Daily.High[0], Low: *data.Daily.Low[0], Hours: []models.WeatherHour{}, Days: forecastDays, Advice: []string{}}
+	forecast := weatherapp.Forecast{Status: "ok", FetchedAt: now, Current: weatherapp.Hour{Time: time.Unix(data.Current.Time, 0), Temperature: *data.Current.Temperature, Code: *data.Current.Code, WindSpeed: *data.Current.Wind}, High: *data.Daily.High[0], Low: *data.Daily.Low[0], Hours: []weatherapp.Hour{}, Days: forecastDays, Advice: []string{}}
 	rain, cold, heat, wind := false, false, false, false
 	location, err := time.LoadLocation(home.Timezone)
 	if err != nil {
-		return models.Weather{}, errors.New("invalid household timezone")
+		return weatherapp.Forecast{}, errors.New("invalid household timezone")
 	}
 	local := now.In(location)
 	hourStart := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), 0, 0, 0, location)
@@ -97,11 +97,11 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 			continue
 		}
 		if data.Hourly.Temperature[index] == nil || data.Hourly.Code[index] == nil || data.Hourly.Rain[index] == nil || data.Hourly.Wind[index] == nil {
-			return models.Weather{}, errors.New("missing hourly value")
+			return weatherapp.Forecast{}, errors.New("missing hourly value")
 		}
-		hour := models.WeatherHour{Time: instant, Temperature: *data.Hourly.Temperature[index], Code: *data.Hourly.Code[index], RainProbability: *data.Hourly.Rain[index], WindSpeed: *data.Hourly.Wind[index]}
+		hour := weatherapp.Hour{Time: instant, Temperature: *data.Hourly.Temperature[index], Code: *data.Hourly.Code[index], RainProbability: *data.Hourly.Rain[index], WindSpeed: *data.Hourly.Wind[index]}
 		if math.IsNaN(hour.Temperature) {
-			return models.Weather{}, errors.New("invalid temperature")
+			return weatherapp.Forecast{}, errors.New("invalid temperature")
 		}
 		forecast.Hours = append(forecast.Hours, hour)
 		if instant.Before(hourStart.Add(6 * time.Hour)) {
@@ -112,7 +112,7 @@ func (provider *OpenMeteo) Forecast(ctx context.Context, home models.HomeInfo) (
 		}
 	}
 	if len(forecast.Hours) != 24 || now.Sub(forecast.Current.Time) > 90*time.Minute || forecast.Current.Time.After(now.Add(15*time.Minute)) {
-		return models.Weather{}, errors.New("forecast is out of date")
+		return weatherapp.Forecast{}, errors.New("forecast is out of date")
 	}
 	if rain {
 		forecast.Advice = append(forecast.Advice, "Take a raincoat.")

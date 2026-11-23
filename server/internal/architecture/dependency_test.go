@@ -41,7 +41,7 @@ func TestDomainAndApplicationDependencies(t *testing.T) {
 				if layer == "application" && strings.Contains(name, "/internal/application/") {
 					t.Errorf("%s imports another application package %s", path, name)
 				}
-				for _, feature := range []string{"shopping", "inventory", "household", "scratchpad", "meals"} {
+				for _, feature := range []string{"shopping", "inventory", "household", "scratchpad", "meals", "weather"} {
 					if strings.Contains(path, string(filepath.Separator)+feature+string(filepath.Separator)) && strings.HasSuffix(name, "/internal/models") {
 						t.Errorf("%s imports shared transport models %s", path, name)
 					}

@@ -6,18 +6,16 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/bensuskins/family-hub/internal/models"
 )
 
 type Provider interface {
-	Forecast(context.Context, models.HomeInfo) (models.Weather, error)
+	Forecast(context.Context, Location) (Forecast, error)
 }
 type Service struct {
 	provider Provider
 	now      func() time.Time
 	mutex    sync.Mutex
-	cached   models.Weather
+	cached   Forecast
 	cacheKey string
 }
 
@@ -27,11 +25,11 @@ func New(provider Provider, now func() time.Time) *Service {
 	}
 	return &Service{provider: provider, now: now}
 }
-func (service *Service) Forecast(ctx context.Context, home models.HomeInfo) (models.Weather, error) {
+func (service *Service) Forecast(ctx context.Context, home Location) (Forecast, error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	if home.Latitude == nil || home.Longitude == nil {
-		return models.Weather{}, errors.New("home location missing")
+		return Forecast{}, errors.New("home location missing")
 	}
 	key := fmt.Sprintf("%f:%f:%s", *home.Latitude, *home.Longitude, home.Timezone)
 	if key == service.cacheKey && service.now().Sub(service.cached.FetchedAt) < 15*time.Minute {
@@ -39,17 +37,17 @@ func (service *Service) Forecast(ctx context.Context, home models.HomeInfo) (mod
 	}
 	result, err := service.provider.Forecast(ctx, home)
 	if err != nil {
-		return models.Weather{}, err
+		return Forecast{}, err
 	}
 	service.cached, service.cacheKey = copyWeather(result), key
 	return copyWeather(result), nil
 }
-func copyWeather(value models.Weather) models.Weather {
+func copyWeather(value Forecast) Forecast {
 	if value.Hours != nil {
-		value.Hours = append([]models.WeatherHour{}, value.Hours...)
+		value.Hours = append([]Hour{}, value.Hours...)
 	}
 	if value.Days != nil {
-		value.Days = append([]models.WeatherDay{}, value.Days...)
+		value.Days = append([]Day{}, value.Days...)
 		for index := range value.Days {
 			if value.Days[index].RainProbability != nil {
 				v := *value.Days[index].RainProbability

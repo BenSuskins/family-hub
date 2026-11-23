@@ -8,6 +8,7 @@ import (
 
 	householdapp "github.com/bensuskins/family-hub/internal/application/household"
 	shoppingapp "github.com/bensuskins/family-hub/internal/application/shopping"
+	weatherapp "github.com/bensuskins/family-hub/internal/application/weather"
 	householddomain "github.com/bensuskins/family-hub/internal/domain/household"
 	"github.com/bensuskins/family-hub/internal/middleware"
 	"github.com/bensuskins/family-hub/internal/models"
@@ -15,7 +16,7 @@ import (
 )
 
 type WeatherProvider interface {
-	Forecast(context.Context, models.HomeInfo) (models.Weather, error)
+	Forecast(context.Context, weatherapp.Location) (weatherapp.Forecast, error)
 }
 type DepartureProvider interface {
 	Departures(context.Context, models.HomeInfo) (models.Departures, error)
@@ -81,7 +82,7 @@ func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if home.Latitude == nil || home.Longitude == nil {
-		writeJSON(w, http.StatusOK, models.Weather{Status: "setup_required", Hours: []models.WeatherHour{}, Advice: []string{}})
+		writeJSON(w, http.StatusOK, weatherResponseFor(weatherapp.Forecast{Status: "setup_required", Hours: []weatherapp.Hour{}, Advice: []string{}}))
 		return
 	}
 	if handler.weather == nil {
@@ -89,13 +90,13 @@ func (handler *HouseholdHandler) Weather(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusServiceUnavailable, "weather unavailable")
 		return
 	}
-	weather, err := handler.weather.Forecast(r.Context(), providerHome(home))
+	weather, err := handler.weather.Forecast(r.Context(), weatherapp.Location{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone})
 	if err != nil {
 		observability.RecordDependencyFailure(r, "weather")
 		writeAPIError(w, r, http.StatusBadGateway, "weather unavailable", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, weather)
+	writeJSON(w, http.StatusOK, weatherResponseFor(weather))
 }
 
 func (handler *HouseholdHandler) Departures(w http.ResponseWriter, r *http.Request) {

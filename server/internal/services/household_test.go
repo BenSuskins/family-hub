@@ -35,18 +35,18 @@ func TestWeatherForecastAdviceAndExpiry(t *testing.T) {
 	provider := weatherapp.New(NewOpenMeteo(server.Client(), server.URL, func() time.Time { return now }), func() time.Time { return now })
 	latitude, longitude := 51.8, 0.7
 	home := models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London"}
-	forecast, err := provider.Forecast(context.Background(), home)
+	forecast, err := provider.Forecast(context.Background(), weatherapp.Location{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if forecast.Current.Temperature != 9 || len(forecast.Hours) != 24 || len(forecast.Advice) != 3 || forecast.Days[0].RainProbability == nil || *forecast.Days[0].RainProbability != 40 {
 		t.Fatalf("unexpected forecast: %+v", forecast)
 	}
-	if _, err := provider.Forecast(context.Background(), home); err != nil || requests != 1 {
+	if _, err := provider.Forecast(context.Background(), weatherapp.Location{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone}); err != nil || requests != 1 {
 		t.Fatal("fresh weather must be reused")
 	}
 	now = now.Add(16 * time.Minute)
-	if _, err := provider.Forecast(context.Background(), home); err == nil {
+	if _, err := provider.Forecast(context.Background(), weatherapp.Location{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone}); err == nil {
 		t.Fatal("expired weather must not hide provider failure")
 	}
 }
@@ -198,7 +198,7 @@ func TestWeatherRejectsShortAndOldForecasts(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
 		latitude, longitude := 51.8, 0.7
 		provider := NewOpenMeteo(server.Client(), server.URL, func() time.Time { return now })
-		if _, err := provider.Forecast(context.Background(), models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London"}); err == nil {
+		if _, err := provider.Forecast(context.Background(), weatherapp.Location{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London"}); err == nil {
 			t.Error("incomplete forecast must be unavailable")
 		}
 		server.Close()
@@ -213,7 +213,7 @@ func TestHouseholdProvidersLive(t *testing.T) {
 	home := models.HomeInfo{Latitude: &latitude, Longitude: &longitude, Timezone: "Europe/London", ArrivalMarginMinutes: 10}
 	client := NewSafeHTTPClient(10 * time.Second)
 	weather := NewOpenMeteo(client, "https://api.open-meteo.com/v1/forecast", time.Now)
-	forecast, err := weather.Forecast(context.Background(), home)
+	forecast, err := weather.Forecast(context.Background(), weatherapp.Location{Latitude: home.Latitude, Longitude: home.Longitude, Timezone: home.Timezone})
 	if err != nil {
 		t.Fatal(err)
 	}

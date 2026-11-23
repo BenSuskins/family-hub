@@ -62,7 +62,7 @@ operations and SQLite implements the storage interfaces. HTTP and SQLite map
 meal, scratchpad, and home settings values at their boundaries. The scratchpad
 domain protects drawing transitions, while storage restores existing drawings
 without rejecting legacy data. Shared fake and SQLite contracts cover these
-storage ports. Weather and departure adapters still use the shared home value.
+storage ports. Departure adapters still use the shared home value.
 Inventory stock changes
 use an immutable domain transition and a compare-and-swap update so concurrent
 changes are not lost. HTTP and SQLite map inventory values at their boundaries;
@@ -75,7 +75,9 @@ Calendar view operations combine chores, forecasts, feeds and meals through
 consumer-owned ports. Calendar feed caching uses a storage port and a feed port;
 the iCal adapter provides safe HTTP fetching and parsing. Display commute
 operations select scheduled rail boards and retain partial-failure status. Rail and weather
-operations own their caches and call provider interfaces. Departure estimates
+operations own their caches and call provider interfaces. Weather uses feature-owned
+location and forecast values, with HTTP response mapping in the handler and provider
+response mapping in the Open-Meteo adapter. Departure estimates
 use calendar and driving interfaces. Startup connects these operations to the
 SQLite and external provider adapters. Application tests use provider fakes;
 existing HTTP and provider tests cover the adapters. Calendar subscription
